@@ -13,7 +13,7 @@
 // The game's own facts come in `decision.arrange` (dice, crankNext,
 // binary); the answers are always the game's own options.
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { Decision, DecisionOption, Snapshot, SnapshotCard, SnapshotRoll } from "../match";
 import { Die3D } from "./Die3D";
 import { Bubble } from "./GameWindow";
@@ -444,6 +444,7 @@ export function RollsOverlay({
   arrived,
   now,
   at,
+  spot = null,
 }: {
   rolls: readonly SnapshotRoll[];
   stack: readonly { id: string; source: string | null }[];
@@ -453,7 +454,18 @@ export function RollsOverlay({
   arrived: ReadonlyMap<number, number>;
   now: number;
   at: (objectId: string) => { x: number; y: number; w: number; h: number } | null;
+  /**
+   * Spec 0075 -- where a roll whose card is no longer drawn tumbles: the
+   * stack's spot (Bob's Goblin Tutor rolled and resolved in one go, now in
+   * his graveyard). With the grey "Bob rolled 3" line gone, the die is how
+   * the roll is told.
+   */
+  spot?: { x: number; y: number; w: number; h: number } | null;
 }) {
+  // Spec 0075 -- the rolls seen beside their card on the stack: those fade
+  // as it resolves; one never seen there (rolled and resolved at once) tosses
+  // in and fades by itself.
+  const onStack = useRef(new Set<number>());
   // The newest roll per card: a reroll replaces the die, it doesn't add one.
   const newest = new Map<string, (typeof rolls)[number]>();
   for (const roll of rolls) {
@@ -468,12 +480,18 @@ export function RollsOverlay({
         const entry = roll.source ? stack.find((e) => e.source === roll.source) : undefined;
         const seen = arrived.get(roll.n) ?? now;
         if (!entry && now - seen > ROLL_LINGER_MS + 600) return null;
-        const box = entry ? at(entry.id) : roll.source ? at(roll.source) : null;
+        const box = entry ? at(entry.id) : ((roll.source ? at(roll.source) : null) ?? spot);
         if (!box) return null;
+        if (entry) onStack.current.add(roll.n);
+        const after = entry
+          ? ""
+          : onStack.current.has(roll.n)
+            ? " gs-roll-fading"
+            : " gs-roll-brief";
         return (
           <div
             key={roll.n}
-            className={`gs-roll gs-roll-toss${entry ? "" : " gs-roll-fading"}`}
+            className={`gs-roll gs-roll-toss${after}`}
             data-roll={roll.n}
             style={{
               left: box.x - ROLL_SIZE * 0.55,

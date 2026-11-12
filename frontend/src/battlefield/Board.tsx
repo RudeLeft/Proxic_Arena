@@ -91,13 +91,11 @@ import {
   type MergeKind,
   AT_ZONE_SCALE,
   RETURN_MS,
-  RETURN_TAG_MS,
   RIFFLE_BEAT_MS,
   RIFFLE_CARDS,
   RIFFLE_MS,
   returnBackFrames,
   returnFrames,
-  returnTagFrames,
   graveTagFrames,
   fateMs,
   riffleFrames,
@@ -352,23 +350,6 @@ export interface Return {
   side: Side;
   where: "top" | "bottom" | "shuffled" | null;
   hidden: boolean;
-}
-
-/** Phase 10 A-14 -- the tag at the destination, in a player's words. */
-export function returnTag(
-  ret: Return,
-  opponentName: string,
-  viewerName: string | null = null,
-): string {
-  // Spec 0067 -- a spectator is nobody's "you": the bottom player by name.
-  const whose =
-    ret.side === "viewer" ? (viewerName ? `${viewerName}'s` : "your") : `${opponentName}'s`;
-  if (ret.zone === "hand") return `Back to ${whose} hand`;
-  if (ret.where === "top") return `On top of ${whose} library`;
-  if (ret.where === "bottom") return `On the bottom of ${whose} library`;
-  if (ret.where === "shuffled") return `Shuffled into ${whose} library`;
-  // Somewhere else in it ("third from the top"), or an older worker.
-  return `Into ${whose} library`;
 }
 
 export interface BoardProps {
@@ -2463,79 +2444,40 @@ export function Board({
 
     if (before && !resized && !still) {
       // Phase 10 A-14 (owner 2026-11-06, Amendment 17): back to a hand, onto
-      // or into a library -- "D · Lift and glide". The tag at the
-      // destination (and, shuffled in, the riffle) once it has landed: one
-      // per destination, however many cards went there together.
+      // or into a library -- "D · Lift and glide". Shuffled in, the riffle
+      // once it has landed: one per destination, however many cards went
+      // there together. Spec 0075 (owner 2026-11-12): no word pill ("Back to
+      // your hand", "On top of Bob's library") -- the report window explains
+      // it, to the player it happened to.
       const returning: ReturnMark[] = [];
       const tagged = new Set<string>();
       const markReturn = (
         id: string,
         ret: Return,
-        landing: Box,
-        origin: Point,
         delay: number,
         // Spec 0074: out of a graveyard, it lands after rising and being shown.
         ms = RETURN_MS,
-        // Spec 0074, Amendment 1: out of a graveyard or exile, no word pill --
-        // the report window explains it (a riffle still plays).
-        words = true,
       ) => {
-        const key = `${ret.zone}:${ret.side}:${ret.where ?? ""}`;
+        if (ret.zone !== "library" || ret.where !== "shuffled") return;
+        const key = `${ret.zone}:${ret.side}:${ret.where}`;
         if (tagged.has(key)) return;
         tagged.add(key);
         const stamp = `${key}:${id}:${performance.now()}`;
-        let land = delay + ms;
-        if (ret.zone === "library") {
-          const pile = where[`${ret.side}:library`];
-          if (ret.where === "shuffled") {
-            const w = g.cardW * AT_ZONE_SCALE;
-            const h = g.cardH * AT_ZONE_SCALE;
-            for (let i = 0; i < RIFFLE_CARDS; i++) {
-              returning.push({
-                key: `riffle:${stamp}:${i}`,
-                kind: "riffle",
-                style: { left: pile.x, top: pile.y, width: w, height: h },
-                frames: riffleFrames(i, h / 56),
-                duration: RIFFLE_MS,
-                delay: land + i * RIFFLE_BEAT_MS,
-                of: id,
-              });
-            }
-            land += RIFFLE_MS + (RIFFLE_CARDS - 1) * RIFFLE_BEAT_MS;
-          }
-          if (!words) return;
+        const land = delay + ms;
+        const pile = where[`${ret.side}:library`];
+        const w = g.cardW * AT_ZONE_SCALE;
+        const h = g.cardH * AT_ZONE_SCALE;
+        for (let i = 0; i < RIFFLE_CARDS; i++) {
           returning.push({
-            key: `tag:${stamp}`,
-            kind: "tag",
-            // To the left of the plate's library, as the canvas puts it.
-            style: { left: g.rail.x - g.cardH * 0.06, top: pile.y },
-            frames: returnTagFrames("translate(-100%, -50%)"),
-            duration: RETURN_TAG_MS,
-            delay: land,
-            text: returnTag(ret, opponentName, viewerName),
+            key: `riffle:${stamp}:${i}`,
+            kind: "riffle",
+            style: { left: pile.x, top: pile.y, width: w, height: h },
+            frames: riffleFrames(i, h / 56),
+            duration: RIFFLE_MS,
+            delay: land + i * RIFFLE_BEAT_MS,
             of: id,
           });
-          return;
         }
-        if (!words) return;
-        // Over the viewer's hand, under the other player's (it hangs from the top).
-        const hand = where[`${ret.side}:hand`];
-        const mine = ret.side === "viewer";
-        returning.push({
-          key: `tag:${stamp}`,
-          kind: "tag",
-          style: {
-            left: centreOf(landing, origin).x,
-            top: mine
-              ? hand.y - g.cardH / 2 - g.cardH * 0.06
-              : hand.y + g.cardH / 2 + g.cardH * 0.06,
-          },
-          frames: returnTagFrames(mine ? "translate(-50%, -100%)" : "translate(-50%, 0%)"),
-          duration: RETURN_TAG_MS,
-          delay: land,
-          text: returnTag(ret, opponentName, viewerName),
-          of: id,
-        });
       };
       // A card going into the other player's hidden hand becomes the hand's
       // new card back on the way: the back flies the same path, fading in as
@@ -2852,11 +2794,8 @@ export function Board({
             markReturn(
               m.card,
               { zone: "hand", side: m.to.side, where: null, hidden: true },
-              back.box,
-              back.origin,
               start,
               SHOW_MS,
-              false,
             );
           return;
         }
@@ -2898,11 +2837,8 @@ export function Board({
           markReturn(
             m.card,
             { zone: "library", side: m.to.side, where: m.where, hidden: true },
-            boxAt(where[`${m.to.side}:library`], g),
-            centred,
             start,
             SHOW_MS,
-            false,
           );
         }
         tick(`${m.to.side}:${m.to.zone}`, start + SHOW_MS, 1);
@@ -3005,11 +2941,8 @@ export function Board({
             markReturn(
               item.id,
               { zone: "hand", side: r.move.to.side, where: null, hidden: false },
-              item.box,
-              item.origin,
               r.start,
               SHOW_MS,
-              false,
             );
           continue;
         }
@@ -3054,7 +2987,7 @@ export function Board({
             hold,
             RETURN_MS,
           );
-          markReturn(item.id, back, item.box, item.origin, hold);
+          markReturn(item.id, back, hold);
           continue;
         }
         const { delay, duration } = pace(item.id);
@@ -3347,7 +3280,7 @@ export function Board({
             hold,
             RETURN_MS,
           );
-          markReturn(item.id, goingBack, item.box, item.origin, hold);
+          markReturn(item.id, goingBack, hold);
           continue;
         }
         // A-08: a permanent that changed sides is pulled across.
@@ -3440,7 +3373,7 @@ export function Board({
           delay,
           returning: { zone: ret.zone, seen: back ? "out" : "sink", back: !back && ret.hidden },
         });
-        markReturn(id, ret, to, toOrigin, delay);
+        markReturn(id, ret, delay);
       };
       // Spec 0073 (D · Peel off) -- a card leaving a pile lifts off its top
       // as the number drops, then plays its fate; several from one pile
@@ -3765,7 +3698,7 @@ export function Board({
             : boxAt(where[`${ret.side}:${ret.zone}`], g)
           : null;
         const retOrigin = handBack ? handBack.origin : { x: 0, y: 0 };
-        if (ret && retTo) markReturn(s.card!, ret, retTo, retOrigin, hold);
+        if (ret && retTo) markReturn(s.card!, ret, hold);
         // Spec 0074 (F · Struck by the beam): a countered spell never shows a
         // resolve glow or spark; the countering spell's beam strikes it, and
         // it crumbles to grey ash where it is, then goes to its graveyard.

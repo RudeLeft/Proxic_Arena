@@ -499,8 +499,12 @@ public final class GameHost {
         revealed(seat, cardIds, forgeWords, null);
     }
 
-    /** Spec 0057, item 7 -- the same, with who revealed them and why (a cost). */
-    void revealed(int seat, java.util.List<Integer> cardIds, String forgeWords, Causes.Told told) {
+    /**
+     * Spec 0057, item 7 -- the same, with who revealed them and why (a cost).
+     * Spec 0075: true when the cards are in that seat's report window (so no
+     * "Looking at ..." line need repeat them).
+     */
+    boolean revealed(int seat, java.util.List<Integer> cardIds, String forgeWords, Causes.Told told) {
         Causes now = causes;
         if (now != null) {
             now.revealed(seat, cardIds, forgeWords, told);
@@ -510,6 +514,13 @@ public final class GameHost {
         if (log != null) {
             log.shown(seat, cardIds, forgeWords);
         }
+        return now != null && !cardIds.isEmpty();
+    }
+
+    /** Spec 0075 -- who did what (ActionReports), once a game has begun; null before. */
+    ActionReports actions() {
+        Causes now = causes;
+        return now == null ? null : now.actions();
     }
 
     java.util.List<String> noticesFor(int seat) {
@@ -965,26 +976,6 @@ public final class GameHost {
     }
 
     /**
-     * Spec 0061, item 4 -- what the game tells each player about this
-     * round's cards gone to a graveyard with a reason ("Cycled: Forgotten
-     * Cave (Bob's)"; spec 0066: never a death on the battlefield). Graveyards are public, so both players are told; one line
-     * per owner and reason, so a big combat is one line, not ten.
-     */
-    private void tellGraveyards(Game current, java.util.List<Moves.Move> moved) {
-        java.util.Map<Integer, java.util.Map<String, java.util.List<String>>> lines = Moves.toldByOwner(moved);
-        if (lines.isEmpty()) {
-            return;
-        }
-        java.util.Map<Player, Integer> seats = seatsByPlayer(current);
-        java.util.Map<Integer, String> names = new java.util.HashMap<>();
-        seats.forEach((player, seat) -> names.put(seat, player.getName()));
-        for (Integer viewer : seats.values()) {
-            lines.forEach((owner, bySaid) -> bySaid.forEach((said, cards) ->
-                    note(viewer, Moves.told(said, cards, owner.equals(viewer) ? null : names.get(owner)))));
-        }
-    }
-
-    /**
      * Spec 0061, item 4 -- the card whose cycling ability is being played
      * now (MatchController#playChosenSpellAbility), so its discard -- the
      * cycling cost -- is told as "Cycled". -1 for none.
@@ -1198,7 +1189,8 @@ public final class GameHost {
         // Phase 10 A-10: what merged into what, from Forge's own state.
         moved = Moves.withInto(moved, mergedInto(current));
         sacrificing.clear();
-        tellGraveyards(current, moved);
+        // Spec 0075 (owner 2026-11-12): no graveyard line is told any more --
+        // the report window explains what the other player did (ActionReports).
         // Spec 0064 -- this round's play log lines, each seat its own, sent
         // IN this round's snapshots so no line is ahead of the board (HID-005).
         PlayLog log = playLog;

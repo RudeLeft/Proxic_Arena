@@ -26,7 +26,6 @@ import {
   RIFFLE_MS,
   returnBackFrames,
   returnFrames,
-  returnTagFrames,
   riffleFrames,
 } from "./motion";
 import { applyChanges, syntheticBoard } from "./fixture";
@@ -498,18 +497,13 @@ describe("Lift and glide (Phase 10 A-14)", () => {
     expect(frames.at(-1)!["opacity"]).toBe(1);
   });
 
-  it("a riffle fans each back out and back to rest; the tag pops in and goes", () => {
+  it("a riffle fans each back out and back to rest", () => {
     for (let i = 0; i < 6; i++) {
       const frames = riffleFrames(i, 0.7);
       expect(frames[0]!["transform"]).toBe(frames.at(-1)!["transform"]);
       expect(String(frames[1]!["transform"])).not.toBe(frames[0]!["transform"]);
     }
     expect(numbers(riffleFrames(0, 1)[1]!["transform"]).slice(2, 4)).toEqual([-14, -10]);
-    const tag = returnTagFrames("translate(-50%, -100%)");
-    expect(tag[0]!["opacity"]).toBe(0);
-    expect(tag[1]!["opacity"]).toBe(1);
-    expect(tag.at(-1)!["opacity"]).toBe(0);
-    expect(String(tag[1]!["transform"])).toContain("translate(-50%, -100%)");
   });
 
   it("a hurry finishes it in a tenth of a second, like every other movement", () => {

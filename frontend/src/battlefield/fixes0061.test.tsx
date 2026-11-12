@@ -335,11 +335,13 @@ describe("a card going to a graveyard carries its tag (F-0061-D)", () => {
       ...(fromSnapshotInput() as object),
       moves: [
         {
+          // The mechanism: any tag the game still sends with a graveyard
+          // move rides with its card (spec 0075: cycling sends none it shows).
           card: "card:62",
           from: { zone: "hand", seat: 1 },
           to: { zone: "graveyard", seat: 1 },
-          why: "cycled",
-          said: "Cycled",
+          why: null,
+          said: "Tagged",
         },
         {
           card: "card:7",
@@ -351,10 +353,10 @@ describe("a card going to a graveyard carries its tag (F-0061-D)", () => {
       ],
     };
     const data = boardFromSnapshot(snap as never, null);
-    expect([...data.graves]).toEqual([["card:62", "Cycled"]]);
+    expect([...data.graves]).toEqual([["card:62", "Tagged"]]);
   });
 
-  it("spec 0074, Amendment 1: a discard or a counter carries no tag (the report window explains it)", () => {
+  it("spec 0074 Amendment 1, spec 0075: a discard, a counter or a cycle carries no tag (the report window explains it)", () => {
     const snap = {
       ...(fromSnapshotInput() as object),
       moves: [
@@ -382,7 +384,7 @@ describe("a card going to a graveyard carries its tag (F-0061-D)", () => {
       ],
     };
     const data = boardFromSnapshot(snap as never, null);
-    expect([...data.graves]).toEqual([["card:64", "Cycled"]]);
+    expect([...data.graves]).toEqual([]);
   });
 
   it("the tag's frames: over the card, then by the pile, held, then gone", () => {

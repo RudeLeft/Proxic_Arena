@@ -4,7 +4,6 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   Board,
-  returnTag,
   stackCaption,
   type BoardCard,
   type Merge,
@@ -1763,10 +1762,8 @@ describe("Board: back to a hand or a library (A-14)", () => {
     expect(String(lift[0]!.frames[0]!.transform)).toBe(from);
     expect(String(lift[0]!.frames.at(-1)!.transform)).toBe(slot.style.transform);
     expect(lift[0]!.frames.every((f) => f.opacity === 1)).toBe(true);
-    expect(tags(view.container)).toEqual(["Back to your hand"]);
-    const tag = view.container.querySelector("[data-return-tag]")!;
-    const tagRun = calls.find((c) => c.element === tag)!;
-    expect(tagRun.options.delay).toBe(RETURN_MS); // once it has landed
+    // Spec 0075: no word pill -- the report window explains it.
+    expect(tags(view.container)).toEqual([]);
   });
 
   it("back to the other player's hand: it turns face down on the way, becoming their new card back", () => {
@@ -1799,10 +1796,11 @@ describe("Board: back to a hand or a library (A-14)", () => {
     expect(into[0]!.frames[0]!.opacity).toBe(0);
     expect(into[0]!.frames.at(-1)!.opacity).toBe(1);
     expect(into[0]!.options.duration).toBe(RETURN_MS);
-    expect(tags(view.container)).toEqual(["Back to Bob's hand"]);
+    // Spec 0075: no word pill -- the report window explains it.
+    expect(tags(view.container)).toEqual([]);
   });
 
-  it("on top of a library: face down on the way, sinking into the pile, the tag beside it", () => {
+  it("on top of a library: face down on the way, sinking into the pile, no tag", () => {
     const view = render(draw(start.battlefield));
     calls.length = 0;
     view.rerender(
@@ -1822,11 +1820,12 @@ describe("Board: back to a hand or a library (A-14)", () => {
     const turn = calls.find((c) => c.element === back)!;
     expect(turn.frames[0]!.opacity).toBe(0);
     expect(turn.frames.at(-1)!.opacity).toBe(1);
-    expect(tags(view.container)).toEqual(["On top of Bob's library"]);
+    // Spec 0075: no word pill -- the report window explains it.
+    expect(tags(view.container)).toEqual([]);
     expect(view.container.querySelector("[data-riffle]")).toBeNull();
   });
 
-  it("shuffled in: the library riffles, then the tag; several to one place, one tag", () => {
+  it("shuffled in: the library riffles; several to one place, one riffle; no tag", () => {
     const other = alone(viewer, [mine.id]);
     const view = render(draw(start.battlefield));
     calls.length = 0;
@@ -1849,9 +1848,8 @@ describe("Board: back to a hand or a library (A-14)", () => {
       expect(calls.find((c) => c.element === r)!.options.fill).toBe("forwards");
       expect((r as HTMLElement).style.opacity).toBe("0");
     }
-    expect(tags(view.container)).toEqual(["Shuffled into your library"]);
-    const tag = view.container.querySelector("[data-return-tag]")!;
-    expect(calls.find((c) => c.element === tag)!.options.delay).toBe(RETURN_MS + 700 + 250);
+    // Spec 0075: no word pill -- the report window explains it.
+    expect(tags(view.container)).toEqual([]);
   });
 
   it("out of a pile: each card going back leaves as its own ghost from the pile", () => {
@@ -1895,7 +1893,8 @@ describe("Board: back to a hand or a library (A-14)", () => {
       expect(ghost, `no ghost for ${id}`).toBeTruthy();
       expect(ghost.getAttribute("data-return")).toBe("library");
     }
-    expect(tags(view.container)).toEqual(["On the bottom of Bob's library"]);
+    // Spec 0075: no word pill -- the report window explains it.
+    expect(tags(view.container)).toEqual([]);
   });
 
   it("the bottom of a library, and a spell sent back from the stack (no spark, no graveyard)", () => {
@@ -1924,19 +1923,8 @@ describe("Board: back to a hand or a library (A-14)", () => {
     const run = calls.find((c) => c.element === ghost)!;
     expect(run.options.delay).toBe(0); // it did not resolve: no glow first
     expect(run.options.duration).toBe(RETURN_MS);
-    expect(tags(view.container)).toEqual(["On the bottom of Bob's library"]);
-  });
-
-  it("the tag's words, for both seats", () => {
-    const r = (zone: "hand" | "library", side: "viewer" | "opponent", where: Return["where"]) =>
-      returnTag({ zone, side, where, hidden: true }, "Bob");
-    expect(r("hand", "viewer", null)).toBe("Back to your hand");
-    expect(r("hand", "opponent", null)).toBe("Back to Bob's hand");
-    expect(r("library", "opponent", "top")).toBe("On top of Bob's library");
-    expect(r("library", "viewer", "top")).toBe("On top of your library");
-    expect(r("library", "opponent", "bottom")).toBe("On the bottom of Bob's library");
-    expect(r("library", "opponent", "shuffled")).toBe("Shuffled into Bob's library");
-    expect(r("library", "viewer", null)).toBe("Into your library");
+    // Spec 0075: no word pill -- the report window explains it.
+    expect(tags(view.container)).toEqual([]);
   });
 
   it("with reduced motion asked for: no lift, no tag, no riffle", () => {

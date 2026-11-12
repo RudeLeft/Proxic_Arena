@@ -12,8 +12,9 @@ Each scenario is its own small game against Forge.
              Cycled, the payment question says what it is for (about.pay "to
              cycle Forgotten Cave", about.then "Then Forgotten Cave goes to
              your graveyard and you draw a card."); the Cave goes to her
-             graveyard, why "cycled", tag "Cycled", to both seats; both are
-             told ("Cycled: Forgotten Cave", "... (Alice's)").
+             graveyard, why "cycled", to both seats; spec 0075: no one is
+             told a line for it (Bob's report window says "Alice cycled
+             Forgotten Cave and drew a card.", check-card-actions.py).
   handsize   F-0061-C, D: Alice never plays a land; at her cleanup with eight
              cards the discard question says how many (arrange.discard 1);
              the card goes why "discarded", tag "Discarded: too many cards";
@@ -162,12 +163,11 @@ def cave():
         moved = found[f"seat{seat}"]
         if [(m.get("why"), m.get("said"), m["from"]["zone"]) for m in moved] != [("cycled", "Cycled", "hand")]:
             problems.append(f"seat {seat} should be told the Cave was cycled from the hand: {moved}")
-    if "Cycled: Forgotten Cave" not in (g.notices.get(1) or []):
-        problems.append(f"Alice should be told 'Cycled: Forgotten Cave': {g.notices.get(1)}")
-    if "Cycled: Forgotten Cave (Alice's)" not in (g.notices.get(2) or []):
-        problems.append(f"Bob should be told 'Cycled: Forgotten Cave (Alice's)': {g.notices.get(2)}")
+    for seat in (1, 2):
+        if any(n.startswith("Cycled") for n in g.notices.get(seat) or []):
+            problems.append(f"seat {seat} should be told no line for a cycle (spec 0075): {g.notices.get(seat)}")
     return result(problems, "Forgotten Cave after the land drop: cycling alone offered, its play greyed with "
-                            "why; 'Pay {R} to cycle Forgotten Cave'; moved as Cycled, both told", found)
+                            "why; 'Pay {R} to cycle Forgotten Cave'; moved as cycled, no top-of-table line", found)
 
 
 # --- handsize -----------------------------------------------------------------

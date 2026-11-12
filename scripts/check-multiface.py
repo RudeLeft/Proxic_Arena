@@ -20,13 +20,15 @@ protocol:
   rules     its type line and power are the back face's, from Forge,
             not the printed front
   the look  "look at the top card" REACHES the player: when asked
-            "Reveal?", seat 1 has already been told which card it is.
+            "Reveal?", seat 1 has already been shown which card it is (its
+            report window, `reveal`; spec 0075: no "Looking at ..." line
+            repeats it).
             Found missing while building this check: reveals were a
             no-op, and the question was answered about a card nobody
             had shown.
   exactly   P6-J: seat 1 reveals only an instant, as a player would,
-            and declines otherwise. Seat 2 is told of every reveal
-            and of nothing else -- one opponent notice per "yes",
+            and declines otherwise. Seat 2 is shown every reveal
+            and nothing else -- one new reveal window per "yes",
             none for a "no".
 
 A focused deck (Layer B): Delvers, Islands, and Opts (instants), so a
@@ -70,10 +72,11 @@ def send(obj):
 
 state = {}
 found = {"front": None, "back": None, "reveal_questions": 0,
-         "seen_when_asked": [],   # seat 1's latest notice at each "Reveal?" question
-         "opponent_told": [],     # seat 2's NEW notices that name seat 1's library
+         "seen_when_asked": [],   # seat 1's latest reveal window's cards at each "Reveal?" question
+         "opponent_told": [],     # the cards of each NEW reveal window seat 2 is shown
+         "looking_lines": [],     # any "Looking at ..." line: none may come (spec 0075)
          "answered": []}          # (card looked at, revealed?) per question
-previous_2 = []
+seen_2 = set()
 stop_at = None                    # the revision at which seat 1 saw the back
 delver_id = None
 
@@ -100,17 +103,15 @@ for line in proc.stdout:
     if kind == "MATCH_SNAPSHOT":
         s = frame.get("state") or {}
         state[s.get("seat")] = s
+        for note in s.get("notices") or []:
+            if note.startswith("Looking at ") and note not in found["looking_lines"]:
+                found["looking_lines"].append(note)
         if s.get("seat") == 2:
-            # Notices are the last few, a sliding window: what is NEW
-            # is what follows the longest overlap with the last list.
-            current = s.get("notices") or []
-            overlap = max((k for k in range(len(current) + 1)
-                           if k <= len(previous_2) and previous_2[len(previous_2) - k:] == current[:k]),
-                          default=0)
-            for note in current[overlap:]:
-                if "Alice's library" in note:
-                    found["opponent_told"].append(note)
-            previous_2 = current
+            # Each new reveal window seat 2 is shown, once.
+            shown = s.get("reveal")
+            if shown and shown.get("key") not in seen_2:
+                seen_2.add(shown.get("key"))
+                found["opponent_told"].append(", ".join(c.get("name") or "" for c in shown.get("cards") or []))
             # Snapshots go out seat by seat; stop only once seat 2 has
             # had the one that matches seat 1's last, or a reveal made
             # in that round is never seen (the first version stopped
@@ -160,10 +161,10 @@ for line in proc.stdout:
         # "You may reveal that card": yes for an instant, as a player
         # would -- it is what transforms Delver -- and no otherwise.
         found["reveal_questions"] += 1
-        notices = state.get(1, {}).get("notices") or []
-        looked = notices[-1] if notices else None
+        shown = state.get(1, {}).get("reveal") or {}
+        looked = ", ".join(c.get("name") or "" for c in shown.get("cards") or []) or None
         found["seen_when_asked"].append(looked)
-        reveal = bool(looked) and looked.endswith(": Opt")
+        reveal = looked == "Opt"
         found["answered"].append((looked, reveal))
         pick = next((o for o, label in zip(options, labels) if label.startswith("Yes" if reveal else "No")), None)
     elif dkind in ("applyManaToCost", "mulliganKeepHand", "chooseStartingPlayer",
@@ -201,11 +202,13 @@ if back.get("face") != "Backside" or back.get("faces") != [FRONT, BACK]:
     problems.append(f"the back does not say which face it is: {back}")
 if (back.get("power"), back.get("toughness")) != (3, 2) or "Insect" not in str(back.get("types")):
     problems.append(f"the back's characteristics are not Insectile Aberration's: {back}")
-looked = [n for n in found["seen_when_asked"] if n and "your library" in n]
+looked = [n for n in found["seen_when_asked"] if n]
 if len(looked) != found["reveal_questions"]:
     problems.append(f"asked to reveal a card it was not shown: {found['seen_when_asked']}")
-revealed = [looked.split(": ", 1)[1] for looked, yes in found["answered"] if yes]
-told = [note.split(": ", 1)[1] for note in found["opponent_told"]]
+if found["looking_lines"]:
+    problems.append(f"no 'Looking at ...' line repeats a reveal window (spec 0075): {found['looking_lines']}")
+revealed = [looked for looked, yes in found["answered"] if yes]
+told = found["opponent_told"]
 if told != revealed:
     problems.append(f"seat 2 was told {told}, and seat 1 revealed exactly {revealed}")
 if problems:

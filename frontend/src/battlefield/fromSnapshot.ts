@@ -409,7 +409,8 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   for (const move of moves) {
     // Spec 0074, Amendment 1 (owner 2026-11-12): no word pill for a discard
     // or a counter -- the report window explains what the other player did.
-    if (move.why === "discarded" || move.why === "countered") continue;
+    // Spec 0075: nor for a card cycled ("Cycled").
+    if (move.why === "discarded" || move.why === "countered" || move.why === "cycled") continue;
     if (move.card && move.said && move.to.zone === "graveyard") graves.set(move.card, move.said);
   }
   // Spec 0074 -- discards, mills, out of a graveyard or exile; spells countered.

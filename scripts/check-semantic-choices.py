@@ -18,9 +18,11 @@ Four things are watched, over as many games as it takes:
                    Mana Clash cannot stand in — it sets NoCall,
                    so Forge flips without asking
   notices          P6-AM's other half. FORGE flips the coin; the
-                   only thing owed is that the player is TOLD the
+                   only thing owed is that a player is TOLD the
                    outcome. notifyOfValue used to be a no-op, so
-                   the game acted on a flip nobody saw.
+                   the game acted on a flip nobody saw. Spec 0075:
+                   told in the OTHER player's report window ("Alice
+                   flipped a coin and lost."), not as a grey line.
 
 A game can end before any of them happens, so this plays several.
 """
@@ -68,10 +70,11 @@ def play(game_no):
                               {"displayName": "Bob", "seatNumber": 2, "cards": deck}]})
 
         elif kind == "MATCH_SNAPSHOT":
-            # P6-AM — what Forge told this viewer.
-            for text in (frame.get("state") or {}).get("notices", []):
-                if text not in notices:
-                    notices.append(text)
+            # P6-AM — what Forge told this viewer; spec 0075: a flip is the
+            # other player's report window.
+            said = ((frame.get("state") or {}).get("action") or {}).get("said") or ""
+            if "flipped a coin" in said and said not in notices:
+                notices.append(said)
 
         elif kind == "DECISION_REQUEST":
             options = frame.get("options", [])
@@ -123,7 +126,7 @@ for kind in WANTED:
     print(f"   options={found['options']}")
 
 print()
-print(f"notices told to a player: {len(notices)}")
+print(f"flips told to a player: {len(notices)}")
 for text in notices[:6]:
     print(f"   {text!r}")
 
@@ -137,4 +140,4 @@ if missing:
     print("NOT REACHED: " + ", ".join(missing))
     sys.exit(1)
 print("OK: every value-choice was asked with Forge's own candidates,")
-print("and the flip outcome reached the player who flipped.")
+print("and the flip outcome reached the other player's report window.")

@@ -299,7 +299,7 @@ jobs:
           # each machine gets one of the longest. Every scenario is in this
           # list exactly once; a new one goes anywhere in it.
           printf '%s\n' \
-              cost-kinds you-choose who-did-it numbers card-trays surveil sacrifice \
+              cost-kinds you-choose who-did-it card-actions numbers card-trays surveil sacrifice \
               many-triggers what-happened combat-choices stops blocks shapes modes \
               agent-of-kotis panglacial-wurm card-name leyline karn multiface \
               mindslaver characteristics player-state mana-choice alternate-win \
@@ -309,7 +309,7 @@ jobs:
               take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
-              'limit=300; case $0 in you-choose|cost-kinds|who-did-it) limit=900;; esac;
+              'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions) limit=900;; esac;
                run() { timeout $limit python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1; };
                run; s=$?;
                if [ $s = 2 ]; then

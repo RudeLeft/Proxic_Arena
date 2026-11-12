@@ -292,17 +292,22 @@ describe("a roll on the stack (W-17)", () => {
   it("tumbles beside the card that rolled while it is on the stack, then lingers and goes", () => {
     const stack = [{ id: "stack:14", source: "card:51" }];
     const arrived = new Map([[3, 1000]]);
-    const draw = (now: number, onStack: boolean) =>
-      render(
-        <RollsOverlay
-          rolls={[roll(2), roll(3)]}
-          stack={onStack ? stack : []}
-          since={1}
-          arrived={arrived}
-          now={now}
-          at={at}
-        />,
-      ).container;
+    const overlay = (now: number, onStack: boolean) => (
+      <RollsOverlay
+        rolls={[roll(2), roll(3)]}
+        stack={onStack ? stack : []}
+        since={1}
+        arrived={arrived}
+        now={now}
+        at={at}
+      />
+    );
+    // One overlay, as the game screen keeps it: it saw the die on the stack.
+    const view = render(overlay(1500, true));
+    const draw = (now: number, onStack: boolean) => {
+      view.rerender(overlay(now, onStack));
+      return view.container;
+    };
     // Only the newest roll for the card (a reroll replaces the die).
     const on = draw(1500, true);
     expect([...on.querySelectorAll("[data-roll]")].map((x) => x.getAttribute("data-roll"))).toEqual(

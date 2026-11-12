@@ -1926,6 +1926,7 @@ export function GameScreen({
                       arrived={rollsArrived.current}
                       now={rollsNow}
                       at={at}
+                      spot={stackSpotBoxes(geometry, 1)[0] ?? null}
                     />
                   )}
                   {board && (
@@ -4417,16 +4418,10 @@ function useGameMessages(board: Snapshot | null): Notice[] {
     seen.current = board.notices.length;
     seenTotal.current = board.noticesTotal ?? null;
     if (fresh.length === 0) return;
-    // Spec 0045 -- a reveal's line ("Looking at your library: A, B") is the
-    // reveal tray's cards already.
-    const inTray = board.reveal ? `: ${board.reveal.cards.map((c) => c.name).join(", ")}` : null;
-    // Phase 9 Amendment 12 -- a report says who did what; Forge's own
-    // "Looking at ..." line beside it said it worse (and sometimes wrong).
-    const reported = !!board.action;
-    const added = fresh
-      .filter((text) => !(inTray && text.endsWith(inTray)))
-      .filter((text) => !(reported && text.startsWith("Looking at ")))
-      .map((text, i) => ({ key: `said-${board.stateRevision}:${i}`, text }));
+    // Spec 0075 -- a reveal's or a report's own line ("Looking at your
+    // library: A, B") is never sent: the worker leaves it out when the
+    // window says it, so the page matches no words here (PROTO-006).
+    const added = fresh.map((text, i) => ({ key: `said-${board.stateRevision}:${i}`, text }));
     setShown((list) => [...list, ...added].slice(-4));
   }, [board]);
   return shown.map((said) => {

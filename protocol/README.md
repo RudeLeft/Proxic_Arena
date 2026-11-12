@@ -245,12 +245,11 @@ moves                     Phase 10 A-00: the cards moved since the last
                           "Countered by Counterspell"); only with `card`.
                           Spec 0066: a card leaving the battlefield
                           ("died", "destroyed", "sacrificed") has a why
-                          but no said, and no notice. Each round with a
-                          said is also told to both players as a notice
-                          ("Cycled: Forgotten Cave (Bob's)") -- except a
-                          discard or a counter (spec 0074, Amendment 1:
-                          no notice, and the page shows no tag; the
-                          `action` report explains it)
+                          but no said, and no notice. Spec 0074
+                          Amendment 1 and spec 0075: no move with a said
+                          is told as a notice any more (discarded,
+                          countered, cycled), and the page shows no tag
+                          for these; the `action` report explains them
 noticesTotal              spec 0061: how many notices this seat was told in
                           all (`notices` keeps the last six), so a page can
                           tell new ones once the list is full
@@ -428,7 +427,33 @@ snapshot.action           who did what to a library or hand, in this
                           10 cards."; these three go to both seats unless
                           the reader did it to themselves alone. A card
                           out of a graveyard or face-up exile is shown as
-                          it was there (public), never by its id
+                          it was there (public), never by its id.
+                          Spec 0075: also cards from the table or the
+                          stack back to a hand or into a library ("Bob
+                          returned your Grizzly Bears to your hand.",
+                          "... put your Serra Angel on top of your
+                          library.", "... shuffled ... into your
+                          library."; card `to` "hand", "top", "bottom",
+                          "library" or "shuffled"), only to the owner of
+                          a card the OTHER player sent back; a card
+                          cycled ("Bob cycled Forgotten Cave and drew a
+                          card.", the cycled card shown, the card drawn
+                          never named), only to the other seat; the other
+                          player's choices and coin flips ("Bob chose
+                          white.", "Bob flipped a coin and lost.", "Bob
+                          named Lightning Bolt.", else Forge's own words)
+                          -- never your own choice; a coin flip goes to
+                          both seats, the flipper too ("You flipped a coin
+                          and won.": luck, not a choice; owner
+                          2026-11-12); and a look at a hand or a
+                          library with no cards ("You looked at Bob's
+                          hand. It has no cards."), to the one shown it
+                          (Duress on an empty hand: both seats, there was
+                          nothing to choose). `cards` may then be empty
+action.marks              spec 0075: pictures that are not cards, in
+                          order: {kind "color", color "white"|"blue"|
+                          "black"|"red"|"green"} for a colour chosen,
+                          {kind "coin", won} for a coin flip
 player.mulligans          how many times the player has mulliganed, for every
                           viewer (public, as in paper Magic; Phase 9 W-15)
 card.ringBearer           true on the Ring-bearer, for every viewer
@@ -459,9 +484,13 @@ decision.arrange.sources  spec 0058, item 8, on orderSimultaneousAbilities
                           says (the ability's effect)}
 ```
 
-Value notices use Forge's own wording, per viewer: "Krark, the
-Thumbless: You win the flip" to the flipper, "...: Alice wins the
-flip" to the opponent.
+Values Forge tells a player (its notifyOfValue) are no notice since spec
+0075: a die roll is `rolls` (its tumbling window, on both boards), a
+choice the other player's `action` report, a coin flip both players'
+("Alice flipped a coin and won." / "You flipped a coin and won.", a coin in
+`marks`); the player who chose is told nothing.
+A reveal shown in the report window (`reveal`, `action`) is no "Looking
+at ..." notice either: only a reveal with no window is told in words.
 
 ## What the board is told (Phase 7, §7.61)
 

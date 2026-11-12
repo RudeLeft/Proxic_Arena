@@ -120,44 +120,6 @@ final class Moves {
     }
 
     /**
-     * Spec 0061, item 4 -- what the game tells a player about cards that went
-     * to a graveyard together for one reason, in the approved canvas's words:
-     * "Cycled: Forgotten Cave", "Discarded, too many cards: Elvish Warrior",
-     * "Countered by Counterspell: Giant Growth". Another player's cards say
-     * whose: "Cycled: Forgotten Cave (Bob's)". (Spec 0066 item 6: nothing
-     * is told of a card dying on the battlefield.)
-     */
-    static String told(String said, List<String> names, String whose) {
-        return said.replace(": ", ", ") + ": " + String.join(", ", names)
-                + (whose == null ? "" : " (" + whose + "'s)");
-    }
-
-    /**
-     * Spec 0061, item 4 -- this round's graveyard moves with a reason, as the
-     * lines to tell: one line per owner and reason, in the order they went.
-     * Key: the owner seat; value: [said, names...] per line.
-     */
-    static Map<Integer, Map<String, List<String>>> toldByOwner(List<Move> moves) {
-        Map<Integer, Map<String, List<String>>> out = new java.util.LinkedHashMap<>();
-        for (Move move : moves) {
-            if (move.said() == null || move.name() == null || !"graveyard".equals(move.to())
-                    || move.toSeat() == null) {
-                continue;
-            }
-            // Spec 0074, Amendment 1 (owner 2026-11-12): a discard or a counter
-            // is no top-of-table line -- the report window explains what the
-            // other player did (ActionReports), and your own needs no telling.
-            if ("discarded".equals(move.why()) || "countered".equals(move.why())) {
-                continue;
-            }
-            out.computeIfAbsent(move.toSeat(), k -> new java.util.LinkedHashMap<>())
-                    .computeIfAbsent(move.said(), k -> new ArrayList<>())
-                    .add(move.name());
-        }
-        return out;
-    }
-
-    /**
      * Phase 10 A-14 (Amendment 17) -- where in a library a card landed, as
      * Forge put it there: "top" (index 0 of Forge's library list, which is
      * its top) or "bottom" (the last index), read from Forge's own library

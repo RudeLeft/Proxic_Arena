@@ -591,7 +591,14 @@ export interface SnapshotReveal {
   said?: string;
   /** Spec 0057, item 7 -- why, for a reveal paid as a cost ("to cast … for {1}{G} instead of {4}{G}"). */
   why?: string;
+  /** Spec 0075 -- the pictures that are not cards: a colour chosen, a coin flipped. */
+  marks?: ReportMark[];
 }
+
+/** Spec 0075 -- one picture in a report window that is not a card. */
+export type ReportMark =
+  | { kind: "color"; color: "white" | "blue" | "black" | "red" | "green" }
+  | { kind: "coin"; won: boolean };
 
 /** One object on the stack — §7.61 B2, B3. */
 export interface StackEntry {
@@ -1273,6 +1280,7 @@ function asAction(value: unknown): SnapshotReveal | null {
   const key = asString(row["key"]);
   const said = asString(row["said"]);
   if (!key || !said) return null;
+  const marks = asMarks(row["marks"]);
   return {
     key,
     title: said,
@@ -1281,7 +1289,24 @@ function asAction(value: unknown): SnapshotReveal | null {
     stamp: asNumber(row["stamp"]) ?? 0,
     by: asNumber(row["by"]) ?? 0,
     source: asString(row["source"]) ?? "",
+    ...(marks.length ? { marks } : {}),
   };
+}
+
+const COLOURS = ["white", "blue", "black", "red", "green"] as const;
+
+/** Spec 0075 -- a report's pictures that are not cards; anything unknown is left out. */
+function asMarks(value: unknown): ReportMark[] {
+  if (!Array.isArray(value)) return [];
+  const out: ReportMark[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const row = entry as Record<string, unknown>;
+    if (row["kind"] === "coin") out.push({ kind: "coin", won: row["won"] === true });
+    const color = COLOURS.find((c) => c === row["color"]);
+    if (row["kind"] === "color" && color) out.push({ kind: "color", color });
+  }
+  return out;
 }
 
 function asOrigins(value: unknown): CounterOrigin[] | undefined {

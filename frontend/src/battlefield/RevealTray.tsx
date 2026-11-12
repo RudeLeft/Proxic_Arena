@@ -9,10 +9,10 @@
 // it: the worker fills this from the reveal Forge makes to each player.
 
 import type { ReactNode } from "react";
-import type { SnapshotReveal } from "../match";
+import type { ReportMark, SnapshotReveal } from "../match";
 import type { Geometry } from "./layout";
 import { BigCard } from "./QuestionWindows";
-import { ManaText } from "./ManaCost";
+import { ManaText, symbolUrl } from "./ManaCost";
 import { PeekFoot, usePeek } from "./GameWindow";
 
 /** Where a revealed card went, as the tray says it. */
@@ -26,6 +26,9 @@ export function wentWords(to: string | null | undefined): string | null {
       return "→ top of library";
     case "library":
       return "→ library";
+    // Spec 0075 -- bounced into a library that was then shuffled (Chaos Warp).
+    case "shuffled":
+      return "→ shuffled into library";
     case "graveyard":
       return "→ graveyard";
     case "battlefield":
@@ -53,6 +56,96 @@ export const REPORT_HAND_GAP = 10;
  */
 export function reportBottom(geometry: Geometry): number {
   return geometry.height - geometry.handTop + REPORT_HAND_GAP;
+}
+
+const COLOUR_WORDS = {
+  white: ["W", "White"],
+  blue: ["U", "Blue"],
+  black: ["B", "Black"],
+  red: ["R", "Red"],
+  green: ["G", "Green"],
+} as const;
+
+/**
+ * Spec 0075 -- a picture that is not a card, the size of the cards beside
+ * it: the colour chosen (its mana symbol), a coin flipped (won: bright gold
+ * with a tick; lost: dull bronze with a cross).
+ */
+export function ReportMarkPicture({ mark }: { mark: ReportMark }) {
+  if (mark.kind === "color") {
+    const [symbol, word] = COLOUR_WORDS[mark.color];
+    const url = symbolUrl(symbol);
+    return (
+      <span
+        className={`gs-reveal-mark gs-reveal-mark-color gs-reveal-mark-${mark.color}`}
+        role="img"
+        aria-label={`${word}, the colour chosen`}
+      >
+        {url ? <img src={url} alt="" draggable={false} /> : <b>{symbol}</b>}
+      </span>
+    );
+  }
+  const won = mark.won;
+  return (
+    <span
+      className={`gs-reveal-mark gs-reveal-mark-coin${won ? " gs-reveal-mark-won" : " gs-reveal-mark-lost"}`}
+      role="img"
+      aria-label={won ? "A coin flip, won" : "A coin flip, lost"}
+    >
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <radialGradient id={won ? "gs-coin-won" : "gs-coin-lost"} cx="38%" cy="32%" r="75%">
+            <stop offset="0" stopColor={won ? "#fff2b8" : "#d9b99a"} />
+            <stop offset="0.55" stopColor={won ? "#e2b04a" : "#9c7656"} />
+            <stop offset="1" stopColor={won ? "#9a6a18" : "#5b4232"} />
+          </radialGradient>
+        </defs>
+        <circle cx="50" cy="50" r="46" fill={`url(#${won ? "gs-coin-won" : "gs-coin-lost"})`} />
+        <circle
+          cx="50"
+          cy="50"
+          r="46"
+          fill="none"
+          stroke={won ? "#7a5210" : "#3f2e22"}
+          strokeWidth="3"
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="37"
+          fill="none"
+          stroke={won ? "#fbe3a0" : "#c4a385"}
+          strokeWidth="2"
+          strokeDasharray="3 4"
+          opacity="0.8"
+        />
+        {won ? (
+          <path
+            d="M31 52 L45 66 L71 37"
+            fill="none"
+            stroke="#5a3a08"
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : (
+          <path
+            d="M35 35 L65 65 M65 35 L35 65"
+            fill="none"
+            stroke="#2e2119"
+            strokeWidth="9"
+            strokeLinecap="round"
+          />
+        )}
+      </svg>
+    </span>
+  );
+}
+
+/** Spec 0075 -- the words under a picture that is not a card. */
+function markWords(mark: ReportMark): [string, string] {
+  if (mark.kind === "color") return [COLOUR_WORDS[mark.color][1], "Chosen"];
+  return ["Coin flip", mark.won ? "Won" : "Lost"];
 }
 
 export function RevealTray({
@@ -123,6 +216,14 @@ export function RevealTray({
               {card.faceDown && !card.known ? "Face-down card" : card.name}
             </span>
             {wentWords(card.to) && <span className="gs-reveal-to">{wentWords(card.to)}</span>}
+          </li>
+        ))}
+        {/* Spec 0075 -- the colour chosen, the coin flipped: pictures too. */}
+        {(reveal.marks ?? []).map((mark, i) => (
+          <li key={`mark:${i}`} className="gs-reveal-card" data-mark={mark.kind}>
+            <ReportMarkPicture mark={mark} />
+            <span className="gs-reveal-name">{markWords(mark)[0]}</span>
+            <span className="gs-reveal-to">{markWords(mark)[1]}</span>
           </li>
         ))}
       </ul>

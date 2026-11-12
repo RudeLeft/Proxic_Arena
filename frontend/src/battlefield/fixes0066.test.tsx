@@ -311,7 +311,7 @@ describe("no Died, Destroyed or Sacrificed on the table (F-0066-F)", () => {
     known: true,
   };
 
-  it("a creature that died carries no tag (the game sends its why only); a cycled card still does", () => {
+  it("a creature that died carries no tag (the game sends its why only); nor, spec 0075, a cycled card", () => {
     const before = snapshot(1, { battlefield: [bears] });
     const after = snapshot(2, {
       graveyard: [bears],
@@ -333,6 +333,7 @@ describe("no Died, Destroyed or Sacrificed on the table (F-0066-F)", () => {
     });
     const data = boardFromSnapshot(after, before);
     expect(data.departures.get("card:50")).toBe("opponent:graveyard"); // the shatter plays
-    expect([...data.graves]).toEqual([["card:60", "Cycled"]]);
+    // Spec 0075: nor a cycled card -- the report window explains it.
+    expect([...data.graves]).toEqual([]);
   });
 });

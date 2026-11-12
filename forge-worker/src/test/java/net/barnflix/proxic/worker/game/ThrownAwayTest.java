@@ -4,7 +4,6 @@ import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -101,35 +100,6 @@ class ThrownAwayTest {
         Moves.Move hidden = new Moves.Move(5, "library", 2, "other", 2, false, null)
                 .withSaid("discarded", "Discarded", "Secret");
         assertFalse(Moves.forViewer(List.of(hidden), 1).get(0).getAsJsonObject().has("said"));
-    }
-
-    @Test
-    void whatTheGameTellsGroupsByOwnerAndReason() {
-        List<Moves.Move> round = List.of(
-                new Moves.Move(1, "hand", 2, "graveyard", 2, false, null)
-                        .withSaid("cycled", "Cycled", "Forgotten Cave"),
-                new Moves.Move(2, "hand", 2, "graveyard", 2, false, null)
-                        .withSaid("cycled", "Cycled", "Secluded Steppe"),
-                // Spec 0066, item 6: a creature that died is told nothing.
-                new Moves.Move(5, "battlefield", 2, "graveyard", 2, false, "destroyed")
-                        .withSaid("destroyed", null, "Grizzly Bears"),
-                new Moves.Move(3, "hand", 1, "graveyard", 1, false, null)
-                        .withSaid("discarded", "Discarded: too many cards", "Elvish Warrior"),
-                new Moves.Move(4, "library", 1, "hand", 1, false, null),
-                new Moves.Move(6, "stack", null, "graveyard", 1, false, null)
-                        .withSaid("countered", "Countered by Counterspell", "Giant Growth"));
-        Map<Integer, Map<String, List<String>>> told = Moves.toldByOwner(round);
-        assertEquals(List.of("Forgotten Cave", "Secluded Steppe"), told.get(2).get("Cycled"));
-        assertEquals(1, told.get(2).size(), "no line for the Bears: " + told);
-        // Spec 0074, Amendment 1: a discard or a counter is no line -- the
-        // report window explains it (ActionReports).
-        assertFalse(told.containsKey(1), "no line for a discard or a counter: " + told);
-        assertEquals("Cycled: Forgotten Cave, Secluded Steppe (Bob's)",
-                Moves.told("Cycled", told.get(2).get("Cycled"), "Bob"));
-        assertEquals("Discarded, too many cards: Elvish Warrior",
-                Moves.told("Discarded: too many cards", List.of("Elvish Warrior"), null));
-        assertEquals("Countered by Counterspell: Giant Growth",
-                Moves.told("Countered by Counterspell", List.of("Giant Growth"), null));
     }
 
     // --- item 5: the payment window says what it's for ---------------------------------

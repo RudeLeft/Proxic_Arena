@@ -535,8 +535,6 @@ const RETURN_SINK = 0.15;
 export const RIFFLE_MS = 700;
 export const RIFFLE_BEAT_MS = 50;
 export const RIFFLE_CARDS = 6;
-/** The tag at the destination ("On top of Bob's library"): in, held, out. */
-export const RETURN_TAG_MS = 1800;
 
 const riseEaseOut = cubicBezier(0, 0, 0.58, 1);
 const easeInOutQuad = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
@@ -713,16 +711,6 @@ export function graveTagFrames(
   });
   frames.push({ offset: 1, opacity: 0, transform: place(1) });
   return { frames, duration };
-}
-
-/** The tag's keyframes (the canvas's): it pops in, holds, and fades. `base` places it. */
-export function returnTagFrames(base: string): Keyframe[] {
-  return [
-    { offset: 0, opacity: 0, transform: `${base} translateY(8px) scale(0.8)` },
-    { offset: 0.2, opacity: 1, transform: `${base} translateY(0px) scale(1.08)` },
-    { offset: 0.85, opacity: 1, transform: `${base} translateY(0px) scale(1)` },
-    { offset: 1, opacity: 0, transform: `${base} translateY(0px) scale(1)` },
-  ];
 }
 
 /**

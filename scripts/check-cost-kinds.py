@@ -618,7 +618,8 @@ def manamorphose():
 def charge():
     """Charge of the Forever-Beast: reveal a creature card from your hand
     (CostReveal); damage equal to its power to Indomitable Ancients (2/10,
-    so it lives and shows the damage). The opponent is told the card."""
+    so it lives and shows the damage). The opponent is shown the card (spec
+    0075: in its report window, `reveal`; no "Looking at ..." line)."""
     g = game("charge", [("Forest", 26), ("Charge of the Forever-Beast", 14), ("Grizzly Bears", 10),
                         ("Hill Giant", 10)], [("Plains", 30), ("Indomitable Ancients", 30)])
     st = {"cast": None, "asked": [], "picked": None, "power": None, "target": None, "after": None}
@@ -656,11 +657,18 @@ def charge():
             return None
         return DEFAULT
 
+    shown = []
+
     def until(g):
+        reveal = g.state.get(2, {}).get("reveal") or {}
+        for c in reveal.get("cards") or []:
+            if c.get("name") and c.get("name") not in shown:
+                shown.append(c.get("name"))
         resolved = st["cast"] and any(c["id"] == st["cast"] for c in g.zone(1, "graveyard", owner=1))
         if st["picked"] and resolved and stack_empty(g) and st["after"] is None:
             target = next((c for c in g.zone(1, "battlefield", owner=2) if c["id"] == st["target"]), {})
-            st["after"] = {"damage": target.get("damage"), "told": g.notices.get(2, [])}
+            st["after"] = {"damage": target.get("damage"), "told": list(shown),
+                           "lines": [n for n in g.notices.get(2, []) if n.startswith("Looking at ")]}
         return st["after"] is not None
 
     g.run(policy, until=until, max_turn=24)
@@ -673,8 +681,10 @@ def charge():
         problems.append("the opponent was asked to reveal seat 1's card")
     if len({label for _, label in st["asked"][0][1]}) < 2:
         problems.append(f"a real choice of creatures: {st['asked'][0][1]}")
-    if not any(st["name"] in n for n in st["after"]["told"]):
-        problems.append(f"a revealed card is shown to the other player: seat 2 was not told {st['name']}")
+    if st["name"] not in st["after"]["told"]:
+        problems.append(f"a revealed card is shown to the other player: seat 2 was not shown {st['name']}")
+    if st["after"]["lines"]:
+        problems.append(f"no 'Looking at ...' line repeats the window (spec 0075): {st['after']['lines']}")
     if st["after"]["damage"] != st["power"]:
         problems.append(f"revealed power {st['power']}, but the Ancients took {st['after']['damage']}")
     return outcome(problems, f"Charge of the Forever-Beast: the creature revealed (power {st['power']}) dealt "

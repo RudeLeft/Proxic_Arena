@@ -5776,7 +5776,7 @@ public final class MatchController extends GeneratedControllerBase {
         if (to != player && zone == forge.game.zone.ZoneType.Hand) {
             host.seenInHand(actedForSeat, inHand);
         }
-        tellRevealed(names, ids, zone, to == null ? null : to.getName(), to == player, message, addSuffix);
+        tellRevealed(names, ids, zone, to, to == null ? null : to.getName(), to == player, message, addSuffix);
     }
 
     @Override
@@ -5803,7 +5803,7 @@ public final class MatchController extends GeneratedControllerBase {
             }
             host.seenInHand(actedForSeat, inHand);
         }
-        tellRevealed(names, ids, zone, to == null ? null : to.getName(), own, message, addSuffix);
+        tellRevealed(names, ids, zone, playerOfView(to), to == null ? null : to.getName(), own, message, addSuffix);
     }
 
     /**
@@ -5832,10 +5832,26 @@ public final class MatchController extends GeneratedControllerBase {
             java.util.List<String> names,
             java.util.List<Integer> ids,
             forge.game.zone.ZoneType zone,
+            Player owner,
             String ownerName,
             boolean own,
             String message,
             boolean addSuffix) {
+        // Spec 0075 -- a look at a hand or a library with no cards in it is
+        // the report window's ("You looked at Bob's hand. It has no cards."),
+        // for the one who was shown it -- the one who looked, too: there was
+        // nothing to choose. No grey line.
+        if (names.isEmpty()) {
+            ActionReports reports = host.actions();
+            if (reports != null) {
+                reports.emptyLook(player, owner == null ? player : owner, zone);
+            } else {
+                String whose = own ? "your" : (ownerName == null ? "a player's" : ownerName + "'s");
+                host.note(actedForSeat, "There are no cards in " + whose + " "
+                        + zone.getTranslatedName().toLowerCase(java.util.Locale.ROOT) + ".");
+            }
+            return;
+        }
         // Phase 9 Amendment 13 (item 7) -- the player making the choices for
         // an effect that is reported (ActionReports) is not shown what they
         // are choosing again, nor told afterwards: the other player is.
@@ -5845,9 +5861,7 @@ public final class MatchController extends GeneratedControllerBase {
         String whose = own ? "your" : (ownerName == null ? "a player's" : ownerName + "'s");
         String where = whose + " " + zone.getTranslatedName().toLowerCase(java.util.Locale.ROOT);
         String text;
-        if (names.isEmpty()) {
-            text = "There are no cards in " + where + ".";
-        } else {
+        {
             String said = message == null || message.isBlank()
                     ? "Looking at " + where
                     : (addSuffix ? message + " " + where : message);
@@ -5857,8 +5871,12 @@ public final class MatchController extends GeneratedControllerBase {
             GameHost.CostReveal paid = own ? null : host.costRevealOf(ids);
             Causes.Told told = paid == null ? null : toldOf(paid, names, zone);
             // Spec 0045 -- the cards themselves, face up in a tray,
-            // for this seat alone (Forge told this controller).
-            host.revealed(actedForSeat, ids, said, told);
+            // for this seat alone (Forge told this controller). Spec 0075:
+            // the tray (or a report after it) says it -- no "Looking at ..."
+            // line repeats it; only a reveal with no tray is told in words.
+            if (host.revealed(actedForSeat, ids, said, told)) {
+                return;
+            }
         }
         host.note(actedForSeat, text);
     }
@@ -5907,6 +5925,19 @@ public final class MatchController extends GeneratedControllerBase {
         }
         String why = PlainWords.revealWhy(spell.getName(), sa.isSpell(), paidPrice, instead);
         return new Causes.Told(seatOfPlayer(paid.payer()), spell.getName(), said, why);
+    }
+
+    /** The game's player for a Forge player view, or null. */
+    private Player playerOfView(forge.game.player.PlayerView view) {
+        if (view == null) {
+            return null;
+        }
+        for (Player each : player.getGame().getRegisteredPlayers()) {
+            if (each.getView().equals(view)) {
+                return each;
+            }
+        }
+        return null;
     }
 
     private int seatOfPlayer(Player p) {
@@ -5960,10 +5991,20 @@ public final class MatchController extends GeneratedControllerBase {
         // the flip." rather than "Krark, the Thumbless: lose", which
         // did not say who flipped or that it was a flip (2026-10-20).
         String message = forge.util.MessageUtil.formatNotificationMessage(sa, player, realtimeTarget, value);
-        String about = sa == null || sa.getHostCard() == null || message.contains(sa.getHostCard().getName())
-                ? ""
-                : sa.getHostCard().getName() + ": ";
-        host.note(actedForSeat, about + message);
+        // Spec 0075 (owner 2026-11-12) -- no grey line: a die tumbles in its
+        // own window (below), and a choice or a coin flip is the report
+        // window's, shown to the other player (ActionReports#valueTold).
+        boolean dice = sa != null && sa.getApi() == forge.game.ability.ApiType.RollDice;
+        ActionReports reports = host.actions();
+        if (!dice && reports != null && sa != null) {
+            Player who = realtimeTarget instanceof Player p ? p : sa.getActivatingPlayer();
+            reports.valueTold(player, sa, toldValue(sa, who, value, message));
+        } else if (!dice) {
+            String about = sa == null || sa.getHostCard() == null || message.contains(sa.getHostCard().getName())
+                    ? ""
+                    : sa.getHostCard().getName() + ": ";
+            host.note(actedForSeat, about + message);
+        }
         // Phase 9 W-17 -- a die roll, recorded once, by the roller's own
         // controller (Forge tells every player): the page tumbles a die.
         if (sa != null && sa.getApi() == forge.game.ability.ApiType.RollDice && realtimeTarget == player) {
@@ -5982,6 +6023,39 @@ public final class MatchController extends GeneratedControllerBase {
                 host.rolled(actedForSeat, sa.getHostCard(), sides, results);
             }
         }
+    }
+
+    /**
+     * Spec 0075 -- the report window's sentence for a value Forge told this
+     * player: "Bob chose white." (the colour a picture), "Bob flipped a coin
+     * and lost." (a coin), "Bob named Lightning Bolt."; anything else in
+     * Forge's own words. Which kind it is comes from the ability, not the words.
+     */
+    private ActionReports.Value toldValue(SpellAbility sa, Player who, String value, String forgeWords) {
+        String name = who == null ? "A player" : (who == player ? "You" : who.getName());
+        String said = value == null ? "" : value.trim();
+        forge.game.ability.ApiType api = sa.getApi();
+        if (api == forge.game.ability.ApiType.FlipCoin) {
+            // Forge's value is its own "win" / "lose" (FlipCoinEffect).
+            String low = said.toLowerCase(java.util.Locale.ROOT);
+            boolean won = low.startsWith("win") || low.startsWith("won");
+            return new ActionReports.Value(who, name + " flipped a coin and " + (won ? "won" : "lost") + ".", "coin",
+                    won ? "won" : "lost");
+        }
+        if (api == forge.game.ability.ApiType.ChooseColor && !said.isEmpty()) {
+            String colours = said.toLowerCase(java.util.Locale.ROOT);
+            boolean one = java.util.List.of("white", "blue", "black", "red", "green").contains(colours);
+            return new ActionReports.Value(who, name + " chose " + colours + ".", one ? "color" : null,
+                    one ? colours : null);
+        }
+        if (api == forge.game.ability.ApiType.NameCard && !said.isEmpty()) {
+            return new ActionReports.Value(who, name + " named " + said + ".", null, null);
+        }
+        String words = PlainWords.humanise(forgeWords == null ? "" : forgeWords.trim());
+        if (words.isEmpty()) {
+            words = name + ": " + said;
+        }
+        return new ActionReports.Value(who, words.endsWith(".") ? words : words + ".", null, null);
     }
 
     /** Forge's "Alice rolled 4, 5" (lblPlayerRolledResult): the final results. */

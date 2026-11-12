@@ -236,7 +236,11 @@ there, `seen`, until it leaves that hand -- and a `hand` card another seat
 has seen carries `seen` too), `battlefield`, `graveyard`, `exile`,
 `stack`, plus `notices` -- Forge's messages to this player -- and
 `action`: who searched, looked at or moved cards, in this reader's words
-(Phase 9 Amendments 12, 13; never to the seat that chose). What may
+(Phase 9 Amendments 12, 13; never to the seat that chose; spec 0074
+Amendment 1: counters, mills, cards out of a graveyard; spec 0075: a
+bounce to the owner, the other player's cycling, choices and coin flips
+with `marks` pictures, an empty look). Card actions are never told as
+`notices` (spec 0075). What may
 appear is `MATCH_STATE_VISIBILITY.md`; every field is in
 `protocol/README.md`.
 
