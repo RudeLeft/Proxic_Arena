@@ -776,6 +776,27 @@ export function boxAt(at: Point, g: Geometry): Box {
   return { x: at.x - w / 2, y: at.y - h / 2, w, h, scale: AT_ZONE_SCALE, rotation: 0, z: 0 };
 }
 
+// --- a revealed card in the other player's hand (spec 0071, item 2) -----------
+
+/**
+ * Where a face-up card in the other player's hand goes while it is pointed
+ * at: upright, its own size, its top on the board's top edge -- the whole
+ * card in view (name, picture, cost) -- over where it was, kept inside the
+ * play area. Flush with the edge, not an inset below it, so the strip that
+ * was showing is still under the pointer and the card does not slide away
+ * from it.
+ */
+export function opponentRevealBox(rest: Box, g: Geometry): Box {
+  const w = g.cardW;
+  const h = g.cardH;
+  const centre = rest.x + rest.w / 2;
+  const left = Math.min(
+    Math.max(centre - w / 2, g.play.x + g.inset),
+    g.play.x + g.play.w - g.inset - w,
+  );
+  return { x: left, y: 0, w, h, scale: 1, rotation: 0, z: rest.z + 1000 };
+}
+
 // --- the pointed-at hand card (AMENDMENT 6) -----------------------------------
 
 /**

@@ -142,7 +142,10 @@ DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
                         it does to the cards picked so far and which they
                         are; each picked's actionId ("unpick:card:N") takes
                         it back, an answer accepted beside the options and
-                        never one of them (spec 0070; the asking seat only)
+                        never one of them (spec 0070; the asking seat only).
+                        Spec 0071: also on a window's one-at-a-time picks
+                        (chooseEntitiesForEffect of two or more cards --
+                        Escape, Delve, a search's "up to two"); same shape
 DECISION_ACCEPTED       decisionId -- a receipt, not a game event
 DECISION_REFUSED        decisionId, reason
 DECISION_CLEARED        nothing is waiting on you

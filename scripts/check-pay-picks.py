@@ -348,7 +348,158 @@ def fireblast():
               "were sacrificed, seat 2 sent nothing", found)
 
 
-SCENARIOS = {"voice": voice, "fireblast": fireblast}
+def window_picks(name, deck, hand, top, lands, cast_name, cast_zone, picks, word="EXILE", mana=0):
+    """Spec 0071 -- a window's picks from the graveyard (chooseEntitiesForEffect).
+
+    Seat 1 plays `lands` in that order, casts Glimpse the Unthinkable at
+    itself (ten cards into its graveyard), then -- once it can -- casts
+    `cast_name` from `cast_zone`. Its graveyard picks: two, the FIRST taken
+    back, then more until `picks` are picked (a pass ends them if the
+    window still asks). Every question lists exactly the picks so far with
+    the exile sign (F-0071-C); the one taken back is offered again; once
+    paid exactly the picked cards are in exile and the one taken back is
+    still in the graveyard, in both seats' views; nothing left the
+    graveyard while picking; seat 2 was sent no picks (F-0071-D).
+    """
+    g = LandKeeper(deck, [(I, 60)], jar=JAR, res=RES, trace=trace_path(name),
+                   deal={1: deal(hand, top)})
+    st = {"cast": False, "glimpse": False, "questions": [], "answers": [], "taken": None,
+          "grave": None, "after": None, "early": [], "lands": list(lands), "passed": False}
+
+    def current():
+        out = []
+        for kind, cid in st["answers"]:
+            out = out + [cid] if kind == "pick" else [x for x in out if x != cid]
+        return out
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if seat == 2:
+            return seat2_policy(g, f)
+        if k == "chooseEntitiesForEffect" and st["cast"] and "picking" in f:
+            q = summary(f)
+            st["questions"].append(q)
+            n = len(st["answers"])
+            if st["grave"] is None:
+                st["grave"] = sorted(c["id"] for c in g.mine(1, "graveyard"))
+            if n == 2 and q["picked"]:
+                taken = q["picked"][0]
+                st["taken"] = taken
+                st["answers"].append(("back", taken))
+                return "unpick:" + taken
+            if len(current()) >= picks:
+                st["passed"] = True
+                return None
+            cards = [o for o in f["options"] if card_of(o["actionId"]) and card_of(o["actionId"]) != st["taken"]]
+            pick = cards[-1]["actionId"]
+            st["answers"].append(("pick", card_of(pick)))
+            return pick
+        if k == "chooseTargetsFor" and st["glimpse"] and not st["cast"]:
+            o = next((o for o in f["options"] if o.get("objectId") == "player:1"), None)
+            return o["actionId"] if o else DEFAULT
+        if k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            for land in list(st["lands"]):
+                o = g.option(f, name=land, land=True)
+                if o:
+                    st["lands"].remove(land)
+                    return o
+                break
+            if st["cast"]:
+                return None
+            if not st["glimpse"]:
+                o = cast(g, f, "Glimpse the Unthinkable")
+                if o:
+                    st["glimpse"] = True
+                    return o
+                return None
+            if cast_zone == "graveyard" and not g.mine(1, "graveyard", name=cast_name):
+                # Into the graveyard first: Uro cast from the hand is sacrificed.
+                return cast(g, f, cast_name)
+            o = g.option(f, name=cast_name, zone=cast_zone, land=False)
+            if o and len(g.mine(1, "graveyard")) >= 8 and len(g.untapped_lands(1)) >= mana and not any(
+                    x["actionId"] == o and x.get("payable") is False for x in f["options"]):
+                st["cast"] = True
+                return o
+            return None
+        return DEFAULT
+
+    def until(g):
+        if not st["cast"] or st["grave"] is None:
+            return False
+        picked = current()
+        done = len(picked) >= picks and (st["passed"] or len(picked) == picks) and stack_empty(g)
+        views = {v: {"exile": sorted(c["id"] for c in g.zone(v, "exile", owner=1)),
+                     "grave": sorted(c["id"] for c in g.zone(v, "graveyard", owner=1))} for v in (1, 2)}
+        if not done or not set(picked) <= set(views[1]["exile"]):
+            for v in (1, 2):
+                gone = sorted(set(picked) & set(views[v]["exile"]))
+                if gone and len(picked) < picks:
+                    st["early"].append((v, gone))
+            return False
+        if all(set(picked) <= set(views[v]["exile"]) for v in (1, 2)):
+            st["after"] = views
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=24)
+    found = {"questions": st["questions"], "answers": st["answers"], "after": st["after"],
+             "stopped": g.stopped_badly()}
+    if not st["questions"]:
+        return "inconclusive", f"{cast_name}: no graveyard picking window was asked with picks", found
+    problems = check_questions(st["questions"], st["answers"], word, False)
+    if st["taken"] is None:
+        problems.append("no pick could be taken back (the question listed no picks)")
+    picked = current()
+    found["paid"] = sorted(picked)
+    if len(picked) != picks:
+        problems.append(f"{picks} cards should be picked, picked {picked}")
+    if st["after"] is None:
+        problems.append("the picked cards never reached exile")
+    else:
+        for v in (1, 2):
+            if not set(picked) <= set(st["after"][v]["exile"]):
+                problems.append(f"seat {v} sees exile {st['after'][v]['exile']}, picked {sorted(picked)}")
+            extra = set(st["after"][v]["exile"]) & set(st["grave"] or []) - set(picked)
+            if extra:
+                problems.append(f"seat {v} sees unpicked cards exiled: {sorted(extra)}")
+            if st["taken"] not in st["after"][v]["grave"]:
+                problems.append(f"the card taken back {st['taken']} should stay in the graveyard (seat {v})")
+    if st["early"]:
+        problems.append(f"a card was exiled before the picking was over: {st['early']}")
+    more, asked = leaks(g.trace.name if g.trace else trace_path(name))
+    problems += more
+    found["asked with picks"] = asked
+    if found["stopped"]:
+        problems.append(found["stopped"])
+    return ("wrong", "; ".join(problems), found) if problems else (
+        "ok", f"{cast_name}: each graveyard pick listed at once with the exile sign, the one taken back "
+              f"offered again and left in the graveyard, the {picks} picked exiled only when paid, "
+              f"seat 2 sent nothing", found)
+
+
+S = "Swamp"
+
+
+def escape():
+    # Uro cast from the hand is sacrificed (it did not escape), then cast
+    # again from the graveyard for its escape cost: exile five other cards.
+    hand = [S, I, F, F, I, "Glimpse the Unthinkable", "Uro, Titan of Nature's Wrath"]
+    return window_picks("escape", [(S, 8), (I, 20), (F, 20), ("Glimpse the Unthinkable", 4),
+                                   ("Uro, Titan of Nature's Wrath", 4), ("Treasure Cruise", 4)],
+                        hand, [F, I, F, I, F, I], [S, I, F, F, I, F, I],
+                        "Uro, Titan of Nature's Wrath", "graveyard", 5)
+
+
+def delve():
+    # Treasure Cruise with four lands: {U} and {3} from them, four from the graveyard.
+    hand = [S, I, I, I, "Glimpse the Unthinkable", "Treasure Cruise", I]
+    return window_picks("delve", [(S, 8), (I, 40), ("Glimpse the Unthinkable", 4), ("Treasure Cruise", 8)],
+                        hand, [I, I, I, I], [S, I, I, I, I, I],
+                        "Treasure Cruise", "hand", 4, mana=4)
+
+
+SCENARIOS = {"voice": voice, "fireblast": fireblast, "escape": escape, "delve": delve}
 
 if __name__ == "__main__":
     results = {}

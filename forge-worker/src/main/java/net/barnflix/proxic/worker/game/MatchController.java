@@ -2269,6 +2269,22 @@ public final class MatchController extends GeneratedControllerBase {
             String title,
             Player targetedPlayer,
             java.util.Map<String, Object> params) {
+        return chooseEntities(optionList, min, max, delayedReveal, sa, title, CostPicks.PICK);
+    }
+
+    /**
+     * {@link #chooseEntitiesForEffect}, with what happens to the cards picked
+     * (spec 0071: the sign each pick shows while the window is open --
+     * Escape's and Delve's exile star, a search's "to your hand").
+     */
+    private <T extends forge.game.GameEntity> java.util.List<T> chooseEntities(
+            forge.util.collect.FCollectionView<T> optionList,
+            int min,
+            int max,
+            forge.game.player.DelayedReveal delayedReveal,
+            SpellAbility sa,
+            String title,
+            CostPicks.Pay pay) {
         if (optionList == null || optionList.isEmpty()) {
             return new java.util.ArrayList<>();
         }
@@ -2291,11 +2307,19 @@ public final class MatchController extends GeneratedControllerBase {
                 how = layout("zone", zone);
             }
         }
+        // Spec 0071 -- the picks so far stay in the window, signed, and can
+        // be taken back; not where that would be wrong (CostPicks.takesBack).
+        com.google.gson.JsonObject outer = how != null ? how : host.arrange();
+        boolean split = outer != null && outer.has("split");
+        String to = outer != null && outer.has("to") ? outer.get("to").getAsString() : null;
+        CostPicks.Pay signed = CostPicks.takesBack(
+                Math.min(max, list.size()), cardsAmong(list).size() == list.size(),
+                split ? "split" : to != null ? "to" : null, to) ? pay : null;
         if (how == null) {
-            return pickSeveral("chooseEntitiesForEffect", optionList, min, max, title, context);
+            return pickSeveral("chooseEntitiesForEffect", optionList, min, max, title, context, "or pass", signed);
         }
         return shownNow(cardsAmong(list), how,
-                () -> pickSeveral("chooseEntitiesForEffect", list, min, max, title, context));
+                () -> pickSeveral("chooseEntitiesForEffect", list, min, max, title, context, "or pass", signed));
     }
 
     /**
@@ -2312,6 +2336,19 @@ public final class MatchController extends GeneratedControllerBase {
     /** The same, with what ends the picking named as the page names it ("then Done"). */
     private <T extends forge.game.GameEntity> java.util.List<T> pickSeveral(
             String kind, Iterable<T> options, int min, int max, String title, String context, String stop) {
+        return pickSeveral(kind, options, min, max, title, context, stop, null);
+    }
+
+    /**
+     * The same; with [pay] (spec 0071) each question carries the cards
+     * picked so far and what happens to them (`picking`, to the asking
+     * seat only), and accepts a take-back of any of them, which offers the
+     * card again in Forge's order. Forge is handed the list only when the
+     * picking is over, so a take-back undoes nothing in the game.
+     */
+    private <T extends forge.game.GameEntity> java.util.List<T> pickSeveral(
+            String kind, Iterable<T> options, int min, int max, String title, String context, String stop,
+            CostPicks.Pay pay) {
         java.util.List<T> chosen = new java.util.ArrayList<>();
         java.util.List<T> remaining = new java.util.ArrayList<>();
         options.forEach(remaining::add);
@@ -2347,13 +2384,22 @@ public final class MatchController extends GeneratedControllerBase {
             }
 
             T picked;
+            java.util.List<String> answers = new java.util.ArrayList<>(byId.keySet());
+            java.util.List<forge.game.card.Card> pickedCards = new java.util.ArrayList<>();
+            if (pay != null) {
+                chosen.forEach(one -> pickedCards.add((forge.game.card.Card) one));
+                java.util.List<String> pickedIds = new java.util.ArrayList<>();
+                pickedCards.forEach(card -> pickedIds.add("card:" + card.getId()));
+                answers = CostPicks.answers(byId.keySet(), pickedIds);
+                host.offerPicking(CostPicks.picking(pay, pickedCards, player.getView()));
+            }
             try {
                 String choice =
                         host.gate().ask(
                                 actedForSeat,
                                 authorisedSeat,
                                 kind,
-                                new java.util.ArrayList<>(byId.keySet()),
+                                answers,
                                 mandatory,
                                 prompt,
                                 pending -> host.publishDecision(pending, labels));
@@ -2361,6 +2407,13 @@ public final class MatchController extends GeneratedControllerBase {
                     // Only reachable once the minimum is met; the
                     // gate refuses a pass before that.
                     break;
+                }
+                forge.game.card.Card back = pay == null ? null : CostPicks.taken(choice, pickedCards);
+                if (back != null) {
+                    // Spec 0071 -- taken back: offered again where it was.
+                    chosen.remove(back);
+                    remaining = CostPicks.left(options, chosen);
+                    continue;
                 }
                 picked = byId.get(choice);
             } catch (InterruptedException e) {
@@ -3781,9 +3834,10 @@ public final class MatchController extends GeneratedControllerBase {
             // priority (Lab costs delve trace, 2026-11-08).
             return new forge.game.card.CardCollection(grave.subList(0, most));
         }
-        return new forge.game.card.CardCollection(chooseEntitiesForEffect(
+        // Spec 0071 -- each card picked shows the exile star, and can be taken back.
+        return new forge.game.card.CardCollection(chooseEntities(
                 grave, 0, most, null, null,
-                "Delve: exile cards from your graveyard, each paying {1}", player, null));
+                "Delve: exile cards from your graveyard, each paying {1}", CostPicks.EXILE));
     }
 
     /**
@@ -3984,8 +4038,9 @@ public final class MatchController extends GeneratedControllerBase {
             return arranged(layout("to", "top"), () -> chooseEntitiesForEffect(
                     fetchList, min, max, delayedReveal, sa, selectPrompt, decider, null));
         }
-        return chooseEntitiesForEffect(
-                fetchList, min, max, delayedReveal, sa, selectPrompt, decider, null);
+        // Spec 0071 -- each pick signed with where it goes (Escape: exile).
+        return chooseEntities(fetchList, min, max, delayedReveal, sa, selectPrompt,
+                CostPicks.toZone(destination == null ? null : destination.name()));
     }
 
     /**

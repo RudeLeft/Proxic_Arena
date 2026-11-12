@@ -39,6 +39,22 @@ export function wentWords(to: string | null | undefined): string | null {
   }
 }
 
+/**
+ * Spec 0071, item 1 -- how far above the resting hand's top a report's
+ * bottom edge stays: clear of the cards, so the hand (and the eye on a card
+ * just seen) is never under it.
+ */
+export const REPORT_HAND_GAP = 10;
+
+/**
+ * Spec 0071, item 1 -- the report's distance from the board's bottom: its
+ * bottom edge above the top of your resting hand (layout's handTop, the
+ * highest point of the fan), at every board size.
+ */
+export function reportBottom(geometry: Geometry): number {
+  return geometry.height - geometry.handTop + REPORT_HAND_GAP;
+}
+
 export function RevealTray({
   reveal,
   geometry,
@@ -64,7 +80,13 @@ export function RevealTray({
       role="region"
       aria-label={reveal.said ?? reveal.title.replace(/:$/, "")}
       data-by={reveal.by || undefined}
-      style={{ left: geometry.play.x + geometry.play.w * 0.45, maxWidth: geometry.play.w * 0.82 }}
+      style={{
+        left: geometry.play.x + geometry.play.w * 0.45,
+        maxWidth: geometry.play.w * 0.82,
+        // Spec 0071, item 1 -- above your hand, not on it; at the top while
+        // a question's window holds the bottom (.gs-reveal-top).
+        ...(atTop ? {} : { bottom: reportBottom(geometry) }),
+      }}
     >
       <div className="gs-reveal-head">
         {reveal.said ? (

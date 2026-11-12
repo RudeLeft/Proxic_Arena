@@ -110,4 +110,42 @@ class CostPicksTest {
         assertNull(gate.submit(new DecisionGate.Response(q.decisionId(), 1, q.stateVersion(), "unpick:card:12")));
         assertEquals("unpick:card:12", answer.get());
     }
+
+    /** F-0071-C -- a window's picks are signed with where the cards go; a plain dot where there is no sign. */
+    @Test
+    void windowPicksAreSignedByWhereTheyGo() {
+        assertEquals("exile", CostPicks.toZone("Exile").tone());
+        assertEquals("hand", CostPicks.toZone("Hand").tone());
+        assertEquals("library", CostPicks.toZone("Library").tone());
+        assertEquals("other", CostPicks.toZone("Graveyard").tone());
+        assertEquals("other", CostPicks.toZone("Battlefield").tone());
+        assertEquals("other", CostPicks.toZone(null).tone());
+        assertFalse(CostPicks.toZone("Exile").lean());
+    }
+
+    /** F-0071-C -- where a window's picks may be taken back, and where not. */
+    @Test
+    void windowPicksTakeBackOnlyWhereItIsRight() {
+        // Escape's five from a graveyard, Delve, "up to two" from a search.
+        assertTrue(CostPicks.takesBack(5, true, null, null));
+        assertTrue(CostPicks.takesBack(2, true, "zone", "library"));
+        // One pick ends the question: nothing left to take back.
+        assertFalse(CostPicks.takesBack(1, true, null, null));
+        assertFalse(CostPicks.takesBack(0, true, null, null));
+        // A player among the options has nothing to sign.
+        assertFalse(CostPicks.takesBack(3, false, null, null));
+        // The windows that lay their picks out themselves.
+        assertFalse(CostPicks.takesBack(5, true, "split", null));
+        assertFalse(CostPicks.takesBack(2, true, "to", "top"));
+        assertTrue(CostPicks.takesBack(2, true, "to", "graveyard"));
+    }
+
+    /** F-0071-C -- a card taken back is offered again where it was, in Forge's order. */
+    @Test
+    void aCardTakenBackIsOfferedAgainWhereItWas() {
+        List<String> grave = List.of("a", "b", "c", "d", "e", "f");
+        assertEquals(List.of("a", "c", "e", "f"), CostPicks.left(grave, List.of("b", "d")));
+        // "b" taken back: between "a" and "c" again, not at the end.
+        assertEquals(List.of("a", "b", "c", "e", "f"), CostPicks.left(grave, List.of("d")));
+    }
 }

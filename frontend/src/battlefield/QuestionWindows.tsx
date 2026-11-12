@@ -21,6 +21,8 @@ import { Bubble, Tray } from "./GameWindow";
 import type { Question } from "./interaction";
 import type { Box, Geometry } from "./layout";
 import { ManaText, symbolUrl } from "./ManaCost";
+import { payMarks, payWords, type PayMark } from "./payPicks";
+import { PaySign, SIGN_COLOUR } from "./PaySign";
 
 /** At most this many short choices in a bubble; more go to the tray. */
 export const BUBBLE_MOST = 6;
@@ -440,6 +442,79 @@ export function TableQuestionWindow(props: Common) {
  * (colours as mana symbols), the tray for more or for cards, with a search
  * box when there are many.
  */
+/**
+ * Spec 0071, item 3 -- a card picked so far in a window that picks several
+ * one at a time (Escape's five from the graveyard, Delve, "up to two" from
+ * a search): it stays where it was, dimmed, with the corner sign of what
+ * will happen to it; clicking it takes it back (its take-back answer).
+ */
+export function PickedTile({
+  card,
+  mark,
+  label,
+  artUrl,
+  small,
+  named,
+  busy,
+  onAnswer,
+}: {
+  card: SnapshotCard;
+  mark: PayMark;
+  label: string;
+  artUrl: (art: string) => string;
+  small?: boolean;
+  /** The name under the picture, as the tray's other tiles have. */
+  named?: boolean;
+  busy: boolean;
+  onAnswer: (actionId: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`gs-option gs-win-tile gs-win-tile-picked${small ? " gs-win-tile-small" : ""}`}
+      disabled={busy}
+      aria-pressed={true}
+      aria-label={`${label}, ${payWords(mark)}`}
+      data-tile-of={card.id}
+      data-picked={mark.tone}
+      style={{ ["--bf-pay" as string]: SIGN_COLOUR[mark.tone] }}
+      onClick={() => onAnswer(mark.actionId)}
+    >
+      <BigCard card={card} artUrl={artUrl} small={small ?? false} />
+      <PaySign tone={mark.tone} />
+      {named && <span className="gs-win-tile-name">{card.name}</span>}
+    </button>
+  );
+}
+
+/**
+ * Spec 0071, item 3 -- a window's cards with the picks so far put back among
+ * them: the options in the game's order, each picked card just before the
+ * first option that comes after it on the board (so a pick stays where it
+ * was, and one taken back is offered there again).
+ */
+export function withPicked<T>(
+  options: readonly T[],
+  idOf: (option: T) => string | null,
+  picked: readonly string[],
+  boardOrder: readonly string[],
+): ({ option: T; picked?: undefined } | { option?: undefined; picked: string })[] {
+  const at = (id: string | null) => (id ? boardOrder.indexOf(id) : -1);
+  const left = picked
+    .filter((id) => !options.some((o) => idOf(o) === id))
+    .sort((a, b) => at(a) - at(b));
+  const out: ({ option: T; picked?: undefined } | { option?: undefined; picked: string })[] = [];
+  for (const option of options) {
+    const here = at(idOf(option));
+    while (left.length > 0 && here >= 0 && at(left[0]!) >= 0 && at(left[0]!) < here) {
+      out.push({ picked: left.shift()! });
+    }
+    out.push({ option });
+  }
+  for (const id of left) out.push({ picked: id });
+  return out;
+}
+
 export function ChoiceWindow(props: Common) {
   const { decision, question, board, busy, artUrl, onAnswer } = props;
   const [query, setQuery] = useState("");
@@ -562,6 +637,12 @@ export function ChoiceWindow(props: Common) {
   }
 
   const cards = choices.every((o) => cardOf(board, o.objectId));
+  // Spec 0071, item 3 -- the picks so far stay in the window, signed.
+  const marks = payMarks(decision);
+  const boardOrder = [...board.battlefield, ...board.hand, ...board.graveyard, ...board.exile].map(
+    (c) => c.id,
+  );
+  const tiles = withPicked(shown, (o) => o.objectId, [...marks.keys()], boardOrder);
   return (
     <Tray
       geometry={props.geometry}
@@ -585,19 +666,42 @@ export function ChoiceWindow(props: Common) {
       )}
       {cards ? (
         <ul className="gs-win-tiles gs-win-list">
-          {shown.map((o) => (
-            <li key={o.actionId}>
-              <button
-                type="button"
-                className="gs-option gs-win-tile"
-                disabled={busy}
-                aria-label={o.label ?? o.actionId}
-                onClick={() => onAnswer(o.actionId)}
-              >
-                <BigCard card={cardOf(board, o.objectId)!} artUrl={artUrl} />
-              </button>
-            </li>
-          ))}
+          {tiles.map((t) => {
+            if (t.picked !== undefined) {
+              const card = cardOf(board, t.picked);
+              const mark = marks.get(t.picked);
+              if (!card || !mark) return null;
+              const label =
+                decision.picking?.picked.find((p) => p.objectId === t.picked)?.label ?? card.name;
+              return (
+                <li key={mark.actionId}>
+                  <PickedTile
+                    card={card}
+                    mark={mark}
+                    label={label}
+                    artUrl={artUrl}
+                    busy={busy}
+                    onAnswer={onAnswer}
+                  />
+                </li>
+              );
+            }
+            const o = t.option;
+            return (
+              <li key={o.actionId}>
+                <button
+                  type="button"
+                  className="gs-option gs-win-tile"
+                  disabled={busy}
+                  aria-label={o.label ?? o.actionId}
+                  data-tile-of={o.objectId ?? undefined}
+                  onClick={() => onAnswer(o.actionId)}
+                >
+                  <BigCard card={cardOf(board, o.objectId)!} artUrl={artUrl} />
+                </button>
+              </li>
+            );
+          })}
         </ul>
       ) : chips ? (
         chipList(shown)

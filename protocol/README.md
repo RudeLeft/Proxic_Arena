@@ -358,7 +358,20 @@ decision.picking          spec 0070, on a cost paid by picking cards one at
                           nothing until the cost is paid (Forge pays it at
                           the end, as before). Convoke's mana balls (spec
                           0062) are sent once the picking is over, for the
-                          same reason (scripts/check-pay-picks.py)
+                          same reason (scripts/check-pay-picks.py).
+                          Spec 0071: also on chooseEntitiesForEffect when
+                          two or more CARDS may be picked one at a time
+                          (Escape's "exile five other cards from your
+                          graveyard", Delve, a search's "up to two", ...):
+                          word/tone by where the cards go -- EXILE/exile,
+                          TO HAND/hand, TO LIBRARY/library, TO GRAVEYARD or
+                          PICK/other (a plain dot). Not on a single pick,
+                          when a player is among the options, Fact or
+                          Fiction's split, or Brainstorm's "to the top"
+                          (those windows lay picks out themselves). The
+                          page keeps each picked card in the window,
+                          dimmed, with its sign; a click sends its
+                          `actionId`
 decision.arrange.discard  spec 0061, item 3, on
                           chooseCardsToDiscardToMaximumHandSize: how many
                           cards are still to go (the game asks one at a

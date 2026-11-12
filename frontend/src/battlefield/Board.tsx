@@ -62,6 +62,7 @@ import {
   anchors,
   boxAt,
   handZoomBox,
+  opponentRevealBox,
   LIFE_R,
   plateRects,
   MOVE_MS,
@@ -1571,9 +1572,15 @@ export function Board({
     // Spec 0031 — the opponent's hand: backs, and any card shown to you.
     // Clicking it opens the shown cards, as the plate's Hand tile did.
     opponentHand.forEach((card, i) => {
-      const box = result.boxes.get(card.id);
-      if (!box) return;
+      const rest = result.boxes.get(card.id);
+      if (!rest) return;
       const shown = card.shown;
+      // Spec 0071, item 2 -- a card you may see slides down fully into
+      // view while pointed at, and back; a hidden back never moves.
+      const slid = !!shown && pointed === card.id;
+      const box = slid ? opponentRevealBox(rest, g) : rest;
+      const show = () => setPointed(card.id);
+      const hide = () => setPointed((now) => (now === card.id ? null : now));
       const drawn: Drawn = shown
         ? {
             name: shown.name,
@@ -1618,6 +1625,11 @@ export function Board({
               data-controller="opponent"
               data-face={shown ? "up" : "down"}
               data-seen={shown?.seen ? "true" : undefined}
+              data-zoomed={slid ? "true" : undefined}
+              onPointerEnter={shown ? show : undefined}
+              onPointerLeave={shown ? hide : undefined}
+              onFocus={shown ? show : undefined}
+              onBlur={shown ? hide : undefined}
             >
               {shown ? (
                 <CardFace {...drawn} />

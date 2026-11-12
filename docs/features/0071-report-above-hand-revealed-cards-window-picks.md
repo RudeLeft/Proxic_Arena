@@ -27,3 +27,67 @@ Three defects found while filming spec 0070 (1.56.0).
 | F-0071-D | The other player's frames carry no picked ids until the picking is over | worker test; Lab hidden check |
 
 ## Amendments
+
+## As built (2026-11-11)
+
+**1. Report above your hand.** `RevealTray` sets its bottom from the
+layout: `reportBottom(geometry)` = board height - `geometry.handTop` (the
+resting fan's highest point, layout.ts HAND_BASELINE) + `REPORT_HAND_GAP`
+(10 px), so it follows the board at 1920x1080 and 2560x1440. Same width
+and place in the middle. With a question window open it still goes to the
+top (`.gs-reveal-top`; no bottom set then). A pointed-at hand card still
+lifts above it, as before.
+
+**2. Point to see their revealed cards.** Board: a face-up card in the
+other player's hand (seen, or shown) slides to `opponentRevealBox`
+(motion.ts): upright, its own size, top flush with the board's top edge,
+over where it was -- the strip that was showing stays under the pointer,
+so it does not slide away from it. Back on leave (or blur). Hidden backs
+have no pointer handlers and never move. The eye goes with the card. The
+slide is the slots' CSS transition, so reduce motion = it appears in place.
+
+**3. Picks stay, signed, take back.** Reproduced first: the Lab's Escape
+(Uro) and Delve (Treasure Cruise) asked `chooseEntitiesForEffect` with no
+`picking`; the window listed only the cards left. The window that asks
+them is the card window (`ChoiceWindow`, graveyard cards as tiles), not
+`HiddenZoneTray` (that one is for a library or another player's hand);
+both now keep picks.
+
+- Worker: `pickSeveral` takes an optional `CostPicks.Pay`; with one, each
+  question carries `picking` (GameHost.offerPicking, as 0070) and accepts
+  `unpick:card:N` for a card picked so far, which is offered again in
+  Forge's order (`CostPicks.left`). Tone by destination
+  (`CostPicks.toZone`): exile -> EXILE, hand, library; graveyard and
+  anything else -> the plain dot (0070 has no graveyard sign). Paths:
+  `chooseCardsForZoneChange` (Escape and every other zone-change pick,
+  by destination), `chooseCardsToDelve` (EXILE), plain
+  `chooseEntitiesForEffect` (dot).
+- Limited (`CostPicks.takesBack`): no `picking` when at most one card can
+  be picked (the pick ends the question), when any option is a player
+  (nothing to sign), for Fact or Fiction's split, or for Brainstorm's "to
+  the top" (those windows lay their picks out themselves). Nothing Forge
+  acts on happens between picks -- Forge gets the list only when the
+  picking is over -- so no pick Forge already acted on can be taken back.
+- Not covered: the other `pickSeveral` callers (sacrifice/destroy as an
+  effect, enlist, exert, reveal from hand, splice, crank, scry's "away"
+  row) keep their windows as they were. Trigger: an owner report of one.
+- Pass word unchanged ("Pass"; the tray says "Done" once a pick is made,
+  as before): Escape's pass short of five declines the escape, so
+  "Done" there would mislead.
+- Server: unchanged; `DecisionLayout.putLayout` already passes `picking`
+  to the asking seat only, and `LiveMatch` accepts any take-back named in
+  it.
+- Page: `PickedTile` (QuestionWindows.tsx) -- dimmed, outlined in the
+  sign's colour, PaySign inside the picture's top-right corner, a click
+  sends the take-back; `withPicked` keeps a pick where it was among the
+  cards. Used by `ChoiceWindow` and `HiddenZoneTray`.
+
+**Tests.** CostPicksTest (toZone, takesBack, left); fixes0071.test.tsx
+(F-0071-A at both sizes and at the top, -B incl. hidden backs and reduce
+motion, -C in the card window and the search tray, -D); 7 of its 11 fail
+with the three fixes removed. scripts/check-pay-picks.py `escape` (Uro:
+two picks, the first taken back, five exiled; the one taken back stays in
+the graveyard) and `delve` (Treasure Cruise, four) -- both INCONCLUSIVE
+("no graveyard picking window was asked with picks") against a worker with
+the take-back turned off; check-hidden-hands.py and check-hidden-log.py
+clean on all four pay-picks traces. Already in CI's Lab list.

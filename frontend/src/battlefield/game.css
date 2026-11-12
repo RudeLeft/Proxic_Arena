@@ -3119,12 +3119,35 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-win-tile:disabled .gs-win-bigcard {
   opacity: 0.55;
 }
+/* Spec 0071, item 3 -- a card picked so far in a window: it stays, dimmed,
+   with the corner sign of what will happen to it (PaySign, 0070's signs)
+   and an outline in the sign's colour; a click takes it back. The sign sits
+   inside the picture's top-right corner (the tiles' row may clip outside
+   it), clear of the card's name on the left. */
+.gs-win-tile-picked {
+  --card-h: 150px;
+}
+.gs-win-tile.gs-win-tile-picked[aria-pressed="true"] .gs-win-bigcard {
+  opacity: 0.5;
+  outline: 2px solid var(--bf-pay);
+  outline-offset: 2px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 55%);
+}
+.gs-win-tile.gs-win-tile-picked[aria-pressed="true"]:hover:not(:disabled) .gs-win-bigcard {
+  opacity: 0.7;
+}
+.gs-win-tile-picked .bf-pay-sign {
+  top: 6px;
+  right: 6px;
+}
 /* Spec 0045 -- the cards a player was shown (RevealTray.tsx): a tray along
    the bottom, or the top while a question's window holds the bottom. Not a
    .gs-win: it asks nothing, and the scripted games find questions by it. */
 .gs-reveal {
   position: absolute;
   z-index: 29000;
+  /* Spec 0071 -- above the resting hand: RevealTray sets the bottom from the
+     layout (reportBottom); this is only where nothing has measured yet. */
   bottom: 12px;
   transform: translateX(-50%);
   box-sizing: border-box;

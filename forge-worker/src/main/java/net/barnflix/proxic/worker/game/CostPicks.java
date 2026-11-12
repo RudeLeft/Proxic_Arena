@@ -80,6 +80,52 @@ public final class CostPicks {
         };
     }
 
+    /**
+     * Spec 0071 -- a window's picks (Escape's "exile five other cards from
+     * your graveyard", Delve, "up to N" from a search) that have no cost
+     * class: the sign is where the cards go. Exile the star, a hand or a
+     * library their signs; a graveyard has no sign of its own in 0070 (as
+     * CostExiledMoveToGrave), so it and anything else get the plain dot.
+     */
+    static final Pay PICK = new Pay("PICK", "other", false);
+
+    /** The Pay of picks going to [zone] (Forge's ZoneType name), or PICK. */
+    static Pay toZone(String zone) {
+        return switch (zone == null ? "" : zone) {
+            case "Exile" -> EXILE;
+            case "Hand" -> TO_HAND;
+            case "Library" -> TO_LIBRARY;
+            case "Graveyard" -> TO_GRAVEYARD;
+            default -> PICK;
+        };
+    }
+
+    /**
+     * Spec 0071 -- whether a window's one-at-a-time picks (the worker's
+     * pickSeveral, from chooseEntitiesForEffect) carry the picks so far and
+     * take a pick back. Not when at most one can be picked (the one pick
+     * ends the question: nothing is left on screen to take back), not when
+     * anything offered is a player (nothing to sign), and not for the
+     * windows that already lay picks out themselves: Fact or Fiction's
+     * split (a pick moves a card between the piles) and Brainstorm's "to
+     * the top" (each click is numbered in the order it will be drawn).
+     * Nothing Forge acts on happens between the picks -- the list goes to
+     * Forge only when the picking is over -- so every other pick can be
+     * taken back.
+     *
+     * @param layout the question's layout key while it is asked ("split",
+     *               "to", "zone"), or null
+     */
+    static boolean takesBack(int max, boolean allCards, String layout, String layoutValue) {
+        if (max <= 1 || !allCards) {
+            return false;
+        }
+        if ("split".equals(layout)) {
+            return false;
+        }
+        return !("to".equals(layout) && "top".equals(layoutValue));
+    }
+
     /** "unpick:card:12" for the card picked as "card:12". */
     static String unpickId(String objectId) {
         return UNPICK + objectId;
@@ -140,6 +186,20 @@ public final class CostPicks {
             picked.put("card:" + card.getId(), ViewerSnapshot.nameFor(card, viewer));
         }
         return picking(pay, picked);
+    }
+
+    /**
+     * Spec 0071 -- what is still offered: [options] in Forge's order without
+     * [chosen], so a card taken back is offered again where it was.
+     */
+    static <T> List<T> left(Iterable<T> options, Collection<T> chosen) {
+        List<T> out = new ArrayList<>();
+        for (T one : options) {
+            if (!chosen.contains(one)) {
+                out.add(one);
+            }
+        }
+        return out;
     }
 
     /** Which of [chosen] a take-back answer names, or null. */

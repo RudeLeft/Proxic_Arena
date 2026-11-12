@@ -28,7 +28,8 @@ import { useMemo, useState } from "react";
 import type { Decision, Snapshot, SnapshotCard } from "../match";
 import { Tray } from "./GameWindow";
 import type { Geometry } from "./layout";
-import { BigCard } from "./QuestionWindows";
+import { BigCard, PickedTile } from "./QuestionWindows";
+import { payMarks } from "./payPicks";
 import {
   DAMAGE_TO_PLAYER,
   askingName,
@@ -369,12 +370,15 @@ export function HiddenZoneTray(props: TrayProps) {
   const { decision, board, busy, artUrl } = props;
   const { cards, open } = cardsOf(decision);
   const offered = cards.filter((c) => open.has(c.id));
+  // Spec 0071, item 3 -- the cards picked so far stay, dimmed and signed.
+  const marks = payMarks(decision);
+  const picked = cards.filter((c) => !open.has(c.id) && marks.has(c.id));
   const zone = decision.arrange?.zone ?? "library";
   // Another player's hand: the cards it showed that are not offered, dimmed.
   const shownOnly = useMemo(() => {
     if (zone !== "hand" || !board.reveal) return [];
     const left = new Map<string, number>();
-    for (const c of offered) left.set(c.name, (left.get(c.name) ?? 0) + 1);
+    for (const c of [...offered, ...picked]) left.set(c.name, (left.get(c.name) ?? 0) + 1);
     return board.reveal.cards.filter((c) => {
       const n = left.get(c.name) ?? 0;
       if (n > 0) {
@@ -383,16 +387,27 @@ export function HiddenZoneTray(props: TrayProps) {
       }
       return true;
     });
-  }, [zone, board.reveal, offered]);
+  }, [zone, board.reveal, offered, picked]);
   const few = zone === "hand" || cards.length <= 7;
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "spells" | "lands">("all");
-  const groups = few
+  // A pick stays where it was among the few; above the groups of a library.
+  const groups: { card: SnapshotCard; ids: string[]; why: string | null; picked?: boolean }[] = few
     ? [
-        ...offered.map((card) => ({ card, ids: [card.id], why: null as string | null })),
+        ...cards
+          .filter((c) => open.has(c.id) || marks.has(c.id))
+          .map((card) => ({
+            card,
+            ids: [card.id],
+            why: null as string | null,
+            picked: !open.has(card.id),
+          })),
         ...shownOnly.map((card) => ({ card, ids: [] as string[], why: notOffered(card, offered) })),
       ]
-    : cardGroups(offered);
+    : [
+        ...picked.map((card) => ({ card, ids: [card.id], why: null, picked: true })),
+        ...cardGroups(offered),
+      ];
   const q = query.trim().toLowerCase();
   const shown = groups.filter(
     (g) =>
@@ -466,6 +481,22 @@ export function HiddenZoneTray(props: TrayProps) {
       )}
       <div className={`gs-win-tiles${few ? "" : " gs-win-tiles-scroll"}`}>
         {shown.map((g) => {
+          const mark = g.picked ? marks.get(g.card.id) : undefined;
+          if (mark) {
+            return (
+              <PickedTile
+                key={mark.actionId}
+                card={g.card}
+                mark={mark}
+                label={g.card.name}
+                artUrl={artUrl}
+                small={!few || groups.length > 4}
+                named
+                busy={busy}
+                onAnswer={props.onAnswer}
+              />
+            );
+          }
           const option = decision.options.find((o) => o.objectId && g.ids.includes(o.objectId));
           return (
             <Tile
