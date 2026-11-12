@@ -69,7 +69,6 @@ import {
   SETTLE_EASING,
   SETTLE_MS,
   glideFrames,
-  lateFade,
   hurry,
   placedNow,
   fateFrames,
@@ -350,12 +349,6 @@ export interface BoardProps {
    * board where their hidden backs went down by one; all backs look alike.
    */
   handLeft?: number | null;
-  /**
-   * Spec 0072, item 3 -- their cancelled spell going back into their hidden
-   * hand: this new back makes the Glide from the middle (`from`), fading in
-   * as the cast card, on the same path, fades out.
-   */
-  castBack?: { id: string; from: (g: Geometry) => Box } | null;
   /** Where a card that left the board went (default: its controller's
    * graveyard). A card that moved to the hand needs nothing: it is still
    * drawn, and simply moves. */
@@ -957,7 +950,6 @@ export function Board({
   graves,
   flyingOnto = null,
   handLeft = null,
-  castBack = null,
   hiddenStack = null,
   quietStack,
   stackOwing = null,
@@ -2311,20 +2303,6 @@ export function Board({
         if (item.id === flyingOnto && item.ids.length === 1) continue;
         const element = elements.current.get(item.id);
         if (!element || typeof element.animate !== "function") continue;
-        // Spec 0072: their cancelled spell's back, from the middle, fading in.
-        if (castBack && item.id === castBack.id) {
-          glide(
-            element,
-            lateFade(
-              glideFrames(castBack.from(g), item.box, g.cardW, g.cardH, item.origin, item.origin),
-              0,
-              1,
-            ),
-            0,
-            MOVE_MS,
-          );
-          continue;
-        }
         // A-14: the other player's new card back, taking over a card going there.
         const flight = flights.get(item.id);
         if (flight) {
@@ -3028,7 +3006,6 @@ export function Board({
     artUrl,
     flyingOnto,
     handLeft,
-    castBack,
     stackScale,
     pointed,
     battlefield,

@@ -39,6 +39,8 @@ type Recorded = {
   frames: Keyframe[];
   options: KeyframeAnimationOptions;
   rate: number[];
+  /** What the page set to run when it ends (a flight's onDone). */
+  done: () => void;
 };
 const size = { width: 1920, height: 947 };
 let animations: Recorded[] = [];
@@ -67,9 +69,10 @@ beforeEach(() => {
       frames,
       options: (typeof options === "number" ? { duration: options } : options) as never,
       rate: [],
+      done: () => {},
     };
     animations.push(record);
-    return {
+    const animation = {
       cancel() {},
       finish() {},
       commitStyles() {},
@@ -85,6 +88,8 @@ beforeEach(() => {
       },
       updatePlaybackRate: (rate: number) => record.rate.push(rate),
     } as unknown as Animation;
+    record.done = () => (animation.onfinish as (() => void) | null)?.();
+    return animation;
   };
   // As in a browser: a card whose place just changed has a running CSS
   // transition (its transform), so it reads as "still moving".
@@ -375,7 +380,7 @@ describe("flashback from his graveyard rises face up (F-0072-B)", () => {
 });
 
 describe("cancelled, it goes back where it came from (F-0072-C)", () => {
-  it("into his hand: the Glide back to his fan's new back, which makes the same Glide fading in", () => {
+  it("into his hand: the Glide back onto his fan's new back, turning to face him; one card at a time", () => {
     const c = open();
     board(6);
     board(5, { casting: [bolt], moves: [toStack(bolt.id, "hand", 2)] });
@@ -384,34 +389,34 @@ describe("cancelled, it goes back where it came from (F-0072-C)", () => {
     board(6);
     const going = c.querySelector<HTMLElement>('.gs-cast-leaving[data-going="back"]')!;
     expect(going).not.toBeNull();
-    expect(going.querySelector(".gs-cast-back")).not.toBeNull();
+    const face = going.querySelector<HTMLElement>(".gs-cast-back")!;
+    expect(face).not.toBeNull();
     const back = slotOf(c, "hidden-hand:2:5");
     const [flight] = glidesOf(going);
-    const [arrive] = glidesOf(back);
     expect(flight!.options.duration).toBe(MOVE_MS);
-    expect(arrive!.options.duration).toBe(MOVE_MS);
-    // Both on one path, frame by frame: the card fading out, the back in.
-    for (const k of [0, 5, 10, 15, 20]) {
-      expectNear(
-        castDrawn(going, flight!.frames[k]!),
-        slotDrawn(back, String(arrive!.frames[k]!.transform)),
-      );
-      expect(Number(flight!.frames[k]!.opacity) + Number(arrive!.frames[k]!.opacity)).toBeCloseTo(
-        1,
-        5,
-      );
-    }
-    // The hand-over is late, near the fan (an upright back to his upside-down
-    // one): solid until three quarters of the way.
-    expect(Number(flight!.frames[15]!.opacity)).toBe(1);
-    expect(Number(arrive!.frames[15]!.opacity)).toBe(0);
-    // From the middle, at full size; landing exactly on the new back.
+    // From the middle, at full size; landing exactly on the new back, solid
+    // the whole way (no cross-fade: two pictures would show).
     expectNear(castDrawn(going, flight!.frames[0]!), {
       x: restOf(going).x + restOf(going).w / 2,
       y: restOf(going).y + restOf(going).h / 2,
       w: restOf(going).w,
     });
     expectNear(castDrawn(going, flight!.frames[20]!), slotDrawn(back));
+    expect(flight!.frames.every((f) => Number(f.opacity ?? 1) === 1)).toBe(true);
+    // On the way it turns round to face him, as his backs are drawn
+    // (upside down), and loses its glow: it lands looking like them.
+    const turn = animations.find((a) => a.element === face)!;
+    expect(turn).toBeDefined();
+    expect(turn.options.duration).toBe(MOVE_MS);
+    expect(String(turn.frames.at(-1)!.transform)).toBe("rotate(180deg)");
+    // The new back is not drawn while it flies, and makes no move of its own.
+    expect(back.style.opacity).toBe("0");
+    expect(glidesOf(back)).toHaveLength(0);
+    expect(animations.filter((a) => a.element === back)).toHaveLength(0);
+    // Landed: the flight goes and the back is there, in the same frame.
+    act(() => flight!.done());
+    expect(c.querySelector('.gs-cast-leaving[data-going="back"]')).toBeNull();
+    expect(slotOf(c, "hidden-hand:2:5").style.opacity).toBe("");
     expect(going.outerHTML).not.toContain("hidden-hand");
   });
 

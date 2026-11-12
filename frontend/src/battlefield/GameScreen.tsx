@@ -826,8 +826,6 @@ export function GameScreen({
       };
     }
   }
-  const backId = theirBack.current?.backId ?? null;
-  const castBack = useMemo(() => (backId ? { id: backId, from: castingBox } : null), [backId]);
   const atRef = useRef<((objectId: string) => Box | null) | null>(null);
   // W-17 -- the cards lit while a sector or sprocket choice is pointed at.
   const [lit, setLit] = useState<ReadonlySet<string>>(() => new Set());
@@ -885,8 +883,12 @@ export function GameScreen({
   // Chosen once per flight, then kept: the newest card of that name, that
   // player's, not there while it was being cast.
   const landingChoice = useRef<{ key: number; id: string } | null>(null);
-  // Spec 0072 -- a card of theirs you were shown, cancelled: it lands on its place in their hand.
-  let flyingOnto: string | null = theirBack.current?.origin.shown ?? null;
+  // Spec 0072 -- their spell cancelled into their hand lands on its place
+  // there: a card of theirs you were shown, or the fan's new last back. That
+  // card is not drawn until it has landed, then is, exactly there: one card
+  // at a time, never two pictures overlapping.
+  let flyingOnto: string | null =
+    theirBack.current?.origin.shown ?? theirBack.current?.backId ?? null;
   // Spec 0062 -- lingering for its balls, a spell already resolved is not
   // drawn on the battlefield yet either: the flight still lands there.
   const going =
@@ -1773,7 +1775,6 @@ export function GameScreen({
                 ? theirOrigin.back
                 : null
             }
-            castBack={castBack}
             hiddenStack={hiddenStack}
             stackPay={stackPay}
             stackPayLive={owingNow !== null}
@@ -1986,11 +1987,12 @@ export function GameScreen({
                           back={{
                             box: own ?? shown ?? place.box,
                             origin: place.origin,
-                            // Into their hand: it fades as the hand's new back
-                            // fades in on the same path; onto a card you were
-                            // shown, it lands as it; into a pile, it shrinks
-                            // and fades there, as a spell going to the stack.
-                            opacity: shown ? 1 : going.origin.zone === "hand" ? 0 : 0.3,
+                            // Into their hand it lands as the card there (the
+                            // fan's new back, turning round on the way to face
+                            // him as his backs do); into a pile, it shrinks and
+                            // fades there, as a spell going to the stack.
+                            opacity: going.origin.zone === "hand" ? 1 : 0.3,
+                            turn: own !== null,
                           }}
                           onDone={() => {
                             if (theirBack.current?.key === going.key) theirBack.current = null;

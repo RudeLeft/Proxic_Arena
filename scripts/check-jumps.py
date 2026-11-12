@@ -100,7 +100,7 @@ def thing_of(key, stack_card):
     return k
 
 
-def handed_over(th, points, now):
+def handed_over(th, points, *frames):
     """Spec 0072 -- a card back of a hidden hand that appears or goes where,
     at that very frame, another card is drawn (within HANDOVER px): one back
     handed over to another element at the same spot, not a pop or a blink.
@@ -108,11 +108,13 @@ def handed_over(th, points, now):
     page numbers them by place), so when the other player casts from the
     middle of the fan, the backs after it close the gap and the LAST number
     is the one that goes; and their cancelled spell lands on the fan's new
-    last back, fading into it. Only hidden-hand backs are excused."""
-    if not str(th).startswith("hidden-hand:"):
-        return False
-    return any(other != th and math.hypot(a[0] - b[0], a[1] - b[1]) <= HANDOVER
-               for other, pts in now.items() for a in pts for b in points)
+    last back, taking over from it in one frame (the flight goes and the
+    back is drawn in the same frame, so the frame before is read too). Only
+    hand-overs to or from a hidden-hand back are excused."""
+    mine = str(th).startswith("hidden-hand:")
+    return any(other != th and (mine or str(other).startswith("hidden-hand:"))
+               and math.hypot(a[0] - b[0], a[1] - b[1]) <= HANDOVER
+               for seen in frames for other, pts in seen.items() for a in pts for b in points)
 
 
 def analyse(file, trace, seat):
@@ -179,10 +181,10 @@ def analyse(file, trace, seat):
                     if d > 0:
                         steps[th].append((d, t, t in gaps))
                 elif q and not p:
-                    if not handed_over(th, q, now):
+                    if not handed_over(th, q, now, prev):
                         appeared.setdefault(th, (t, q))
                 elif p and not q:
-                    if handed_over(th, p, now):
+                    if handed_over(th, p, now, prev):
                         vanished.pop(th, None)
                     else:
                         vanished[th] = (t, p)

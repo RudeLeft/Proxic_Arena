@@ -29,7 +29,7 @@ import { figure } from "./Board";
 import type { Box, Geometry } from "./layout";
 import { manaSymbols, symbolUrl } from "./ManaCost";
 import { assignBalls, litShadow, type PaidStep } from "./manaBalls";
-import { MOVE_MS, glideFramesAs, lateFade } from "./motion";
+import { MOVE_EASING, MOVE_MS, glideFramesAs, lateFade } from "./motion";
 
 /**
  * Spec 0072 -- the other player's card's Glide (A-00) into or out of the
@@ -560,7 +560,7 @@ export function CastingFlight({
    * the same Glide fading in as this fades out; a card of theirs you were
    * shown; a pile), ending at `opacity`. Face up if it rose face up.
    */
-  back?: (TheirGlide & { opacity: number }) | null;
+  back?: (TheirGlide & { opacity: number; turn?: boolean }) | null;
   artUrl: (art: string) => string;
   onDone: () => void;
   reveal?: boolean;
@@ -596,8 +596,22 @@ export function CastingFlight({
         ),
         { duration: MOVE_MS, easing: "linear", fill: "forwards" },
       );
+      // Into their fan: the back turns round as it goes, losing its glow,
+      // so it lands looking exactly like the fan's backs (drawn upside down:
+      // they face him), and that back takes over in one frame.
+      const face = back.turn ? el.querySelector<HTMLElement>(".gs-cast-back") : null;
+      const turning = face?.animate(
+        [
+          { transform: "rotate(0deg)" },
+          { transform: "rotate(180deg)", boxShadow: "0 0 0 0 transparent" },
+        ],
+        { duration: MOVE_MS, easing: MOVE_EASING, fill: "forwards" },
+      );
       going.onfinish = onDone;
-      return () => going.cancel();
+      return () => {
+        going.cancel();
+        turning?.cancel();
+      };
     }
     if (!el || (!to && !reveal) || typeof el.animate !== "function") {
       onDone();
