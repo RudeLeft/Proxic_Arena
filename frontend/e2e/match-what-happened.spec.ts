@@ -128,9 +128,14 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
         }
         // F-0045-A: the counter, and where it came from.
         const mate = boardCards(page, "viewer").filter({ hasText: "Ajani's Pridemate" });
-        if (!counter && (await mate.locator(".bf-counters").count()) > 0) {
-          const chip = mate.locator(".bf-counters").first();
-          await expect(chip).toHaveText("+1/+1");
+        if (!counter && (await mate.locator(".bf-badges").count()) > 0) {
+          // Spec 0076: a green up-arrow badge with its number; the words
+          // (spec 0045) are what pointing says.
+          const chip = mate.locator(".bf-badges").first();
+          await expect(chip.locator('.bf-badge[data-counter="P1P1"] .bf-badge-n')).toHaveText(
+            /^\d+$/,
+          );
+          await expect(chip).not.toContainText("+1/+1");
           await expect(chip).toHaveAttribute(
             "title",
             /Ajani's Pridemate's trigger: .* gained 1 life \(Soul Warden\)/,

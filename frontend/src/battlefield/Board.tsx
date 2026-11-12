@@ -212,6 +212,7 @@ import {
 import type { TileMove } from "./fromSnapshot";
 import { payWords, type PayMark } from "./payPicks";
 import { PaySign } from "./PaySign";
+import { CardBadges } from "./CardBadges";
 
 export type { TargetRef } from "./effects";
 
@@ -246,13 +247,17 @@ export function counterName(name: string): string {
  * where the last ones came from ("+1/+1 from Ajani's Pridemate's
  * trigger: RudeLeft gained 1 life (Soul Warden)").
  */
-export function counterWords(card: {
-  counters?: readonly { name: string; count: number }[];
-  counterFrom?: readonly { counter: string; added: number; from: string }[] | undefined;
-}): string[] {
+export function counterWords(
+  card: {
+    counters?: readonly { name: string; count: number }[];
+    counterFrom?: readonly { counter: string; added: number; from: string }[] | undefined;
+  },
+  each = false,
+): string[] {
   return (card.counters ?? []).map((c) => {
     const from = [...(card.counterFrom ?? [])].reverse().find((o) => o.counter === c.name);
-    const what = `${c.count} ${counterName(c.name)} counter${c.count === 1 ? "" : "s"}`;
+    // Spec 0076: a pile's badges are per card ("on each").
+    const what = `${c.count} ${counterName(c.name)} counter${c.count === 1 ? "" : "s"}${each ? " on each" : ""}`;
     return from ? `${what}, the last from ${from.from}` : what;
   });
 }
@@ -1598,6 +1603,21 @@ export function Board({
                 : {})}
             >
               <CardFace {...drawn} />
+              {/* Spec 0076 -- its counters and the Ring-bearer as badges, low
+                  on the left; pointing says spec 0045's words. They keep
+                  clear of everything else on the card (item 5): the state
+                  word, the x N, a land's mana symbols, the zZz. */}
+              <CardBadges
+                card={lead}
+                pile={count > 1}
+                room={{
+                  pile: count > 1,
+                  mana: Boolean(lead.makes && lead.makes.length > 0 && !lead.faceDown),
+                  state: Boolean(leadAct.chosen || lead.blocking || lead.attacking || lead.tapped),
+                  zzz: sick(lead),
+                  zone: Boolean(lead.sector || lead.sprocket),
+                }}
+              />
               {leadAct.chosen ? (
                 // Phase 9 Amendment 17: already chosen for the spell being cast.
                 <span className="bf-state bf-state-target">TARGET</span>
@@ -1628,16 +1648,6 @@ export function Board({
                   })}
                 </span>
               )}
-              {/* Spec 0045 -- its counters; pointing says where from. */}
-              {lead.counters.some((c) => c.name !== "LOYALTY") && (
-                <span className="bf-counters" title={counterWords(lead).join("\n")}>
-                  {lead.counters
-                    .filter((c) => c.name !== "LOYALTY")
-                    .map((c) => `${counterName(c.name)}${c.count > 1 ? ` ×${c.count}` : ""}`)
-                    .join(" · ")}
-                </span>
-              )}
-              {lead.ringBearer && <span className="bf-ring">Ring-bearer</span>}
               {/* Owner 2026-11-01 (item 3) -- came in this turn: drifting zZz. */}
               {sick(lead) && (
                 <span className="bf-zz" aria-hidden="true" style={motionDelay(lead.id)}>

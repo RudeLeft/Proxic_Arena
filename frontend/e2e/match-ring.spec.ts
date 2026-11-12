@@ -64,7 +64,9 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
     const bearers = (page: Page) =>
       matchPanel(page)
         .locator('.bf-cards button.bf-card:not([data-zone="stack"])')
-        .filter({ hasText: "Ring-bearer" });
+        // Spec 0076: a gold ring on the card, the word in its label.
+        .filter({ has: page.locator(".bf-mark-ring") })
+        .filter({ has: page.locator('.bf-badges[title*="Ring-bearer"]') });
     const seen = async (pattern: RegExp) =>
       (await totals(host).filter({ hasText: pattern }).count()) > 0 ||
       (await totals(guest).filter({ hasText: pattern }).count()) > 0;

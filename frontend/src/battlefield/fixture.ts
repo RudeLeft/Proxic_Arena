@@ -100,6 +100,22 @@ export function syntheticBoard(permanents: number, faces: number, seed: number):
   const pick = <T>(list: readonly T[]): T => list[Math.floor(rnd() * list.length)]!;
   const pool = [...CREATURES, ...OTHERS.map(([n]) => n), ...NONBASICS].slice(0, Math.max(1, faces));
   let id = 1;
+  // Spec 0076: the cards with counters take turns at one, two and four
+  // kinds (badges, and the "··· N" fold), drawn without another rnd().
+  let countered = 0;
+  const KINDS = [
+    [{ name: "P1P1", count: 2 }],
+    [
+      { name: "P1P1", count: 2 },
+      { name: "STUN", count: 1 },
+    ],
+    [
+      { name: "P1P1", count: 1 },
+      { name: "CHARGE", count: 3 },
+      { name: "SHIELD", count: 1 },
+      { name: "OIL", count: 12 },
+    ],
+  ];
   const battlefield: BoardCard[] = [];
   const base = (seat: number, name: string, kind: string, types: string): BoardCard => ({
     id: `card:${id++}`,
@@ -155,7 +171,7 @@ export function syntheticBoard(permanents: number, faces: number, seed: number):
         tapped: rnd() < 0.2,
         attacking: seat === 2 && rnd() < 0.25,
         keywords: rnd() < 0.3 ? ["Flying"] : [],
-        counters: rnd() < 0.1 ? [{ name: "P1P1", count: 2 }] : [],
+        counters: rnd() < 0.1 ? KINDS[countered++ % KINDS.length]! : [],
       };
       if (card.attacking) card.tapped = true;
     } else if (roll < 0.95) {

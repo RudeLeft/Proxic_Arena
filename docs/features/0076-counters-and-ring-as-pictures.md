@@ -28,3 +28,13 @@ Counters show today as one green word pill ("+1/+1 ×2 · Stun") at the card's l
 | F-0076-E | Hover and close-up keep the 0045 words | page test |
 
 ## Amendments
+
+### As built (2026-11-12)
+
+- **Where:** `frontend/src/battlefield/CardBadges.tsx` (the canvas's pictures, colours and order: +1/+1 and -1/-1 first, then the most), drawn by `Board.tsx` in place of the word pill and the "Ring-bearer" word; styles `.bf-badges`, `.bf-badge`, `.bf-mark` in `battlefield.css`, at the canvas's sizes (badge 0.15 of the card's height, number 0.098, ring square 0.17, column from 0.15 above the bottom edge). Page only: the snapshot already carried every counter `{name, count}` and the Ring-bearer.
+- **Four or more kinds:** as item 2 says -- the first three, then "··· N" for the rest (the canvas's mock folded after two; the spec's words were followed).
+- **Kinds seen in Lab games that are not drawn** get the grey lettered badge: keyword counters arrive with their own spelling ("Vigilance" shows "Vi"), and a battle's DEFENSE counters ("DE") -- these were in the word pill before too. Loyalty stays the planeswalker's number.
+- **Nothing covered, nothing under (owner review via coordinator, same day):** each badge goes up its column from just above the bottom bar, stepping over the state word (TAPPED, ATTACKING, BLOCKING, TARGET), the zZz and a sector word, staying below the name (or a pile's ×N) and above a land's mana symbols; when a column is full the next badge starts a second column to its right (`CardBadges.placeBadges`). An attacking card with four kinds shows two badges below its ATTACKING word and two above, in two columns. Two columns always fit inside the card; if even they cannot hold everything (a tapped pile that came in this turn), fewer kinds show and the rest go into "··· N". A first build let ATTACKING paint over a badge; that is gone.
+- **Pointing:** spec 0045's words on the whole column, plus "Ring-bearer"; on a pile, "on each" (the canvas's "What it costs"). The close-up and the card's spoken name are unchanged.
+- **No animation** (the number does not pop): nothing to respect under Reduce motion.
+- **Tests:** `fixes0076.test.tsx` (F-0076-A..E: all six fail with `Board.tsx` and `battlefield.css` put back; F-0076-D also fails with the band-stepping removed); `battlefield.spec.ts`'s sweep measures every badge, at every board size, against the name bar, the bottom bar, P/T, ×N, mana pill, state word, zZz, sector word and the other badges (it failed on the first build: "a badge covers bf-state"). The synthetic boards' counters now take turns at one, two and four kinds. `match-what-happened` and `match-ring` look for the badge and the ring instead of the words.

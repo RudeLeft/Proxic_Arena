@@ -1718,7 +1718,6 @@
   opacity: 0.85;
 }
 
-/* The Ring-bearer (public): a word on the card, not a colour alone. */
 /* Spec 0046 -- what a land makes: its mana symbols in a dark pill, low on
    the picture, so a dual reads at a glance (owner 2026-10-31). */
 .bf-makes {
@@ -1748,41 +1747,97 @@
 img.bf-makes-pip {
   background: none;
 }
-/* Spec 0045 -- a card's counters, low on its picture; pointing at them
-   says where they came from. Takes the pointer (the card's click still
-   works through it: it is inside the card's button). */
-.bf-counters {
+/* Spec 0076 (canvas counters-1112, option A) -- counters and the
+   Ring-bearer as badges, stacked upward from the lower-left corner just
+   above the bottom bar (the strip a crowded row still shows). A round
+   badge (picture + number) is counted; a gold-rimmed square is something
+   the card is. Sizes follow --card-h, as on the canvas. Where each stands
+   is CardBadges.placeBadges: up the column, stepping over the state word,
+   the zZz and a sector word, below the name (or a pile's x N), above a
+   land's mana symbols, then a second column to the right -- so a badge
+   never covers anything, nor is covered. The columns span the card's
+   height; each badge sits at its height by its margin below. Pointing
+   says spec 0045's words (title); the card's click works through it (it
+   is inside the card's button). */
+.bf-badges {
   position: absolute;
-  left: 6%;
-  bottom: 22%;
-  max-width: 88%;
-  overflow: hidden;
-  padding: 1px 5px;
-  border: 1px solid #7fbf6a;
-  border-radius: 999px;
-  background: rgb(10 20 12 / 88%);
-  color: #d8f3cf;
-  font-weight: 700;
-  font-size: calc(var(--card-h) * 0.075);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  left: calc(var(--card-h) * 0.03);
+  top: 0;
+  bottom: 0;
+  display: flex;
+  gap: calc(var(--card-h) * 0.018);
+  font-family: Inter, sans-serif;
+  pointer-events: none;
+}
+.bf-badge-col {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+}
+.bf-badge-at {
+  display: block;
+  flex: none;
   pointer-events: auto;
   cursor: help;
 }
-.bf-ring {
-  position: absolute;
-  left: 50%;
-  top: 22%;
-  transform: translateX(-50%);
-  padding: 1px 5px;
-  border: 1px solid #e0a44a;
-  border-radius: 2px;
-  background: rgb(10 13 17 / 88%);
-  color: #f0dcb6;
-  font-weight: 700;
-  font-size: calc(var(--card-h) * 0.07);
-  letter-spacing: 0.06em;
-  white-space: nowrap;
+.bf-badge {
+  --k: #5d6863;
+  display: flex;
+  align-items: center;
+  height: calc(var(--card-h) * 0.15);
+  padding-right: calc(var(--card-h) * 0.03);
+  border-radius: 999px;
+  background: rgb(10 14 12 / 90%);
+  border: 1.5px solid var(--k);
+  box-shadow: 0 1px 3px #000a;
+  box-sizing: border-box;
+}
+.bf-badge-g {
+  width: calc(var(--card-h) * 0.15 - 3px);
+  height: calc(var(--card-h) * 0.15 - 3px);
+  border-radius: 50%;
+  background: var(--k);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.bf-badge-g svg {
+  width: 72%;
+  height: 72%;
+}
+.bf-badge-n {
+  font:
+    700 calc(var(--card-h) * 0.098) / 1 Inter,
+    sans-serif;
+  color: #fff;
+  margin-left: calc(var(--card-h) * 0.022);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.bf-badge-more {
+  --k: #4f5a55;
+  border-style: dashed;
+}
+.bf-badge-more .bf-badge-n {
+  margin-left: calc(var(--card-h) * 0.03);
+}
+/* Something the card is: a rounded square with a gold rim, no number. */
+.bf-mark {
+  width: calc(var(--card-h) * 0.17);
+  height: calc(var(--card-h) * 0.17);
+  border-radius: calc(var(--card-h) * 0.035);
+  background: radial-gradient(circle at 40% 35%, #3a2c12, #16110a);
+  border: 1.5px solid #e9c46a;
+  display: grid;
+  place-items: center;
+  box-shadow:
+    0 0 calc(var(--card-h) * 0.05) #e9c46a66,
+    0 1px 3px #000a;
+  box-sizing: border-box;
+}
+.bf-mark svg {
+  width: 80%;
+  height: 80%;
 }
 
 /* Un-sets (public): a creature's sector, a Contraption's sprocket -- a word

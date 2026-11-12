@@ -175,6 +175,8 @@ const BOARDS: [number, number, number][] = [
   [200, 30, 3],
 ];
 const TOLERANCE = 0.1; // px: sub-pixel rounding, nothing more
+/** F-0076-D: how many badges the sweep measured (it must reach some). */
+let badgesSeen = 0;
 
 /**
  * Everything wrong with what is on screen, against layout() for `board`.
@@ -282,6 +284,73 @@ async function differences(
         ).length,
     );
     if (clipped > 0) wrong.push(`${clipped} card(s) clipped`);
+
+    // F-0076-D: the counter badges stay on their card, above the bottom
+    // bar, and cover neither the name, the x N pile number, the P/T nor a
+    // land's mana symbols, the state word or the zZz -- at every size the sweep reaches. Measured in
+    // the card's own (unrotated) frame, so tapped cards count too.
+    const badges = await page.evaluate(() => {
+      const out: string[] = [];
+      let seen = 0;
+      const frame = (el: HTMLElement, card: HTMLElement) => {
+        let x = 0;
+        let y = 0;
+        for (let e: HTMLElement | null = el; e && e !== card; e = e.offsetParent as HTMLElement)
+          (x += e.offsetLeft), (y += e.offsetTop);
+        // Its own translate (TAPPED is centred by one, the mana pill too).
+        const m = new DOMMatrix(getComputedStyle(el).transform);
+        x += m.e;
+        y += m.f;
+        return { l: x, t: y, r: x + el.offsetWidth, b: y + el.offsetHeight };
+      };
+      const meets = (a: ReturnType<typeof frame>, b: ReturnType<typeof frame>) =>
+        Math.min(a.r, b.r) - Math.max(a.l, b.l) > 0.5 &&
+        Math.min(a.b, b.b) - Math.max(a.t, b.t) > 0.5;
+      for (const card of document.querySelectorAll<HTMLElement>("button.bf-card")) {
+        const items = [...card.querySelectorAll<HTMLElement>(".bf-badge, .bf-mark")];
+        if (items.length === 0) continue;
+        const id = card.dataset.objectId;
+        // Spec 0076 item 5: not under the state word (TAPPED, ATTACKING,
+        // BLOCKING, TARGET), the zZz or a sector word either.
+        const others = [
+          ".bf-bar-top",
+          ".bf-bar-bottom",
+          ".bf-pile",
+          ".bf-makes",
+          ".bf-pt",
+          ".bf-state",
+          ".bf-zz",
+          ".bf-zone",
+        ]
+          .flatMap((s) => [...card.querySelectorAll<HTMLElement>(s)])
+          .map((el) => [el.className, frame(el, card)] as const);
+        for (const item of items) {
+          seen++;
+          const r = frame(item, card);
+          if (
+            r.l < -0.5 ||
+            r.t < -0.5 ||
+            r.r > card.offsetWidth + 0.5 ||
+            r.b > card.offsetHeight + 0.5
+          )
+            out.push(`${id}: a badge leaves its card`);
+          for (const [what, o] of others)
+            if (meets(r, o)) out.push(`${id}: a badge covers ${what}`);
+          if (item.offsetHeight < 12) out.push(`${id}: a badge is ${item.offsetHeight}px tall`);
+          for (const other of items)
+            if (other !== item && meets(r, frame(other, card)))
+              out.push(`${id}: two badges overlap`);
+        }
+        // TAPPED / ATTACKING, the zZz and the rest paint over the badges.
+        const column = card.querySelector(".bf-badges")!;
+        for (const mark of card.querySelectorAll(".bf-state, .bf-zz, .bf-pile, .bf-makes"))
+          if (!(column.compareDocumentPosition(mark) & Node.DOCUMENT_POSITION_FOLLOWING))
+            out.push(`${id}: the badges are drawn over ${mark.className}`);
+      }
+      return { out, seen };
+    });
+    wrong.push(...badges.out);
+    badgesSeen += badges.seen;
   }
   return { wrong, shrunk, seen };
 }
@@ -327,6 +396,7 @@ test("the drawn battlefield is exactly layout()'s, and keeps Amendment 4 and spe
     }
   }
   expect(shrunk, "some board exercised the scale floor (§7.51)").toBeGreaterThan(0);
+  expect(badgesSeen, "the sweep measured counter badges (F-0076-D)").toBeGreaterThan(0);
   expect(problems, "browser reported errors").toEqual([]);
 });
 
