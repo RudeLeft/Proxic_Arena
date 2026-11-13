@@ -3,6 +3,23 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.66.0 — 2026-11-13
+
+The last two places where cards popped in instead of moving are fixed.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Free spells**
+- When the other player casts a spell for free (Memnite, Ornithopter, a spell cast by cascade), it now rises from his hand -- or from the pile it was cast from -- and flies to the stack, the same as his paid spells. Before, it just faded in on the stack.
+- Your own free spell cast from a pile (your own cascade) rises from that pile too.
+
+**Cards exiled from a hand or library**
+- The card you exile to pay for Force of Will, a card Karn exiles from a hand, and the cards cascade exiles from the library now visibly fly to the exile pile, and the exile count goes up as each lands. Before, only the count changed.
+
+**Testing**
+- A full check replayed every test game from both seats and found no card that jumps. Six new board-wipe test games (Wrath of God, Pyroclasm, Pestilence, Hallowed Burial, Infest, Evacuation) now run with every update.
+
 ## 1.65.0 — 2026-11-12
 
 Cards that blink out and back, phase out, or survive something that should have killed them are now shown on the table.
