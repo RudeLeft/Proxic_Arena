@@ -149,7 +149,9 @@ def destroy():
         return "inconclusive", "never Murdered a Grizzly Bears", found
     problems = [found["stopped"]] if found["stopped"] else []
     want = {"card": st["target"], "from": {"zone": "battlefield", "seat": 2},
-            "to": {"zone": "graveyard", "seat": 2}, "why": "destroyed"}
+            "to": {"zone": "graveyard", "seat": 2}, "why": "destroyed",
+            # Spec 0078: a creature leaving the battlefield carries its last size.
+            "last": {"power": 2, "toughness": 2}}
     for seat in (1, 2):
         died = [m for m in found[f"seat{seat}"] if m["from"]["zone"] == "battlefield"]
         if died != [want]:
