@@ -6,6 +6,9 @@
 // flight, its stack entry, a leaving ghost). scripts/check-jumps.py then
 // follows each card and lists every jump, pop-in and unseen move.
 //
+// The next board is sent only once the page is idle: no animation that
+// ends still running and no deliberate hold pending (holdTimers, settled).
+//
 // Not part of the browser suite: it needs a REAL window (headless Edge
 // drops frames by itself, BATTLEFIELD_RENDERING.md §6) and a folder of Lab
 // traces. Run against the local stack on :8080:
@@ -132,22 +135,75 @@ function recorder() {
   requestAnimationFrame(tick);
 }
 
-/** Wait until nothing that ends is still moving (looping glows don't count). */
+// Runs in every page before its own code: notes each timer the page sets
+// for a deliberate hold (the other player's spell held 1.5 s, a reveal's
+// flip-and-hold, a report window, the fights' clock, a held spot, a float)
+// until it fires or is cleared. A real game's next board comes after such a
+// hold; sending it in the middle replayed several boards as one change and
+// the check flagged jumps no game shows (builders of specs 0072-0080). Only
+// the window of a hold counts: under HOLD_MIN a timer is a frame's
+// housekeeping, and from HOLD_MAX up it is a safety net that fires after
+// its animation's own end (the page's `ms * 20` fall-backs) or a clean-up
+// of something already gone (30 s tethers, the 8 s mana-ball cap).
+const HOLD_MIN = 100;
+const HOLD_MAX = 3_000;
+function holdTimers(window_: { min: number; max: number }) {
+  const w = window as unknown as { __holds: Map<number, number> };
+  const holds = new Map<number, number>();
+  w.__holds = holds;
+  const set = window.setTimeout.bind(window);
+  const clear = window.clearTimeout.bind(window);
+  window.setTimeout = ((handler: TimerHandler, ms?: number, ...args: unknown[]) => {
+    const wait = Number(ms) || 0;
+    if (typeof handler !== "function" || wait < window_.min || wait >= window_.max)
+      return set(handler, ms, ...args);
+    const id = set(() => {
+      holds.delete(id);
+      (handler as (...a: unknown[]) => void)(...args);
+    }, wait);
+    holds.set(id, performance.now() + wait);
+    return id;
+  }) as typeof window.setTimeout;
+  window.clearTimeout = ((id?: number) => {
+    if (id !== undefined) holds.delete(id);
+    clear(id);
+  }) as typeof window.clearTimeout;
+}
+
+/**
+ * Wait until the page is idle, as a player watching would before the next
+ * board: nothing that ends is still moving (looping glows don't count) and
+ * no hold timer is pending -- twice in a row, a short settle apart, since a
+ * hold that ends starts what it held back.
+ */
 async function settled(page: Page) {
-  await page
-    .waitForFunction(
-      () =>
-        document
-          .getAnimations()
-          .filter((a) => a.playState === "running" && a.effect?.getTiming().iterations !== Infinity)
-          .length === 0,
-      undefined,
-      // Phase 10 A-13: a combat damage step's fights play one at a time,
-      // for several seconds; wait for them, as a player watching would.
-      { timeout: 12_000, polling: 50 },
-    )
-    .catch(() => undefined);
-  await page.waitForTimeout(120);
+  const idle = () =>
+    page
+      .waitForFunction(
+        () => {
+          const w = window as unknown as { __holds?: Map<number, number> };
+          return (
+            (w.__holds?.size ?? 0) === 0 &&
+            document
+              .getAnimations()
+              .filter(
+                (a) => a.playState === "running" && a.effect?.getTiming().iterations !== Infinity,
+              ).length === 0
+          );
+        },
+        undefined,
+        // Phase 10 A-13: a combat damage step's fights play one at a time,
+        // for several seconds; wait for them, as a player watching would.
+        { timeout: 12_000, polling: 50 },
+      )
+      .then(
+        () => true,
+        () => false,
+      );
+  for (let i = 0; i < 2; i++) {
+    if (!(await idle())) break;
+    await page.waitForTimeout(120);
+  }
 }
 
 test("record every Lab board, frame by frame", async ({ browser }) => {
@@ -157,6 +213,7 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
     [];
   for (const who of ["host", "guest"]) {
     const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+    await context.addInitScript(holdTimers, { min: HOLD_MIN, max: HOLD_MAX });
     const page = await context.newPage();
     if (who === "host") await signIn(page);
     else await signInAs(page, secondUser, secondPassword);
@@ -194,6 +251,15 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
     .poll(() => host.seat !== null && guest.seat !== null, { timeout: 300_000 })
     .toBe(true);
   for (const p of pages) await p.page.evaluate(recorder);
+
+  /** Reload a page and wait until it is back on the game's socket, recording. */
+  const fresh = async (p: (typeof pages)[0]) => {
+    p.client = null;
+    await p.page.reload();
+    await expect.poll(() => p.client !== null, { timeout: 60_000 }).toBe(true);
+    await p.page.waitForTimeout(1_500);
+    await p.page.evaluate(recorder);
+  };
 
   // Slow-motion mode: JUMPS_CLIPS='[{"trace":"x","seat":1,"board":6}]' --
   // the boards up to it at speed, then that one at a tenth of the speed,
@@ -277,7 +343,13 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
     .sort();
   const index: Record<string, unknown>[] = [];
   let revision = 100_000;
-  for (const trace of traces) {
+  for (const [n, trace] of traces.entries()) {
+    // A fresh page for each game, as in a real one: the page remembers
+    // what it has seen by id (the stack cards it has shown, the cards on
+    // the table), and every Lab game starts its ids again from 1 -- on one
+    // page, the 300th game's trigger "stack:11" was taken for a stack card
+    // seen games before (no rise), and cards of an earlier game came back.
+    if (n > 0) await Promise.all(pages.map(fresh));
     // Both pages at once, each its own seat's boards of the same game.
     await Promise.all(
       pages.map(async (p) => {

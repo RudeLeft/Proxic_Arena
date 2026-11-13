@@ -38,7 +38,11 @@ def boards(trace, seat):
             continue
         s = f["state"]
         sig = json.dumps([s.get(k) for k in ("battlefield", "hand", "graveyard", "exile", "stack", "otherHands", "casting")]
-                         + [[p.get("life"), p.get("handCount"), p.get("libraryCount"), p.get("poison"), p.get("counters")] for p in s["players"]],
+                         + [[p.get("life"), p.get("handCount"), p.get("libraryCount"), p.get("poison"), p.get("counters")] for p in s["players"]]
+                         # The same boards as the spec's (spec 0062: a payment
+                         # step can change nothing else), or every board after
+                         # one is read against the next board's recording.
+                         + [s.get("payments")],
                          sort_keys=True)
         if sig == prev:
             continue
