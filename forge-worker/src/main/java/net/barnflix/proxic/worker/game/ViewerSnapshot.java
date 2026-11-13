@@ -233,7 +233,11 @@ final class ViewerSnapshot {
 
         JsonArray battlefield = new JsonArray();
         for (Player player : game.getRegisteredPlayers()) {
-            for (Card card : player.getCardsIn(ZoneType.Battlefield)) {
+            // Spec 0080 -- phased-out permanents too (Forge's plain
+            // getCardsIn leaves them out, and the page drew them exiled),
+            // each flagged `phasedOut` by describe(). Public: they stay on
+            // the battlefield, treated as though they don't exist.
+            for (Card card : player.getCardsIn(ZoneType.Battlefield, false)) {
                 JsonObject described = describe(card, viewing, seatOf);
                 // Spec 0045 -- where its counters came from (public).
                 JsonArray origins = causes == null || !described.has("counters")
@@ -710,6 +714,22 @@ final class ViewerSnapshot {
         }
         entry.addProperty("tapped", view.isTapped());
         entry.addProperty("faceDown", view.isFaceDown());
+        // Spec 0080 -- public facts about a permanent, whatever it is:
+        // phased out (Forge's own flag), its regeneration shields waiting
+        // (Card#getShieldCount: made by a Regenerate ability, used by a
+        // destroy, gone at cleanup), and indestructible (the keyword Forge
+        // applies now). Only on the battlefield.
+        if (card.isInPlay() || card.isPhasedOut()) {
+            if (card.isPhasedOut()) {
+                entry.addProperty("phasedOut", true);
+            }
+            if (card.getShieldCount() > 0) {
+                entry.addProperty("shields", card.getShieldCount());
+            }
+            if (card.hasKeyword(forge.game.keyword.Keyword.INDESTRUCTIBLE)) {
+                entry.addProperty("indestructible", true);
+            }
+        }
 
         boolean maySee = viewer == null
                 ? publicly(view, seatOf.keySet())

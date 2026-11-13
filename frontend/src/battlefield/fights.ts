@@ -33,6 +33,8 @@ export interface CombatWave {
     deathtouch?: boolean;
     /** Spec 0077 -- poison counters, not life. */
     infect?: boolean;
+    /** Spec 0080 -- damage a prevention stopped (Holy Day, protection): its would-be amount (`amount` 0). */
+    prevented?: number;
   }[];
   combat?: "first-strike" | "regular";
   fights?: readonly { attacker: string; defender: FightRef; blockers: readonly string[] }[];
@@ -111,6 +113,8 @@ export interface Strike {
   deathtouch: boolean;
   /** Spec 0077 -- an infect hit on a player: poison counters, not life. */
   poison?: boolean;
+  /** Spec 0080 -- the damage a prevention stopped here (the shield absorbs it; `amount` is what got through). */
+  prevented?: number;
   /** When it lands, from the sequence's start. */
   at: number;
 }
@@ -338,7 +342,7 @@ export function planFights(input: FightInput): FightPlan | null {
     // The struck, by drawn card or player: how much, and whether by deathtouch.
     const struck = new Map<
       string,
-      { amount: number; deathtouch: boolean; infect: boolean; ref: FightRef }
+      { amount: number; deathtouch: boolean; infect: boolean; ref: FightRef; prevented: number }
     >();
     for (const hit of hits) {
       const key =
@@ -349,12 +353,14 @@ export function planFights(input: FightInput): FightPlan | null {
         deathtouch: false,
         infect: false,
         ref: hit.target,
+        prevented: 0,
       };
       struck.set(key, {
         amount: was.amount + hit.amount,
         deathtouch: was.deathtouch || hit.deathtouch === true,
         infect: was.infect || hit.infect === true,
         ref: hit.target,
+        prevented: was.prevented + (hit.prevented ?? 0),
       });
     }
     const A = a.box;
@@ -405,7 +411,7 @@ export function planFights(input: FightInput): FightPlan | null {
           bright: 1,
           easing: "cubic-bezier(.2,.8,.3,1)",
         },
-        ...(aStruck
+        ...(aStruck && aStruck.amount > 0
           ? [
               jolt(second + k(FIGHT_KNOCK_MS) * 0.1, aLunge, h, 1),
               {
@@ -438,6 +444,7 @@ export function planFights(input: FightInput): FightPlan | null {
           box: shifted(A, aLunge.dx, aLunge.dy),
           amount: aStruck.amount,
           deathtouch: aStruck.deathtouch,
+          ...(aStruck.prevented > 0 ? { prevented: aStruck.prevented } : {}),
           at: second,
         });
       }
@@ -459,7 +466,7 @@ export function planFights(input: FightInput): FightPlan | null {
             easing: "cubic-bezier(.6,0,1,.6)",
           },
           { at: impact, ...bl, r: 0, s: 1, red: 0, bright: 1, easing: "cubic-bezier(.2,.8,.3,1)" },
-          ...(hit
+          ...(hit && hit.amount > 0
             ? [
                 jolt(impact + k(FIGHT_KNOCK_MS) * 0.1, bl, b.box.h, i % 2 === 0 ? -1 : 1),
                 {
@@ -493,6 +500,7 @@ export function planFights(input: FightInput): FightPlan | null {
             box: shifted(b.box, bl.dx, bl.dy),
             amount: hit.amount,
             deathtouch: hit.deathtouch,
+            ...(hit.prevented > 0 ? { prevented: hit.prevented } : {}),
             at: impact,
           });
         }
@@ -522,7 +530,7 @@ export function planFights(input: FightInput): FightPlan | null {
         moves.set(defenderCard.item, [
           still(start),
           still(impact),
-          ...(struck.get(defenderCard.item)
+          ...((struck.get(defenderCard.item)?.amount ?? 0) > 0
             ? [
                 jolt(impact + k(FIGHT_KNOCK_MS) * 0.1, { dx: 0, dy: 0 }, P.h, 1),
                 {
@@ -547,6 +555,7 @@ export function planFights(input: FightInput): FightPlan | null {
             box: P,
             amount: hit.amount,
             deathtouch: hit.deathtouch,
+            ...(hit.prevented > 0 ? { prevented: hit.prevented } : {}),
             at: impact,
           });
         }
@@ -601,6 +610,7 @@ export function planFights(input: FightInput): FightPlan | null {
         amount: s.amount,
         deathtouch: false,
         ...(s.infect ? { poison: true } : {}),
+        ...(s.prevented > 0 ? { prevented: s.prevented } : {}),
         at: impact,
       });
     }

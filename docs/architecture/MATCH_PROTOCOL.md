@@ -253,7 +253,16 @@ page works out every other size change by comparing two boards. Spec
 copied, only while the reader may see it); a copied spell ending on the
 stack moves to "nowhere"; a spell that fizzled has why "fizzled", and both
 players get an `action` report ("Alice's Lightning Bolt did nothing: its
-target was gone.") and a play-log line. What may
+target was gone.") and a play-log line. Spec 0080: phased-out permanents
+are sent, flagged `phasedOut` (they were left out and drawn exiled), with
+the round's `phased` changes; a flicker is one move ("flickered", `via`
+its exile); `shields` and `indestructible` ride on a permanent; the
+round's `survived` names a regeneration used or an indestructible
+permanent something tried to destroy; prevented damage is a hit with
+`prevented` (amount 0); and the other player's permanents phasing out
+gives an `action` report ("Bob's permanents phased out until Bob's next
+turn.", adding "Bob's life can't change." when the same effect left Forge a
+CantChangeLife static ability for that player: Teferi's Protection). All public. What may
 appear is `MATCH_STATE_VISIBILITY.md`; every field is in
 `protocol/README.md`.
 

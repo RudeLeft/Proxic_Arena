@@ -170,6 +170,66 @@ export const TWIN = (
   </svg>
 );
 
+/**
+ * Spec 0080 (owner 2026-11-12, canvas survive-1112) -- three more "something
+ * the card is" squares, the canvas's pictures exactly: phased out (two cards,
+ * one dashed, pale blue: Q2 A), a regeneration shield (a green shield with a
+ * tick: Q3 B), indestructible (a gold hexagon in a hexagon: Q4b F1's mark at
+ * rest).
+ */
+export const PHASED = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <rect
+      x="3"
+      y="6"
+      width="11"
+      height="14"
+      rx="2"
+      fill="none"
+      stroke="#9fd0ff"
+      strokeWidth="1.8"
+      strokeDasharray="2.6 2"
+    />
+    <rect
+      x="9"
+      y="3"
+      width="11"
+      height="14"
+      rx="2"
+      fill="#9fd0ff44"
+      stroke="#dff0ff"
+      strokeWidth="1.6"
+    />
+  </svg>
+);
+export const REGEN_SHIELD = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      d="M12 2 L20 5 V11 C20 16.5 16.5 20.5 12 22 C7.5 20.5 4 16.5 4 11 V5 Z"
+      fill="#2c5e37"
+      stroke="#fff"
+      strokeWidth="1.6"
+    />
+    <path d="M8 12 L11 15 L16 9" fill="none" stroke="#bff0c0" strokeWidth="2" />
+  </svg>
+);
+export const HEXAGON = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      d="M12 2.5 L20.5 7.25 V16.75 L12 21.5 L3.5 16.75 V7.25 Z"
+      fill="#e9c46a33"
+      stroke="#f2c46a"
+      strokeWidth="1.8"
+    />
+    <path
+      d="M12 7 L16.3 9.5 V14.5 L12 17 L7.7 14.5 V9.5 Z"
+      fill="none"
+      stroke="#fff3c4"
+      strokeWidth="1.2"
+    />
+  </svg>
+);
+
 type Counter = { name: string; count: number };
 
 /** The badges' order (the canvas's): +1/+1 and -1/-1 first, then the most. */
@@ -278,6 +338,10 @@ export function CardBadges({
     ringBearer?: boolean | undefined;
     /** Spec 0079 -- a copy (a Clone, a token copy): the gold copy mark. */
     copy?: boolean | undefined;
+    /** Spec 0080 -- phased out, regeneration shields, indestructible: a square each. */
+    phasedOut?: boolean | undefined;
+    shields?: number | undefined;
+    indestructible?: boolean | undefined;
   };
   /** A pile: its cards are identical, counters included -- "on each". */
   pile: boolean;
@@ -297,10 +361,17 @@ export function CardBadges({
     if (ref.current) playBadges(ref.current, card.id ? changes : []);
   });
   const kinds = badgeOrder([...(card.counters ?? []), ...leaving]);
-  if (kinds.length === 0 && !card.ringBearer && !card.copy) return null;
+  const squares = [
+    card.ringBearer,
+    card.copy,
+    card.phasedOut,
+    (card.shields ?? 0) > 0,
+    card.indestructible,
+  ].filter(Boolean).length;
+  if (kinds.length === 0 && squares === 0) return null;
   // Spec item 2: past three kinds, "··· N". With less room (a tapped pile
   // that came in this turn), fold sooner, so every badge still shows whole.
-  const ring = [...(card.ringBearer ? [MARK_H] : []), ...(card.copy ? [MARK_H] : [])];
+  const ring = Array<number>(squares).fill(MARK_H);
   let shownN = Math.min(kinds.length, SHOWN_KINDS);
   let placed: { column: number; y: number }[] | null = null;
   for (; shownN >= 0; shownN--) {
@@ -323,6 +394,13 @@ export function CardBadges({
     ),
     card.ringBearer ? "Ring-bearer" : "",
     card.copy ? "A copy" : "",
+    card.phasedOut
+      ? "Phased out: treated as though it doesn't exist until its controller's next turn"
+      : "",
+    (card.shields ?? 0) > 0
+      ? `Regeneration shield${(card.shields ?? 0) > 1 ? ` ×${card.shields}` : ""}: the next time it would be destroyed, it taps instead`
+      : "",
+    card.indestructible ? "Indestructible" : "",
   ].filter(Boolean);
   const items: { key: string; h: number; node: ReactNode }[] = [
     ...shown.map((c) => ({
@@ -376,6 +454,45 @@ export function CardBadges({
           },
         ]
       : []),
+    ...(card.phasedOut
+      ? [
+          {
+            key: "phased",
+            h: MARK_H,
+            node: (
+              <span className="bf-mark bf-mark-phased" data-mark="phased">
+                {PHASED}
+              </span>
+            ),
+          },
+        ]
+      : []),
+    ...((card.shields ?? 0) > 0
+      ? [
+          {
+            key: "shield",
+            h: MARK_H,
+            node: (
+              <span className="bf-mark bf-mark-shield" data-mark="shield">
+                {REGEN_SHIELD}
+              </span>
+            ),
+          },
+        ]
+      : []),
+    ...(card.indestructible
+      ? [
+          {
+            key: "hex",
+            h: MARK_H,
+            node: (
+              <span className="bf-mark bf-mark-hex" data-mark="indestructible">
+                {HEXAGON}
+              </span>
+            ),
+          },
+        ]
+      : []),
   ];
   // A column is a flex column from the bottom; each item's margin below
   // puts it at its height (column-reverse: the first item is the lowest).
@@ -390,7 +507,7 @@ export function CardBadges({
       ref={ref}
       className="bf-badges"
       title={words.join("\n")}
-      data-badges={kinds.length + (card.ringBearer ? 1 : 0) + (card.copy ? 1 : 0)}
+      data-badges={kinds.length + squares}
     >
       {columns.map((col, c) => (
         <span key={c} className="bf-badge-col">

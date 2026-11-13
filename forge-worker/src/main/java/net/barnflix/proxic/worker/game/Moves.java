@@ -41,15 +41,20 @@ final class Moves {
 
     /** One zone change. Seats are Arena seats; null when unknown or no zone. */
     record Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
-            Integer into, String where, String said, String name, Integer power, Integer toughness) {
+            Integer into, String where, String said, String name, Integer power, Integer toughness, Integer via) {
 
         Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why) {
-            this(card, from, fromSeat, to, toSeat, faceDown, why, null, null, null, null, null, null);
+            this(card, from, fromSeat, to, toSeat, faceDown, why, null, null, null, null, null, null, null);
         }
 
         Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
                 Integer into) {
-            this(card, from, fromSeat, to, toSeat, faceDown, why, into, null, null, null, null, null);
+            this(card, from, fromSeat, to, toSeat, faceDown, why, into, null, null, null, null, null, null);
+        }
+
+        Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
+                Integer into, String where, String said, String name, Integer power, Integer toughness) {
+            this(card, from, fromSeat, to, toSeat, faceDown, why, into, where, said, name, power, toughness, null);
         }
 
         Move withWhere(String place) {
@@ -197,6 +202,38 @@ final class Moves {
         return out;
     }
 
+    /**
+     * Spec 0080, item 2 (Q1 A) -- a flicker: a permanent exiled and returned
+     * to the battlefield in one go (Ephemerate, Cloudshift). Forge keeps the
+     * card's id through both moves (GameAction#changeZone copies the card
+     * with the same id), so the page saw the same card still on the table
+     * and nothing showed it had left. Told as ONE move instead: from the
+     * battlefield to the battlefield, why "flickered", by way of its exile
+     * (`via`, that exile's seat). Only a battlefield -> exile -> battlefield
+     * pair of the same card in the same round; a card returned in a later
+     * round (Flickerwisp's end-of-turn return) keeps its two moves.
+     */
+    static List<Move> flickers(List<Move> moves) {
+        List<Move> out = new ArrayList<>(moves.size());
+        java.util.Map<Integer, Integer> exiledAt = new java.util.HashMap<>();
+        for (Move move : moves) {
+            if ("battlefield".equals(move.from()) && "exile".equals(move.to())) {
+                exiledAt.put(move.card(), out.size());
+                out.add(move);
+                continue;
+            }
+            Integer at = exiledAt.remove(move.card());
+            if (at != null && "exile".equals(move.from()) && "battlefield".equals(move.to())) {
+                Move left = out.get(at);
+                out.set(at, new Move(move.card(), "battlefield", left.fromSeat(), "battlefield", move.toSeat(),
+                        move.faceDown(), "flickered", null, null, null, null, null, null, left.toSeat()));
+                continue;
+            }
+            out.add(move);
+        }
+        return out;
+    }
+
     /** Forge's zone type, as the protocol names it. */
     static String zoneName(forge.game.zone.ZoneType type) {
         if (type == null) {
@@ -249,6 +286,11 @@ final class Moves {
             }
             if (named && move.into() != null) {
                 entry.addProperty("into", "card:" + move.into());
+            }
+            // Spec 0080 -- a flicker went by way of this exile (public: the
+            // card was on the table at both ends).
+            if ("flickered".equals(move.why()) && move.via() != null) {
+                entry.add("via", place("exile", move.via()));
             }
             // Spec 0078, item 4 -- a creature's last power and toughness on
             // the battlefield, with the card only (the board showed them).

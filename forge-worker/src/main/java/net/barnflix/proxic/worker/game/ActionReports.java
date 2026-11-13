@@ -94,6 +94,12 @@ final class ActionReports {
          */
         boolean copy;
         boolean gone;
+        /**
+         * Spec 0080 (owner, on approval) -- a phasing report: the same effect
+         * also left a "life can't change" static ability on the subject
+         * (Teferi's Protection), as Forge has it.
+         */
+        boolean lifeHeld;
 
         Report(long key, Player actor, String source, Kind kind, Player subject, int count, List<Move> moves,
                 java.util.Map<Integer, String> where, boolean shuffled, int top, int bottom) {
@@ -125,7 +131,9 @@ final class ActionReports {
         /** Spec 0075 -- a look at a hand or a library with no cards in it. */
         EMPTY_LOOK,
         /** Spec 0079 -- a spell that did nothing: every target it had was gone (it fizzled). */
-        FIZZLE }
+        FIZZLE,
+        /** Spec 0080 -- permanents phased out (Teferi's Protection, Slip Out the Back). */
+        PHASE }
 
     /**
      * Spec 0074, Amendment 1 -- the kinds told to both players unless the
@@ -133,7 +141,8 @@ final class ActionReports {
      * Dead): what the other player does, or what happens to them.
      */
     static boolean toBoth(Kind kind) {
-        return kind == Kind.MILL || kind == Kind.COUNTER || kind == Kind.RETURN || kind == Kind.FIZZLE;
+        return kind == Kind.MILL || kind == Kind.COUNTER || kind == Kind.RETURN || kind == Kind.FIZZLE
+                || kind == Kind.PHASE;
     }
 
     private final Game game;
@@ -150,6 +159,8 @@ final class ActionReports {
     private int surveilAway;
     /** Spec 0075 -- the values Forge told each reader while this effect resolved. */
     private final java.util.Map<Player, List<Value>> values = new java.util.LinkedHashMap<>();
+    /** Spec 0080 -- the permanents this effect phased out, as Forge did it. */
+    private final List<Card> phasedOut = new ArrayList<>();
 
     /** The latest report, for every reader; replaced by the next. */
     private volatile Report latest;
@@ -177,6 +188,14 @@ final class ActionReports {
                 Player who = playerOf(shuffle.player());
                 if (who != null) {
                     shuffled.add(who);
+                }
+            } else if (event instanceof forge.game.event.GameEventCardPhased phased) {
+                noteResolving();
+                if (resolving != null && phased.phaseState() && phased.card() != null) {
+                    Card card = game.findById(phased.card().getId());
+                    if (card != null && !phasedOut.contains(card)) {
+                        phasedOut.add(card);
+                    }
                 }
             } else if (event instanceof forge.game.event.GameEventScry scry) {
                 noteResolving();
@@ -308,6 +327,7 @@ final class ActionReports {
         surveilKept = -1;
         surveilAway = 0;
         values.clear();
+        phasedOut.clear();
     }
 
     private Player playerOf(forge.game.player.PlayerView view) {
@@ -364,6 +384,9 @@ final class ActionReports {
             kind = Kind.SCRY;
         } else if (surveilKept >= 0) {
             kind = Kind.SURVEIL;
+        }
+        if (kind == null && !phasedOut.isEmpty()) {
+            return phased(root, actor, host);
         }
         if (kind == null && root.isCycling()) {
             // Spec 0075 -- the cycled card went to the graveyard as the cost,
@@ -456,6 +479,64 @@ final class ActionReports {
         report.chooser = actor;
         report.cards.put(host.getId(), host);
         return report;
+    }
+
+    /**
+     * Spec 0080 (Q2 A, with the window) -- "Bob's permanents phased out until
+     * Bob's next turn.": whose they were (the first that is not the actor's,
+     * else the actor's), and each one, public on the battlefield. They phase
+     * in at their controller's next untap step (CR 702.26b).
+     */
+    private Report phased(SpellAbility root, Player actor, Card host) {
+        Player subject = phasedOut.stream().map(Card::getController).filter(c -> c != null && c != actor)
+                .findFirst().orElse(actor);
+        List<Move> shown = new ArrayList<>();
+        java.util.Map<Integer, String> where = new java.util.HashMap<>();
+        for (Card card : phasedOut) {
+            if (card.getController() == subject) {
+                shown.add(new Move(card.getId(), card.getOwner(), ZoneType.Battlefield, ZoneType.Battlefield,
+                        card.isFaceDown()));
+            }
+        }
+        // All of them: every permanent that player controls is phased out now.
+        boolean all = subject.getCardsIn(ZoneType.Battlefield, false).stream().allMatch(Card::isPhasedOut);
+        Report report = new Report(keys.incrementAndGet(), actor, host == null ? "" : host.getName(), Kind.PHASE,
+                subject, all ? -1 : shown.size(), shown, where, false, -1, 0);
+        report.chooser = actor;
+        report.lifeHeld = lifeHeldBy(game, host, subject);
+        for (Move move : shown) {
+            Card card = game.findById(move.cardId());
+            if (card != null) {
+                report.cards.put(move.cardId(), card);
+            }
+        }
+        return report;
+    }
+
+    /**
+     * Spec 0080 -- whether an effect [host] made (Forge's effect card, whose
+     * effect source is [host]) holds a static ability of mode CantChangeLife
+     * that applies to [player] now: Forge's own test (its conditions, and
+     * StaticAbilityCantGainLosePayLife#applyCommonAbility's ValidPlayer).
+     * Read from Forge's state, never from the card's name or text.
+     */
+    static boolean lifeHeldBy(Game game, Card host, Player player) {
+        if (host == null || player == null) {
+            return false;
+        }
+        for (Card effect : game.getCardsIn(ZoneType.STATIC_ABILITIES_SOURCE_ZONES)) {
+            Card source = effect.getEffectSource();
+            if (source == null || source.getId() != host.getId()) {
+                continue;
+            }
+            for (forge.game.staticability.StaticAbility st : effect.getStaticAbilities()) {
+                if (st.checkMode(forge.game.staticability.StaticAbilityMode.CantChangeLife) && st.checkConditions()
+                        && forge.game.staticability.StaticAbilityCantGainLosePayLife.applyCommonAbility(st, player)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** Spec 0075 -- a report made of choices and flips alone, shown with the card that made them. */
@@ -784,6 +865,10 @@ final class ActionReports {
             if (report.kind == Kind.CHOICE && card != null) {
                 wasPublic = true;
             }
+            // Spec 0080: phased out on the battlefield, public (a face-down one stays a back).
+            if (report.kind == Kind.PHASE && card != null && !move.faceDown()) {
+                wasPublic = true;
+            }
             boolean visible = card != null
                     && (move.owner() == reader || publicZone(to) || wasPublic || revealedTo.test(move.cardId()));
             JsonObject entry;
@@ -931,6 +1016,8 @@ final class ActionReports {
                     ? " and drew " + (r.drew == 1 ? "a card" : r.drew + " cards") : "") + ".";
             case CHOICE -> "";
             case FIZZLE -> fizzledWords(r, w);
+            case PHASE -> phasedWords(r, w, named, hidden) + (r.lifeHeld
+                    ? " " + lifeWords(r.subject == w.reader ? null : r.subject.getName()) : "");
             case EMPTY_LOOK -> who + " looked at " + its + " " + r.zone + ". It has no cards.";
         };
     }
@@ -944,6 +1031,30 @@ final class ActionReports {
     private static String fizzledWords(Report r, Words w) {
         return fizzleSentence(r.actor == w.reader ? null : r.actor.getName(), r.source, r.copy, r.gone,
                 r.cards.size() > 2);
+    }
+
+    /**
+     * Spec 0080 -- "Bob's permanents phased out until Bob's next turn." (to
+     * Bob: "Your permanents ... your next turn."); someone else's doing:
+     * "Alice phased out your Grizzly Bears until your next turn."
+     */
+    private static String phasedWords(Report r, Words w, List<String> named, int hidden) {
+        String whose = r.subject == w.reader ? "your" : r.subject.getName() + "'s";
+        String what = r.count < 0 ? "permanents" : cardWords(named, hidden);
+        String until = " until " + whose + " next turn.";
+        if (r.actor == r.subject) {
+            return capital(whose) + " " + what + " phased out" + until;
+        }
+        return w.who(r.actor) + " phased out " + whose + " " + what + until;
+    }
+
+    /** Spec 0080 -- "Bob's life can't change." ("Your ..." to that player). */
+    static String lifeWords(String player) {
+        return (player == null ? "Your" : player + "'s") + " life can't change.";
+    }
+
+    private static String capital(String words) {
+        return words.isEmpty() ? words : Character.toUpperCase(words.charAt(0)) + words.substring(1);
     }
 
     /** The fizzle sentence: [caster] null for the reader's own spell. */

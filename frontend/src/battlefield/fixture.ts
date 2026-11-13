@@ -97,12 +97,20 @@ export interface SyntheticBoard {
  */
 export function syntheticBoard(permanents: number, faces: number, seed: number): SyntheticBoard {
   const rnd = random(seed);
+  let creatureNo = 0;
+  let markNo = 0;
   const pick = <T>(list: readonly T[]): T => list[Math.floor(rnd() * list.length)]!;
   const pool = [...CREATURES, ...OTHERS.map(([n]) => n), ...NONBASICS].slice(0, Math.max(1, faces));
   let id = 1;
   // Spec 0076: the cards with counters take turns at one, two and four
   // kinds (badges, and the "··· N" fold), drawn without another rnd().
   let countered = 0;
+  /** Spec 0080 -- the squares a synthetic creature may wear. */
+  const MARKS: readonly Partial<BoardCard>[] = [
+    { indestructible: true, keywords: ["Indestructible"] },
+    { shields: 1 },
+    { phasedOut: true },
+  ];
   const KINDS = [
     [{ name: "P1P1", count: 2 }],
     [
@@ -174,6 +182,11 @@ export function syntheticBoard(permanents: number, faces: number, seed: number):
         counters: rnd() < 0.1 ? KINDS[countered++ % KINDS.length]! : [],
       };
       if (card.attacking) card.tapped = true;
+      // Spec 0080: every fifth creature wears one of the new squares in
+      // turn (indestructible, a regeneration shield, phased out), so the
+      // e2e sweep measures them; no draw from rnd(), so boards stay as they were.
+      const mark = creatureNo++ % 5 === 4 ? MARKS[markNo++ % MARKS.length]! : null;
+      if (mark) card = { ...card, ...mark };
     } else if (roll < 0.95) {
       const [name, types] = pick(OTHERS);
       card = { ...base(seat, name, "other", types), tapped: rnd() < 0.15 };

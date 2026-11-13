@@ -217,10 +217,11 @@ import {
   type ShowTo,
   type TileChange,
 } from "./graves";
-import type { TileMove } from "./fromSnapshot";
+import type { Survive, TileMove } from "./fromSnapshot";
+import { domeMarks, shieldBreakMarks, wardMarks, type SurviveMark } from "./survive";
 import { payWords, type PayMark } from "./payPicks";
 import { PaySign } from "./PaySign";
-import { CardBadges, TWIN } from "./CardBadges";
+import { BADGE_FLOOR, CardBadges, MARK_H, REGEN_SHIELD, TWIN } from "./CardBadges";
 import {
   COPY_FLIP_AT,
   COPY_GHOST_MS,
@@ -292,6 +293,14 @@ export interface BoardCard extends LayoutCard {
    */
   copy?: boolean | undefined;
   copyOf?: string | undefined;
+  /**
+   * Spec 0080 -- phased out (see-through and grey in its place, its square
+   * mark; can't be clicked), its regeneration shields (the shield mark), and
+   * indestructible (the hexagon mark), as the game says.
+   */
+  phasedOut?: boolean | undefined;
+  shields?: number | undefined;
+  indestructible?: boolean | undefined;
 }
 
 /** Spec 0045 -- a counter's name as players say it ("P1P1" is "+1/+1"). */
@@ -397,6 +406,8 @@ export interface DamageWave {
     deathtouch?: boolean;
     /** Spec 0077 -- an infect hit: poison counters, not life. */
     infect?: boolean;
+    /** Spec 0080 -- stopped by a prevention: its would-be amount (`amount` 0). */
+    prevented?: number;
   }[];
   /** Phase 10 A-13 -- a combat damage step's: which step, who fought whom, life gained. */
   combat?: "first-strike" | "regular";
@@ -485,6 +496,8 @@ export interface BoardProps {
   countered?: ReadonlySet<string>;
   /** Spec 0079 -- the spells that fizzled this update (each spell's own card): their targets were gone. */
   fizzled?: ReadonlySet<string>;
+  /** Spec 0080 -- this update's flickers, survivors and phase changes, as the game says. */
+  survive?: Survive | null;
   /** Combat, while there is one (fire and shield lines, AMENDMENT 7). */
   combat?: CombatView | null;
   /** The stack, the object that resolves next FIRST. */
@@ -1140,6 +1153,11 @@ function poisonPoint(life: Point, g: Geometry): Point {
   return { x: life.x + POISON_DX * unit, y: life.y + POISON_DY * unit };
 }
 
+/** Spec 0080 -- a fizzled spell's beam reaches a target still there (0079's beam, about). */
+const FIZZLE_WARD_MS = 350;
+/** Spec 0080 -- a phased-out permanent turning solid again as it phases in. */
+export const PHASE_IN_MS = 500;
+
 /** A card a spell killed leaves once its burst has landed. */
 const SPELL_HIT_MS = 150;
 
@@ -1162,7 +1180,12 @@ interface FightMark {
     // Spec 0077: a life shield's crack, a gain's green glow, poison's "+N".
     | "crack"
     | "glow"
-    | "poison";
+    | "poison"
+    // Spec 0080: the hex dome and its sparks, the prevention shield, a shield mark breaking.
+    | "dome"
+    | "spark"
+    | "ward"
+    | "shieldbreak";
   style: CSSProperties;
   frames: Keyframe[];
   duration: number;
@@ -1173,6 +1196,39 @@ interface FightMark {
   deathtouch?: boolean;
   /** Spec 0077 -- a mark of poison, drawn in the badge's colours. */
   poison?: boolean;
+  /** Spec 0080 -- a number's or spark's colour: grey (nothing dealt), gold, green. */
+  tone?: "grey" | "gold" | "green";
+}
+
+/** Spec 0080 -- survive.ts's marks, as the board draws its fights' marks. */
+function asMarks(marks: readonly SurviveMark[]): FightMark[] {
+  return marks.map((m) => ({ ...m }));
+}
+
+/** Spec 0080 (Q4b F1) -- the dome's hex grid (the canvas's), one pattern per dome. */
+function HexDome({ id }: { id: string }) {
+  const grid = `bf-hex-${id.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+  return (
+    <svg viewBox="-60 -70 120 140" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <pattern id={grid} width="12" height="10.4" patternUnits="userSpaceOnUse">
+          <path
+            d="M3 0 H9 L12 5.2 L9 10.4 H3 L0 5.2 Z"
+            fill="none"
+            stroke="#ffe08a"
+            strokeWidth=".9"
+          />
+        </pattern>
+        <radialGradient id={`${grid}-g`}>
+          <stop offset="55%" stopColor="#ffd77a" stopOpacity="0" />
+          <stop offset="100%" stopColor="#ffd77a" stopOpacity=".55" />
+        </radialGradient>
+      </defs>
+      <ellipse rx="58" ry="68" fill={`url(#${grid}-g)`} />
+      <ellipse rx="58" ry="68" fill={`url(#${grid})`} opacity=".8" />
+      <ellipse rx="58" ry="68" fill="none" stroke="#fff3c4" strokeWidth="1.6" />
+    </svg>
+  );
 }
 
 /** Phase 10 A-10 -- a merge's dimming, flash, sparks and ring, at the merged card. */
@@ -1396,6 +1452,7 @@ export function Board({
   tileMoves,
   countered,
   fizzled,
+  survive = null,
   flyingOnto = null,
   handLeft = null,
   hiddenStack = null,
@@ -1457,6 +1514,11 @@ export function Board({
   const [fizzles, setFizzles] = useState<Fizzle[]>([]);
   const [effects, setEffects] = useState<Effect[]>([]);
   const wave = useRef<{ key: string } | null>(null);
+  /** Spec 0080 -- the last update whose flickers, and whose survivors, were played. */
+  const playedFlickers = useRef<string | null>(null);
+  const playedSurvive = useRef<string | null>(null);
+  /** Spec 0080 -- survivors already shown in a fight (their dome played with the blow). */
+  const fightSurvivors = useRef(new Set<string>());
   /** Phase 10 A-13: the fights' marks, the clock they all run on, and the dead's part in them. */
   const [marks, setMarks] = useState<FightMark[]>([]);
   const fightClock = useRef<Animation | null>(null);
@@ -1912,6 +1974,10 @@ export function Board({
               data-controller={side}
               data-tapped={String(lead.tapped)}
               data-attacking={lead.attacking ? "true" : undefined}
+              // Spec 0080 (Q2 A): a ghost in its place -- see-through and
+              // grey, shimmering; never clicked or aimed at (battlefield.css).
+              data-phased={lead.phasedOut ? "true" : undefined}
+              {...(lead.phasedOut ? { tabIndex: -1, "aria-disabled": true } : {})}
               data-pt={pt || undefined}
               data-face={lead.faceDown ? "down" : "up"}
               data-pile={count > 1 ? count : undefined}
@@ -2513,6 +2579,14 @@ export function Board({
           });
     const hold = holdLeft();
     if (plan && ref.current && typeof ref.current.animate === "function") {
+      // Spec 0080 (Q4b F1): the blow bounces off an indestructible card's
+      // dome -- it is knocked, but never flashes red as if it were hurt.
+      for (const [id, how] of survive?.survived ?? [])
+        if (how === "indestructible")
+          for (const fight of plan.fights) {
+            const poses = fight.moves.get(standOf(id)?.item ?? id);
+            if (poses) for (const pose of poses) pose.red = 0;
+          }
       playFights(plan, hold, standOf, lifeOf, g);
       return;
     }
@@ -2533,7 +2607,35 @@ export function Board({
         .map((c) => c.player),
     );
     const totals = new Map<string, { ref: TargetRef; amount: number }>();
+    // Spec 0080 (Q5 A) -- damage a prevention stopped (Pyroclasm on a
+    // creature with protection from red): the pale shield, a grey "0".
+    const wards: FightMark[] = [];
     for (const hit of damage.hits) {
+      if (!hit.prevented || hit.amount > 0) continue;
+      const k = refKey(hit.target);
+      const point = pointOf(hit.target);
+      if (!point || still) continue;
+      const box = "object" in hit.target ? positions.get(hit.target.object)?.box : undefined;
+      wards.push(
+        ...asMarks(
+          wardMarks(
+            `${damage.key}:${k}:prevented`,
+            point,
+            box ? box.h * 0.5 : LIFE_R * g.height * 1.9,
+            holdLeft(),
+            k,
+            true,
+            g.cardH * 0.3,
+            box
+              ? { x: point.x, y: box.y + box.h * 0.12 }
+              : { x: point.x - (52 * g.height) / 900, y: point.y - (4 * g.height) / 900 },
+          ),
+        ),
+      );
+    }
+    if (wards.length > 0) setMarks((list) => [...list, ...wards]);
+    for (const hit of damage.hits) {
+      if (hit.prevented && hit.amount === 0) continue;
       if ("player" in hit.target && told.has(hit.target.player)) continue;
       const k = refKey(hit.target);
       totals.set(k, { ref: hit.target, amount: (totals.get(k)?.amount ?? 0) + hit.amount });
@@ -2923,6 +3025,42 @@ export function Board({
       });
       for (const strike of fight.strikes) {
         const box = strike.box;
+        // Spec 0080 (Q5 A) -- all of it prevented (Holy Day, protection): the
+        // blow lands on a pale shield in front of what it hit, which soaks
+        // it up, and a grey "0" rises. No slash, no red, no hurt.
+        if (strike.prevented && strike.amount === 0) {
+          const at = box ? centreOf(box, { x: 0.5, y: 0.5 }) : strike.point!;
+          const r = box ? box.h * 0.5 : LIFE_R * g.height * 1.9;
+          added.push(
+            ...asMarks(
+              wardMarks(
+                key(`ward:${n}:${strike.target}`),
+                at,
+                r,
+                hold + strike.at,
+                strike.target,
+                true,
+                box ? g.cardH * 0.3 : (34 * g.height) / 900,
+                // The "0" never over the life total: to the shield's left, as 0077's numbers.
+                box
+                  ? { x: at.x, y: box.y + box.h * 0.12 }
+                  : { x: at.x - (52 * g.height) / 900, y: at.y - (4 * g.height) / 900 },
+              ),
+            ),
+          );
+          continue;
+        }
+        // Spec 0080 (Q4b F1) -- a lethal blow on an indestructible card: the
+        // gold hex dome flickers up as it lands; the number is gold.
+        const held = box && survive?.survived.get(strike.target) === "indestructible";
+        if (held && box) {
+          fightSurvivors.current.add(strike.target);
+          added.push(
+            ...asMarks(
+              domeMarks(key(`dome:${n}:${strike.target}`), box, hold + strike.at, strike.target),
+            ),
+          );
+        }
         if (box) {
           // Three glowing slash marks across the card it strikes.
           for (let i = 0; i < 3; i++) {
@@ -3051,6 +3189,7 @@ export function Board({
           delay: hold + strike.at,
           text: `−${strike.amount}`,
           of: strike.target,
+          ...(held ? { tone: "gold" as const } : {}),
         });
       }
       // Lifelink: the life rises as the slash lands.
@@ -3077,6 +3216,70 @@ export function Board({
     });
     setMarks((list) => [...list, ...added]);
   }
+
+  // Spec 0080 (owner 2026-11-12, canvas survive-1112) -- once per update:
+  // a regeneration shield breaking instead of its card (Q3 B), the hex dome
+  // round an indestructible card something tried to destroy (Q4b F1: a
+  // Wrath, a Murder; a lethal fight plays its dome with the blow, above),
+  // and a permanent turning solid again as it phases in (Q2 A). When the
+  // blow lands: after any fights, after the resolving spell's beam, after a
+  // wipe's flash. Declared before the movement effect: the board drawn
+  // before is still `previous`. Reduce motion: none of it (the marks show).
+  useLayoutEffect(() => {
+    if (!result || !survive || survive.key === playedSurvive.current) return;
+    playedSurvive.current = survive.key;
+    const handled = fightSurvivors.current;
+    fightSurvivors.current = new Set();
+    if (reducedMotion()) return;
+    const before = previous.current;
+    const stackNow = new Set((stack ?? []).map((x) => x.id));
+    const resolved = (before?.stack ?? []).some((e) => !stackNow.has(e.s.id));
+    const onTable = new Set(battlefield.map((c) => c.id));
+    const leaving = before ? [...before.cards.keys()].filter((id) => !onTable.has(id)).length : 0;
+    const blow = holdLeft() + (resolved ? RESOLVE_MS : 0) + (leaving >= WIPE_AT ? SWEEP_MS : 0);
+    const added: FightMark[] = [];
+    for (const [id, how] of survive.survived) {
+      if (handled.has(id)) continue;
+      const item = positions.get(id)?.item ?? id;
+      const box = positions.get(id)?.box ?? before?.at.get(id)?.box;
+      if (!box) continue;
+      if (how === "indestructible")
+        added.push(...asMarks(domeMarks(`survive:${survive.key}:${id}`, box, blow, item)));
+      else
+        added.push(
+          ...asMarks(
+            shieldBreakMarks(`survive:${survive.key}:${id}`, box, MARK_H, BADGE_FLOOR, blow, item),
+          ),
+        );
+    }
+    if (added.length > 0) setMarks((list) => [...list, ...added]);
+    for (const [id, out] of survive.phased) {
+      if (out) continue;
+      const card = elements.current
+        .get(positions.get(id)?.item ?? id)
+        ?.querySelector<HTMLElement>(":scope > .bf-card");
+      if (!card || typeof card.animate !== "function") continue;
+      card.animate(
+        [
+          {
+            offset: 0,
+            opacity: 0.34,
+            filter: "grayscale(0.7) brightness(1.15)",
+            boxShadow: "0 0 0 1px rgb(207 230 255 / 55%), 0 0 12px rgb(207 230 255 / 45%)",
+          },
+          {
+            offset: 0.5,
+            opacity: 0.8,
+            filter: "grayscale(0.2) brightness(1.3)",
+            boxShadow: "0 0 0 2px rgb(207 230 255 / 80%), 0 0 20px rgb(207 230 255 / 70%)",
+          },
+          { offset: 1, opacity: 1, filter: "grayscale(0) brightness(1)" },
+        ],
+        { duration: PHASE_IN_MS, delay: holdLeft(), easing: "ease-in-out", fill: "backwards" },
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per update
+  }, [survive, result]);
 
   // After each commit, before paint: start what should move.
   useLayoutEffect(() => {
@@ -3967,10 +4170,62 @@ export function Board({
         }
         return before.at.get(id);
       };
+      // Spec 0080 (Q1 A) -- flickered (Ephemerate): Banished (A-05) to its
+      // exile, then risen and shown (0074) straight back to its place. Once
+      // per board: pointing at a card re-runs this.
+      const flickering =
+        survive && survive.key !== playedFlickers.current ? survive.flickers : undefined;
       for (const item of items) {
         if (!before.mounted.has(item.id)) continue;
         const was = wasAt(item.id);
         if (!was) continue;
+        const via = flickering?.get(item.id);
+        const flickHost = via ? elements.current.get(item.id) : undefined;
+        const flickLook = via ? before.drawn.get(item.id) : undefined;
+        if (via && flickHost && flickLook?.table && typeof flickHost.animate === "function") {
+          const exile = tileBox(via, "exile");
+          const out = fateFrames(
+            "exiled",
+            was.box,
+            exile.box,
+            g.cardW,
+            g.cardH,
+            was.origin,
+            exile.origin,
+          );
+          graveGhosts.push(
+            ghostAt(flickLook, `flicker:${item.id}`, was, out.frames, out.duration, hold, {
+              motes: true,
+              zIndex: Z_RETURN_MARK - 10,
+            }),
+          );
+          const start = hold + out.duration;
+          glide(
+            flickHost,
+            showFrames(
+              tileAt(via, "exile"),
+              showAt(g.rail.x, g.height, via === "opponent"),
+              poseOf(item.box, item.origin),
+              g.cardW,
+              g.cardH,
+              item.origin,
+              "table",
+              null,
+              item.box,
+            ),
+            start,
+            SHOW_MS,
+          );
+          // Not drawn in its place while its ghost goes.
+          flickHost.animate([{ opacity: 0 }, { opacity: 0 }], {
+            duration: start,
+            id: "flicker-away",
+          });
+          tick(`${via}:exile`, start, 1);
+          tick(`${via}:exile`, start + 120, -1);
+          landAt.set(item.id, start + SHOW_MS);
+          continue;
+        }
         // A-10 (owner 2026-11-06, Amendment 13): two cards become one -- the
         // table dims, both are pulled together and slam at the merged card's
         // spot, a flash with sparks and a ring, and the merged card rises
@@ -4600,6 +4855,8 @@ export function Board({
       const struck: Strike[] = [];
       /** Spec 0079: the fizzled spells' beams finding nothing. */
       const fizzles: Fizzle[] = [];
+      /** Spec 0080: the pale shield in front of a target that could no longer be chosen. */
+      const fizzleWards: FightMark[] = [];
       for (const { s, box } of before.stack) {
         if (stillThere.has(s.id) || (s.card && merged.has(s.card))) continue;
         // A-17: an Aura resolving onto its creature is chained into its tab.
@@ -4764,6 +5021,24 @@ export function Board({
             Math.max(0, spotOf),
             g.cardH,
           );
+          // Spec 0080 (Q5 A) -- its target is still on the table, no longer
+          // allowed (protection from red): the pale shield flares in front of
+          // it as the beam reaches it (no number: nothing was dealt).
+          if (spots.length === 0)
+            for (const at of aims)
+              fizzleWards.push(
+                ...asMarks(
+                  wardMarks(
+                    `fizzle-ward:${s.id}:${fizzleWards.length}`,
+                    centreOf(at.box, at.origin),
+                    at.box.h * 0.5,
+                    hold + FIZZLE_WARD_MS,
+                    s.card,
+                    false,
+                    g.cardH * 0.3,
+                  ),
+                ),
+              );
           for (const at of aims) {
             if (!from) break;
             const c = centreOf(at.box, at.origin);
@@ -4994,6 +5269,7 @@ export function Board({
       if (graveGhosts.length > 0) setGhosts((list) => [...list, ...graveGhosts]);
       if (struck.length > 0) setStrikes((list) => [...list, ...struck]);
       if (fizzles.length > 0) setFizzles((list) => [...list, ...fizzles]);
+      if (fizzleWards.length > 0) setMarks((list) => [...list, ...fizzleWards]);
       // A spot kept for a fizzle that is not playing here (no outline to
       // break): let go now.
       for (const [card, spot] of heldMemory.current.held)
@@ -5062,6 +5338,7 @@ export function Board({
     const spots = stackSpotBoxes(g, (stack ?? []).length, stackScale);
     playedMerges.current = merges;
     playedTiles.current = tileMoves;
+    if (survive) playedFlickers.current = survive.key;
     const itemOf = new Map<string, string>();
     const members = new Map<string, number>();
     for (const item of items) {
@@ -5098,6 +5375,7 @@ export function Board({
     tileMoves,
     countered,
     fizzled,
+    survive,
     opponentName,
     viewerName,
     stack,
@@ -6446,13 +6724,17 @@ function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
   return (
     <div
       ref={ref}
-      className={`bf-fight-${mark.kind}${mark.deathtouch ? " bf-fight-deathtouch" : ""}${mark.poison ? " bf-fight-poisoned" : ""}`}
+      className={`bf-fight-${mark.kind}${mark.deathtouch ? " bf-fight-deathtouch" : ""}${mark.poison ? " bf-fight-poisoned" : ""}${mark.tone ? ` bf-fight-${mark.tone}` : ""}`}
       data-fight={mark.kind}
       data-of={mark.of}
       style={{ ...mark.style, opacity: 0 }}
     >
       {mark.kind === "crack" ? (
         CRACK
+      ) : mark.kind === "dome" ? (
+        <HexDome id={mark.key} />
+      ) : mark.kind === "shieldbreak" ? (
+        REGEN_SHIELD
       ) : mark.kind === "poison" ? (
         <>
           {POISON_DROP}

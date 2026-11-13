@@ -263,7 +263,35 @@ moves                     Phase 10 A-00: the cards moved since the last
                           longer legal), wherever it goes, with no said; a
                           COPY of a spell ending on the stack (resolved,
                           or fizzled) is a move to "nowhere" -- it ceases
-                          to exist, never into a graveyard
+                          to exist, never into a graveyard. Spec 0080: a
+                          flicker -- a permanent exiled and returned to the
+                          battlefield in the same round (Ephemerate,
+                          Cloudshift; Forge keeps its id) -- is ONE move,
+                          from "battlefield" to "battlefield", why
+                          "flickered", via {zone: "exile", seat} (the exile
+                          it went by); a return in a later round
+                          (Flickerwisp's end step) keeps its two moves
+phased                    spec 0080: this round's phase changes, as Forge
+                          made them (GameEventCardPhased): [{card "card:N",
+                          out}] -- out true when it phased out, false when
+                          it phased in; absent when none. Public
+survived                  spec 0080: this round's survivors: [{card
+                          "card:N", how}] -- how "regenerated" (a
+                          regeneration shield was used instead: Forge's
+                          GameEventCardRegenerated) or "indestructible"
+                          (a Destroy or DestroyAll that resolved aimed at
+                          it, or it holds lethal damage, and Forge left it
+                          on the battlefield; Forge itself says nothing,
+                          the worker asks its state after the effect);
+                          absent when none. Public
+action (PHASE)            spec 0080: the other player's permanents phased out
+                          (or yours, by them): "Bob's permanents phased out
+                          until Bob's next turn." (named cards when not all);
+                          plus "Bob's life can't change." ("Your ..." to that
+                          player) when an effect the same spell made holds a
+                          CantChangeLife static ability that applies to them
+                          (Forge's own test), e.g. Teferi's Protection; Slip
+                          Out the Back adds nothing
 noticesTotal              spec 0061: how many notices this seat was told in
                           all (`notices` keeps the last six), so a page can
                           tell new ones once the list is full
@@ -471,6 +499,17 @@ action.marks              spec 0075: pictures that are not cards, in
 player.mulligans          how many times the player has mulliganed, for every
                           viewer (public, as in paper Magic; Phase 9 W-15)
 card.ringBearer           true on the Ring-bearer, for every viewer
+card.phasedOut            spec 0080: true on a phased-out permanent, which is
+                          now sent (Forge's plain battlefield list leaves it
+                          out, and the page drew it exiled); it stays in its
+                          place, treated as though it doesn't exist. Public
+card.shields              spec 0080: the regeneration shields waiting on a
+                          permanent (Forge's Card#getShieldCount: made by a
+                          Regenerate ability, used by a destroy, gone at
+                          cleanup); absent when none. Public
+card.indestructible       spec 0080: true while the permanent has
+                          indestructible (Forge's keyword, as it applies
+                          now). Public
 card.copy                 spec 0079: true on a permanent that is a copy (a
                           Clone, a token copy: Cackling Counterpart), for
                           every viewer who may identify it (copiable values
@@ -577,6 +616,16 @@ damage              B13 damage dealt since the last round, ONE combat
                         gave poison counters, not life (CR 120.3b); before
                         0077 the flag was dropped and the page took it for
                         life damage.
+                        Spec 0080 (2026-11-12): damage a prevention effect
+                        stopped (Fog, Holy Day, protection from a colour,
+                        "prevent the next N") is a hit of its own, {source,
+                        target, amount: 0, prevented: N} -- its would-be
+                        amount less what got through, where it would have
+                        landed in the wave; a wave is sent even when ALL
+                        of it was prevented (before 0080, none was, and no
+                        fight played). Read as Forge asks a controller
+                        which damage replacement to apply (reflective:
+                        Survivors.DAMAGE_LIST, VEND-004).
 life                    spec 0077: every change to a player's life or
                         poison since the last round, in the order Forge
                         made them: {key: "life:REV", changes: [{player,

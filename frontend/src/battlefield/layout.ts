@@ -163,6 +163,9 @@ export interface LayoutCard {
   ringBearer?: boolean;
   sector?: string | null;
   sprocket?: number | null;
+  /** Spec 0080 -- phased out, or holding regeneration shields: a stack compares these too. */
+  phasedOut?: boolean | undefined;
+  shields?: number | undefined;
 }
 
 export interface LayoutInput {
@@ -370,6 +373,8 @@ function identity(card: LayoutCard): string {
     card.ringBearer ?? false,
     card.sector ?? null,
     card.sprocket ?? null,
+    card.phasedOut === true,
+    card.shields ?? 0,
   ]);
 }
 

@@ -1665,6 +1665,18 @@ public final class MatchController extends GeneratedControllerBase {
     @Override
     public forge.game.replacement.ReplacementEffect chooseSingleReplacementEffect(
             List<forge.game.replacement.ReplacementEffect> possible) {
+        forge.game.replacement.ReplacementEffect chosen = chooseReplacement(possible);
+        // Spec 0080 -- a prevention chosen: the damage it is about to stop is noted.
+        try {
+            host.replacementChosen(chosen);
+        } catch (RuntimeException e) {
+            System.err.println("proxic: prevented damage not noted: " + e);
+        }
+        return chosen;
+    }
+
+    private forge.game.replacement.ReplacementEffect chooseReplacement(
+            List<forge.game.replacement.ReplacementEffect> possible) {
         if (possible == null || possible.isEmpty()) {
             return null;
         }

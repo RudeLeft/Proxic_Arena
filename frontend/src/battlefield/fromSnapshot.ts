@@ -54,6 +54,22 @@ export interface BoardData {
   countered: Set<string>;
   /** Spec 0079 -- the spells that fizzled this update (each spell's own card): their targets were gone. */
   fizzled: Set<string>;
+  /** Spec 0080 -- flickers and survivors this update, as the game says; null for none. */
+  survive: Survive | null;
+}
+
+/**
+ * Spec 0080 -- this update's flickers (each card exiled and returned in one
+ * go, and whose exile it went by), and its survivors: a regeneration shield
+ * used, or a destroy an indestructible permanent shrugged off. A new key is a
+ * new update (a board plays it once).
+ */
+export interface Survive {
+  key: string;
+  flickers: Map<string, "viewer" | "opponent">;
+  survived: Map<string, "regenerated" | "indestructible">;
+  /** Each permanent that phased in (false) or out (true). */
+  phased: Map<string, boolean>;
 }
 
 /** Spec 0074 -- a pile on the plate a card is drawn leaving or reaching. */
@@ -225,6 +241,10 @@ function toBoardCard(card: SnapshotCard): BoardCard {
     // Spec 0079 -- a copy, and what it copied (while this viewer may see it).
     ...(card.copy ? { copy: true } : {}),
     ...(card.copyOf ? { copyOf: card.copyOf } : {}),
+    // Spec 0080 -- phased out, regeneration shields, indestructible (public).
+    ...(card.phasedOut ? { phasedOut: true } : {}),
+    ...(card.shields ? { shields: card.shields } : {}),
+    ...(card.indestructible ? { indestructible: true } : {}),
     art: card.art,
     crop: card.crop ?? null,
   };
@@ -497,6 +517,25 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     }
   }
 
+  // Spec 0080 -- flickers (one move, by way of an exile) and survivors.
+  const flickers = new Map<string, "viewer" | "opponent">();
+  for (const move of snapshot.moves ?? [])
+    if (move.card && move.why === "flickered" && onBoard.has(move.card))
+      flickers.set(move.card, side(move.via?.seat ?? move.to.seat ?? viewer));
+  const survivedNow = new Map<string, "regenerated" | "indestructible">();
+  for (const s of snapshot.survived ?? []) survivedNow.set(s.card, s.how);
+  const phased = new Map<string, boolean>();
+  for (const p of snapshot.phased ?? []) if (onBoard.has(p.card)) phased.set(p.card, p.out);
+  const survive: Survive | null =
+    flickers.size > 0 || survivedNow.size > 0 || phased.size > 0
+      ? {
+          key: `${snapshot.gameEpoch}:${snapshot.stateRevision}`,
+          flickers,
+          survived: survivedNow,
+          phased,
+        }
+      : null;
+
   return {
     battlefield: snapshot.battlefield.map(toBoardCard),
     hand: snapshot.hand.map(toHandCard),
@@ -514,6 +553,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     tileMoves,
     countered,
     fizzled,
+    survive,
   };
 }
 

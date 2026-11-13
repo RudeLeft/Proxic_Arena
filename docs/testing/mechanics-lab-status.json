@@ -503,6 +503,54 @@
       "scenario": "Four Ornithopters, then Grapeshot: storm makes four copies, all at Bob.",
       "result": "PASSED",
       "evidence": "scripts/check-copies.py, run in CI (2026-11-12, spec 0079). Both seats: four stack entries with copy true and copyOf the Grapeshot's own entry; each ends to \"nowhere\" (no graveyard), told once with the board it is gone from; Bob 20 -> 15."
+    },
+    "Darksteel Myr": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "F-0080-D",
+      "scenario": "Alice's Wrath of God with her Darksteel Myr and Bob's Grizzly Bears out; then Bob's Hill Giant attacks and the Myr blocks.",
+      "result": "PASSED",
+      "evidence": "scripts/check-survivors.py, run in CI (2026-11-12, spec 0080). Both seats: the Myr is flagged indestructible on every board; after the Wrath, survived [{card: the Myr, how: \"indestructible\"}], the Myr still on the table, the Bears' move \"destroyed\"; blocking the Giant it takes 3 (a hit of 3 in the combat wave), survived \"indestructible\", still on the table."
+    },
+    "Flickerwisp": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "F-0080-A",
+      "scenario": "Alice's Flickerwisp exiles Bob's Grizzly Bears; they return at the beginning of the end step.",
+      "result": "PASSED",
+      "evidence": "scripts/check-survivors.py, run in CI (2026-11-12, spec 0080). Both seats: one move battlefield -> exile, then in a later round exile -> battlefield, the same card id; never a \"flickered\" move (the end-step return is unchanged)."
+    },
+    "Fog": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "F-0080-E",
+      "scenario": "Alice attacks with two Grizzly Bears; Bob casts Fog.",
+      "result": "PASSED",
+      "evidence": "scripts/check-survivors.py, run in CI (2026-11-12, spec 0080), scenario \"fog\" (and \"holy-day\" with Holy Day). Both seats: the combat wave (combat \"regular\", fights kept) carries one prevented hit per attacker {amount 0, prevented 2, target Bob}; Bob stays at 20."
+    },
+    "River Boa": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "F-0080-C",
+      "scenario": "Alice's Murder at Bob's River Boa; Bob answers with its {G}: Regenerate.",
+      "result": "PASSED",
+      "evidence": "scripts/check-survivors.py, run in CI (2026-11-12, spec 0080). Both seats: the Boa shows shields 1 while the Murder waits; then survived [{card: the Boa, how: \"regenerated\"}], the Boa still on the table, tapped, no shields, and no move off the battlefield."
+    },
+    "Teferi's Protection": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "F-0080-B",
+      "scenario": "Bob casts Teferi's Protection with Grizzly Bears and lands out; his permanents phase in at his next turn.",
+      "result": "PASSED",
+      "evidence": "scripts/check-survivors.py, run in CI (2026-11-12, spec 0080). Both seats: Bob's permanents stay in `battlefield` flagged phasedOut, `phased` out true then false; no move to exile; at his turn none is phased out. Alice's report window: \"Bob's permanents phased out until Bob's next turn.\" with the Bears; Bob gets none. (Its protection and \"life can't change\" are Forge's, not checked here.)"
+    },
+    "Wrath of God": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "F-0080-D",
+      "scenario": "Alice's Wrath of God with her Darksteel Myr and Bob's Grizzly Bears on the table.",
+      "result": "PASSED",
+      "evidence": "scripts/check-survivors.py, run in CI (2026-11-12, spec 0080). Both seats: the Bears' move says \"destroyed\" and they are gone; the indestructible Myr is named in survived (\"indestructible\") and stays."
     }
   }
 }

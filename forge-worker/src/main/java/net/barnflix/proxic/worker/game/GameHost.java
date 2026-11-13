@@ -766,7 +766,7 @@ public final class GameHost {
                 // dealt (all of it prevented, else it was sent at the first
                 // priority). What follows is not combat damage.
                 synchronized (damageDealt) {
-                    if (damageDealt.isEmpty()) {
+                    if (damageDealt.isEmpty() && preventing.isEmpty()) {
                         beginDamageStep(null);
                     }
                 }
@@ -998,6 +998,17 @@ public final class GameHost {
                 sacrificing.add(sacrificed.card().getId());
             } else if (event instanceof forge.game.event.GameEventSpellResolved resolved) {
                 spellResolved(resolved);
+            } else if (event instanceof forge.game.event.GameEventCardPhased phased && phased.card() != null) {
+                // Spec 0080 -- phased out (true) or in (false), as Forge did it.
+                phases.add(new Survivors.Phase(phased.card().getId(), phased.phaseState()));
+            } else if (event instanceof forge.game.event.GameEventCardRegenerated regenerated
+                    && regenerated.cards() != null) {
+                // Spec 0080 -- a regeneration shield used instead of the card.
+                for (forge.game.card.CardView card : regenerated.cards()) {
+                    if (card != null) {
+                        survived.add(new Survivors.Survived(card.getId(), "regenerated"));
+                    }
+                }
             } else if (event instanceof forge.game.event.GameEventShuffle shuffle && shuffle.player() != null) {
                 // Phase 10 A-14: Forge shuffled a library after cards went
                 // into it this round (Chaos Warp: moved, then shuffled).
@@ -1056,6 +1067,47 @@ public final class GameHost {
      * bestowed or mutating spell -- Forge resolves those as creature spells
      * instead (MagicStack#resolveStack).
      */
+    /** Spec 0080 -- this round's phase changes, and its survivors (Survivors). */
+    private final java.util.List<Survivors.Phase> phases =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    private final java.util.List<Survivors.Survived> survived =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    /** Spec 0080 -- damage events a prevention effect was chosen for, not yet told. */
+    private final java.util.List<Survivors.Pending> preventing =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
+    /**
+     * Spec 0080, item 6 -- Forge asks a controller which replacement to apply
+     * to damage (MatchController#chooseSingleReplacementEffect) before it
+     * applies it: when it is a prevention, the damage events it will act on
+     * are noted (their would-be amounts), to be told as prevented hits.
+     */
+    void replacementChosen(forge.game.replacement.ReplacementEffect chosen) {
+        Game current = game;
+        if (current == null || !Survivors.isPrevention(chosen)) {
+            return;
+        }
+        java.util.Map<Player, Integer> seats = seatsByPlayer(current);
+        synchronized (damageDealt) {
+            for (Object[] event : Survivors.preventing(current, chosen)) {
+                if (preventing.stream().anyMatch(p -> p.event() == event[0])) {
+                    continue;
+                }
+                String source = event[1] instanceof forge.game.card.Card card ? "card:" + card.getId() : null;
+                com.google.gson.JsonObject target = new com.google.gson.JsonObject();
+                if (event[2] instanceof Player player) {
+                    target.addProperty("player", seats.getOrDefault(player, 0));
+                } else if (event[2] instanceof forge.game.card.Card card) {
+                    target.addProperty("object", "card:" + card.getId());
+                } else {
+                    continue;
+                }
+                preventing.add(new Survivors.Pending(event[0], source, target, (Integer) event[3],
+                        damageDealt.size()));
+            }
+        }
+    }
+
     private final java.util.Set<Integer> fizzling =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
@@ -1065,6 +1117,17 @@ public final class GameHost {
             return;
         }
         forge.game.spellability.SpellAbility sa = Copies.resolved(current, resolved);
+        // Spec 0080 -- a destroy that failed on an indestructible permanent
+        // (Forge says nothing): spells and abilities alike.
+        if (sa != null && !resolved.hasFizzled()) {
+            try {
+                for (forge.game.card.Card stood : Survivors.stoodDestroy(current, sa)) {
+                    survived.add(new Survivors.Survived(stood.getId(), "indestructible"));
+                }
+            } catch (RuntimeException e) {
+                System.err.println("proxic: indestructible survivors not read: " + e);
+            }
+        }
         forge.game.card.Card host = sa == null ? null : sa.getHostCard();
         if (host == null || !sa.isSpell()) {
             return;
@@ -1303,6 +1366,31 @@ public final class GameHost {
             walkerHits(current);
         }
         synchronized (damageDealt) {
+            // Spec 0080 -- prevented hits, once Forge has finished replacing
+            // the damage (a replacement question can publish mid-way).
+            if (!preventing.isEmpty() && !Survivors.replacingDamage(current)) {
+                java.util.List<com.google.gson.JsonObject> all = Survivors.withPrevented(
+                        new java.util.ArrayList<>(damageDealt), java.util.List.copyOf(preventing));
+                damageDealt.clear();
+                damageDealt.addAll(all);
+                preventing.clear();
+            }
+            // Spec 0080 -- a creature dealt lethal damage that stays: indestructible.
+            for (com.google.gson.JsonObject hit : damageDealt) {
+                com.google.gson.JsonObject target = hit.getAsJsonObject("target");
+                if (hit.get("amount").getAsInt() > 0 && target != null && target.has("object")) {
+                    String id = target.get("object").getAsString();
+                    try {
+                        forge.game.card.Card card =
+                                current.findById(Integer.parseInt(id.substring("card:".length())));
+                        if (Survivors.heldLethal(card)) {
+                            survived.add(new Survivors.Survived(card.getId(), "indestructible"));
+                        }
+                    } catch (RuntimeException e) {
+                        // not a card Forge still has: nothing to tell
+                    }
+                }
+            }
             if (!damageDealt.isEmpty()) {
                 // Phase 10 A-13: a damage step's own damage says so, with who
                 // fought whom and the life it gained; the step is then over
@@ -1329,6 +1417,18 @@ public final class GameHost {
         }
         // Phase 10 A-10: what merged into what, from Forge's own state.
         moved = Moves.withInto(moved, mergedInto(current));
+        // Spec 0080 -- a flicker (exiled and back in one go) is one move.
+        moved = Moves.flickers(moved);
+        com.google.gson.JsonArray phasedNow;
+        synchronized (phases) {
+            phasedNow = Survivors.phasedJson(phases);
+            phases.clear();
+        }
+        com.google.gson.JsonArray survivedNow;
+        synchronized (survived) {
+            survivedNow = Survivors.survivedJson(survived);
+            survived.clear();
+        }
         sacrificing.clear();
         // Spec 0075 (owner 2026-11-12): no graveyard line is told any more --
         // the report window explains what the other player did (ActionReports).
@@ -1379,6 +1479,12 @@ public final class GameHost {
             if (!moved.isEmpty()) {
                 snapshot.add("moves", Moves.forViewer(moved, seat));
             }
+            if (phasedNow.size() > 0) {
+                snapshot.add("phased", phasedNow.deepCopy());
+            }
+            if (survivedNow.size() > 0) {
+                snapshot.add("survived", survivedNow.deepCopy());
+            }
             com.google.gson.JsonArray lines = logLines.get(seat);
             if (lines != null && lines.size() > 0) {
                 // Spec 0064 -- a card's id only while this board shows the card.
@@ -1423,6 +1529,12 @@ public final class GameHost {
             everyone.add("payments", payments.forViewer(null));
             if (!moved.isEmpty()) {
                 everyone.add("moves", Moves.forViewer(moved, null));
+            }
+            if (phasedNow.size() > 0) {
+                everyone.add("phased", phasedNow.deepCopy());
+            }
+            if (survivedNow.size() > 0) {
+                everyone.add("survived", survivedNow.deepCopy());
             }
             com.google.gson.JsonArray lines = new com.google.gson.JsonArray();
             synchronized (publicBacklog) {

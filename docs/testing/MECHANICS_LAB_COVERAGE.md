@@ -151,7 +151,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Curiosity | JMP:147 | 1 | Advanced rules | Aura; combat/noncombat damage trigger; draw | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Curtains' Call | CMM:146 | 1 | Multiplayer | Undaunted; multiple opponents; destroy two targets | P8_COVERAGE | Exploratory | BLOCKED_BY_UNSUPPORTED_PRESET |
 | Darksteel Garrison | FUT:167 | 1 | Attachments & artifacts | Fortification; fortify land | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Darksteel Myr | SOM:151 | 1 | Combat & evergreen | Indestructible | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
+| Darksteel Myr | SOM:151 | 1 | Combat & evergreen | Indestructible | P8_COVERAGE | Exploratory | PASSED |
 | Dauthi Slayer | TPR:97 | 1 | Combat & evergreen | Shadow; must attack if able | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Dawnhand Dissident | ECL:98 | 1 | Recent mechanics 2024-2026 | Blight keyword action; put -1/-1 counters on your own creature as a cost | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Deadly Dispute | J25:115 | 1 | Counters & tokens | Treasure token; sacrifice as additional cost; draw | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
@@ -184,8 +184,8 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Fire // Ice | DMR:215 | 1 | Card structures | Split card; choose half; split-card characteristics | P6_REQUIRED | Required | PASSED |
 | Fireball | CLB:175 | 1 | Casting & costs | X cost; divide damage among multiple targets; additional division cost | P6_REQUIRED | Required | PASSED |
 | Flame Jab | EMA:131 | 1 | Casting & costs | Retrace; cast from graveyard; discard land additional cost | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Flickerwisp | 2X2:11 | 1 | Zones & information | Exile and delayed return; new object on return | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Fog | M12:173 | 1 | Combat & evergreen | Combat damage prevention | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
+| Flickerwisp | 2X2:11 | 1 | Zones & information | Exile and delayed return; new object on return | P8_COVERAGE | Exploratory | PASSED |
+| Fog | M12:173 | 1 | Combat & evergreen | Combat damage prevention | P8_COVERAGE | Exploratory | PASSED |
 | Force of Will | DMR:50 | 1 | Casting & costs | Alternative cost; exile card and pay life; cast without normal mana cost | P6_REQUIRED | Required | PASSED |
 | Forest | FRA:289 | 20 | Mana & lands | Basic land; mana ability; land play; tapped-for-mana UI | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Future Sight | VMA:71 | 1 | Zones & information | Reveal top card; play from top of library | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
@@ -290,7 +290,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Rest in Peace | ACR:83 | 1 | Zones & information | ETB exile graveyards; graveyard replacement | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Reverse Engineer | CMM:116 | 1 | Casting & costs | Improvise; tap artifacts to pay generic mana | P6_REQUIRED | Required | PASSED |
 | Rift Bolt | 2X2:122 | 1 | Casting & costs | Suspend; time counters; exile; cast without mana cost | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| River Boa | ZEN:180 | 1 | Combat & evergreen | Islandwalk; regeneration | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
+| River Boa | ZEN:180 | 1 | Combat & evergreen | Islandwalk; regeneration | P8_COVERAGE | Exploratory | PASSED |
 | Roamer's Routine | TDM:154 | 1 | Casting & costs | Harmonize; cast from graveyard; optional creature tap to reduce generic cost | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Rootborn Defenses | RVR:26 | 1 | Counters & tokens | Populate; copy creature token; indestructible | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Saw It Coming | KHM:76 | 1 | Casting & costs | Foretell; face-down exile; special action; alternate cost; counterspell | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
@@ -325,7 +325,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Sudden Spoiling | TSR:144 | 1 | Advanced rules | Split second; layer system; ability loss; P/T setting | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Suq'Ata Lancer | DMR:145 | 1 | Combat & evergreen | Haste; flanking | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Swamp | FRA:285 | 20 | Mana & lands | Basic land; mana ability; land play; tapped-for-mana UI | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Teferi's Protection | 2X2:32 | 1 | Advanced rules | Phasing; protection; life total can't change | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
+| Teferi's Protection | 2X2:32 | 1 | Advanced rules | Phasing; protection; life total can't change | P8_COVERAGE | Exploratory | PASSED |
 | Temporal Intervention | EOE:120 | 1 | Recent mechanics 2024-2026 | Void ability word; checks whether a nonland permanent left the battlefield or a spell was warped | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Temur Battle Rage | CMM:264 | 1 | Combat & evergreen | Double strike; conditional trample; combat trick | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Tenacious Underdog | SNC:97 | 1 | Casting & costs | Blitz; alternate cost from graveyard; haste; sacrifice; draw trigger | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
@@ -362,6 +362,6 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Wilderness Reclamation | RVR:458 | 1 | Advanced rules | End-step trigger; mass untap | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Willbender | A25:78 | 1 | Casting & costs | Morph; face-down creature; turn face up special action; change target | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Wolverine, Fierce Fighter | MSH:240 | 1 | Combat & evergreen | Heal; damage already marked on permanent | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Wrath of God | CMM:70 | 1 | Advanced rules | Mass destroy; no regeneration | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
+| Wrath of God | CMM:70 | 1 | Advanced rules | Mass destroy; no regeneration | P8_COVERAGE | Exploratory | PASSED |
 | Young Wolf | INR:227 | 1 | Counters & tokens | Undying; +1/+1 counter; return from graveyard | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Óin the Brave | HOB:106 | 1 | Combat & evergreen | Storied; enduring-story player designation | P8_COVERAGE | Exploratory | NOT_YET_TESTED |

@@ -530,6 +530,14 @@ export interface SnapshotCard {
    */
   copy?: boolean | undefined;
   copyOf?: string | undefined;
+  /**
+   * Spec 0080 -- on the battlefield (public): phased out (still in its place,
+   * treated as though it doesn't exist), its regeneration shields waiting, and
+   * indestructible now.
+   */
+  phasedOut?: boolean | undefined;
+  shields?: number | undefined;
+  indestructible?: boolean | undefined;
   /** Spec 0079 -- in a report window: where a card the spell aimed at is now ("in Bob's hand"). */
   toSaid?: string | undefined;
 }
@@ -659,6 +667,11 @@ export interface DamageState {
     deathtouch?: boolean;
     /** Spec 0077 -- an infect hit: poison counters, not life (CR 120.3b). */
     infect?: boolean;
+    /**
+     * Spec 0080 -- damage a prevention effect stopped (Holy Day, protection
+     * from a colour): its would-be amount; `amount` is then 0.
+     */
+    prevented?: number;
   }[];
   /** Phase 10 A-13 -- the damage a combat damage step dealt: which step. Absent for a spell's. */
   combat?: "first-strike" | "regular";
@@ -759,6 +772,10 @@ export interface Snapshot {
   damage: DamageState | null;
   /** Spec 0077 -- this round's life and poison changes, or null. */
   life?: LifeChanges | null;
+  /** Spec 0080 -- this round's phase changes (out: phased out; else phased in). */
+  phased?: { card: string; out: boolean }[];
+  /** Spec 0080 -- this round's survivors: a regeneration shield used, or a destroy an indestructible permanent shrugged off. */
+  survived?: { card: string; how: "regenerated" | "indestructible" }[];
   /** Spec 0045 -- the cards Forge last showed this viewer, or null. */
   reveal?: SnapshotReveal | null;
   /** Phase 9 Amendment 12 -- who did what, in this reader's words. */
@@ -1284,9 +1301,32 @@ function asSnapshot(value: unknown): Snapshot | null {
     combat: asCombat(row["combat"]),
     damage: asDamage(row["damage"]),
     life: asLife(row["life"]),
+    phased: asPhased(row["phased"]),
+    survived: asSurvived(row["survived"]),
     reveal: asReveal(row["reveal"]),
     action: asAction(row["action"]),
   };
+}
+
+/** Spec 0080 -- the round's phase changes, keeping only well-formed ones. */
+function asPhased(value: unknown): { card: string; out: boolean }[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const e = (typeof entry === "object" && entry !== null ? entry : {}) as Record<string, unknown>;
+    const card = asString(e["card"]);
+    return card && typeof e["out"] === "boolean" ? [{ card, out: e["out"] }] : [];
+  });
+}
+
+/** Spec 0080 -- the round's survivors, keeping only well-formed ones. */
+function asSurvived(value: unknown): { card: string; how: "regenerated" | "indestructible" }[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const e = (typeof entry === "object" && entry !== null ? entry : {}) as Record<string, unknown>;
+    const card = asString(e["card"]);
+    const how = e["how"];
+    return card && (how === "regenerated" || how === "indestructible") ? [{ card, how }] : [];
+  });
 }
 
 function asReveal(value: unknown): SnapshotReveal | null {
@@ -1480,6 +1520,9 @@ function asCards(value: unknown): SnapshotCard[] {
       copy: row["copy"] === true ? true : undefined,
       copyOf: asString(row["copyOf"]) ?? undefined,
       toSaid: asString(row["toSaid"]) ?? undefined,
+      phasedOut: row["phasedOut"] === true ? true : undefined,
+      shields: (asNumber(row["shields"]) ?? 0) > 0 ? asNumber(row["shields"])! : undefined,
+      indestructible: row["indestructible"] === true ? true : undefined,
     });
   }
   return cards;
@@ -1603,6 +1646,9 @@ function asDamage(value: unknown): DamageState | null {
         amount,
         ...(h["deathtouch"] === true ? { deathtouch: true } : {}),
         ...(h["infect"] === true ? { infect: true } : {}),
+        ...(typeof h["prevented"] === "number" && h["prevented"] > 0
+          ? { prevented: h["prevented"] }
+          : {}),
       });
   }
   const step = row["combat"];
@@ -1965,7 +2011,11 @@ export interface SnapshotMove {
     | "died"
     /** Spec 0079 -- a spell that did nothing: its targets were gone. */
     | "fizzled"
+    /** Spec 0080 -- exiled and returned in one go (Ephemerate): battlefield to battlefield, `via` its exile. */
+    | "flickered"
     | null;
+  /** Spec 0080 -- a flicker's exile, on its way back: whose. */
+  via?: { zone: string; seat: number | null } | null;
   /**
    * Spec 0061, item 4 -- the tag the card carries on its way to a graveyard,
    * in the game's words ("Cycled", "Discarded: too many cards", "Countered by
@@ -2002,6 +2052,7 @@ const MOVE_WHYS = new Set([
   "countered",
   "died",
   "fizzled",
+  "flickered",
 ]);
 
 function asMoves(value: unknown): SnapshotMove[] {
@@ -2025,6 +2076,7 @@ function asMoves(value: unknown): SnapshotMove[] {
         into: asString(e["into"]),
         where: where === "top" || where === "bottom" || where === "shuffled" ? where : null,
         last: asLast(e["last"]),
+        via: e["via"] ? place(e["via"]) : null,
       },
     ];
   });

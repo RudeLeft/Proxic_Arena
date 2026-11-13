@@ -2329,3 +2329,138 @@ img.bf-makes-pip {
     display: none;
   }
 }
+
+/* --- Spec 0080 (owner 2026-11-12, canvas survive-1112) ------------------ */
+
+/* Q2 A -- phased out: a ghost in its place, see-through and grey with a
+   soft pale shimmer, its square mark; never clicked or aimed at. Solid
+   again when it phases in. The transition is the look's only movement
+   (reduce motion: it simply changes). */
+.bf-card[data-phased="true"] {
+  /* The card itself is the ghost (see-through, grey); its square mark, in
+     .bf-badges, stays solid so it can be read. */
+  background: color-mix(in srgb, var(--frame) 30%, transparent);
+  border-color: rgb(207 230 255 / 55%);
+  pointer-events: none;
+  cursor: default;
+  box-shadow: 0 0 calc(var(--card-h) * 0.12) rgb(207 230 255 / 40%);
+  transition:
+    background-color 450ms ease-in-out,
+    box-shadow 450ms ease-in-out;
+}
+.bf-card[data-phased="true"] > :not(.bf-badges) {
+  opacity: 0.34;
+  filter: grayscale(0.7) brightness(1.15);
+  transition:
+    opacity 450ms ease-in-out,
+    filter 450ms ease-in-out;
+}
+.bf-card[data-phased="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgb(223 240 255 / 35%) 50%, transparent 70%);
+  background-size: 250% 100%;
+  animation: bf-phase-shimmer 2.6s linear infinite;
+}
+@keyframes bf-phase-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-card[data-phased="true"],
+  .bf-card[data-phased="true"] > :not(.bf-badges) {
+    transition: none;
+  }
+  .bf-card[data-phased="true"]::after {
+    animation: none;
+  }
+}
+/* The phased mark stays readable on the faded card: the card's opacity is
+   the button's, so the mark (inside it) is lifted back with its own glow. */
+.bf-mark-phased {
+  border-color: #9fd0ff;
+  box-shadow:
+    0 0 calc(var(--card-h) * 0.06) #9fd0ffaa,
+    0 1px 3px #000a;
+}
+/* Q3 B -- a regeneration shield waiting: green-rimmed square. */
+.bf-mark-shield {
+  border-color: #7be08a;
+  box-shadow:
+    0 0 calc(var(--card-h) * 0.05) #7be08a66,
+    0 1px 3px #000a;
+}
+/* Q4b F1 -- indestructible, at rest: the gold hexagon. */
+.bf-mark-hex {
+  border-color: #f2c46a;
+}
+
+/* Q5 A -- prevented damage: a pale, see-through round shield in front of
+   what was hit, soaking the blow up (it ripples); the number is a grey 0. */
+.bf-fight-ward {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    rgb(230 244 255 / 18%),
+    rgb(170 210 255 / 28%) 60%,
+    rgb(200 230 255 / 55%) 72%,
+    transparent 74%
+  );
+  box-shadow: 0 0 18px rgb(200 230 255 / 45%);
+}
+.bf-fight-number.bf-fight-grey {
+  color: #c4ccc8;
+}
+.bf-fight-number.bf-fight-gold {
+  color: #ffe08a;
+}
+/* Q4b F1 -- the hex-grid dome: gold, wrapped round the card, flickering up
+   at the blow; sparks bounce off it. Nothing like the pale prevention shield. */
+.bf-fight-dome {
+  position: absolute;
+  pointer-events: none;
+  filter: drop-shadow(0 0 8px #ffd77a);
+}
+.bf-fight-dome svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.bf-fight-spark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: #fff3c4;
+  box-shadow: 0 0 8px #ffd36a;
+}
+.bf-fight-spark.bf-fight-green {
+  background: #bff0c0;
+  box-shadow: 0 0 8px #7be08a;
+}
+/* Q3 B -- the shield mark breaking: it bursts in green. */
+.bf-fight-shieldbreak {
+  position: absolute;
+  pointer-events: none;
+  border-radius: calc(var(--card-h, 120px) * 0.035);
+  border: 1.5px solid #7be08a;
+  background: radial-gradient(circle at 40% 35%, #3a2c12, #16110a);
+  display: grid;
+  place-items: center;
+}
+.bf-fight-shieldbreak svg {
+  width: 80%;
+  height: 80%;
+}
