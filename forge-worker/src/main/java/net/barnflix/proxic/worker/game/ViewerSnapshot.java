@@ -253,6 +253,14 @@ final class ViewerSnapshot {
                         described.add("makes", makes);
                     }
                 }
+                // Spec 0082 -- a creature that is prepared names its prepared
+                // spell (Forge's own link; public: the spell waits in exile,
+                // face up), and the link is kept for when the spell is cast.
+                Card preparedSpell = card.getPreparedSpell();
+                if (preparedSpell != null) {
+                    Copies.of(game).notePrepared(card);
+                    described.addProperty("prepared", "card:" + preparedSpell.getId());
+                }
                 battlefield.add(described);
             }
         }
@@ -386,6 +394,30 @@ final class ViewerSnapshot {
                     if (artOwner != null && !hidden) {
                         entry.addProperty("artOwner", seatOf.getOrDefault(artOwner, 0));
                     }
+                } else if (!instance.isSpell() && instance.getSpellAbility() != null
+                        && instance.getSpellAbility().isCopied()) {
+                    // Spec 0082 -- a copy of an ability (Strionic Resonator
+                    // copying a trigger) is marked too, naming the entry it
+                    // copies (Forge's CR 707.10b link).
+                    entry.addProperty("copy", true);
+                    forge.game.spellability.SpellAbilityStackInstance of =
+                            Copies.originalEntry(game, instance.getSpellAbility());
+                    if (of != null) {
+                        entry.addProperty("copyOf", "stack:" + of.getId());
+                    }
+                } else if (instance.isSpell() && Copies.of(game).isCastCopy(source)) {
+                    // Spec 0082 -- a copy that was CAST (a prepared spell,
+                    // "cast a copy"): a copy all the same, ending in motes.
+                    entry.addProperty("copy", true);
+                }
+                // Spec 0082 -- the batch a copy was made in, so its "xN"
+                // card keeps one identity while it ticks down.
+                String group = Copies.of(game).groupOf(instance.getSpellAbility());
+                if (group != null) {
+                    entry.addProperty("group", group);
+                    // And the id it had on its way (`copying`), so the board
+                    // knows it is the same copy, now on the stack.
+                    entry.addProperty("copyingId", "copying:" + instance.getSpellAbility().getId());
                 }
                 // A spell's printed cost, when this viewer may know the card.
                 if (instance.isSpell() && !hidden) {
@@ -426,11 +458,30 @@ final class ViewerSnapshot {
         });
         JsonArray casting = new JsonArray();
         for (Card card : game.getCardsIn(ZoneType.Stack)) {
-            if (!onStack.contains(card.getId())) {
+            // Spec 0082 -- a copy put straight onto the stack (storm's, Fork's)
+            // is never cast: Forge holds it in the stack zone while its
+            // maker resolves, and it read as a spell being cast (a loose
+            // Grapeshot in the middle; a card seeming to leave her hand).
+            // It is in `copying` below instead.
+            if (!onStack.contains(card.getId()) && !card.isCopiedSpell()) {
                 casting.add(describe(card, viewing, seatOf));
             }
         }
         snapshot.add("casting", casting);
+
+        // Spec 0082 -- the copies on their way onto the stack: each while
+        // it is asked "new target?" (`aiming`) and while Forge holds it
+        // until its maker has resolved, in the order they will be on the
+        // stack, top first. Shaped as stack entries. Public: a copy is put
+        // on the stack in front of everyone, and its targets are announced.
+        JsonArray copying = new JsonArray();
+        Copies copies = Copies.of(game);
+        for (forge.game.spellability.SpellAbility sa : copies.waiting(game)) {
+            copying.add(copyingEntry(game, sa, copies, viewing, seatOf));
+        }
+        if (copying.size() > 0) {
+            snapshot.add("copying", copying);
+        }
 
         // Spec 0045 -- the cards Forge last showed THIS viewer (Goblin
         // Ringleader's four), face up because Forge revealed them to
@@ -565,6 +616,55 @@ final class ViewerSnapshot {
             }
         }
         return out;
+    }
+
+    /**
+     * Spec 0082 -- one copy on its way onto the stack, as a stack entry would
+     * say it: id "copying:N" (its spell ability's id; its stack entry's id is
+     * Forge's to give when it arrives), its card (`source`: a spell copy's
+     * own card, an ability copy's host), `copy` and `copyOf` (the stack
+     * entry it copies), the batch (`group`), its targets as they stand
+     * (none while they are being chosen), and `aiming` while it is asked.
+     */
+    static JsonObject copyingEntry(Game game, forge.game.spellability.SpellAbility sa, Copies copies,
+                                   PlayerView viewing, Map<Player, Integer> seatOf) {
+        JsonObject entry = new JsonObject();
+        entry.addProperty("id", "copying:" + sa.getId());
+        Card source = sa.getHostCard();
+        if (source != null) {
+            entry.addProperty("source", "card:" + source.getId());
+            entry.addProperty("name", nameFor(source, viewing));
+            entry.addProperty("owner", seatOf.getOrDefault(source.getOwner(), 0));
+            if (sa.isSpell()) {
+                forge.card.mana.ManaCost printed = source.getManaCost();
+                if (printed != null && !printed.isNoCost()) {
+                    entry.addProperty("manaCost", printed.toString());
+                }
+                Player artOwner = copies.artOwner(game, source);
+                if (artOwner != null) {
+                    entry.addProperty("artOwner", seatOf.getOrDefault(artOwner, 0));
+                }
+            }
+        }
+        Player by = sa.getActivatingPlayer();
+        entry.addProperty("controller", by == null ? 0 : seatOf.getOrDefault(by, 0));
+        entry.addProperty("kind", sa.isSpell() ? "spell" : sa.isTrigger() ? "trigger" : "ability");
+        String said = sa.getStackDescription();
+        entry.addProperty("description", PlainWords.humanise(said == null || said.isBlank() ? String.valueOf(sa) : said));
+        entry.addProperty("copy", true);
+        forge.game.spellability.SpellAbilityStackInstance of = Copies.originalEntry(game, sa);
+        if (of != null) {
+            entry.addProperty("copyOf", "stack:" + of.getId());
+        }
+        String group = copies.groupOf(sa);
+        if (group != null) {
+            entry.addProperty("group", group);
+        }
+        entry.add("targets", targetsOf(game, sa, seatOf));
+        if (copies.isAiming(sa)) {
+            entry.addProperty("aiming", true);
+        }
+        return entry;
     }
 
     /** Everything a spell or ability targets, through its sub-abilities:

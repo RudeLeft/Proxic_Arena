@@ -37,7 +37,9 @@ def boards(trace, seat):
         if f.get("type") != "MATCH_SNAPSHOT" or f.get("seat") != seat:
             continue
         s = f["state"]
-        sig = json.dumps([s.get(k) for k in ("battlefield", "hand", "graveyard", "exile", "stack", "otherHands", "casting")]
+        sig = json.dumps([s.get(k) for k in ("battlefield", "hand", "graveyard", "exile", "stack", "otherHands", "casting",
+                                             # Spec 0082: copies on their way (one board per "new target?").
+                                             "copying")]
                          + [[p.get("life"), p.get("handCount"), p.get("libraryCount"), p.get("poison"), p.get("counters")] for p in s["players"]]
                          # The same boards as the spec's (spec 0062: a payment
                          # step can change nothing else), or every board after
@@ -63,6 +65,10 @@ def where(s):
     for e in s.get("stack") or []:
         if e.get("kind") == "spell" and e.get("source"):
             at.setdefault(e["source"], {"zone": "stack", "seat": e.get("controller"), "name": e.get("name")})
+    # Spec 0082: a spell copy on its way onto the stack (storm's, Fork's).
+    for e in s.get("copying") or []:
+        if e.get("kind") == "spell" and e.get("source"):
+            at.setdefault(e["source"], {"zone": "copying", "seat": e.get("controller"), "name": e.get("name")})
     return at
 
 
@@ -96,7 +102,8 @@ def thing_of(key, stack_card):
     k = key.split("#")[0]
     if k.startswith("player:") or k == "__gap":
         return None
-    for p in ("ghost:", "flight:", "cast:"):
+    # Spec 0082: "mark:" -- a prepared spell drawn as its mark on its creature.
+    for p in ("ghost:", "flight:", "cast:", "mark:"):
         if k.startswith(p):
             k = k[len(p):]
     if k.startswith("stack:"):
@@ -202,6 +209,13 @@ def analyse(file, trace, seat):
                     else:
                         vanished[th] = (t, p)
             prev = now
+        # Spec 0082 -- a mark that grew in on its card (0076's grow: drawn from
+        # nearly nothing to its size) arrived; it did not pop in.
+        widths = defaultdict(list)
+        for r in rs:
+            if not r.get("gone") and str(r["id"]).startswith("mark:"):
+                widths[thing_of(r["id"], stack_card)].append(r.get("w", 0))
+        grew = {th for th, ws in widths.items() if ws and max(ws) > 1.4 * max(1, ws[0])}
         found = []
         for th, ss in steps.items():
             for d, t, gap in ss:
@@ -209,7 +223,7 @@ def analyse(file, trace, seat):
                     found.append(("jumped", th, f"{round(d)} px in one frame"))
                     break
         for th, (t, q) in appeared.items():
-            if th in before:
+            if th in before or th in grew:
                 continue
             settled_moves = path[th]
             o = max(x[2] for x in q)

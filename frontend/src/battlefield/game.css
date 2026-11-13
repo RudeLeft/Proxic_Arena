@@ -4741,3 +4741,18 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   color: #f0cf84;
   font-weight: 600;
 }
+
+/* Spec 0082 -- a cast copy (a prepared spell) wears the gold copy mark while
+ * it is paid in the middle and as it flies to the stack (0079's mark, low on
+ * the left, as on a copy's stack card). */
+.gs-cast-copy-mark {
+  position: absolute;
+  left: 3%;
+  bottom: 15%;
+  width: 24%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 12%;
+  z-index: 3;
+  pointer-events: none;
+}

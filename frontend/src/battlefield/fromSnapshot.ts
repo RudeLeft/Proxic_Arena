@@ -25,7 +25,7 @@ import type {
 } from "./Board";
 import type { AnchorId } from "./motion";
 import { sameTrigger, stackWords } from "./triggers";
-import { sameCopy } from "./copies";
+import { copyKey, copyThing, joinsAimed, sameCopy } from "./copies";
 
 export interface BoardData {
   battlefield: BoardCard[];
@@ -35,6 +35,12 @@ export interface BoardData {
   opponentHand: OpponentHandCard[];
   combat: CombatView | null;
   stack: StackView[];
+  /**
+   * Spec 0082 -- the copies on their way onto the stack (storm's, Fork's, a
+   * Resonator's), grouped as they will be there: each group beside the
+   * entry it copies, its "xN" counting up as targets are picked.
+   */
+  copying: StackView[];
   damage: DamageWave | null;
   /** Spec 0077 -- the round's life and poison changes. */
   life: LifeChanges | null;
@@ -217,7 +223,7 @@ function tileMovesOf(
   return out;
 }
 
-function toBoardCard(card: SnapshotCard): BoardCard {
+function toBoardCard(card: SnapshotCard, prepared?: SnapshotCard): BoardCard {
   return {
     id: card.id,
     seat: card.seat,
@@ -252,9 +258,43 @@ function toBoardCard(card: SnapshotCard): BoardCard {
     ...(card.phasedOut ? { phasedOut: true } : {}),
     ...(card.shields ? { shields: card.shields } : {}),
     ...(card.indestructible ? { indestructible: true } : {}),
+    // Spec 0082 -- prepared: the gold square with its spell's picture.
+    ...(prepared
+      ? {
+          prepared: {
+            id: prepared.id,
+            name: prepared.name,
+            art: prepared.art,
+            crop: prepared.crop ?? null,
+          },
+        }
+      : {}),
     art: card.art,
     crop: card.crop ?? null,
   };
+}
+
+/**
+ * Spec 0082 -- the prepared spells now on their creatures (each creature's
+ * `prepared`, the game's link, never a name): drawn as the creature's mark,
+ * not in the exile pile. While one is being cast it is no longer on its
+ * creature -- it rose out of the mark.
+ */
+export function preparedSpells(snapshot: Snapshot): Map<string, SnapshotCard> {
+  const out = new Map<string, SnapshotCard>();
+  const casting = new Set(snapshot.casting.map((c) => c.id));
+  for (const card of snapshot.battlefield) {
+    if (!card.prepared || casting.has(card.prepared)) continue;
+    const spell = snapshot.exile.find((c) => c.id === card.prepared);
+    if (spell) out.set(card.id, spell);
+  }
+  return out;
+}
+
+/** Spec 0082 -- the exile pile as drawn: without the spells prepared on a creature. */
+export function exilePile(snapshot: Snapshot): SnapshotCard[] {
+  const on = new Set([...preparedSpells(snapshot).values()].map((c) => c.id));
+  return on.size === 0 ? snapshot.exile : snapshot.exile.filter((c) => !on.has(c.id));
 }
 
 function toHandCard(card: SnapshotCard): BoardHandCard {
@@ -364,18 +404,46 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   // Spec 0043 (owner 2026-10-31): the same trigger many times over (nine
   // Skirk Drill Sergeants' "may pay {2}{R}") is one card, "×9" -- the
   // object that resolves next leads, and the order stays Forge's.
-  const groups: { entry: (typeof snapshot.stack)[number]; ids: string[] }[] = [];
-  for (const entry of snapshot.stack) {
-    const last = groups[groups.length - 1];
-    // Spec 0079 (Q3 B): a storm's copies aimed at the same thing, the same.
-    if (last && (sameTrigger(last.entry, entry) || sameCopy(last.entry, entry)))
-      last.ids.push(entry.id);
-    else groups.push({ entry, ids: [entry.id] });
-  }
-  const stack: StackView[] = groups.map(({ entry, ids }) => ({
+  type Entry = (typeof snapshot.stack)[number];
+  const grouped = (list: readonly Entry[]) => {
+    const groups: { entry: Entry; ids: string[]; things: string[] }[] = [];
+    for (const entry of list) {
+      const last = groups[groups.length - 1];
+      // Spec 0079 (Q3 B): a storm's copies aimed at the same thing, the same.
+      // Spec 0082: and the one of its batch being aimed now joins them.
+      if (
+        last &&
+        (sameTrigger(last.entry, entry) ||
+          sameCopy(last.entry, entry) ||
+          joinsAimed(last.entry, entry))
+      ) {
+        last.ids.push(entry.id);
+        last.things.push(copyThing(entry));
+      } else groups.push({ entry, ids: [entry.id], things: [copyThing(entry)] });
+    }
+    // Spec 0082 -- a group of copies keeps one key while it lasts: on its
+    // way, on the stack, ticking down (never its first member's id).
+    const used = new Map<string, number>();
+    return groups.map((g) => {
+      const base = copyKey(g.entry);
+      if (!base) return { ...g, key: null };
+      const n = used.get(base) ?? 0;
+      used.set(base, n + 1);
+      return { ...g, key: n === 0 ? base : `${base}#${n}` };
+    });
+  };
+  const view = (
+    { entry, ids, things, key }: ReturnType<typeof grouped>[number],
+    waiting: boolean,
+  ): StackView => ({
     ...(ids.length > 1 ? { count: ids.length, members: ids } : {}),
     // Spec 0079 -- a copy of a spell, and the entry it copies.
     ...(entry.copy ? { copy: true, copyOf: entry.copyOf ?? null } : {}),
+    // Spec 0082 -- its lasting key, the cards it draws (for the jump check),
+    // and, on its way, that it is not on the stack yet.
+    ...(key ? { key, things } : {}),
+    ...(waiting ? { waiting: true } : {}),
+    ...(entry.aiming ? { aiming: true } : {}),
     id: entry.id,
     name: entry.name,
     art: entry.art,
@@ -391,7 +459,9 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     // flies onto the table from its place in the stack).
     ...(entry.controller ? { seat: entry.controller } : {}),
     card: entry.kind === "spell" ? (entry.source ?? null) : null,
-  }));
+  });
+  const stack: StackView[] = grouped(snapshot.stack).map((g) => view(g, false));
+  const copying: StackView[] = grouped(snapshot.copying ?? []).map((g) => view(g, true));
 
   const arrivals = new Map<string, AnchorId>();
   const departures = new Map<string, AnchorId>();
@@ -543,12 +613,14 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
         }
       : null;
 
+  const prepared = preparedSpells(snapshot);
   return {
-    battlefield: snapshot.battlefield.map(toBoardCard),
+    battlefield: snapshot.battlefield.map((c) => toBoardCard(c, prepared.get(c.id))),
     hand: snapshot.hand.map(toHandCard),
     opponentHand: opponentHandOf(snapshot),
     combat: snapshot.combat,
     stack,
+    copying,
     damage: snapshot.damage,
     life: snapshot.life ?? null,
     sizes: sizesOf(snapshot, previous),

@@ -231,7 +231,7 @@
       "tests": "P6-AJ, §6.82",
       "scenario": "Prepare: enters prepared; the prepared spell is copied from exile.",
       "result": "PASSED",
-      "evidence": "scripts/check-shapes.py prepare (worker, in CI), 2026-10-20. Enters prepared; a copy of Rampant Growth is cast (a land fetched); the creature stays."
+      "evidence": "scripts/check-shapes.py prepare (worker, in CI), 2026-10-20. Enters prepared; a copy of Rampant Growth is cast (a land fetched); the creature stays. Spec 0082 (2026-11-13): both seats see the creature name its prepared spell (`prepared`), the spell a copy of the creature (`copy`, `copyOf`) in exile and while cast, a copy on the stack, ending \"nowhere\"."
     },
     "Emeritus of Ideation // Ancestral Recall": {
       "owner": "P6_REQUIRED",
@@ -502,7 +502,7 @@
       "tests": "F-0079-C",
       "scenario": "Four Ornithopters, then Grapeshot: storm makes four copies, all at Bob.",
       "result": "PASSED",
-      "evidence": "scripts/check-copies.py, run in CI (2026-11-12, spec 0079). Both seats: four stack entries with copy true and copyOf the Grapeshot's own entry; each ends to \"nowhere\" (no graveyard), told once with the board it is gone from; Bob 20 -> 15."
+      "evidence": "scripts/check-copies.py, run in CI (2026-11-12, spec 0079). Both seats: four stack entries with copy true and copyOf the Grapeshot's own entry; each ends to \"nowhere\" (no graveyard), told once with the board it is gone from; Bob 20 -> 15. Spec 0082 (2026-11-13, storm and storm-split): on their way the copies are in `copying` (never `casting`), counting up 1 -> 4 with the one asked marked `aiming`, one batch (`group`) on the way and on the stack; split, two at Bob and two at his Bears, the Bears die."
     },
     "Darksteel Myr": {
       "owner": "P8_COVERAGE",

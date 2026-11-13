@@ -283,31 +283,92 @@ export function heldBreakFrames(): Keyframe[] {
  * when they copy the same entry and aim at the same thing (Grapeshot's
  * storm copies, all at Bob); aimed at different things, each is its own.
  */
-export function sameCopy(
-  a: {
-    copy?: boolean | undefined;
-    copyOf?: string | undefined;
-    name: string;
-    controller: number | null;
-    targets: readonly unknown[];
-  },
-  b: {
-    copy?: boolean | undefined;
-    copyOf?: string | undefined;
-    name: string;
-    controller: number | null;
-    targets: readonly unknown[];
-  },
-): boolean {
+export function sameCopy(a: CopyEntry, b: CopyEntry): boolean {
   return (
     a.copy === true &&
     b.copy === true &&
     a.copyOf !== undefined &&
     a.copyOf === b.copyOf &&
+    // Spec 0082: and made together (two Forks of one Bolt are two cards).
+    a.group === b.group &&
     a.name === b.name &&
     a.controller === b.controller &&
     JSON.stringify(a.targets) === JSON.stringify(b.targets)
   );
+}
+
+/** What the stack grouping reads of an entry (a StackEntry, on the stack or on its way). */
+export interface CopyEntry {
+  id: string;
+  kind?: string;
+  source?: string | null;
+  copy?: boolean | undefined;
+  copyOf?: string | undefined;
+  group?: string | undefined;
+  copyingId?: string | undefined;
+  aiming?: boolean | undefined;
+  name: string;
+  controller: number | null;
+  targets: readonly unknown[];
+}
+
+// --- spec 0082: copies put onto the stack, and cast copies ---------------------------
+
+/**
+ * Spec 0082 -- the copy being asked "new target?" (its targets cleared while
+ * they are chosen) is drawn on the card of its batch made just before it:
+ * the "xN" counts up as it peels on. Picked at something else, it then
+ * forms its own card.
+ */
+export function joinsAimed(a: CopyEntry, b: CopyEntry): boolean {
+  return (
+    a.copy === true &&
+    b.copy === true &&
+    b.aiming === true &&
+    a.group !== undefined &&
+    a.group === b.group &&
+    a.copyOf === b.copyOf &&
+    a.name === b.name &&
+    a.controller === b.controller
+  );
+}
+
+/**
+ * Spec 0082 -- the lasting key of a card of copies made together: its batch
+ * and what it aims at, so it is one card on its way, on the stack and while
+ * it ticks down (never its first member's id, which changes as each
+ * resolves). Null for anything else (its id is its key).
+ */
+export function copyKey(e: CopyEntry): string | null {
+  if (!e.copy || !e.group) return null;
+  return `${e.group}|${e.aiming ? "aiming" : JSON.stringify(e.targets)}`;
+}
+
+/**
+ * Spec 0082 -- what one copy is, for the jump check, the same on its way and
+ * on the stack: a spell copy's own card; an ability copy, the id it had on
+ * its way (its host card is the original's too).
+ */
+export function copyThing(e: CopyEntry): string {
+  if ((e.kind ?? "spell") === "spell" && e.source) return e.source;
+  return e.copyingId ?? e.id;
+}
+
+/** How far a copy on its way sits from the card it copies, as the canvas draws it. */
+export const BESIDE = { x: -0.8, y: -0.08, scale: 0.88, step: 0.46 };
+
+/**
+ * Spec 0082 -- where a card of copies on its way waits: beside the entry it
+ * copies (`of`, its stack card), a little to the left and smaller (the
+ * canvas's 54 px left and 8 up of a 68 px card, drawn at 0.88 of it); a
+ * second group (split targets) under the first.
+ */
+export function besideBox(of: Box, nth: number): Box {
+  const w = of.w * BESIDE.scale;
+  const h = of.h * BESIDE.scale;
+  const cx = of.x + of.w / 2 + BESIDE.x * of.w;
+  const cy = of.y + of.h / 2 + BESIDE.y * of.h + nth * BESIDE.step * of.h;
+  return { ...of, x: cx - w / 2, y: cy - h / 2, w, h, scale: of.scale * BESIDE.scale };
 }
 
 // --- the held spot ------------------------------------------------------------------
@@ -391,4 +452,48 @@ export function heldCard(spot: HeldSpot, card: string): BoardCard {
     blocking: false,
     attachedTo: null,
   };
+}
+
+/**
+ * Spec 0082 -- each card of copies on its way (by its id), where it waits:
+ * beside the stack card it copies (`spots`, the stack's boxes, top first),
+ * a second card for the same original under the first. One whose original
+ * is not drawn waits beside the front card.
+ */
+export function waitingBoxes(
+  copying: readonly StackView[],
+  stack: readonly StackView[],
+  spots: readonly Box[],
+): Map<string, Box> {
+  const out = new Map<string, Box>();
+  const nth = new Map<number, number>();
+  for (const w of copying) {
+    const j = w.copyOf
+      ? stack
+          .slice(0, spots.length)
+          .findIndex((e) => e.id === w.copyOf || e.members?.includes(w.copyOf!))
+      : -1;
+    const at = j >= 0 ? j : 0;
+    const of = spots[at];
+    if (!of) continue;
+    const k = nth.get(at) ?? 0;
+    nth.set(at, k + 1);
+    out.set(w.id, besideBox(of, k));
+  }
+  return out;
+}
+
+/**
+ * Spec 0082 -- the prepared mark's place on its creature (`box`, as drawn):
+ * the badge column's first square (0076's placement), as a small card there,
+ * for the cast copy to rise out of.
+ */
+export function preparedMarkBox(box: Box, cardW: number, cardH: number): Box {
+  const side = box.h * 0.17;
+  const cx = box.x + box.h * 0.03 + side / 2;
+  const cy = box.y + box.h - box.h * 0.15 - side / 2;
+  const k = (box.h * 0.24) / cardH;
+  const w = cardW * k;
+  const h = cardH * k;
+  return { x: cx - w / 2, y: cy - h / 2, w, h, scale: k, rotation: 0, z: 0 };
 }

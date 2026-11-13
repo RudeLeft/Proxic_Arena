@@ -198,6 +198,18 @@ class MovesTest {
     }
 
     @Test
+    void aCastCopyLeavingTheStackForAGraveyardGoesNowhere() {
+        // F-0082-B: the prepared Rampant Growth (a token spell) resolves: Forge
+        // puts it into the graveyard, where it ceases to exist -- nowhere.
+        assertTrue(Moves.ceasesOffStack("stack", "graveyard", true));
+        // A real card still goes to its graveyard; a token permanent spell
+        // resolving goes to the battlefield; a token dying is a death.
+        assertFalse(Moves.ceasesOffStack("stack", "graveyard", false));
+        assertFalse(Moves.ceasesOffStack("stack", "battlefield", true));
+        assertFalse(Moves.ceasesOffStack("battlefield", "graveyard", true));
+    }
+
+    @Test
     void aCopyEndingOnTheStackGoesNowhere() {
         // F-0079-B: Fork's copy resolved -- it ceases to exist (no graveyard).
         List<Moves.Move> moves = List.of(new Moves.Move(81, "stack", 1, "nowhere", null, false, null),

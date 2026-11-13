@@ -65,7 +65,8 @@ import {
   targetWords,
 } from "../matchText";
 import { Board, CardFace, counterWords, figure, lookOf, shortType } from "./Board";
-import { boardFromSnapshot } from "./fromSnapshot";
+import { boardFromSnapshot, exilePile } from "./fromSnapshot";
+import { preparedMarkBox } from "./copies";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { DISCARD_KIND, discardCount, discardWords, togglePick } from "./discard";
 import { PAY_HOLD_MS, payMarks, withPick, withoutPick, type PayMark } from "./payPicks";
@@ -73,7 +74,14 @@ import { LoadingRing, useVortexHandover } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import { OPPONENT_HAND_ORIGIN, type Box, type Geometry } from "./layout";
 import { anchors, boxAt } from "./motion";
-import { castCancelled, castOrigin, freeCast, hiddenInHand, type CastOrigin } from "./theirCast";
+import {
+  castCancelled,
+  castOrigin,
+  freeCast,
+  hiddenInHand,
+  preparedOn,
+  type CastOrigin,
+} from "./theirCast";
 import type { TheirGlide } from "./CastingCard";
 import {
   CastingCard,
@@ -793,10 +801,15 @@ export function GameScreen({
   // (flashback from the graveyard) is shown face up the whole way.
   // Spec 0081: and your own free spell cast from a pile (your cascade): it
   // rises from that pile the same way (nothing was clicked to rise from).
+  // Spec 0082: and a prepared spell's cast copy, yours too: it rises out of
+  // the gold square on its creature (nothing was clicked to rise from).
   const theirCast =
     casting &&
     board &&
-    (casting.seat !== board.seat || board.spectator || casting.id === freeCasting?.id)
+    (casting.seat !== board.seat ||
+      board.spectator ||
+      casting.id === freeCasting?.id ||
+      preparedOn(casting, frames.current.previous ?? board) !== null)
       ? casting
       : null;
   const originOf = useRef<{ id: string; origin: CastOrigin } | null>(null);
@@ -1103,6 +1116,9 @@ export function GameScreen({
   const aiming =
     decision?.kind === "chooseTargetsFor" && !answeredForYou && !!board && !board.spectator;
   const aimCard = casting && board && casting.seat === board.seat ? casting : null;
+  // Spec 0082 -- a copy asked "new target?" aims from its card, waiting
+  // beside the spell it copies.
+  const aimCopy = aiming ? (board?.copying?.find((entry) => entry.aiming) ?? null) : null;
   const aimSource =
     !aimCard && decision?.about?.card
       ? (board?.battlefield.find((c) => c.id === decision.about?.card) ?? null)
@@ -1823,6 +1839,7 @@ export function GameScreen({
             quietStack={quietStack.current}
             combat={data.combat}
             stack={stackShown}
+            copying={data.copying}
             clock={counting && windowId !== null ? String(windowId) : null}
             clockMs={RESPONSE_WINDOW_MS}
             handCosts={handCosts}
@@ -1954,7 +1971,7 @@ export function GameScreen({
               if (theirCast && theirOrigin && riseFrom.current?.id !== theirCast.id) {
                 riseFrom.current = {
                   id: theirCast.id,
-                  glide: placeOf(theirOrigin, lastFan.current, geometry),
+                  glide: placeOf(theirOrigin, lastFan.current, geometry, at),
                 };
               }
               lastFan.current = fan;
@@ -1985,13 +2002,15 @@ export function GameScreen({
                       key={decision.decisionId}
                       geometry={geometry}
                       from={
-                        aimCard
-                          ? castingBox(geometry)
-                          : aimSource
-                            ? at(aimSource.id)
-                            : board?.stack[0]
-                              ? at(board.stack[0].id)
-                              : null
+                        aimCopy && at(aimCopy.id)
+                          ? at(aimCopy.id)
+                          : aimCard
+                            ? castingBox(geometry)
+                            : aimSource
+                              ? at(aimSource.id)
+                              : board?.stack[0]
+                                ? at(board.stack[0].id)
+                                : null
                       }
                       attach={aimAttach}
                     />
@@ -2019,7 +2038,7 @@ export function GameScreen({
                   {theirBack.current &&
                     (() => {
                       const going = theirBack.current;
-                      const place = placeOf(going.origin, fan, geometry);
+                      const place = placeOf(going.origin, fan, geometry, at);
                       const own = going.backId ? at(going.backId) : null;
                       const shown = going.origin.shown ? at(going.origin.shown) : null;
                       return (
@@ -2630,7 +2649,8 @@ function SeatBlock({
   // Spec 0067 -- a spectator is nobody's "you" or "opponent".
   const role = `${board.spectator ? "player" : mine ? "you" : "opponent"}${active ? ", active turn" : ""}`;
   const visibleHand = board.otherHands.filter((card) => card.seat === player.seat);
-  const exiled = board.exile.filter((card) => card.seat === player.seat).length;
+  // Spec 0082 -- a spell prepared on a creature is drawn on it, not in the pile.
+  const exiled = exilePile(board).filter((card) => card.seat === player.seat).length;
   // Spec 0067, item 1 -- the life steps down at each blow of the fights
   // playing (lifeTicks), and settles on the board's when they end.
   // Spec 0077 -- every other life change steps too, and poison on its badge.
@@ -4350,9 +4370,12 @@ export function ZoneViewer({
   const whose = (s: number) =>
     s === mySeat ? "Your" : `${board.players.find((p) => p.seat === s)?.name ?? "Their"}'s`;
   const pile = (s: number, z: ZoneName) =>
-    (z === "graveyard" ? board.graveyard : z === "exile" ? board.exile : board.otherHands).filter(
-      (c) => c.seat === s,
-    );
+    (z === "graveyard"
+      ? board.graveyard
+      : z === "exile"
+        ? exilePile(board)
+        : board.otherHands
+    ).filter((c) => c.seat === s);
   const cards = groupCopies(
     pile(seat, zone)
       .slice()
@@ -4811,8 +4834,16 @@ function placeOf(
   origin: CastOrigin,
   fan: { hidden: readonly Box[]; shown: ReadonlyMap<string, Box> },
   g: Geometry,
+  at?: (objectId: string) => Box | null,
 ): TheirGlide {
   const where = anchors(g);
+  // Spec 0082 -- out of the prepared mark on its creature.
+  if (origin.zone === "prepared") {
+    const creature = origin.on && at ? at(origin.on) : null;
+    if (creature)
+      return { box: preparedMarkBox(creature, g.cardW, g.cardH), origin: { x: 0, y: 0 } };
+    return { box: boxAt(where[`${origin.side}:exile`], g), origin: { x: 0.5, y: 0.5 } };
+  }
   if (origin.zone === "hand") {
     if (origin.side === "opponent") {
       const box =

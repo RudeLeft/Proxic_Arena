@@ -56,6 +56,8 @@ function boards(file: string, seat: number): Snap[] {
       s.stack,
       s.otherHands,
       s.casting,
+      // Spec 0082 -- copies on their way (one board per "new target?").
+      s.copying,
       s.players.map((p) => [p.life, p.handCount, p.libraryCount, p.poison, p.counters]),
       // Spec 0062 -- a payment step can change nothing else (a creature
       // chosen for convoke is tapped only at the end).
@@ -86,41 +88,54 @@ function recorder() {
       // Every element that draws a card: on the table, in a hand, the
       // card being cast, its flight, a stack entry, a leaving ghost.
       for (const el of board.querySelectorAll<HTMLElement>(
-        "[data-object-id], [data-ghost-of], .gs-cast-leaving[data-card]",
+        "[data-object-id], [data-ghost-of], .gs-cast-leaving[data-card], [data-mark-of]",
       )) {
         const ghost = el.dataset.ghostOf;
-        const id = ghost
-          ? `ghost:${ghost}`
-          : el.classList.contains("gs-cast-leaving")
-            ? `flight:${el.dataset.card}`
-            : el.classList.contains("gs-cast")
-              ? `cast:${el.dataset.objectId}`
-              : (el.dataset.objectId ?? "");
-        if (!id) continue;
-        const key = seen.has(id) ? `${id}#${seen.size}` : id;
-        seen.add(key);
-        const r = el.getBoundingClientRect();
-        let o = 1;
-        for (let e: HTMLElement | null = el; e && e !== board; e = e.parentElement) {
-          o *= Number(getComputedStyle(e).opacity);
-        }
-        const img = el.querySelector("img");
-        const row = {
-          x: Math.round(r.x + r.width / 2),
-          y: Math.round(r.y + r.height / 2),
-          w: Math.round(r.width),
-          h: Math.round(r.height),
-          o: Math.round(o * 100) / 100,
-          z: el.dataset.zone ?? "",
-          c: el.dataset.controller ?? "",
-          f: el.dataset.face ?? "",
-          p: img?.getAttribute("src")?.slice(-48) ?? "",
-          n: el.dataset.count ?? "",
-        };
-        const text = JSON.stringify(row);
-        if (w.__last.get(key) !== text) {
-          w.__last.set(key, text);
-          w.__rec.push({ t: Math.round(t), m: w.__mark, id: key, ...row });
+        // Spec 0082 -- a card of copies made together draws each of them
+        // (`data-members`, the ones landed on it): one row per copy, so each
+        // is followed on its way, on the stack and ticking down, whatever
+        // the card's own id is at the time. A prepared spell is drawn as its
+        // mark on its creature (`data-mark-of`).
+        const ids = el.dataset.members
+          ? el.dataset.members.split(" ")
+          : [
+              el.dataset.markOf
+                ? `mark:${el.dataset.markOf}`
+                : ghost
+                  ? `ghost:${ghost}`
+                  : el.classList.contains("gs-cast-leaving")
+                    ? `flight:${el.dataset.card}`
+                    : el.classList.contains("gs-cast")
+                      ? `cast:${el.dataset.objectId}`
+                      : (el.dataset.objectId ?? ""),
+            ];
+        for (const id of ids) {
+          if (!id) continue;
+          const key = seen.has(id) ? `${id}#${seen.size}` : id;
+          seen.add(key);
+          const r = el.getBoundingClientRect();
+          let o = 1;
+          for (let e: HTMLElement | null = el; e && e !== board; e = e.parentElement) {
+            o *= Number(getComputedStyle(e).opacity);
+          }
+          const img = el.querySelector("img");
+          const row = {
+            x: Math.round(r.x + r.width / 2),
+            y: Math.round(r.y + r.height / 2),
+            w: Math.round(r.width),
+            h: Math.round(r.height),
+            o: Math.round(o * 100) / 100,
+            z: el.dataset.zone ?? "",
+            c: el.dataset.controller ?? "",
+            f: el.dataset.face ?? "",
+            p: img?.getAttribute("src")?.slice(-48) ?? "",
+            n: el.dataset.count ?? "",
+          };
+          const text = JSON.stringify(row);
+          if (w.__last.get(key) !== text) {
+            w.__last.set(key, text);
+            w.__rec.push({ t: Math.round(t), m: w.__mark, id: key, ...row });
+          }
         }
       }
     }

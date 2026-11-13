@@ -253,7 +253,14 @@ page works out every other size change by comparing two boards. Spec
 copied, only while the reader may see it); a copied spell ending on the
 stack moves to "nowhere"; a spell that fizzled has why "fizzled", and both
 players get an `action` report ("Alice's Lightning Bolt did nothing: its
-target was gone.") and a play-log line. Spec 0080: phased-out permanents
+target was gone.") and a play-log line. Spec 0082: copies on their way
+onto the stack (storm, Fork, a Strionic Resonator's copy of a trigger) are
+sent in `copying` -- each while it is asked "new target?" (`aiming`) and
+while Forge holds it until its maker has resolved -- never in `casting`;
+copies of one batch carry a stable `group`, an ability copy is marked
+`copy` too, and a prepared creature names its prepared spell (`prepared`),
+a copy of it (`copyOf`) in exile and while it is cast; a cast copy (a token
+spell) ends "nowhere". Spec 0080: phased-out permanents
 are sent, flagged `phasedOut` (they were left out and drawn exiled), with
 the round's `phased` changes; a flicker is one move ("flickered", `via`
 its exile); `shields` and `indestructible` ride on a permanent; the

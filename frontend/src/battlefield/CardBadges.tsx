@@ -251,6 +251,19 @@ export function badgeOrder(counters: readonly Counter[]): Counter[] {
  */
 export const BADGE_H = 0.15;
 export const MARK_H = 0.17;
+
+/** Spec 0082 -- a prepared spell with no picture: a sprout, as the canvas drew it. */
+export const SPROUT = (
+  <svg viewBox="0 0 20 20" aria-hidden="true">
+    <path
+      d="M10 18 V9 M10 11 C6 11 4 8 4 5 C8 5 10 7 10 11 M10 9 C10 6 12 3 16 3 C16 7 13 9 10 9"
+      fill="none"
+      stroke="#f4ffe8"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+    />
+  </svg>
+);
 export const BADGE_GAP = 0.018;
 /** Above the bottom bar (0.132). */
 export const BADGE_FLOOR = 0.15;
@@ -329,6 +342,7 @@ export function CardBadges({
   card,
   pile,
   room,
+  artUrl,
 }: {
   card: {
     /** Spec 0078 -- its id: a change to its counters plays on its badges. */
@@ -342,7 +356,11 @@ export function CardBadges({
     phasedOut?: boolean | undefined;
     shields?: number | undefined;
     indestructible?: boolean | undefined;
+    /** Spec 0082 -- prepared: a gold-rimmed square with the spell's picture. */
+    prepared?: { id: string; name: string; art: string | null; crop: string | null } | undefined;
   };
+  /** Spec 0082 -- a picture's address (the prepared spell's). */
+  artUrl?: ((art: string) => string) | undefined;
   /** A pile: its cards are identical, counters included -- "on each". */
   pile: boolean;
   /** What else is on the card, which the badges keep clear of. */
@@ -363,6 +381,7 @@ export function CardBadges({
   const kinds = badgeOrder([...(card.counters ?? []), ...leaving]);
   const squares = [
     card.ringBearer,
+    card.prepared,
     card.copy,
     card.phasedOut,
     (card.shields ?? 0) > 0,
@@ -393,6 +412,7 @@ export function CardBadges({
       pile,
     ),
     card.ringBearer ? "Ring-bearer" : "",
+    card.prepared ? `Prepared: ${card.prepared.name}` : "",
     card.copy ? "A copy" : "",
     card.phasedOut
       ? "Phased out: treated as though it doesn't exist until its controller's next turn"
@@ -440,6 +460,29 @@ export function CardBadges({
       : []),
     ...(card.ringBearer
       ? [{ key: "ring", h: MARK_H, node: <span className="bf-mark bf-mark-ring">{RING}</span> }]
+      : []),
+    // Spec 0082 -- the prepared spell, on its creature: its picture in a
+    // gold-rimmed square (the art crop, else the card; the sprout without one).
+    ...(card.prepared
+      ? [
+          {
+            key: "prepared",
+            h: MARK_H,
+            node: (
+              <span
+                className="bf-mark bf-mark-prepared"
+                data-mark="prepared"
+                data-mark-of={card.prepared.id}
+              >
+                {(card.prepared.crop ?? card.prepared.art) && artUrl ? (
+                  <img src={artUrl((card.prepared.crop ?? card.prepared.art)!)} alt="" />
+                ) : (
+                  SPROUT
+                )}
+              </span>
+            ),
+          },
+        ]
       : []),
     ...(card.copy
       ? [

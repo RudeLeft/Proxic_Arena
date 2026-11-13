@@ -44,7 +44,8 @@ final class HiddenIds {
 
     /** The snapshot lists that ARE the board: what is in them, the viewer sees. */
     private static final List<String> BOARD = List.of(
-            "battlefield", "hand", "otherHands", "casting", "graveyard", "exile", "command", "stack");
+            "battlefield", "hand", "otherHands", "casting", "graveyard", "exile", "command", "stack",
+            "copying");
 
     /** A move's fields that travel only with its card (Moves.forViewer). */
     private static final List<String> WITH_CARD = List.of("why", "said", "into");

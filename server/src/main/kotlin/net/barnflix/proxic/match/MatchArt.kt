@@ -115,7 +115,9 @@ class MatchArt(
                         // no pictures, so a revealed hand, a graveyard
                         // card looked at, a Reanimate target were bare.
                         "battlefield", "hand", "casting", "otherHands", "graveyard", "exile" -> zone(key)
-                        "stack" -> (value as? JsonArray)?.map { stackArt(it.jsonObject, allowed) }?.let(::JsonArray)
+                        // Spec 0082 -- a copy on its way onto the stack wears its picture as it will there.
+                        "stack", "copying" ->
+                            (value as? JsonArray)?.map { stackArt(it.jsonObject, allowed) }?.let(::JsonArray)
                         // Spec 0045 -- the cards Forge showed this seat; Phase 9
                         // Amendment 12 -- and a report's cards this seat may know.
                         "reveal", "action" ->

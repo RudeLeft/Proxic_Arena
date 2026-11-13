@@ -4986,6 +4986,20 @@ public final class MatchController extends GeneratedControllerBase {
             }
         }
         java.util.Map<String, Integer> placed = new java.util.HashMap<>();
+        // Spec 0082 -- copies going onto the stack together (storm's four,
+        // Fork's one, a Resonator's): one batch the board can show, each
+        // while it is asked "new target?" and while Forge holds it.
+        Copies copies = Copies.of(player.getGame());
+        copies.batch(ordered);
+        try {
+            placeOrdered(ordered, totals, placed, copies);
+        } finally {
+            copies.batchDone();
+        }
+    }
+
+    private void placeOrdered(List<SpellAbility> ordered, java.util.Map<String, Integer> totals,
+                              java.util.Map<String, Integer> placed, Copies copies) {
         for (int i = ordered.size() - 1; i >= 0; i--) {
             SpellAbility next = ordered.get(i);
             String key = copyKey(next);
@@ -5005,10 +5019,12 @@ public final class MatchController extends GeneratedControllerBase {
                     }
                 }
                 if (next.isMayChooseNewTargets()) {
+                    copies.aiming(next);
                     next.setupNewTargets(player);
                 }
             }
             player.getGame().getStack().add(next);
+            copies.put(next);
         }
     }
 

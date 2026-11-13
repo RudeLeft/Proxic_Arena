@@ -153,4 +153,41 @@ class HiddenIdsTest {
         HiddenIds.strip(bob, HiddenIds.hiddenZones(ZONES, 2));
         assertEquals("card:20", bob.getAsJsonArray("battlefield").get(0).getAsJsonObject().get("copyOf").getAsString());
     }
+
+    @Test
+    void aCopyOnItsWayKeepsItsOwnCardButNoHandleOnAHiddenTarget() {
+        // Spec 0082: a storm copy on its way (`copying`, card:90) aims at a
+        // card now in Bob's hand (card:20). Its own card is on the board for
+        // everyone; the target's id goes for Alice and stays for Bob.
+        String board = """
+                {"battlefield": [], "hand": %s, "otherHands": [], "stack": [],
+                 "copying": [{"id": "copying:41", "source": "card:90", "copy": true, "copyOf": "stack:3",
+                              "group": "copies:41", "aiming": true, "targets": [{"object": "card:20"}]}]}
+                """;
+        JsonObject alice = JsonParser.parseString(board.formatted("[{\"id\": \"card:7\"}]")).getAsJsonObject();
+        HiddenIds.strip(alice, HiddenIds.hiddenZones(ZONES, 1));
+        JsonObject copy = alice.getAsJsonArray("copying").get(0).getAsJsonObject();
+        assertEquals("card:90", copy.get("source").getAsString());
+        assertEquals("copies:41", copy.get("group").getAsString(), "a batch id is no card id");
+        assertFalse(alice.toString().contains("card:20"), alice.toString());
+        JsonObject bob = JsonParser.parseString(board.formatted("[{\"id\": \"card:20\"}]")).getAsJsonObject();
+        HiddenIds.strip(bob, HiddenIds.hiddenZones(ZONES, 2));
+        assertTrue(bob.toString().contains("card:20"), bob.toString());
+    }
+
+    @Test
+    void aPreparedCreatureNamesItsSpellInExileToBoth() {
+        // Spec 0082: Studious First-Year (card:39) is prepared with Rampant
+        // Growth (card:121), face up in exile: public, kept for both seats.
+        String board = """
+                {"battlefield": [{"id": "card:39", "prepared": "card:121"}], "hand": [], "otherHands": [],
+                 "exile": [{"id": "card:121", "copy": true, "copyOf": "card:39"}], "stack": []}
+                """;
+        for (int seat : new int[] {1, 2}) {
+            JsonObject seen = JsonParser.parseString(board).getAsJsonObject();
+            assertEquals(0, HiddenIds.strip(seen, HiddenIds.hiddenZones(ZONES, seat)));
+            assertEquals("card:121", seen.getAsJsonArray("battlefield").get(0).getAsJsonObject()
+                    .get("prepared").getAsString());
+        }
+    }
 }

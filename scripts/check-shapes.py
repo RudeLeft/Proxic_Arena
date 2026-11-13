@@ -31,6 +31,11 @@ by them: each half must be offered under its own name at its own cost.
   meld       Graf Rats + Midnight Scavengers meld at the beginning of
              combat: the Rats' id is now Chittering Host; both seats told
              the Scavengers went battlefield -> exile `into` the Rats
+  prepare    Studious First-Year and Emeritus of Ideation enter prepared;
+             each prepared spell's copy is cast. Spec 0082, both seats: the
+             creature names its spell (`prepared`), the spell is a copy of
+             it (`copy`, `copyOf`) in exile and while cast, a copy on the
+             stack, and ends "nowhere"
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its card.
@@ -765,13 +770,22 @@ def prepare():
             return spare or f["options"][0]["actionId"]
         return DEFAULT
 
+    seen = {1: {}, 2: {}}
+
     def until(g):
+        for s_ in (1, 2):
+            board = g.state.get(s_)
+            if board and board.get("stateRevision") not in seen[s_]:
+                seen[s_][board.get("stateRevision")] = board
         # Both copies RESOLVED, not just cast: with Recall already done, the
         # board right after Rampant Growth was chosen was calm, and the
         # check stopped before the land arrived (one CI run). A copy that
         # never delivers runs to the turn limit and is reported.
         lands = len([c for c in g.mine(1) if c.get("kind") == "land"])
-        return st["growth"] and st["recall"] and calm(g) \
+        # Spec 0082: and both seats have seen both copies end.
+        ended = all(len({m.get("card") for b in seen[s_].values() for m in b.get("moves") or []
+                         if m.get("to", {}).get("zone") == "nowhere"}) >= 2 for s_ in (1, 2))
+        return st["growth"] and st["recall"] and calm(g) and ended \
             and g.player(1, 1).get("handCount", 0) >= st["before"]["hand"] + 2 \
             and lands >= st["before"]["lands"] + 1
 
@@ -793,7 +807,42 @@ def prepare():
     for name in ("Studious First-Year", "Emeritus of Ideation"):
         if name not in found["creatures"]:
             problems.append(f"{name} should still be on the battlefield after casting its copy")
-    return result(problems, "both creatures entered prepared; each cast a copy of its spell (a land, three drawn)", found)
+    for seat in (1, 2):
+        problems += prepared_seen(list(seen[seat].values()), seat, found)
+    return result(problems, "both creatures entered prepared; each cast a copy of its spell (a land, three drawn); "
+                            "spec 0082: each creature names its prepared spell, the spell is a copy of it "
+                            "(in exile, being cast, on the stack) and ends nowhere, to both seats", found)
+
+
+def prepared_seen(boards, seat, found):
+    """Spec 0082 -- the prepared spell, as [seat] saw it: the creature names it
+    (`prepared`), it is a copy of the creature (`copy`, `copyOf`) in exile and
+    while it is cast, its stack entry is a copy, and it ends "nowhere" (a
+    token spell: never a graveyard). The link is the game's, never a name."""
+    problems = []
+    links = {}
+    for s in boards:
+        for c in s.get("battlefield") or []:
+            if c.get("prepared"):
+                links[c["prepared"]] = c["id"]
+    found[f"prepared{seat}"] = links
+    if len(links) < 2:
+        problems.append(f"seat {seat}: both creatures name their prepared spell: {links}")
+    for spell, creature in links.items():
+        exiled = [c for s in boards for c in s.get("exile") or [] if c.get("id") == spell]
+        cast = [c for s in boards for c in s.get("casting") or [] if c.get("id") == spell]
+        stacked = [e for s in boards for e in s.get("stack") or [] if e.get("source") == spell]
+        ended = [m for s in boards for m in s.get("moves") or [] if m.get("card") == spell
+                 and m.get("from", {}).get("zone") == "stack"]
+        if not exiled or any(not c.get("copy") or c.get("copyOf") != creature for c in exiled):
+            problems.append(f"seat {seat}: the prepared spell in exile is a copy of {creature}: {exiled[:1]}")
+        if not cast or any(not c.get("copy") or c.get("copyOf") != creature for c in cast):
+            problems.append(f"seat {seat}: the prepared spell being cast is a copy of {creature}: {cast[:1]}")
+        if not stacked or any(not e.get("copy") for e in stacked):
+            problems.append(f"seat {seat}: the prepared spell on the stack is a copy: {stacked[:1]}")
+        if [m.get("to", {}).get("zone") for m in ended] != ["nowhere"]:
+            problems.append(f"seat {seat}: the prepared spell ends nowhere, never a graveyard: {ended}")
+    return problems
 
 
 def daybound():

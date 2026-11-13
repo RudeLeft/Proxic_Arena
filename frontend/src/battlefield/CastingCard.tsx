@@ -26,6 +26,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type Ref } from "react";
 import type { SnapshotCard } from "../match";
 import { SharpCard, closeUpOf } from "../closeUp";
 import { figure } from "./Board";
+import { TWIN } from "./CardBadges";
 import type { Box, Geometry } from "./layout";
 import { manaSymbols, symbolUrl } from "./ManaCost";
 import { assignBalls, litShadow, type PaidStep } from "./manaBalls";
@@ -323,15 +324,34 @@ function Embers({ colour }: { colour: string }) {
   );
 }
 
+/**
+ * Spec 0082 -- a copy that is cast (a prepared spell) wears the gold copy
+ * mark the whole way: in the middle while paid, and flying to the stack.
+ */
+function CastCopyMark({ card }: { card: SnapshotCard }) {
+  return card.copy ? (
+    <span
+      className="bf-mark bf-mark-copy gs-cast-copy-mark"
+      data-copy-mark="true"
+      aria-hidden="true"
+    >
+      {TWIN}
+    </span>
+  ) : null;
+}
+
 function Face({ card, artUrl }: { card: SnapshotCard; artUrl: (art: string) => string }) {
   if (card.art && !card.faceDown) {
     return (
-      <SharpCard
-        className="gs-cast-picture"
-        low={artUrl(card.art)}
-        high={closeUpOf(artUrl(card.art))}
-        alt=""
-      />
+      <>
+        <SharpCard
+          className="gs-cast-picture"
+          low={artUrl(card.art)}
+          high={closeUpOf(artUrl(card.art))}
+          alt=""
+        />
+        <CastCopyMark card={card} />
+      </>
     );
   }
   // No picture (a token, or a server without card pictures): the card's
@@ -341,6 +361,7 @@ function Face({ card, artUrl }: { card: SnapshotCard; artUrl: (art: string) => s
       <b>{card.faceDown && !card.known ? "Face-down spell" : card.name}</b>
       <i>{card.types}</i>
       {figure(card) && <span className="gs-cast-figure">{figure(card)}</span>}
+      <CastCopyMark card={card} />
     </div>
   );
 }

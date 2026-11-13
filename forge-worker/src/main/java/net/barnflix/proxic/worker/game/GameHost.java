@@ -1019,6 +1019,14 @@ public final class GameHost {
                 seen.forget(card.getId());
                 String from = Moves.zoneName(moved.from() == null ? null : moved.from().zoneType());
                 String to = Moves.zoneName(moved.to() == null ? null : moved.to().zoneType());
+                // Spec 0082 -- a copy that was cast (a prepared spell, a "cast
+                // a copy") is a token spell: Forge puts it into the graveyard
+                // as it resolves and it ceases to exist there at once (CR
+                // 704.5d). Told as what the player sees: it ends, nowhere.
+                boolean ceases = Moves.ceasesOffStack(from, to, card.isToken());
+                if (ceases) {
+                    to = "nowhere";
+                }
                 String why = null;
                 if ("battlefield".equals(from)) {
                     // Forge marks a destroyed card (and one put into the
@@ -1031,7 +1039,7 @@ public final class GameHost {
                     }
                 }
                 Moves.Move move = new Moves.Move(card.getId(), from, seatOfZone(moved.from()), to,
-                        seatOfZone(moved.to()), card.isFaceDown(), why);
+                        ceases ? null : seatOfZone(moved.to()), card.isFaceDown(), why);
                 if ("battlefield".equals(from)) {
                     // Spec 0078, item 4 -- its last size on the table.
                     int[] last = lastSize(card.getId());

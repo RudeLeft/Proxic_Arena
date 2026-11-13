@@ -73,9 +73,161 @@ final class Copies {
                     }
                 }
             } else if (event instanceof forge.game.event.GameEventGameRestarted) {
-                of(game).tokens.clear();
+                Copies copies = of(game);
+                copies.tokens.clear();
+                copies.putting.clear();
+                copies.aiming = null;
+                copies.groups.clear();
+                copies.preparedOn.clear();
             }
         }
+    }
+
+    // --- spec 0082: copies put onto the stack, and copies cast ------------------------
+
+    /**
+     * The copies Forge is putting onto the stack right now (Fork's, storm's,
+     * a Strionic Resonator's), in the order they go on: each is asked "new
+     * target?" and then held by Forge's frozen stack until the spell or
+     * ability that made them has finished resolving (MagicStack#add, frozen).
+     * In between they are on no list at all -- a storm copy's card sat in
+     * the stack zone and read as a spell being cast (spec 0082's "Why").
+     */
+    private final java.util.List<SpellAbility> putting = new java.util.concurrent.CopyOnWriteArrayList<>();
+    /** The copy whose new targets are being chosen now, not yet put on. */
+    private volatile SpellAbility aiming;
+    /** A copy's spell ability id -> the batch it was made in ("copies:N"), stable while it lasts. */
+    private final Map<Integer, String> groups = new java.util.concurrent.ConcurrentHashMap<>();
+    /** A prepared spell's id -> the creature it was prepared on (Forge's own link, kept). */
+    private final Map<Integer, Integer> preparedOn = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Forge is about to put [copies] onto the stack together
+     * (MatchController#orderAndPlaySimultaneousSa): one batch, its id the
+     * first copy's. Not a batch of copies (ordinary triggers): nothing.
+     */
+    void batch(java.util.List<SpellAbility> copies) {
+        if (copies.isEmpty() || !copies.stream().allMatch(SpellAbility::isCopied)) {
+            return;
+        }
+        String group = "copies:" + copies.stream().mapToInt(SpellAbility::getId).min().getAsInt();
+        copies.forEach(sa -> groups.put(sa.getId(), group));
+    }
+
+    /** [copy]'s new targets are being asked for now. */
+    void aiming(SpellAbility copy) {
+        if (copy != null && copy.isCopied()) {
+            aiming = copy;
+        }
+    }
+
+    /** [copy] was put onto the stack (held there by Forge until its maker has resolved). */
+    void put(SpellAbility copy) {
+        if (copy == null || !copy.isCopied()) {
+            return;
+        }
+        if (aiming == copy) {
+            aiming = null;
+        }
+        if (!putting.contains(copy)) {
+            putting.add(copy);
+        }
+    }
+
+    /** The batch is all on (or the question was abandoned): nobody is being aimed. */
+    void batchDone() {
+        aiming = null;
+    }
+
+    /** The batch a copy was made in, or null (not a copy put onto the stack). */
+    String groupOf(SpellAbility sa) {
+        return sa == null ? null : groups.get(sa.getId());
+    }
+
+    /**
+     * The copies on their way onto the stack now: those already put on but
+     * held (Forge's frozen stack), then the one being aimed, in the order
+     * they will be on the stack (top first). One on the stack proper has
+     * arrived and is no longer listed; once Forge's stack is not frozen,
+     * everything put has arrived.
+     */
+    java.util.List<SpellAbility> waiting(Game game) {
+        java.util.Set<SpellAbility> arrived = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for (SpellAbilityStackInstance each : game.getStack()) {
+            arrived.add(each.getSpellAbility());
+        }
+        if (!game.getStack().isFrozen()) {
+            putting.clear();
+        } else {
+            putting.removeIf(arrived::contains);
+        }
+        java.util.List<SpellAbility> out = new java.util.ArrayList<>(putting);
+        SpellAbility now = aiming;
+        if (now != null && !arrived.contains(now) && !out.contains(now)) {
+            out.add(now);
+        }
+        return out;
+    }
+
+    /** Is [sa] the copy being asked "new target?" now. */
+    boolean isAiming(SpellAbility sa) {
+        return sa != null && sa == aiming;
+    }
+
+    /**
+     * The stack entry the copy [sa] copies, while it is on the stack: a
+     * spell's by its card (copiedEntry), an ability's by Forge's own link
+     * (CR 707.10b, SpellAbility#getOriginalAbility, set by
+     * CardFactory#copySpellAbilityAndPossiblyHost).
+     */
+    static SpellAbilityStackInstance originalEntry(Game game, SpellAbility sa) {
+        if (sa == null || !sa.isCopied()) {
+            return null;
+        }
+        if (sa.isSpell()) {
+            return copiedEntry(game, sa.getHostCard());
+        }
+        SpellAbility original = sa.getOriginalAbility();
+        if (original == null) {
+            return null;
+        }
+        for (SpellAbilityStackInstance each : game.getStack()) {
+            if (each.getSpellAbility() == original) {
+                return each;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Spec 0082 -- a prepared spell's creature: Forge links the creature to
+     * its prepared spell (Card#getPreparedSpell, AlterAttributeEffect
+     * "Prepared"), and unlinks it the moment the copy is cast. Read from
+     * each creature on the battlefield as the board is described, and kept,
+     * so the spell still knows its creature while it is cast and resolves.
+     */
+    void notePrepared(Card creature) {
+        Card spell = creature == null ? null : creature.getPreparedSpell();
+        if (spell != null) {
+            preparedOn.put(spell.getId(), creature.getId());
+        }
+    }
+
+    /** The creature [card] was prepared on, by id, or null (not a prepared spell). */
+    Integer preparedOn(Card card) {
+        return card == null ? null : preparedOn.get(card.getId());
+    }
+
+    /**
+     * Spec 0082 -- a copy that is CAST (a prepared spell, Isochron Scepter's
+     * or Mizzix's Mastery's "cast a copy"): a token spell, not a copy put
+     * straight onto the stack. Forge makes it a token (CopyPermanentEffect
+     * #getProtoType for prepare; PlayEffect "CopyCard" sets the copied card).
+     */
+    boolean isCastCopy(Card card) {
+        return card != null && card.isToken() && !card.isCopiedSpell()
+                && (card.getCopiedPermanent() != null || preparedOn.containsKey(card.getId())
+                || card.getCurrentStateName() == forge.card.CardStateName.PreparedSpell);
     }
 
     /**
@@ -124,6 +276,10 @@ final class Copies {
         if (card.isToken() && card.getCopiedPermanent() != null) {
             return true;
         }
+        // Spec 0082 -- a prepared spell is a copy of its creature's spell.
+        if (card.isToken() && card.getCurrentStateName() == forge.card.CardStateName.PreparedSpell) {
+            return true;
+        }
         return cloneOrigin(card) != null;
     }
 
@@ -151,6 +307,17 @@ final class Copies {
             origin = card.getCopiedPermanent();
         } else if (card.isToken()) {
             Integer id = tokens.get(card.getId());
+            // Spec 0082 -- a prepared spell copies its creature; a "cast a
+            // copy" token (PlayEffect CopyCard) the real card it was made
+            // from (a token copy's prototype is in no zone: findById misses it).
+            Integer prepared = preparedOn.get(card.getId());
+            Card copied = card.getCopiedPermanent();
+            if (id == null && prepared != null) {
+                id = prepared;
+            } else if (id == null && copied != null && game.findById(copied.getId()) != null
+                    && copied.getId() != card.getId()) {
+                id = copied.getId();
+            }
             origin = id == null ? null : game.findById(id);
         } else {
             origin = cloneOrigin(card);

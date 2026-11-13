@@ -252,6 +252,15 @@ final class Moves {
         };
     }
 
+    /**
+     * Spec 0082 -- a token spell (a prepared spell, a "cast a copy") put into
+     * a graveyard as it leaves the stack ceases to exist there at once (CR
+     * 704.5d): it goes nowhere, as a copied spell does.
+     */
+    static boolean ceasesOffStack(String from, String to, boolean token) {
+        return token && "stack".equals(from) && "graveyard".equals(to);
+    }
+
     /** Whether `viewer` (null: a spectator) can see a card in this zone. */
     static boolean visible(String zone, Integer seat, Integer viewer, boolean faceDown) {
         return switch (zone) {

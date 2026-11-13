@@ -127,6 +127,7 @@ import {
   STACK_READ_SCALE,
   STACK_SCALE,
   stackSpotBoxes,
+  STUD_AT,
   studY,
   stackBadgeRects,
   TIP_GAP,
@@ -249,6 +250,7 @@ import {
   markFrames,
   nextHeld,
   peelInFrames,
+  waitingBoxes,
   type HeldMemory,
 } from "./copies";
 import { SizeFigure, type Figure } from "./SizeFigure";
@@ -293,6 +295,11 @@ export interface BoardCard extends LayoutCard {
    */
   copy?: boolean | undefined;
   copyOf?: string | undefined;
+  /**
+   * Spec 0082 -- prepared: the spell waiting on it (the game's link), drawn
+   * as a gold-rimmed square with the spell's picture.
+   */
+  prepared?: { id: string; name: string; art: string | null; crop: string | null } | undefined;
   /**
    * Spec 0080 -- phased out (see-through and grey in its place, its square
    * mark; can't be clicked), its regeneration shields (the shield mark), and
@@ -393,6 +400,17 @@ export interface StackView {
   copyOf?: string | null;
   /** Spec 0079 (Q3 B) -- the entries drawn as this one card "xN", the one that resolves next first. */
   members?: readonly string[];
+  /**
+   * Spec 0082 -- a card of copies made together: its lasting key (batch and
+   * aim; never its first member's id), and what each member is (a spell
+   * copy's own card), the same on its way and on the stack.
+   */
+  key?: string;
+  things?: readonly string[];
+  /** Spec 0082 -- copies on their way onto the stack: drawn beside the entry they copy. */
+  waiting?: boolean;
+  /** Spec 0082 -- one of them is being asked "new target?" now. */
+  aiming?: boolean;
 }
 
 /** Damage just dealt, one wave (one combat damage step, or one spell):
@@ -502,6 +520,8 @@ export interface BoardProps {
   combat?: CombatView | null;
   /** The stack, the object that resolves next FIRST. */
   stack?: readonly StackView[];
+  /** Spec 0082 -- copies on their way onto the stack, each card beside the entry it copies. */
+  copying?: readonly StackView[];
   /** A stack object the player is pointing at: its lines show too. */
   pointedStack?: string | null;
   /** Spec 0028 — a key for the response window now counting down (a new
@@ -1387,6 +1407,7 @@ function lookId(key: string): string {
 }
 
 const NO_CARDS: readonly OpponentHandCard[] = [];
+const NO_STACK: readonly StackView[] = [];
 
 /**
  * Spec 0066, item 1 -- a trigger or ability rises out of its card to the
@@ -1462,6 +1483,7 @@ export function Board({
   stackPayLive = false,
   combat,
   stack,
+  copying = NO_STACK,
   pointedStack,
   clock,
   clockMs,
@@ -2022,6 +2044,7 @@ export function Board({
                   word, the x N, a land's mana symbols, the zZz. */}
               <CardBadges
                 card={lead}
+                artUrl={artUrl}
                 pile={count > 1}
                 room={{
                   pile: count > 1,
@@ -2336,6 +2359,38 @@ export function Board({
   const arriving = useRef(new Map<string, number>());
   const rose = useRef(new Set<string>());
   const [, setArrived] = useState(0);
+  // Spec 0082 -- each card of copies made together is ONE element while it
+  // lasts: on its way (beside the entry it copies), landing on the stack and
+  // ticking down. Its React key is its lasting key -- or, when that key is
+  // new and a copy on it was drawn just before on a card now gone (the one
+  // being aimed picked its target; the cards landed), that card's key.
+  // `copyCards` is what each was last drawn as: its key, count, box, things.
+  const copyCards = useRef(new Map<string, { n: number; box: Box; things: readonly string[] }>());
+  const renderKeys = useMemo(() => {
+    const out = new Map<string, string>();
+    const all = [...(stack ?? []), ...copying];
+    const present = new Set(all.map((s) => s.key ?? s.id));
+    const taken = new Set<string>();
+    for (const s of all) {
+      let k = s.key ?? s.id;
+      if (s.key && !copyCards.current.has(k)) {
+        for (const [old, was] of copyCards.current) {
+          if (present.has(old) || taken.has(old)) continue;
+          if ((s.things ?? []).some((t) => was.things.includes(t))) {
+            k = old;
+            break;
+          }
+        }
+      }
+      while (taken.has(k)) k += "+";
+      taken.add(k);
+      out.set(s.id, k);
+    }
+    return out;
+  }, [stack, copying]);
+  const keyOf = (s: StackView) => renderKeys.get(s.id) ?? s.key ?? s.id;
+  // Spec 0082 -- copies still peeling onto their card: not drawn on it yet.
+  const peeling = useRef(new Set<string>());
   // Spec 0079 (Q3 B): every entry an "xN" card stood for was seen -- the
   // next of a storm's copies leading the card is no new card.
   const seenStack = previous.current
@@ -2346,6 +2401,7 @@ export function Board({
   for (const s of stack ?? []) {
     if (
       freshOnStack(s) &&
+      !s.copy &&
       (s.kind === "trigger" || s.kind === "ability") &&
       s.source &&
       positions.has(s.source) &&
@@ -2382,7 +2438,173 @@ export function Board({
   }, [hiddenStack]);
   useLayoutEffect(() => {
     const before = previous.current;
-    if (!result || !before) return;
+    const then = copyCards.current;
+    const g = result?.geometry;
+    const spotsNow = g ? stackSpotBoxes(g, (stack ?? []).length, stackScale) : [];
+    const waitAt = waitingBoxes(copying, stack ?? [], spotsNow);
+    // What each card of copies is drawn as now, for the next update.
+    const remember = () => {
+      const next = new Map<string, { n: number; box: Box; things: readonly string[] }>();
+      (stack ?? []).slice(0, spotsNow.length).forEach((s, i) => {
+        if (s.key)
+          next.set(keyOf(s), { n: s.count ?? 1, box: spotsNow[i]!, things: s.things ?? [] });
+      });
+      for (const w of copying) {
+        const box = waitAt.get(w.id);
+        if (w.key && box) next.set(keyOf(w), { n: w.count ?? 1, box, things: w.things ?? [] });
+      }
+      copyCards.current = next;
+    };
+    if (!result || !before || !g) {
+      remember();
+      return;
+    }
+    const still0 = reducedMotion();
+    // Spec 0082 (owner C) -- copies put straight onto the stack: each card
+    // of them peels off the entry it copies (0079's peel, gold mark) and
+    // waits beside it while targets are picked, its "xN" counting up as each
+    // copy peels on; landing, it glides to its place on the stack (the same
+    // element: its box changes); it ticks down as each resolves. A copy that
+    // picked another target peels off the card it was on to a card of its
+    // own. The maker (the storm trigger, Fork, the Resonator's ability, and
+    // the permanent it came from) pulses gold as each copy is made.
+    const keyed = [
+      ...(stack ?? []).slice(0, spotsNow.length).map((s, i) => ({ s, box: spotsNow[i]! })),
+      ...copying.flatMap((s) => {
+        const box = waitAt.get(s.id);
+        return box ? [{ s, box }] : [];
+      }),
+    ].filter(({ s }) => s.copy && s.key);
+    const handledKeys = new Set<string>();
+    const peelGhosts: Ghost[] = [];
+    const maker = (stack ?? [])[0];
+    const pulseMaker = (delay: number, copyOf: string | null | undefined) => {
+      if (!maker || maker.copy || maker.id === copyOf || maker.members?.includes(copyOf ?? ""))
+        return;
+      stackEls.current
+        .get(keyOf(maker))
+        ?.querySelector<HTMLElement>(":scope > .bf-stack-card")
+        ?.animate(glowFrames(), { duration: ORIGINAL_GLOW_MS, delay, easing: "linear" });
+      const item = maker.source ? positions.get(maker.source)?.item : undefined;
+      if (item)
+        elements.current
+          .get(item)
+          ?.querySelector<HTMLElement>(":scope > .bf-card")
+          ?.animate(glowFrames(), { duration: ORIGINAL_GLOW_MS, delay, easing: "linear" });
+    };
+    for (const { s, box: to } of keyed) {
+      const k = keyOf(s);
+      handledKeys.add(s.id);
+      const el0 = stackEls.current.get(k);
+      const was = then.get(k);
+      const had = was?.n ?? 0;
+      const n = s.count ?? 1;
+      const things = s.things ?? [];
+      if (n > had && !still0 && el0) {
+        const j = s.copyOf
+          ? (stack ?? [])
+              .slice(0, spotsNow.length)
+              .findIndex((e) => e.id === s.copyOf || e.members?.includes(s.copyOf!))
+          : -1;
+        const original = j >= 0 ? spotsNow[j]! : null;
+        // A copy drawn on another card just before (it picked another target).
+        const moved = [...then].find(
+          ([other, v]) => other !== k && things.some((t) => v.things.includes(t)),
+        );
+        const from = had === 0 && moved ? moved[1].box : original;
+        if (!from) continue;
+        const side = s.seat === undefined || s.seat === viewerSeat ? "viewer" : "opponent";
+        const whole = to.scale >= STACK_READ_SCALE && !!s.art && s.name !== "Face-down";
+        const fresh = had === 0;
+        if (fresh && typeof el0.animate === "function") {
+          arriving.current.set(s.id, Infinity);
+          const run = el0.animate(peelInFrames(from, to, g.cardW, g.cardH), {
+            duration: PEEL_IN_MS,
+            easing: "linear",
+            fill: "backwards",
+          });
+          const landed = () => {
+            arriving.current.set(s.id, 0);
+            setArrived((m) => m + 1);
+          };
+          const done = run.finished as Promise<Animation> | undefined;
+          if (done !== undefined) void done.then(landed, landed);
+          timers.current.push(window.setTimeout(landed, PEEL_IN_MS * 20));
+          const mark = el0.querySelector<HTMLElement>(".bf-mark-copy");
+          if (mark && typeof mark.animate === "function")
+            mark.animate(markFrames(), {
+              duration: MARK_GROW_MS,
+              delay: PEEL_MARK_AT,
+              easing: "linear",
+              fill: "backwards",
+            });
+          if (!moved) pulseMaker(0, s.copyOf);
+        }
+        // Each other new copy: its own see-through card peeling onto it.
+        const fresher = things.filter((t) => !(was?.things ?? []).includes(t));
+        const peelers = fresh ? fresher.slice(1) : fresher;
+        const changes: BadgeChange[] = [];
+        peelers.forEach((t, c) => {
+          const delay = (c + (fresh ? 1 : 0)) * PEEL_BEAT_MS;
+          const elsewhere = [...then].find(([other, v]) => other !== k && v.things.includes(t));
+          const fromHere = elsewhere?.[1].box ?? original ?? from;
+          peeling.current.add(t);
+          timers.current.push(
+            window.setTimeout(() => {
+              peeling.current.delete(t);
+              setArrived((m) => m + 1);
+            }, delay + PEEL_IN_MS),
+          );
+          peelGhosts.push({
+            name: s.name,
+            look: "artifact",
+            type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+            pt: "",
+            art: s.art ? artUrl(s.art) : null,
+            crop: s.crop ? artUrl(s.crop) : null,
+            faceDown: false,
+            known: false,
+            cost: s.manaCost ?? null,
+            side,
+            // The copy itself, peeling on: the jump check follows it here.
+            id: t,
+            box: fromHere,
+            origin: { x: 0, y: 0 },
+            to,
+            toOrigin: { x: 0, y: 0 },
+            fade: false,
+            delay,
+            own: { frames: peelInFrames(fromHere, to, g.cardW, g.cardH), duration: PEEL_IN_MS },
+            waits: true,
+            mark: true,
+            zIndex: Z_LINES - 97,
+            stack: whole
+              ? {
+                  low: artUrl(s.art!),
+                  high: closeUpOf(artUrl(s.art!)),
+                  kind: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+                  does: s.does ?? null,
+                  whose: side === "viewer" ? " bf-stack-mine" : " bf-stack-theirs",
+                }
+              : undefined,
+          });
+          changes.push({ at: delay + PEEL_IN_MS, by: 1 });
+          if (!elsewhere) pulseMaker(delay, s.copyOf);
+        });
+        if (changes.length > 0) tickMany(el0, fresh ? 1 : had, changes);
+        continue;
+      }
+      // One resolved, or went to a card of its own: the number drops as it
+      // breaks off (after the resolve glow, for one that resolved).
+      if (had > n && !still0 && el0) {
+        const resolvedOff = (was?.things ?? []).some(
+          (t) => !things.includes(t) && !keyed.some(({ s: o }) => o.things?.includes(t)),
+        );
+        tickMany(el0, had, [{ at: resolvedOff ? RESOLVE_MS : 0, by: n - had }]);
+      }
+    }
+    if (peelGhosts.length > 0) setGhosts((list) => [...list, ...peelGhosts]);
+    remember();
     const seen = new Set(before.stack.flatMap((was) => [was.s.id, ...(was.s.members ?? [])]));
     // Spec 0079 (Q3 B) -- an "xN" copy card's number: up as more copies peel
     // onto it, down as each resolves (the one resolving breaks off it).
@@ -2392,10 +2614,10 @@ export function Board({
       for (const id of [was.s.id, ...(was.s.members ?? [])]) wasCount.set(id, n);
     }
     const peels: Ghost[] = [];
-    const g = result.geometry;
-    const spots = stackSpotBoxes(g, (stack ?? []).length, stackScale);
+    const spots = spotsNow;
     const still = reducedMotion();
     (stack ?? []).slice(0, spots.length).forEach((s, i) => {
+      if (handledKeys.has(s.id)) return;
       const el0 = stackEls.current.get(s.id);
       // Spec 0079 (Q2 A, Q3 B) -- a copied spell peels off the original
       // stack card, see-through, and settles in front of it, solid, its
@@ -2531,7 +2753,40 @@ export function Board({
     });
     if (peels.length > 0) setGhosts((list) => [...list, ...peels]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per stack
-  }, [stack]);
+  }, [stack, copying]);
+
+  // Spec 0082 (owner C) -- a creature that enters prepared (or becomes
+  // prepared): it pulses gold and the gold square with its spell's picture
+  // settles on it (0076's grow), once it has arrived. Nothing goes to the
+  // exile pile. Reduce motion: the square is simply there.
+  const preparedThen = useRef<Map<string, string> | null>(null);
+  useLayoutEffect(() => {
+    const was = preparedThen.current;
+    const now = new Map(
+      battlefield.flatMap((c) => (c.prepared ? [[c.id, c.prepared.id] as const] : [])),
+    );
+    preparedThen.current = now;
+    if (!was || reducedMotion()) return;
+    for (const [card, spell] of now) {
+      if (was.get(card) === spell) continue;
+      const item = positions.get(card)?.item;
+      const element = item ? elements.current.get(item) : undefined;
+      if (!element) continue;
+      const delay = previous.current?.cards.has(card) ? 0 : MOVE_MS + 120;
+      element
+        .querySelector<HTMLElement>(":scope > .bf-card")
+        ?.animate(glowFrames(), { duration: ORIGINAL_GLOW_MS, delay, easing: "linear" });
+      const mark = element.querySelector<HTMLElement>(".bf-mark-prepared");
+      if (mark && typeof mark.animate === "function")
+        mark.animate(markFrames(), {
+          duration: MARK_GROW_MS,
+          delay: delay + 200,
+          easing: "linear",
+          fill: "backwards",
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per board
+  }, [battlefield]);
 
   // Damage, once per wave. Declared before the movement effect, so what
   // moves in the same update waits for the fights. Phase 10 A-13 (owner
@@ -5165,14 +5420,24 @@ export function Board({
           const apart = (s.count ?? 1) > 1 ? { x: -8 * k, y: -6 * k } : { x: 0, y: 0 };
           const end = copyEndFrames(box, g.cardW, g.cardH, RESOLVE_MS, apart);
           gone.push(
-            ghostAt(lookOfSpell, s.id, { box, origin: { x: 0, y: 0 } }, end.frames, end.ms, hold, {
-              waits: false,
-              gold: true,
-              fxAt: RESOLVE_MS,
-              mark: true,
-              zIndex: Z_LINES - 50,
-              stack: stackLook(),
-            }),
+            // Spec 0082 -- an ability copy's ghost is the copy it was on its
+            // card (its host is the original's too), for the jump check.
+            ghostAt(
+              lookOfSpell,
+              s.kind && s.kind !== "spell" && s.things?.[0] ? s.things[0] : s.id,
+              { box, origin: { x: 0, y: 0 } },
+              end.frames,
+              end.ms,
+              hold,
+              {
+                waits: false,
+                gold: true,
+                fxAt: RESOLVE_MS,
+                mark: true,
+                zIndex: Z_LINES - 50,
+                stack: stackLook(),
+              },
+            ),
           );
           continue;
         }
@@ -5561,6 +5826,15 @@ export function Board({
   // The stack, drawn as cards at the right edge of the play area.
   const spot = stackSpotBoxes(g, (stack ?? []).length, stackScale);
   const spotBox = new Map((stack ?? []).slice(0, spot.length).map((s, i) => [s.id, spot[i]!]));
+  // Spec 0082 -- the copies on their way, each card beside the entry it
+  // copies; every copy on it (and the card) answers to "where is it".
+  const waitingAt = waitingBoxes(copying, stack ?? [], spot);
+  const waitingBox = new Map<string, Box>();
+  for (const w of copying) {
+    const box = waitingAt.get(w.id);
+    if (!box) continue;
+    for (const id of [w.id, ...(w.members ?? [])]) waitingBox.set(id, box);
+  }
   // Spec 0066, item 2 -- a stack card's arrows leave its stud: a small gold
   // diamond on its left edge, at the picture (an arrow at a player too).
   const studOf = (index: number): Port | null => {
@@ -5763,6 +6037,21 @@ export function Board({
     }
     if (s.targets.length > 0) studAt = index;
   }
+  // Spec 0082 -- a card of copies on its way aims from where it waits,
+  // once it has peeled on (the target being picked shows no line yet).
+  for (const w of copying) {
+    const box = waitingAt.get(w.id);
+    if (!box || w.targets.length === 0 || (arriving.current.get(w.id) ?? 0) > performance.now())
+      continue;
+    const start: Port = {
+      at: { x: box.x - box.h * 0.02, y: box.y + box.h * STUD_AT },
+      out: { x: -1, y: 0 },
+    };
+    for (const t of w.targets) {
+      const route = onto(start, t, undefined, box);
+      add("target", w.id, refKey(t), route, aimOf(t, route));
+    }
+  }
   // Spec 0028 — an ability, faintly, back to the permanent it came from.
   // Spec 0066: a dotted thread from the permanent's side into the stack
   // card's left edge just under its badges -- never at the stud.
@@ -5882,9 +6171,17 @@ export function Board({
               </div>
             );
           })()}
-        {(stack ?? []).slice(0, spot.length).map((s, i) => {
-          const box = spot[i]!;
+        {[
+          ...(stack ?? []).slice(0, spot.length).map((s, i) => ({ s, i, box: spot[i]! })),
+          ...copying.flatMap((s) => {
+            const box = waitingAt.get(s.id);
+            return box ? [{ s, i: -1, box }] : [];
+          }),
+        ].map(({ s, i, box }) => {
           const a = act([s.id]);
+          // Spec 0082 -- a card of copies on its way: not on the stack yet.
+          const waiting = i < 0;
+          const rk = keyOf(s);
           // Spec 0028: whose (gold yours, red theirs), its place in the
           // order (1 resolves next), its caster's picture; pointing at it
           // shows its line and fades the rest.
@@ -5901,12 +6198,18 @@ export function Board({
           const kind = STACK_KIND[s.kind ?? "spell"] ?? "Spell";
           return (
             <div
-              key={`stack-spot:${s.id}`}
+              key={`stack-spot:${rk}`}
               ref={(element) => {
-                if (element) stackEls.current.set(s.id, element);
-                else stackEls.current.delete(s.id);
+                if (element) {
+                  stackEls.current.set(s.id, element);
+                  stackEls.current.set(rk, element);
+                } else {
+                  stackEls.current.delete(s.id);
+                  stackEls.current.delete(rk);
+                }
               }}
-              className={`bf-slot bf-stack-slot${faded ? " bf-stack-faded" : ""}`}
+              className={`bf-slot bf-stack-slot${faded ? " bf-stack-faded" : ""}${waiting ? " bf-stack-waiting" : ""}`}
+              data-waiting={waiting ? "true" : undefined}
               data-rising={rose.current.has(s.id) ? "true" : undefined}
               style={{
                 width: g.cardW,
@@ -5914,7 +6217,12 @@ export function Board({
                 transformOrigin: "0 0",
                 transform: `translate3d(${box.x}px, ${box.y}px, 0) scale(${box.scale})`,
                 // Pointed at, a card lower in the stack comes to the front.
-                zIndex: focus === s.id && i > 0 ? Z_LINES - 99 : Z_LINES - 100 - i,
+                // Spec 0082: copies on their way are in front of it all.
+                zIndex: waiting
+                  ? Z_LINES - 98
+                  : focus === s.id && i > 0
+                    ? Z_LINES - 99
+                    : Z_LINES - 100 - i,
                 ["--stack-scale" as string]: String(box.scale),
                 ...(hiddenStack === s.id ? { opacity: 0 } : {}),
                 ...(quietStack?.has(s.id) ||
@@ -5929,8 +6237,8 @@ export function Board({
                 type="button"
                 className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${whose}${a.className}`}
                 aria-label={[
-                  `${s.copy ? "a copy of " : ""}${s.name}${s.count ? ` ×${s.count}` : ""}, on the stack`,
-                  `${ordinal(i + 1)} to resolve`,
+                  `${s.copy ? "a copy of " : ""}${s.name}${s.count ? ` ×${s.count}` : ""}, ${waiting ? "on its way to the stack" : "on the stack"}`,
+                  waiting ? "" : `${ordinal(i + 1)} to resolve`,
                   s.by ? `from ${s.by}` : "",
                   ...a.words,
                 ]
@@ -5941,6 +6249,13 @@ export function Board({
                 data-order={i + 1}
                 data-copy={s.copy ? "true" : undefined}
                 data-count={s.count}
+                // Spec 0082 -- the copies this card draws, for the jump check
+                // (one still peeling onto it is drawn by its own peel).
+                data-members={
+                  s.things
+                    ? s.things.filter((t) => !peeling.current.has(t)).join(" ") || undefined
+                    : undefined
+                }
                 {...a.data}
                 {...a.handlers}
                 onPointerEnter={() => setPointedOnStack(s.id)}
@@ -5996,7 +6311,7 @@ export function Board({
                 </span>
               )}
               {/* Spec 0066, item 2 -- where its arrows leave from. */}
-              {i === studAt && (
+              {!waiting && i === studAt && (
                 <span
                   className="bf-stack-stud"
                   data-stud="true"
@@ -6006,7 +6321,7 @@ export function Board({
               )}
               {/* Beside the card's name bar, so neither covers the name. */}
               <span className="bf-stack-tag" aria-hidden="true">
-                <span className="bf-stack-n">{i + 1}</span>
+                {!waiting && <span className="bf-stack-n">{i + 1}</span>}
                 {s.caster && <img className="bf-stack-by" src={s.caster} alt="" />}
                 {s.count && <span className="bf-stack-many">×{s.count}</span>}
               </span>
@@ -6248,7 +6563,10 @@ export function Board({
           <g ref={leavingRef} className="bf-lines-leaving" />
         </svg>
         {/* A stack object is "where" its spot is: a spell cast flies there (spec 0044). */}
-        {overlay?.((id) => positions.get(id)?.box ?? spotBox.get(id) ?? null, g)}
+        {overlay?.(
+          (id) => positions.get(id)?.box ?? spotBox.get(id) ?? waitingBox.get(id) ?? null,
+          g,
+        )}
         {marks
           .filter((m) => m.kind === "dim")
           .map((m) => (

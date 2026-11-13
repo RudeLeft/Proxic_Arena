@@ -12,7 +12,7 @@
 import type { Snapshot, SnapshotCard } from "../match";
 import type { Side } from "./layout";
 
-export type CastZone = "hand" | "graveyard" | "exile" | "library";
+export type CastZone = "hand" | "graveyard" | "exile" | "library" | "prepared";
 
 export interface CastOrigin {
   zone: CastZone;
@@ -24,6 +24,8 @@ export interface CastOrigin {
   shown: string | null;
   /** From a hidden hand: the back that left (the middle of the fan as it was). */
   back: number | null;
+  /** Spec 0082 -- a prepared spell's cast copy: the creature whose mark it rises out of. */
+  on?: string;
 }
 
 const ZONES: readonly string[] = ["hand", "graveyard", "exile", "library"];
@@ -35,6 +37,18 @@ export function hiddenInHand(snapshot: Snapshot, seat: number): number {
   return Math.max(0, count - shown);
 }
 
+/**
+ * Spec 0082 -- the creature a prepared spell being cast was prepared on: the
+ * one that named it (`prepared`) on the board before, and that the copy says
+ * it copies (`copyOf`) -- the game's link both ways, never a name. Null for
+ * any other spell.
+ */
+export function preparedOn(card: SnapshotCard, before: Snapshot): string | null {
+  if (!card.copy || !card.copyOf) return null;
+  const creature = before.battlefield.find((c) => c.id === card.copyOf && c.prepared === card.id);
+  return creature ? creature.id : null;
+}
+
 /** Where `card`, first being cast on `now`, came from. */
 export function castOrigin(
   card: SnapshotCard,
@@ -42,6 +56,9 @@ export function castOrigin(
   previous: Snapshot | null,
 ): CastOrigin {
   const side: Side = card.seat === now.seat ? "viewer" : "opponent";
+  // Spec 0082 -- a prepared spell rises out of the gold square on its creature.
+  const on = preparedOn(card, previous ?? now);
+  if (on) return { zone: "prepared", side, faceUp: true, shown: null, back: null, on };
   const move = (now.moves ?? []).find((m) => m.card === card.id && m.to.zone === "stack");
   const was = (list: readonly SnapshotCard[] | undefined) =>
     list?.find((other) => other.id === card.id) ?? null;
@@ -166,5 +183,8 @@ export function castCancelled(
       return now.graveyard.some((other) => other.id === card.id);
     case "exile":
       return now.exile.some((other) => other.id === card.id);
+    case "prepared":
+      // Back on its creature, prepared again.
+      return now.battlefield.some((other) => other.prepared === card.id);
   }
 }

@@ -522,6 +522,16 @@ card.artOwner             spec 0079: a copy's seat whose deck has the copied
                           card's picture, when not its own owner (the server
                           looks the picture up there; a token copy wears the
                           copied card's picture before any token picture)
+card.prepared             spec 0082: on a creature that is prepared, its
+                          prepared spell, "card:N" (Forge's
+                          Card#getPreparedSpell); the spell waits face up in
+                          its owner's exile, `copy` with `copyOf` the
+                          creature, and stays a copy of it while it is cast
+                          (`casting`) -- the link is kept by the worker, as
+                          Forge unlinks it the moment the copy is cast.
+                          Public. A cast copy (a prepared spell, a "cast a
+                          copy") is a token spell: off the stack into a
+                          graveyard it ceases to exist, a move to "nowhere"
 action.cards[].toSaid     spec 0079: in a fizzle report, where a card the
                           spell aimed at is now, in the reader's words ("in
                           Bob's hand"); only while the reader may see it
@@ -583,10 +593,31 @@ stack[]             B2  per entry, besides id and description:
                         copy        spec 0079: true on a copy of a spell (Fork's,
                                     a storm copy); copyOf "stack:N", the entry
                                     it copies while that is on the stack;
-                                    artOwner as for a card (Fork of Bob's Bolt)
+                                    artOwner as for a card (Fork of Bob's Bolt).
+                                    Spec 0082: also on a copy of an ability
+                                    (Strionic Resonator's copy of a trigger;
+                                    copyOf by Forge's CR 707.10b link) and on
+                                    a copy that was cast (a prepared spell:
+                                    no copyOf)
+                        group       spec 0082: on a copy put onto the stack,
+                                    the batch it was made in ("copies:N":
+                                    storm's four, Fork's one), stable while
+                                    it lasts; copyingId "copying:N", the id
+                                    it had in `copying` on its way
                         description is "Face-down spell" when its source
                                     is a face-down card this viewer may not
                                     identify (it began with the card's name)
+copying             spec 0082: the copies on their way onto the stack
+                        (storm's, Fork's, a Resonator's), shaped as stack
+                        entries, top first: id "copying:N", source, name,
+                        controller, kind, copy, copyOf, group, targets (none
+                        while they are being chosen), and `aiming: true` on
+                        the one being asked "new target?". Each is listed
+                        while it is asked and while Forge holds it (its
+                        frozen stack) until its maker has resolved; then it
+                        is on the stack with the same group. A copy put
+                        onto the stack is never in `casting` (it is not
+                        cast). Absent when there are none. Public
 combat              B4  while there is one: attackers [{id, target:
                         {player: seat} | {object: "card:N"}}],
                         blocks [{blocker, attacker}] -- Forge's record

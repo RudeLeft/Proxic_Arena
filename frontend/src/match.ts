@@ -531,6 +531,11 @@ export interface SnapshotCard {
   copy?: boolean | undefined;
   copyOf?: string | undefined;
   /**
+   * Spec 0082 -- a creature that is prepared: its prepared spell ("card:N",
+   * waiting face up in exile), the game's own link. Public.
+   */
+  prepared?: string | undefined;
+  /**
    * Spec 0080 -- on the battlefield (public): phased out (still in its place,
    * treated as though it doesn't exist), its regeneration shields waiting, and
    * indestructible now.
@@ -641,6 +646,15 @@ export interface StackEntry {
   /** Spec 0079 -- a copy of a spell (Fork's, storm's), and the entry it copies ("stack:N") while that is there. */
   copy?: boolean | undefined;
   copyOf?: string | undefined;
+  /**
+   * Spec 0082 -- the batch a copy put onto the stack was made in
+   * ("copies:N": storm's four, a Resonator's one): stable while it lasts.
+   */
+  group?: string | undefined;
+  /** Spec 0082 -- on the stack, the id this copy had on its way ("copying:N"): the same copy. */
+  copyingId?: string | undefined;
+  /** Spec 0082 -- a copy on its way (`copying`) whose new targets are being chosen now. */
+  aiming?: boolean | undefined;
 }
 
 /** Combat, while there is one — §7.61 B4. Forge's record. */
@@ -766,6 +780,13 @@ export interface Snapshot {
   exile: SnapshotCard[];
   /** The stack, as Forge orders it (the top, which resolves next, first). */
   stack: StackEntry[];
+  /**
+   * Spec 0082 -- copies on their way onto the stack (storm's, Fork's, a
+   * Strionic Resonator's), top first: each while it is asked "new target?"
+   * (`aiming`) and while the game holds it until its maker has resolved.
+   * Never cast, so never in `casting`. Ids "copying:N"; empty when none.
+   */
+  copying?: StackEntry[];
   /** §7.61 B4 — null outside combat. */
   combat: CombatState | null;
   /** §7.61 B13 — the newest damage wave, or null. */
@@ -1298,6 +1319,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     graveyard: asCards(row["graveyard"]),
     exile: asCards(row["exile"]),
     stack: asStack(row["stack"]),
+    copying: asStack(row["copying"]),
     combat: asCombat(row["combat"]),
     damage: asDamage(row["damage"]),
     life: asLife(row["life"]),
@@ -1519,6 +1541,7 @@ function asCards(value: unknown): SnapshotCard[] {
       seen: row["seen"] === true ? true : undefined,
       copy: row["copy"] === true ? true : undefined,
       copyOf: asString(row["copyOf"]) ?? undefined,
+      prepared: asString(row["prepared"]) ?? undefined,
       toSaid: asString(row["toSaid"]) ?? undefined,
       phasedOut: row["phasedOut"] === true ? true : undefined,
       shields: (asNumber(row["shields"]) ?? 0) > 0 ? asNumber(row["shields"])! : undefined,
@@ -1747,6 +1770,9 @@ function asStack(value: unknown): StackEntry[] {
       why: asString(row["why"]),
       copy: row["copy"] === true ? true : undefined,
       copyOf: asString(row["copyOf"]) ?? undefined,
+      group: asString(row["group"]) ?? undefined,
+      copyingId: asString(row["copyingId"]) ?? undefined,
+      aiming: row["aiming"] === true ? true : undefined,
       targets: Array.isArray(row["targets"])
         ? (row["targets"] as unknown[]).map(asTarget).filter((t): t is TargetRef => t !== null)
         : [],

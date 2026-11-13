@@ -28,6 +28,16 @@ inferred:
                move says "fizzled", both seats get the report window
                ("Alice's Lightning Bolt did nothing: its target was
                gone." / "Your ...") and a play-log line
+  storm-split  spec 0082: the same storm, two copies at Bob and two at his
+               Grizzly Bears -- two groups of one batch; the Bears die
+  resonator    spec 0082: Strionic Resonator copies Flametongue Kavu's
+               trigger; the copy (a trigger entry) is `copy`, names the
+               trigger's entry, carries its batch, and aims at the Bears
+
+Spec 0082, in fork, storm and storm-split: the copies on their way onto the
+stack are never in `casting`; they are in `copying`, counting up 1 -> N
+with the one asked "new target?" marked `aiming`, each naming the
+original's entry, one batch (`group`) the same on the way and on the stack.
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its point.
@@ -328,6 +338,7 @@ def fork():
         if not any("copied Lightning Bolt" in line for line in log) or \
                 any(line.startswith("<1> cast Lightning Bolt") for line in log):
             problems.append(f"seat {seat}: the log says Alice copied the Bolt, not cast it: {found[f'log{seat}']}")
+        problems += putting_on(w, seat, {copy.get("source")}, {copy["id"]: copy}, found)
     return result(problems, "Fork: the copy of Bob's Bolt is marked, names its entry, artOwner 2, "
                             "\"copied\" in the log, gone to nowhere", found)
 
@@ -408,8 +419,241 @@ def storm():
         bob = next((p for p in (g.state.get(seat) or {}).get("players", []) if p.get("seat") == 2), {})
         if bob.get("life") != 15:
             problems.append(f"seat {seat}: Grapeshot and four copies, 1 each: Bob at 15: {bob.get('life')}")
-    return result(problems, "Grapeshot with storm 4: four copies of its entry, each gone to nowhere; Bob 20 -> 15",
-                  found)
+        problems += putting_on(w, seat, sources, copies, found)
+    return result(problems, "Grapeshot with storm 4: four copies of its entry, each gone to nowhere; Bob 20 -> 15; "
+                            "on their way, 1 -> 4 in `copying` (never `casting`), one batch", found)
+
+
+def putting_on(w, seat, sources, copies, found):
+    """Spec 0082 -- the copies on their way onto the stack, as [seat] saw them:
+    never in `casting` (they are not cast); in `copying`, counting up 1 -> N
+    with the one asked "new target?" marked `aiming`, each naming the
+    original's entry; one batch (`group`) the same in `copying` and on the
+    stack; every copy's card listed there before it is on the stack."""
+    problems = []
+    boards = w.boards(seat)
+    cast = [c.get("id") for s in boards for c in s.get("casting") or [] if c.get("copy")]
+    if cast:
+        problems.append(f"seat {seat}: a copy put onto the stack is never in `casting`: {cast[:4]}")
+    counts, aimed, groups, early = [], 0, set(), set()
+    for s in boards:
+        coming = s.get("copying") or []
+        if not coming:
+            continue
+        if not counts or counts[-1] != len(coming):
+            counts.append(len(coming))
+        aimed += sum(1 for e in coming if e.get("aiming"))
+        for e in coming:
+            groups.add(e.get("group"))
+            early.add(e.get("source"))
+            if not e.get("copy") or not str(e.get("copyOf") or "").startswith("stack:"):
+                problems.append(f"seat {seat}: a copy on its way names the entry it copies: {e}")
+                break
+    found[f"copying{seat}"] = counts
+    n = len(sources)
+    if counts[:n] != list(range(1, n + 1)):
+        problems.append(f"seat {seat}: the copies on their way count up 1 -> {n}: {counts}")
+    if aimed == 0:
+        problems.append(f"seat {seat}: the copy asked \"new target?\" is marked `aiming`")
+    stacked = {e.get("group") for e in copies.values()}
+    if len(groups) != 1 or None in groups or groups != stacked:
+        problems.append(f"seat {seat}: one batch, the same group on the way and on the stack: {groups} / {stacked}")
+    if early != sources:
+        problems.append(f"seat {seat}: every copy is shown on its way before it is on the stack: {early} / {sources}")
+    return problems
+
+
+# --- storm, split targets -----------------------------------------------------------
+
+
+def storm_split():
+    """Spec 0082 -- Grapeshot with storm 4 at Bob, two copies at Bob and two at
+    his Grizzly Bears: two groups of two (the same batch), the Bears die."""
+    st = {"thopters": 0, "grape": False, "asked": 0}
+
+    def policy(g, f):
+        kind = f.get("kind")
+        seat = f["authorisedSeat"]
+        if seat == 2:
+            if kind == "chooseSpellAbilityToPlay":
+                land = g.play_land(f)
+                if land:
+                    return land
+                if not stack_of(g, 2) and not g.mine(2, name="Grizzly Bears"):
+                    return named(g, f, "Grizzly Bears")
+                return None
+            return DEFAULT
+        if kind == "chooseSpellAbilityToPlay":
+            land = g.play_land(f)
+            if land:
+                return land
+            if stack_of(g, 1):
+                return None
+            if len(g.untapped_lands(1)) < 2 or not g.zone(1, "battlefield", owner=2, name="Grizzly Bears"):
+                return None
+            if len(g.mine(1, name="Ornithopter")) < 4:
+                return named(g, f, "Ornithopter")
+            if not st["grape"]:
+                o = named(g, f, "Grapeshot")
+                st["grape"] = bool(o)
+                return o
+            return None
+        if kind == "chooseTargetsFor" and st["grape"] and "New target" in (f.get("prompt") or ""):
+            st["asked"] += 1
+            if st["asked"] > 2:
+                bears = next((c["id"] for c in g.zone(1, "battlefield", owner=2, name="Grizzly Bears")), None)
+                return next((o["actionId"] for o in f["options"] if bears and o.get("objectId") == bears), DEFAULT)
+            return labelled(f, "Bob") or DEFAULT
+        if kind == "chooseTargetsFor":
+            return labelled(f, "Bob") or DEFAULT
+        return DEFAULT
+
+    g = game("storm-split", [("Mountain", 30), ("Ornithopter", 15), ("Grapeshot", 15)],
+             [("Forest", 40), ("Grizzly Bears", 20)],
+             deal={1: {"hand": ["Mountain", "Mountain", "Ornithopter", "Ornithopter", "Ornithopter", "Ornithopter",
+                                "Grapeshot"], "top": ["Mountain"] * 4},
+                   2: {"hand": ["Forest", "Forest", "Grizzly Bears", "Forest", "Forest", "Forest", "Forest"],
+                       "top": ["Forest"] * 4}})
+    w = Watch(g)
+
+    def until(g):
+        w.see()
+        return all(len([m for m in w.moves(s) if m.get("to", {}).get("zone") == "nowhere"]) >= 4 for s in (1, 2)) \
+            and all(not stack_of(g, s) for s in (1, 2))
+
+    g.run(policy, until=until, max_turn=12)
+    w.see()
+    found = {"stopped": g.stopped_badly(), "asked": st["asked"]}
+    problems = [found["stopped"]] if found["stopped"] else []
+    for seat in (1, 2):
+        copies = {e["id"]: e for e in w.stacks(seat) if e.get("copy")}
+        if len(copies) < 4:
+            return "inconclusive", f"seat {seat} saw {len(copies)} storm copies, not 4", found
+        sources = {e.get("source") for e in copies.values()}
+        # The board where all four first stand on the stack: two at Bob, two at the Bears.
+        landed = next((s for s in w.boards(seat)
+                       if len([e for e in s.get("stack") or [] if e.get("copy")]) == 4), None)
+        aims = [json.dumps(e.get("targets"), sort_keys=True) for e in (landed or {}).get("stack") or []
+                if e.get("copy")]
+        found[f"aims{seat}"] = aims
+        if sorted({a: aims.count(a) for a in aims}.values()) != [2, 2]:
+            problems.append(f"seat {seat}: two copies at Bob and two at his Bears: {aims}")
+        problems += putting_on(w, seat, sources, copies, found)
+        bears = [m for m in w.moves(seat) if m.get("to", {}).get("zone") == "graveyard"
+                 and m.get("from", {}).get("zone") == "battlefield"]
+        if not bears:
+            problems.append(f"seat {seat}: two copies at the Bears kill them")
+    return result(problems, "Grapeshot storm 4, split: two copies at Bob, two at the Bears (one batch, two groups), "
+                            "1 -> 4 on their way, the Bears die", found)
+
+
+# --- an ability copy: Strionic Resonator ----------------------------------------------
+
+
+def resonator():
+    """Spec 0082 -- Strionic Resonator copies Flametongue Kavu's trigger (at Bob's
+    Serra Angel); the copy aims at his Grizzly Bears. The copy is a stack entry
+    marked `copy`, naming the trigger's entry; on its way it is in `copying`."""
+    st = {"reso": False, "ftk": False, "copy": False, "asked": 0}
+
+    def policy(g, f):
+        kind = f.get("kind")
+        seat = f["authorisedSeat"]
+        stack = stack_of(g, seat)
+        if seat == 2:
+            if kind == "chooseSpellAbilityToPlay":
+                land = g.play_land(f)
+                if land:
+                    return land
+                if stack:
+                    return None
+                if not g.mine(2, name="Grizzly Bears"):
+                    return named(g, f, "Grizzly Bears")
+                if not g.mine(2, name="Serra Angel"):
+                    return named(g, f, "Serra Angel")
+                return None
+            return DEFAULT
+        reso = next((c["id"] for c in g.mine(1, name="Strionic Resonator")), None)
+        angel = next((c["id"] for c in g.zone(1, "battlefield", owner=2, name="Serra Angel")), None)
+        bears = next((c["id"] for c in g.zone(1, "battlefield", owner=2, name="Grizzly Bears")), None)
+        trig = next((e["id"] for e in stack if e.get("name") == "Flametongue Kavu" and e.get("kind") == "trigger"
+                     and not e.get("copy")), None)
+        if kind == "chooseSpellAbilityToPlay":
+            if trig and reso and not st["copy"]:
+                o = next((o["actionId"] for o in f["options"] if o.get("objectId") == reso
+                          and "Play land" not in (o.get("label") or "")), None)
+                st["copy"] = bool(o)
+                return o
+            land = g.play_land(f)
+            if land:
+                return land
+            if stack:
+                return None
+            if not reso and len(g.untapped_lands(1)) >= 2:
+                o = named(g, f, "Strionic Resonator")
+                st["reso"] = bool(o)
+                return o
+            if reso and not st["ftk"] and angel and bears and len(g.untapped_lands(1)) >= 6:
+                o = named(g, f, "Flametongue Kavu")
+                st["ftk"] = bool(o)
+                return o
+            return None
+        if kind == "chooseTargetsFor":
+            st["asked"] += 1
+            if st["copy"] and "New target" in (f.get("prompt") or ""):
+                return next((o["actionId"] for o in f["options"] if bears and o.get("objectId") == bears), DEFAULT)
+            if st["copy"]:
+                # The Resonator's own target: the Kavu's trigger.
+                t = next((o["actionId"] for o in f["options"] if trig and o.get("objectId") == trig), None)
+                if t:
+                    return t
+            return next((o["actionId"] for o in f["options"] if angel and o.get("objectId") == angel), DEFAULT)
+        return DEFAULT
+
+    g = game("resonator", [("Mountain", 34), ("Strionic Resonator", 10), ("Flametongue Kavu", 16)],
+             [("Forest", 22), ("Plains", 22), ("Grizzly Bears", 8), ("Serra Angel", 8)],
+             deal={1: {"hand": ["Mountain"] * 4 + ["Strionic Resonator", "Flametongue Kavu", "Flametongue Kavu"],
+                       "top": ["Mountain"] * 6},
+                   2: {"hand": ["Forest", "Plains", "Forest", "Plains", "Grizzly Bears", "Serra Angel", "Plains"],
+                       "top": ["Plains", "Forest", "Plains"] * 3}})
+    w = Watch(g)
+
+    def until(g):
+        w.see()
+        return all(any(e.get("copy") and e.get("kind") == "trigger" for e in w.stacks(s)) for s in (1, 2)) \
+            and all(not stack_of(g, s) for s in (1, 2))
+
+    g.run(policy, until=until, max_turn=24)
+    w.see()
+    found = {"stopped": g.stopped_badly(), "st": st}
+    problems = [found["stopped"]] if found["stopped"] else []
+    for seat in (1, 2):
+        copies = [e for e in w.stacks(seat) if e.get("copy") and e.get("kind") == "trigger"]
+        originals = [e for e in w.stacks(seat) if e.get("name") == "Flametongue Kavu" and e.get("kind") == "trigger"
+                     and not e.get("copy")]
+        found[f"seat{seat}"] = copies[:1] + originals[:1]
+        if not copies:
+            return "inconclusive", f"seat {seat} never saw the Resonator's copy on the stack", found
+        copy = copies[0]
+        if not originals or copy.get("copyOf") != originals[0]["id"]:
+            problems.append(f"seat {seat}: the copy names the trigger's entry ({originals[:1]}): {copy.get('copyOf')}")
+        if not copy.get("group"):
+            problems.append(f"seat {seat}: the copy carries its batch: {copy}")
+        coming = [e for s in w.boards(seat) for e in s.get("copying") or []]
+        found[f"copying{seat}"] = coming[:2]
+        if not any(e.get("aiming") and e.get("kind") == "trigger" for e in coming):
+            problems.append(f"seat {seat}: the copy is shown on its way while its new target is chosen")
+        if any(e.get("copyOf") != originals[0]["id"] for e in coming if originals):
+            problems.append(f"seat {seat}: on its way, the copy names the trigger's entry: {coming[:2]}")
+        aimed = [t for e in copies for t in e.get("targets") or []]
+        bears = next((c["id"] for s in w.boards(seat) for c in s.get("battlefield") or []
+                      if c.get("name") == "Grizzly Bears"), None)
+        if {"object": bears} not in aimed:
+            problems.append(f"seat {seat}: the copy aims at Bob's Bears ({bears}): {aimed}")
+        if any(e.get("copy") for e in originals):
+            problems.append(f"seat {seat}: the Kavu's own trigger is not a copy")
+    return result(problems, "Strionic Resonator: the copy of the Kavu's trigger is marked, names the trigger's "
+                            "entry, is shown on its way while aimed, and aims at the Bears", found)
 
 
 # --- fizzle ---------------------------------------------------------------------------
@@ -507,7 +751,8 @@ def fizzle():
                             "(\"Your ...\" / \"Alice's ...\"), the Bears in Bob's hand, a log line", found)
 
 
-SCENARIOS = {"clone": clone, "counterpart": counterpart, "fork": fork, "storm": storm, "fizzle": fizzle}
+SCENARIOS = {"clone": clone, "counterpart": counterpart, "fork": fork, "storm": storm, "fizzle": fizzle,
+             "storm-split": storm_split, "resonator": resonator}
 
 if __name__ == "__main__":
     worst = 0

@@ -728,6 +728,22 @@ class MatchArtTest {
         assertEquals(bobsBolt, stack[1].jsonObject["art"]?.jsonPrimitive?.content)
     }
 
+    /** Spec 0082 -- a copy on its way onto the stack (`copying`) wears its picture as it will there. */
+    @Test
+    fun `a copy on its way onto the stack wears the picture of the spell it copies`() {
+        val bobsBolt = "9".repeat(64)
+        val art = MatchArt(mapOf(alice to mapOf("Fork" to plains), bob to mapOf("Lightning Bolt" to bobsBolt)))
+        val state =
+            Json.parseToJsonElement(
+                """{"seat":1,"battlefield":[],"hand":[],"players":[],"stack":[],"copying":[
+                {"id":"copying:40","source":"card:90","name":"Lightning Bolt","owner":1,"controller":1,
+                 "kind":"spell","copy":true,"copyOf":"stack:2","artOwner":2,"aiming":true}]}""",
+            ).jsonObject
+        val copying = art.annotate(state, alice)["copying"]!!.jsonArray
+        assertEquals(bobsBolt, copying[0].jsonObject["art"]?.jsonPrimitive?.content)
+        assertTrue(art.mayFetch(alice, bobsBolt), "shown, so fetchable")
+    }
+
     /**
      * Spec 0079 -- a token copy (Cackling Counterpart's Serra Angel) wears
      * the copied card's picture; a token that is no copy still never borrows
