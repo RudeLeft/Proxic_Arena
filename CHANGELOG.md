@@ -3,6 +3,25 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.65.0 — 2026-11-12
+
+Cards that blink out and back, phase out, or survive something that should have killed them are now shown on the table.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Flicker**
+- When Ephemerate or Cloudshift blinks a creature, it vanishes into its owner's exile pile, then rises out of it and glides back to its spot. Before, it just untapped in place.
+
+**Phasing**
+- Phased-out cards (Teferi's Protection) now stay in their spot, see-through and grey with a small "phased out" mark, and can't be clicked or targeted. They turn solid again when they phase back in. Before, they were wrongly shown as exiled.
+- When the other player's permanents phase out, you get the report window, e.g. "Bob's permanents phased out until Bob's next turn. Bob's life can't change."
+
+**Survivors**
+- Regeneration: a small green shield mark shows while a shield is waiting; when something would destroy the creature, the shield bursts instead and the creature taps.
+- Indestructible: a small gold hexagon mark shows at all times; when Wrath of God, Murder or lethal damage tries to destroy it, a gold force-field dome flickers up, sparks bounce off, and the card stays.
+- Prevented damage (Fog, Holy Day, protection from red): the hit lands on a pale see-through shield and a grey "0" rises. Before, nothing showed at all.
+
 ## 1.64.0 — 2026-11-12
 
 Copies, copied spells and spells that fizzle are now shown on the table.
