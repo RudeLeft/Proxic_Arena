@@ -42,7 +42,7 @@ export interface TheirGlide {
 }
 
 /** Whether the viewer asked for reduced motion (spec 0072, item 4: no glide). */
-function stillMotion(): boolean {
+export function stillMotion(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function"
     ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
     : true;
@@ -375,7 +375,13 @@ export function CastingCard({
   hiddenBy = null,
   asking = null,
   theirs = null,
+  onRisen,
 }: {
+  /**
+   * Spec 0081 -- told when the rise (the Glide from `theirs`) has landed in
+   * the middle, or at once when there is none: a free spell is cast then.
+   */
+  onRisen?: (() => void) | undefined;
   card: SnapshotCard;
   geometry: Geometry;
   /** Where it rose from (the card clicked in hand), when known. */
@@ -414,22 +420,35 @@ export function CastingCard({
   // Rise out of the hand once, when it first appears.
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el || typeof el.animate !== "function") return;
+    if (!el || typeof el.animate !== "function") {
+      onRisen?.();
+      return;
+    }
     if (theirs) {
       // Spec 0072, item 1 -- the Glide, 450 ms on its arc, no fade (adds
       // no time; a click hurries it, as every Glide on the board). The
       // words come once it is nearly there (the canvas).
-      if (!gliding) return;
-      el.animate(
+      if (!gliding) {
+        onRisen?.();
+        return;
+      }
+      const rise = el.animate(
         glideFramesAs(box, theirs.box, box, geometry.cardW, geometry.cardH, theirs.origin),
         { duration: MOVE_MS, easing: "linear" },
       );
+      // Spec 0081 -- landed (or hurried there): a free spell goes on.
+      if (onRisen) {
+        const done = rise.finished as Promise<Animation> | undefined;
+        if (done !== undefined) void done.then(onRisen, onRisen);
+        else rise.onfinish = () => onRisen();
+      }
       captionRef.current?.animate([{ opacity: 0 }, { opacity: 0, offset: 0.73 }, { opacity: 1 }], {
         duration: MOVE_MS,
         easing: "linear",
       });
       return;
     }
+    onRisen?.();
     if (!from) return;
     const dx = from.x + from.w / 2 - (box.x + box.w / 2);
     const dy = from.y + from.h / 2 - (box.y + box.h / 2);

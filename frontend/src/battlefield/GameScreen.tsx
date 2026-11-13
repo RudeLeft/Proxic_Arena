@@ -73,12 +73,13 @@ import { LoadingRing, useVortexHandover } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import { OPPONENT_HAND_ORIGIN, type Box, type Geometry } from "./layout";
 import { anchors, boxAt } from "./motion";
-import { castCancelled, castOrigin, hiddenInHand, type CastOrigin } from "./theirCast";
+import { castCancelled, castOrigin, freeCast, hiddenInHand, type CastOrigin } from "./theirCast";
 import type { TheirGlide } from "./CastingCard";
 import {
   CastingCard,
   CastingFlight,
   castingBox,
+  stillMotion,
   owingSymbols,
   keepPaying,
   costPips,
@@ -630,7 +631,34 @@ export function GameScreen({
     optionalSource && board?.hand.some((card) => card.id === optionalSource.id)
       ? optionalSource
       : null;
-  const castingNow = board?.casting[0] ?? optionalFromHand;
+  // Spec 0081 -- a spell cast with no payment step (Memnite, a cascade) is
+  // never in `casting`: the game shows it first on the stack. Read once, on
+  // the board it first appears on, it rises as a cast spell does (spec
+  // 0072's Glide to the middle), then goes on to the stack as one that was
+  // paid for; its stack card waits for it. Not under reduce motion (it
+  // simply appears there, as before).
+  const freeSeen = useRef<Snapshot | null>(null);
+  const free = useRef<{ card: SnapshotCard; done: boolean } | null>(null);
+  const [, setFreeRisen] = useState(0);
+  if (board && board !== freeSeen.current) {
+    freeSeen.current = board;
+    const found = stillMotion() ? null : freeCast(board, frames.current.previous);
+    if (found) free.current = { card: found, done: false };
+  }
+  const freeCasting = free.current && !free.current.done ? free.current.card : null;
+  const freeRisen = useCallback(() => {
+    if (free.current && !free.current.done) {
+      free.current.done = true;
+      setFreeRisen((n) => n + 1);
+    }
+  }, []);
+  useEffect(() => {
+    if (!freeCasting) return undefined;
+    // In case the rise never reports (nothing drew it): never stuck there.
+    const timer = window.setTimeout(freeRisen, FREE_RISE_CAP_MS);
+    return () => window.clearTimeout(timer);
+  }, [freeCasting, freeRisen]);
+  const castingNow = board?.casting[0] ?? optionalFromHand ?? freeCasting;
   // Spec 0062 -- the balls: which steps flew, which landed (manaBalls). A
   // landing re-draws the page (the cast card may then go).
   const balls = useRef(newLedger());
@@ -763,8 +791,14 @@ export function GameScreen({
   // player's): where it was cast from, read once, on the board where it
   // first appears being cast (theirCast.ts). A card that was face up there
   // (flashback from the graveyard) is shown face up the whole way.
+  // Spec 0081: and your own free spell cast from a pile (your cascade): it
+  // rises from that pile the same way (nothing was clicked to rise from).
   const theirCast =
-    casting && board && (casting.seat !== board.seat || board.spectator) ? casting : null;
+    casting &&
+    board &&
+    (casting.seat !== board.seat || board.spectator || casting.id === freeCasting?.id)
+      ? casting
+      : null;
   const originOf = useRef<{ id: string; origin: CastOrigin } | null>(null);
   if (!casting) originOf.current = null;
   if (theirCast && board && originOf.current?.id !== theirCast.id) {
@@ -954,12 +988,15 @@ export function GameScreen({
   // covered too, before the flight exists. Spec 0066, item 1: the other
   // player's card too, while it turns over, is held and flies (a reveal
   // flight) -- never a second copy waiting on the stack with its arrow.
-  const castNow = castOnItsWay(
-    flight,
-    lingering?.id ?? null,
-    lastCasting.current?.card.id ?? null,
-    casting?.id ?? null,
-  );
+  // Spec 0081: a free spell is on the stack already while it rises.
+  const castNow =
+    freeCasting?.id ??
+    castOnItsWay(
+      flight,
+      lingering?.id ?? null,
+      lastCasting.current?.card.id ?? null,
+      casting?.id ?? null,
+    );
   const hiddenStack = castNow
     ? (board?.stack.find((entry) => spellOf(entry, castNow))?.id ?? null)
     : null;
@@ -1976,6 +2013,7 @@ export function GameScreen({
                           ? riseFrom.current.glide
                           : null
                       }
+                      onRisen={casting.id === freeCasting?.id ? freeRisen : undefined}
                     />
                   )}
                   {theirBack.current &&
@@ -2481,6 +2519,13 @@ function StepLadder({
  * it became (Wasteland Strangler's "When it enters..." has the same
  * source), which rises from the card on the table instead.
  */
+/**
+ * Spec 0081 -- a free spell's rise reports when it lands (CastingCard's
+ * onRisen); in case nothing ever draws it, it goes on after this long (four
+ * Glides) all the same.
+ */
+const FREE_RISE_CAP_MS = 1_800;
+
 export function spellOf(entry: { source?: string | null; kind?: string }, card: string): boolean {
   return entry.source === card && (entry.kind ?? "spell") === "spell";
 }

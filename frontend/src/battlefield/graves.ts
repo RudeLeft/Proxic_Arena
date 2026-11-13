@@ -260,24 +260,29 @@ export function millOut(i: number, railX: number, height: number, top: boolean):
   };
 }
 
-/** One milled card: `half` "before" is its back (off the library), "after" its face. */
+/**
+ * One milled card: `half` "before" is its back (off the library), "after" its
+ * face. Spec 0081: null, a card exiled face down -- one back the whole way,
+ * never turned.
+ */
 export function millPose(
   ms: number,
   library: Pose,
   out: Pose,
   graveyard: Pose,
   cardH: number,
-  half: Side2,
+  half: Side2 | null,
 ): Pose {
   if (ms < MILL_OUT_MS) {
     const p = ms / MILL_OUT_MS;
     const g = glideAt(library, out, p, cardH);
+    if (half === null) return g;
     const t = turning(S(p, MILL_TURN[0], MILL_TURN[1]), half);
     return { ...g, sx: t.sx, o: t.seen ? 1 : 0 };
   }
   const p = S(ms, MILL_OUT_MS, MILL_MS);
   const g = glideAt(out, graveyard, p, cardH);
-  return { ...g, o: half === "after" ? 1 - S(p, 0.85, 1) : 0 };
+  return { ...g, o: half === "before" ? 0 : 1 - S(p, 0.85, 1) };
 }
 
 export function millFrames(
@@ -287,7 +292,7 @@ export function millFrames(
   cardW: number,
   cardH: number,
   origin: { x: number; y: number },
-  half: Side2,
+  half: Side2 | null,
 ): Keyframe[] {
   const edge = ((MILL_TURN[0] + MILL_TURN[1]) / 2) * MILL_OUT_MS;
   return track(

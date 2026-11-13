@@ -75,6 +75,74 @@ export function castOrigin(
 }
 
 /**
+ * Spec 0081 -- a spell cast with no payment step (Memnite, Ornithopter, a
+ * cascade or a free cast from exile): the game never shows it being cast
+ * (`casting` is only there while a payment question is open), so it is first
+ * seen on the stack. The card that rises for it, as `casting` would have
+ * carried it -- or null: none this round.
+ *
+ * Read only from what `now` already says publicly: the stack entry (the
+ * stack is public), the round's move "hand / graveyard / exile / library ->
+ * stack", and, from a pile, the card as it lay there. The other player's
+ * (to a spectator, either player's); your own only from a pile -- your own
+ * casts from your hand rise from the card you clicked, as they always have.
+ */
+export function freeCast(now: Snapshot, previous: Snapshot | null): SnapshotCard | null {
+  if (!previous || previous.gameEpoch !== now.gameEpoch || previous.seat !== now.seat) return null;
+  if (now.casting.length > 0) return null;
+  for (const move of now.moves ?? []) {
+    const id = move.card;
+    if (!id || move.to.zone !== "stack" || !ZONES.includes(move.from.zone)) continue;
+    const entry = now.stack.find((e) => e.source === id && (e.kind ?? "spell") === "spell");
+    if (!entry || entry.copy) continue;
+    if (previous.stack.some((e) => e.source === id && (e.kind ?? "spell") === "spell")) continue;
+    if (previous.casting.some((c) => c.id === id)) continue;
+    const seat = entry.controller ?? move.from.seat ?? now.seat;
+    const theirs = seat !== now.seat || !!now.spectator;
+    if (!theirs && move.from.zone === "hand") continue;
+    const pile =
+      move.from.zone === "graveyard"
+        ? previous.graveyard
+        : move.from.zone === "exile"
+          ? previous.exile
+          : [];
+    const lay = pile.find((c) => c.id === id);
+    const down = entry.name === "Face-down";
+    return {
+      ...(lay ?? {
+        tapped: false,
+        kind: "other",
+        types: "",
+        power: null,
+        toughness: null,
+        damage: 0,
+        sick: false,
+        attacking: false,
+        blocking: false,
+        counters: [],
+        keywords: [],
+        attachedTo: null,
+        ringBearer: false,
+        sector: null,
+        sprocket: null,
+        enteredAt: null,
+        token: false,
+      }),
+      id,
+      seat,
+      // As the stack shows it now (it is public there).
+      name: entry.name,
+      art: entry.art,
+      crop: entry.crop ?? null,
+      manaCost: entry.manaCost,
+      faceDown: down,
+      known: !down,
+    };
+  }
+  return null;
+}
+
+/**
  * Whether their spell, being cast on `before` and gone from it on `now`
  * (not on the stack), was cancelled: back where it came from, and no move
  * of it off the stack this round (a spell that resolved moved from the

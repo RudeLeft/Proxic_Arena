@@ -217,7 +217,7 @@ import {
   type ShowTo,
   type TileChange,
 } from "./graves";
-import type { Survive, TileMove } from "./fromSnapshot";
+import type { Survive, TileMove, TileZone } from "./fromSnapshot";
 import { domeMarks, shieldBreakMarks, wardMarks, type SurviveMark } from "./survive";
 import { payWords, type PayMark } from "./payPicks";
 import { PaySign } from "./PaySign";
@@ -3533,8 +3533,12 @@ export function Board({
         origin: centred,
       });
 
-      // A · Lift and drop: discarded, one after another.
-      const discards = tm.filter((m) => m.from.zone === "hand" && m.to.zone === "graveyard");
+      // A · Lift and drop: discarded, one after another. Spec 0081 -- a card
+      // exiled straight from a hand (Force of Will's cost, Karn) lifts and
+      // drops the same way, into its owner's exile pile.
+      const discards = tm.filter(
+        (m) => m.from.zone === "hand" && (m.to.zone === "graveyard" || m.to.zone === "exile"),
+      );
       /** Your hand's cards (and theirs shown to you) leaving for a graveyard: their order. */
       const discardOrder = new Map<string, number>();
       discards.forEach((m, i) => discardOrder.set(m.card, i));
@@ -3558,9 +3562,21 @@ export function Board({
           if (!at) return;
           const delay = T + (discardOrder.get(m.card) ?? j) * DISCARD_BEAT_MS;
           const from = poseOf(at.box, at.origin);
-          const to = tileAt(m.to.side, "graveyard");
-          const frames = (half: "before" | "after") =>
+          const pile = m.to.zone as TileZone;
+          const to = tileAt(m.to.side, pile);
+          const frames = (half?: "before" | "after") =>
             discardFrames(from, to, g.cardW, g.cardH, at.origin, true, half);
+          // Spec 0081 -- exiled face down: a back the whole way, never turned.
+          if (m.face.faceDown && !m.face.known) {
+            graveGhosts.push(
+              ghostAt(backLook, m.card, at, frames(), DISCARD_MS, delay, {
+                turn: "back",
+                waits: false,
+              }),
+            );
+            tick(`${m.to.side}:${pile}`, delay + DISCARD_MS, 1);
+            return;
+          }
           graveGhosts.push(
             // Held in the fan until each lifts (no gap in it before then).
             ghostAt(backLook, m.card, at, frames("before"), DISCARD_MS, delay, {
@@ -3583,52 +3599,67 @@ export function Board({
             move: DISCARD_MS - upAt,
             side: m.to.side,
           });
-          tick(`${m.to.side}:graveyard`, delay + DISCARD_MS, 1);
+          tick(`${m.to.side}:${pile}`, delay + DISCARD_MS, 1);
         });
       }
 
       // C · Stream: milled, one after another; past ten, the rest as one bundle.
+      // Spec 0081 -- cards exiled straight from a library (cascade, Karn)
+      // stream the same way, to the exile pile.
       for (const side of ["viewer", "opponent"] as const) {
-        const milled = tm.filter(
-          (m) => m.from.zone === "library" && m.to.zone === "graveyard" && m.to.side === side,
-        );
-        if (milled.length === 0) continue;
-        const library = tileAt(side, "library");
-        const graveyard = tileAt(side, "graveyard");
-        const lib = tileBox(side, "library");
-        const shown = milled.slice(0, MILL_SHOWN);
-        const rest = milled.slice(MILL_SHOWN);
-        const one = (m: TileMove, i: number, n: number, top: boolean) => {
-          const o = millOut(i, g.rail.x, g.height, side === "opponent");
-          const out: Pose = { ...o, r: 0, s: MILL_SCALE, o: 1 };
-          const delay = T + i * MILL_BEAT_MS;
-          const frames = (half: "before" | "after") =>
-            millFrames(library, out, graveyard, g.cardW, g.cardH, centred, half);
-          if (top)
-            graveGhosts.push(
-              ghostAt(backLook, m.card, lib, frames("before"), MILL_MS, delay, { turn: "back" }),
-            );
-          graveGhosts.push(
-            ghostAt(faceLook(m), m.card, lib, frames("after"), MILL_MS, delay, {
-              ...(n > 1 && top ? { badge: n } : {}),
-              ...(n > 1 && !top ? { bundled: true } : {}),
-            }),
+        for (const pileZone of ["graveyard", "exile"] as const) {
+          const milled = tm.filter(
+            (m) => m.from.zone === "library" && m.to.zone === pileZone && m.to.side === side,
           );
-          return delay;
-        };
-        shown.forEach((m, i) => {
-          const delay = one(m, i, 1, true);
-          tick(`${side}:library`, delay, -1);
-          tick(`${side}:graveyard`, delay + MILL_MS, 1);
-        });
-        if (rest.length > 0) {
-          // Every card of the bundle is drawn going, on one path; the top shows how many.
-          let delay = 0;
-          rest.forEach((m, j) => {
-            delay = one(m, MILL_SHOWN, rest.length, j === rest.length - 1);
+          if (milled.length === 0) continue;
+          const library = tileAt(side, "library");
+          const graveyard = tileAt(side, pileZone);
+          const lib = tileBox(side, "library");
+          const shown = milled.slice(0, MILL_SHOWN);
+          const rest = milled.slice(MILL_SHOWN);
+          const one = (m: TileMove, i: number, n: number, top: boolean) => {
+            const o = millOut(i, g.rail.x, g.height, side === "opponent");
+            const out: Pose = { ...o, r: 0, s: MILL_SCALE, o: 1 };
+            const delay = T + i * MILL_BEAT_MS;
+            const frames = (half: "before" | "after" | null) =>
+              millFrames(library, out, graveyard, g.cardW, g.cardH, centred, half);
+            // Spec 0081 -- exiled face down: a back the whole way, never turned.
+            const down = m.face.faceDown && !m.face.known;
+            if (top && !down)
+              graveGhosts.push(
+                ghostAt(backLook, m.card, lib, frames("before"), MILL_MS, delay, { turn: "back" }),
+              );
+            graveGhosts.push(
+              ghostAt(
+                down ? backLook : faceLook(m),
+                m.card,
+                lib,
+                frames(down ? null : "after"),
+                MILL_MS,
+                delay,
+                {
+                  ...(down ? { turn: "back" as const } : {}),
+                  ...(n > 1 && top ? { badge: n } : {}),
+                  ...(n > 1 && !top ? { bundled: true } : {}),
+                },
+              ),
+            );
+            return delay;
+          };
+          shown.forEach((m, i) => {
+            const delay = one(m, i, 1, true);
+            tick(`${side}:library`, delay, -1);
+            tick(`${side}:${pileZone}`, delay + MILL_MS, 1);
           });
-          tick(`${side}:library`, delay, -rest.length);
-          tick(`${side}:graveyard`, delay + MILL_MS, rest.length);
+          if (rest.length > 0) {
+            // Every card of the bundle is drawn going, on one path; the top shows how many.
+            let delay = 0;
+            rest.forEach((m, j) => {
+              delay = one(m, MILL_SHOWN, rest.length, j === rest.length - 1);
+            });
+            tick(`${side}:library`, delay, -rest.length);
+            tick(`${side}:${pileZone}`, delay + MILL_MS, rest.length);
+          }
         }
       }
 
@@ -4631,7 +4662,7 @@ export function Board({
               at,
               discardFrames(
                 from,
-                tileAt(m.to.side, "graveyard"),
+                tileAt(m.to.side, m.to.zone),
                 g.cardW,
                 g.cardH,
                 at.origin,
@@ -4650,7 +4681,7 @@ export function Board({
             move: DISCARD_DROP_MS,
             side: m.to.side,
           });
-          tick(`${m.to.side}:graveyard`, delay + DISCARD_MS, 1);
+          tick(`${m.to.side}:${m.to.zone}`, delay + DISCARD_MS, 1);
           continue;
         }
         const joined = now.get(id);
@@ -5284,7 +5315,7 @@ export function Board({
         if (!ghost.fade || ghost.returning || ghost.chained || ghost.own) continue;
         const tile = Object.entries(where).find(
           ([key, at]) =>
-            key.endsWith(":graveyard") &&
+            (key.endsWith(":graveyard") || key.endsWith(":exile")) &&
             Math.abs(at.x - (ghost.to.x + ghost.to.w / 2)) < 1 &&
             Math.abs(at.y - (ghost.to.y + ghost.to.h / 2)) < 1,
         )?.[0];

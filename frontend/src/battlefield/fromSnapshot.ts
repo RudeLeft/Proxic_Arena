@@ -162,13 +162,20 @@ function tileMovesOf(
     if (from.seat === null || to.seat === null) continue;
     const fromTile = TILE_ZONES.includes(from.zone);
     // Discarded (a hand to a graveyard) or milled (a library to a graveyard).
-    if ((from.zone === "hand" || from.zone === "library") && to.zone === "graveyard") {
-      const now = move.card ? snapshot.graveyard.find((c) => c.id === move.card) : undefined;
+    // Spec 0081 -- or exiled straight from a hand (Force of Will's cost) or
+    // a library (cascade, Karn): the same lift and stream, to the exile pile.
+    // Its face is the exile's as this viewer is sent it: a card exiled face
+    // down stays a back.
+    if (
+      (from.zone === "hand" || from.zone === "library") &&
+      (to.zone === "graveyard" || to.zone === "exile")
+    ) {
+      const now = move.card ? pile(snapshot, to.zone).find((c) => c.id === move.card) : undefined;
       if (!now) continue;
       out.push({
         card: now.id,
         from: { zone: from.zone, side: side(from.seat) },
-        to: { zone: "graveyard", side: side(to.seat) },
+        to: { zone: to.zone, side: side(to.seat) },
         face: faceOf(now),
         hidden: false,
         where: null,
