@@ -87,6 +87,13 @@ final class ActionReports {
          * hand): there was nothing to choose, so the one who looked is told too.
          */
         boolean emptyHand;
+        /**
+         * Spec 0079 -- a fizzle: the spell was a copy (it is "your copy of
+         * Lightning Bolt"), and its targets were all gone from where they
+         * were (else they were still there, no longer legal targets).
+         */
+        boolean copy;
+        boolean gone;
 
         Report(long key, Player actor, String source, Kind kind, Player subject, int count, List<Move> moves,
                 java.util.Map<Integer, String> where, boolean shuffled, int top, int bottom) {
@@ -116,7 +123,9 @@ final class ActionReports {
         /** Spec 0075 -- choices and coin flips alone (Voice of All, Stitch in Time): told by their values. */
         CHOICE,
         /** Spec 0075 -- a look at a hand or a library with no cards in it. */
-        EMPTY_LOOK }
+        EMPTY_LOOK,
+        /** Spec 0079 -- a spell that did nothing: every target it had was gone (it fizzled). */
+        FIZZLE }
 
     /**
      * Spec 0074, Amendment 1 -- the kinds told to both players unless the
@@ -124,7 +133,7 @@ final class ActionReports {
      * Dead): what the other player does, or what happens to them.
      */
     static boolean toBoth(Kind kind) {
-        return kind == Kind.MILL || kind == Kind.COUNTER || kind == Kind.RETURN;
+        return kind == Kind.MILL || kind == Kind.COUNTER || kind == Kind.RETURN || kind == Kind.FIZZLE;
     }
 
     private final Game game;
@@ -177,8 +186,12 @@ final class ActionReports {
                 noteResolving();
                 surveilKept = surveil.toLibrary();
                 surveilAway = surveil.toGraveyard();
-            } else if (event instanceof forge.game.event.GameEventSpellResolved) {
-                finish();
+            } else if (event instanceof forge.game.event.GameEventSpellResolved resolved) {
+                // Spec 0079 -- a spell that fizzled did nothing: that is its report.
+                if (!(resolved.hasFizzled() && fizzled(resolved))) {
+                    finish();
+                }
+                return;
             } else if (event instanceof forge.game.event.GameEventTurnBegan) {
                 // The tray is about the moment it happened; a new turn is
                 // the game moving on.
@@ -186,6 +199,97 @@ final class ActionReports {
                 personal.clear();
                 reset();
             }
+            if (event instanceof forge.game.event.GameEventSpellAbilityCast
+                    || event instanceof forge.game.event.GameEventCardChangeZone) {
+                noteAims();
+            }
+        }
+    }
+
+    /**
+     * Spec 0079 -- what each spell on the stack aims at, kept from before it
+     * resolves: Forge drops a target that is gone from the spell's own list
+     * as it checks whether it fizzled (MagicStack#hasFizzled), before it says
+     * so. Read as each spell is put on the stack and as cards move (the game
+     * thread only).
+     */
+    private record Aim(Card card, boolean faceDown) {}
+
+    private final java.util.Map<SpellAbility, List<Aim>> aims = new java.util.IdentityHashMap<>();
+
+    private void noteAims() {
+        java.util.Set<SpellAbility> now = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for (forge.game.spellability.SpellAbilityStackInstance each : game.getStack()) {
+            SpellAbility sa = each.getSpellAbility();
+            if (sa == null || !each.isSpell()) {
+                continue;
+            }
+            now.add(sa);
+            List<Aim> list = new ArrayList<>();
+            for (SpellAbility part = sa; part != null; part = part.getSubAbility()) {
+                if (part.getTargets() == null) {
+                    continue;
+                }
+                for (Card card : part.getTargets().getTargetCards()) {
+                    if (list.stream().noneMatch(a -> a.card().getId() == card.getId())) {
+                        list.add(new Aim(card, card.isFaceDown()));
+                    }
+                }
+            }
+            if (!list.isEmpty() || !aims.containsKey(sa)) {
+                aims.put(sa, list);
+            }
+        }
+        aims.keySet().retainAll(now);
+    }
+
+    /**
+     * Spec 0079 -- the spell resolving did nothing: every target it had was
+     * gone or no longer allowed (Forge's hasFizzled). A report for both
+     * players: the spell, and each card it aimed at that the reader may
+     * still see. Not a bestowed or mutating spell, which Forge resolves as a
+     * creature spell instead. True when the report was made.
+     */
+    private boolean fizzled(forge.game.event.GameEventSpellResolved resolved) {
+        try {
+            // The spell Forge names as resolved, still on the stack when it
+            // says so (MagicStack#resolveStack) -- not `resolving`, which the
+            // last spell's own move off the stack can leave pointing at that
+            // spell, and not the top of the stack.
+            SpellAbility sa = Copies.resolved(game, resolved);
+            if (sa == null || !sa.isSpell() || sa.isBestow() || sa.isMutate() || sa.getHostCard() == null
+                    || sa.getActivatingPlayer() == null) {
+                return false;
+            }
+            Card host = sa.getHostCard();
+            List<Aim> aimed = aims.getOrDefault(sa, List.of());
+            List<Move> shown = new ArrayList<>();
+            shown.add(new Move(host.getId(), host.getOwner(), ZoneType.Stack, ZoneType.Graveyard, host.isFaceDown()));
+            boolean gone = !aimed.isEmpty();
+            for (Aim aim : aimed) {
+                Card now = game.findById(aim.card().getId());
+                boolean left = now == null || now.getZone() == null
+                        || !now.equalsWithGameTimestamp(aim.card());
+                gone &= left;
+                if (left && now != null && now.getZone() != null) {
+                    shown.add(new Move(now.getId(), now.getOwner(), ZoneType.Battlefield, now.getZone().getZoneType(),
+                            aim.faceDown()));
+                }
+            }
+            String source = host.isFaceDown() ? "a face-down card" : host.getName();
+            Report report = new Report(keys.incrementAndGet(), sa.getActivatingPlayer(), source, Kind.FIZZLE,
+                    sa.getActivatingPlayer(), shown.size(), shown, new java.util.HashMap<>(), false, -1, 0);
+            report.chooser = sa.getActivatingPlayer();
+            report.copy = host.isCopiedSpell();
+            report.gone = gone || aimed.isEmpty();
+            report.cards.put(host.getId(), host);
+            for (Aim aim : aimed) {
+                report.cards.put(aim.card().getId(), aim.card());
+            }
+            latest = report;
+            return true;
+        } finally {
+            reset();
         }
     }
 
@@ -628,6 +732,42 @@ final class ActionReports {
         for (Move move : report.moves) {
             Card card = game.findById(move.cardId());
             String to = report.where.get(move.cardId());
+            // Spec 0079 -- a fizzle: the spell (a copy has ceased to exist: as
+            // it was), then each card it aimed at, where it is now, only while
+            // this reader may see it -- its owner, a public place, or a hand it
+            // went to face up (the reader watched it go there).
+            if (report.kind == Kind.FIZZLE) {
+                boolean spell = n == 0 && move.from() == ZoneType.Stack;
+                Card shownCard = card != null ? card : report.cards.get(move.cardId());
+                String place = card == null ? null : whereIs(move.cardId());
+                boolean visible = shownCard != null && (spell ? !move.faceDown()
+                        : move.owner() == reader || publicZone(place)
+                        || ("hand".equals(place) && !move.faceDown()));
+                if (!spell && !visible) {
+                    continue;
+                }
+                JsonObject entry;
+                if (visible) {
+                    entry = shown.apply(shownCard);
+                    named.add(shownCard.getName());
+                    visibleIds.add(move.cardId());
+                } else {
+                    entry = new JsonObject();
+                    entry.addProperty("faceDown", true);
+                    entry.addProperty("known", false);
+                    entry.addProperty("seat", seatOf.applyAsInt(move.owner()));
+                    hidden++;
+                }
+                entry.addProperty("id", "action:" + report.key + ":" + n++);
+                if (spell && place != null && !"stack".equals(place)) {
+                    entry.addProperty("to", place);
+                } else if (!spell && place != null) {
+                    entry.addProperty("toSaid", "in " + inWords(place, w.whose(move.owner()).equals("their")
+                            ? move.owner().getName() + "'s" : w.whose(move.owner())));
+                }
+                cards.add(entry);
+                continue;
+            }
             // Spec 0074, Amendment 1: out of a graveyard or face-up exile, a
             // card was public as it moved -- shown as it was there, never by
             // its id (into the other player's hand it is hidden from now on).
@@ -790,8 +930,29 @@ final class ActionReports {
             case CYCLE -> who + " cycled " + r.source + (r.drew > 0
                     ? " and drew " + (r.drew == 1 ? "a card" : r.drew + " cards") : "") + ".";
             case CHOICE -> "";
+            case FIZZLE -> fizzledWords(r, w);
             case EMPTY_LOOK -> who + " looked at " + its + " " + r.zone + ". It has no cards.";
         };
+    }
+
+    /**
+     * Spec 0079 (owner, Q4 A) -- "Alice's Lightning Bolt did nothing: its
+     * target was gone." ("Your ..." to its caster; "Your copy of ..." for a
+     * copy). A target still there but no longer allowed (it gained
+     * protection) is said as that.
+     */
+    private static String fizzledWords(Report r, Words w) {
+        return fizzleSentence(r.actor == w.reader ? null : r.actor.getName(), r.source, r.copy, r.gone,
+                r.cards.size() > 2);
+    }
+
+    /** The fizzle sentence: [caster] null for the reader's own spell. */
+    static String fizzleSentence(String caster, String spell, boolean copy, boolean gone, boolean many) {
+        String whose = caster == null ? "Your" : caster + "'s";
+        String why = gone
+                ? (many ? "its targets were gone" : "its target was gone")
+                : (many ? "its targets could no longer be chosen" : "its target could no longer be chosen");
+        return whose + " " + (copy ? "copy of " : "") + spell + " did nothing: " + why + ".";
     }
 
     /**
@@ -807,6 +968,8 @@ final class ActionReports {
             // Spec 0075: choices are told by their values (each reader the other player's); the
             // empty look only to the one who looked (ActionReports#emptyLook).
             case CHOICE, EMPTY_LOOK -> false;
+            // Spec 0079 (owner, Q4 A): a fizzle is told to both players, its caster too.
+            case FIZZLE -> true;
             default -> toBoth(kind) ? !(reader == actor && reader == subject) : reader != chooser;
         };
     }
@@ -938,6 +1101,18 @@ final class ActionReports {
             parts.add((each.getValue() == 1 ? "a card" : each.getValue() + " cards") + " " + each.getKey());
         }
         return and(parts);
+    }
+
+    /** Spec 0079 -- "Bob's hand", "your graveyard", "exile": where a card the spell aimed at is now. */
+    private static String inWords(String place, String whose) {
+        return switch (place) {
+            case "hand" -> whose + " hand";
+            case "graveyard" -> whose + " graveyard";
+            case "battlefield" -> "play";
+            case "exile" -> "exile";
+            case "top", "bottom", "library" -> whose + " library";
+            default -> place;
+        };
     }
 
     private static String placeWords(String to, String whose) {

@@ -2235,3 +2235,97 @@ img.bf-makes-pip {
   border-radius: 50%;
   box-sizing: border-box;
 }
+
+/* Spec 0079 (owner 2026-11-12, canvas "copies-1112") -- copies, copied
+ * spells, spells that fizzle. The copy mark is 0076's "something the card
+ * is": a gold-rimmed square, two overlapping cards in it -- low on the left
+ * of a copied spell's stack card (a permanent's is one of its badges). */
+.bf-copy-on-stack {
+  position: absolute;
+  left: calc(var(--card-h) * 0.03);
+  bottom: calc(var(--card-h) * 0.15);
+  z-index: 3;
+  pointer-events: none;
+}
+/* An "xN" number held while it ticks (a storm's copies landing, resolving). */
+.bf-stack-many-was {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+/* The HELD SPOT (owner): a permanent gone while a spell still aims at it --
+ * its place a dashed outline with its name faint inside; nothing slides in. */
+.bf-held {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed #9fb0a8;
+  border-radius: calc(var(--card-h) * 0.045);
+  background: rgb(159 176 168 / 6%);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+.bf-held-name {
+  font-family: var(--pa-card);
+  font-weight: 600;
+  font-size: calc(var(--card-h) * 0.075);
+  color: #9fb0a8;
+  opacity: 0.55;
+  text-align: center;
+  padding: 0 6%;
+  line-height: 1.15;
+}
+.bf-slot:has(> .bf-held) {
+  pointer-events: none;
+}
+/* A copy of a spell, done: it breaks into gold motes where it is. */
+.bf-mote-gold {
+  background: radial-gradient(circle, #fff 0 25%, #f2c46a 50%, transparent 72%);
+  box-shadow: 0 0 8px #f2c46a;
+}
+/* A spell that fizzled: smoke rises off it (not a countered spell's grey ash). */
+.bf-mote-smoke {
+  width: calc(var(--card-h) * 0.16);
+  height: calc(var(--card-h) * 0.16);
+  margin: calc(var(--card-h) * -0.08) 0 0 calc(var(--card-h) * -0.08);
+  background: radial-gradient(circle, rgb(170 185 200 / 55%), transparent 70%);
+  box-shadow: none;
+  animation-duration: 1100ms;
+}
+/* No resolve glow on a spell that did nothing. */
+.bf-ghost[data-fizzled] .bf-card {
+  box-shadow: none;
+}
+/* Its beam reaching the place of what it aimed at, and the ring finding nothing. */
+.bf-fizzle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.bf-fizzle path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.bf-fizzle-beam {
+  stroke: #ffe7a8;
+}
+.bf-fizzle-glow {
+  stroke: #f2c46a;
+  filter: blur(3px);
+}
+.bf-fizzle-ring {
+  fill: none;
+  stroke: #c9d2cc;
+  stroke-width: 2;
+  stroke-dasharray: 4 5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-fizzle {
+    display: none;
+  }
+}

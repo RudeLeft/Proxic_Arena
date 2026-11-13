@@ -257,7 +257,13 @@ moves                     Phase 10 A-00: the cards moved since the last
                           {0, 0}, though the card in the graveyard is a
                           4/4 again); only with `card`, and only from the
                           battlefield (the board showed both numbers, so
-                          it is public)
+                          it is public). Spec 0079: why "fizzled" on a
+                          spell's move off the stack when it did nothing
+                          (Forge's hasFizzled: every target gone or no
+                          longer legal), wherever it goes, with no said; a
+                          COPY of a spell ending on the stack (resolved,
+                          or fizzled) is a move to "nowhere" -- it ceases
+                          to exist, never into a graveyard
 noticesTotal              spec 0061: how many notices this seat was told in
                           all (`notices` keeps the last six), so a page can
                           tell new ones once the list is full
@@ -465,6 +471,21 @@ action.marks              spec 0075: pictures that are not cards, in
 player.mulligans          how many times the player has mulliganed, for every
                           viewer (public, as in paper Magic; Phase 9 W-15)
 card.ringBearer           true on the Ring-bearer, for every viewer
+card.copy                 spec 0079: true on a permanent that is a copy (a
+                          Clone, a token copy: Cackling Counterpart), for
+                          every viewer who may identify it (copiable values
+                          are public)
+card.copyOf               spec 0079: the card it copied, "card:N" -- Forge's
+                          clone state's origin, or a token copy's making
+                          ability's target as it entered; stripped (HiddenIds)
+                          while that card is in a zone this viewer cannot see
+card.artOwner             spec 0079: a copy's seat whose deck has the copied
+                          card's picture, when not its own owner (the server
+                          looks the picture up there; a token copy wears the
+                          copied card's picture before any token picture)
+action.cards[].toSaid     spec 0079: in a fizzle report, where a card the
+                          spell aimed at is now, in the reader's words ("in
+                          Bob's hand"); only while the reader may see it
 card.basePower,           a creature's power and toughness before counters
 card.baseToughness        and effects (Phase 9 W-19: "printed 2/3, now 4/5")
 card.exiledBy             in exile: the name of the card that exiled it, for
@@ -520,6 +541,10 @@ stack[]             B2  per entry, besides id and description:
                                     {player: seat}], through every part of
                                     the spell; a spell targeted on the stack
                                     is named as its stack entry
+                        copy        spec 0079: true on a copy of a spell (Fork's,
+                                    a storm copy); copyOf "stack:N", the entry
+                                    it copies while that is on the stack;
+                                    artOwner as for a card (Fork of Bob's Bolt)
                         description is "Face-down spell" when its source
                                     is a face-down card this viewer may not
                                     identify (it began with the card's name)

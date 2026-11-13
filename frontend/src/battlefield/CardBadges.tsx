@@ -140,6 +140,36 @@ const RING = (
   </svg>
 );
 
+/**
+ * Spec 0079 -- the copy mark's picture: two overlapping cards, gold (the
+ * canvas copies-1112's). A gold-rimmed square, as the Ring-bearer's: a copy
+ * is something the card is.
+ */
+export const TWIN = (
+  <svg viewBox="0 0 20 20" aria-hidden="true">
+    <rect
+      x="2.5"
+      y="5"
+      width="9"
+      height="12"
+      rx="1.5"
+      fill="none"
+      stroke="#f2c95c"
+      strokeWidth="1.8"
+    />
+    <rect
+      x="8.5"
+      y="2.5"
+      width="9"
+      height="12"
+      rx="1.5"
+      fill="#0b0f0d"
+      stroke="#f2c95c"
+      strokeWidth="1.8"
+    />
+  </svg>
+);
+
 type Counter = { name: string; count: number };
 
 /** The badges' order (the canvas's): +1/+1 and -1/-1 first, then the most. */
@@ -246,6 +276,8 @@ export function CardBadges({
     counters?: readonly Counter[];
     counterFrom?: readonly { counter: string; added: number; from: string }[] | undefined;
     ringBearer?: boolean | undefined;
+    /** Spec 0079 -- a copy (a Clone, a token copy): the gold copy mark. */
+    copy?: boolean | undefined;
   };
   /** A pile: its cards are identical, counters included -- "on each". */
   pile: boolean;
@@ -265,10 +297,10 @@ export function CardBadges({
     if (ref.current) playBadges(ref.current, card.id ? changes : []);
   });
   const kinds = badgeOrder([...(card.counters ?? []), ...leaving]);
-  if (kinds.length === 0 && !card.ringBearer) return null;
+  if (kinds.length === 0 && !card.ringBearer && !card.copy) return null;
   // Spec item 2: past three kinds, "··· N". With less room (a tapped pile
   // that came in this turn), fold sooner, so every badge still shows whole.
-  const ring = card.ringBearer ? [MARK_H] : [];
+  const ring = [...(card.ringBearer ? [MARK_H] : []), ...(card.copy ? [MARK_H] : [])];
   let shownN = Math.min(kinds.length, SHOWN_KINDS);
   let placed: { column: number; y: number }[] | null = null;
   for (; shownN >= 0; shownN--) {
@@ -290,6 +322,7 @@ export function CardBadges({
       pile,
     ),
     card.ringBearer ? "Ring-bearer" : "",
+    card.copy ? "A copy" : "",
   ].filter(Boolean);
   const items: { key: string; h: number; node: ReactNode }[] = [
     ...shown.map((c) => ({
@@ -330,6 +363,19 @@ export function CardBadges({
     ...(card.ringBearer
       ? [{ key: "ring", h: MARK_H, node: <span className="bf-mark bf-mark-ring">{RING}</span> }]
       : []),
+    ...(card.copy
+      ? [
+          {
+            key: "copy",
+            h: MARK_H,
+            node: (
+              <span className="bf-mark bf-mark-copy" data-copy-mark="true">
+                {TWIN}
+              </span>
+            ),
+          },
+        ]
+      : []),
   ];
   // A column is a flex column from the bottom; each item's margin below
   // puts it at its height (column-reverse: the first item is the lowest).
@@ -344,7 +390,7 @@ export function CardBadges({
       ref={ref}
       className="bf-badges"
       title={words.join("\n")}
-      data-badges={kinds.length + (card.ringBearer ? 1 : 0)}
+      data-badges={kinds.length + (card.ringBearer ? 1 : 0) + (card.copy ? 1 : 0)}
     >
       {columns.map((col, c) => (
         <span key={c} className="bf-badge-col">

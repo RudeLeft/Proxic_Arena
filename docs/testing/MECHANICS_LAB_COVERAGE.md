@@ -132,7 +132,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Caustic Exhale | TDM:74 | 1 | Casting & costs | Behold; choose controlled Dragon or reveal Dragon from hand as additional cost | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Chromatic Sphere | JMP:462 | 1 | Casting & costs | 2026 mana-ability rules edge case; draw card; no longer mana ability under current rules | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Chrome Host Seedshark | MOM:51 | 1 | Counters & tokens | Incubate/Incubator token; transform token | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Clone | M14:47 | 1 | Advanced rules | Copy permanent as it enters; copy effects | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
+| Clone | M14:47 | 1 | Advanced rules | Copy permanent as it enters; copy effects | P8_COVERAGE | Exploratory | PASSED |
 | Collective Brutality | INR:101 | 1 | Casting & costs | Escalate; modal spell; discard as additional cost | P6_REQUIRED | Required | PASSED |
 | Colorstorm Stallion | SOS:180 | 1 | Recent mechanics 2024-2026 | Opus; instant/sorcery cast trigger; cares about mana actually spent | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Commit // Memory | LCC:147 | 1 | Card structures | Aftermath; split card; graveyard half | P6_REQUIRED | Required | PASSED |
@@ -197,7 +197,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Glacial Ray | MMA:115 | 1 | Casting & costs | Splice onto Arcane; reveal from hand; add text to spell | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Glistener Elf | NPH:111 | 1 | Counters & tokens | Infect; poison and -1/-1 counters via damage | P6_REQUIRED | Required | PASSED |
 | Goblin Electromancer | RVR:186 | 1 | Casting & costs | Cost reduction | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Grapeshot | DMR:125 | 1 | Casting & costs | Storm; copy based on spells cast this turn | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
+| Grapeshot | DMR:125 | 1 | Casting & costs | Storm; copy based on spells cast this turn | P8_COVERAGE | Exploratory | PASSED |
 | Gray Merchant of Asphodel | TSR:323 | 1 | Advanced rules | Devotion; each opponent loses life; controller gains total | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Greasewrench Goblin | DFT:132 | 1 | Recent mechanics 2024-2026 | Exhaust; activated ability that can be activated only once per object | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Growth-Chamber Guardian | RNA:128 | 1 | Actions & choices | Adapt; +1/+1 counter gating; search library | P8_COVERAGE | Exploratory | NOT_YET_TESTED |

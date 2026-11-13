@@ -367,6 +367,22 @@ final class ViewerSnapshot {
                 // cast from an opponent's library is the caster's spell
                 // (`controller`) and still the opponent's card.
                 entry.addProperty("owner", seatOf.getOrDefault(source.getOwner(), 0));
+                // Spec 0079, item 1 -- a copied spell (Fork's copy, a storm
+                // copy) is marked a copy, with the stack entry it copies
+                // while that is still on the stack. Public: a copy is put on
+                // the stack in front of everyone. Its picture is the copied
+                // card's, in that card's owner's deck (`artOwner`).
+                if (instance.isSpell() && source.isCopiedSpell()) {
+                    entry.addProperty("copy", true);
+                    forge.game.spellability.SpellAbilityStackInstance of = Copies.copiedEntry(game, source);
+                    if (of != null) {
+                        entry.addProperty("copyOf", "stack:" + of.getId());
+                    }
+                    Player artOwner = Copies.of(game).artOwner(game, source);
+                    if (artOwner != null && !hidden) {
+                        entry.addProperty("artOwner", seatOf.getOrDefault(artOwner, 0));
+                    }
+                }
                 // A spell's printed cost, when this viewer may know the card.
                 if (instance.isSpell() && !hidden) {
                     forge.card.mana.ManaCost printed = source.getManaCost();
@@ -859,6 +875,23 @@ final class ViewerSnapshot {
         });
         if (counters.size() > 0) {
             entry.add("counters", counters);
+        }
+
+        // Spec 0079, item 1 -- a copy (Clone, a token copy) says so, and
+        // which card it copied (`copyOf`, its id: stripped by HiddenIds if
+        // that card is now somewhere this viewer cannot see), and whose
+        // deck has the copied card's picture (`artOwner`, when not its own
+        // owner's). Public: a copy's copiable values are on the table.
+        if (Copies.isCopy(card)) {
+            entry.addProperty("copy", true);
+            Card original = Copies.of(card.getGame()).originalOf(card.getGame(), card);
+            if (original != null && original.getId() != card.getId()) {
+                entry.addProperty("copyOf", "card:" + original.getId());
+            }
+            Player artOwner = Copies.of(card.getGame()).artOwner(card.getGame(), card);
+            if (artOwner != null) {
+                entry.addProperty("artOwner", seatOf.getOrDefault(artOwner, 0));
+            }
         }
 
         // Public, and the Ring's abilities belong to this creature

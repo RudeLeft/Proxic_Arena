@@ -1,5 +1,6 @@
 package net.barnflix.proxic.worker.game;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -88,5 +89,31 @@ class ActionReportsTest {
         assertTrue(ActionReports.showsValue(ALICE, BOB, "coin"));
         // The empty look is made for its one reader (ActionReports#emptyLook), never by kind.
         assertFalse(ActionReports.tells(ActionReports.Kind.EMPTY_LOOK, ALICE, ALICE, BOB, ALICE));
+    }
+
+    // --- spec 0079: a spell that fizzled ------------------------------------------------
+
+    @Test
+    void aFizzleIsShownToBothPlayersTheCasterToo() {
+        // F-0079-D (owner Q4 A): Alice's Bolt fizzled -- Alice's window and Bob's.
+        assertTrue(ActionReports.tells(ActionReports.Kind.FIZZLE, ALICE, ALICE, ALICE, ALICE));
+        assertTrue(ActionReports.tells(ActionReports.Kind.FIZZLE, BOB, ALICE, ALICE, ALICE));
+        assertTrue(ActionReports.toBoth(ActionReports.Kind.FIZZLE));
+    }
+
+    @Test
+    void theFizzleSentenceIsTheCanvasOne() {
+        assertEquals("Alice's Lightning Bolt did nothing: its target was gone.",
+                ActionReports.fizzleSentence("Alice", "Lightning Bolt", false, true, false));
+        assertEquals("Your Lightning Bolt did nothing: its target was gone.",
+                ActionReports.fizzleSentence(null, "Lightning Bolt", false, true, false));
+        // A copy (Fork's) says so; several targets are plural.
+        assertEquals("Your copy of Lightning Bolt did nothing: its target was gone.",
+                ActionReports.fizzleSentence(null, "Lightning Bolt", true, true, false));
+        assertEquals("Bob's Electrolyze did nothing: its targets were gone.",
+                ActionReports.fizzleSentence("Bob", "Electrolyze", false, true, true));
+        // A target still there but no longer allowed (it gained protection).
+        assertEquals("Bob's Lightning Bolt did nothing: its target could no longer be chosen.",
+                ActionReports.fizzleSentence("Bob", "Lightning Bolt", false, false, false));
     }
 }

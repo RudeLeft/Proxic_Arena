@@ -25,6 +25,7 @@ import type {
 } from "./Board";
 import type { AnchorId } from "./motion";
 import { sameTrigger, stackWords } from "./triggers";
+import { sameCopy } from "./copies";
 
 export interface BoardData {
   battlefield: BoardCard[];
@@ -51,6 +52,8 @@ export interface BoardData {
   tileMoves: TileMove[];
   /** Spec 0074 -- the spells countered this update (each spell's own card). */
   countered: Set<string>;
+  /** Spec 0079 -- the spells that fizzled this update (each spell's own card): their targets were gone. */
+  fizzled: Set<string>;
 }
 
 /** Spec 0074 -- a pile on the plate a card is drawn leaving or reaching. */
@@ -219,6 +222,9 @@ function toBoardCard(card: SnapshotCard): BoardCard {
     ...(card.sprocket ? { sprocket: card.sprocket } : {}),
     ...(card.counterFrom ? { counterFrom: card.counterFrom } : {}),
     ...(card.makes?.length ? { makes: card.makes } : {}),
+    // Spec 0079 -- a copy, and what it copied (while this viewer may see it).
+    ...(card.copy ? { copy: true } : {}),
+    ...(card.copyOf ? { copyOf: card.copyOf } : {}),
     art: card.art,
     crop: card.crop ?? null,
   };
@@ -334,11 +340,15 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   const groups: { entry: (typeof snapshot.stack)[number]; ids: string[] }[] = [];
   for (const entry of snapshot.stack) {
     const last = groups[groups.length - 1];
-    if (last && sameTrigger(last.entry, entry)) last.ids.push(entry.id);
+    // Spec 0079 (Q3 B): a storm's copies aimed at the same thing, the same.
+    if (last && (sameTrigger(last.entry, entry) || sameCopy(last.entry, entry)))
+      last.ids.push(entry.id);
     else groups.push({ entry, ids: [entry.id] });
   }
   const stack: StackView[] = groups.map(({ entry, ids }) => ({
-    ...(ids.length > 1 ? { count: ids.length } : {}),
+    ...(ids.length > 1 ? { count: ids.length, members: ids } : {}),
+    // Spec 0079 -- a copy of a spell, and the entry it copies.
+    ...(entry.copy ? { copy: true, copyOf: entry.copyOf ?? null } : {}),
     id: entry.id,
     name: entry.name,
     art: entry.art,
@@ -428,6 +438,12 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
       m.card && m.why === "countered" && m.from.zone === "stack" ? [m.card] : [],
     ),
   );
+  // Spec 0079 -- the spells that did nothing, their targets gone (a copy's too).
+  const fizzled = new Set(
+    moves.flatMap((m) =>
+      m.card && m.why === "fizzled" && m.from.zone === "stack" ? [m.card] : [],
+    ),
+  );
   if (previous && previous.gameEpoch === snapshot.gameEpoch) {
     const wasOnBoard = new Set(previous.battlefield.map((c) => c.id));
     const wasInHand = new Set([...previous.hand, ...previous.otherHands].map((c) => c.id));
@@ -497,6 +513,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     graves,
     tileMoves,
     countered,
+    fizzled,
   };
 }
 

@@ -181,4 +181,33 @@ class MovesTest {
         assertEquals("graveyard", Moves.zoneName(forge.game.zone.ZoneType.Graveyard));
         assertEquals("other", Moves.zoneName(forge.game.zone.ZoneType.Sideboard));
     }
+
+    // --- spec 0079: copies and fizzles ----------------------------------------------------
+
+    @Test
+    void aFizzledSpellSaysSoToBothSeatsWithNoTag() {
+        // F-0079-D: Alice's Bolt fizzled: off the stack to her graveyard, "fizzled".
+        List<Moves.Move> moves = List.of(new Moves.Move(30, "stack", 1, "graveyard", 1, false, null)
+                .withSaid("fizzled", null, "Lightning Bolt"));
+        for (Integer viewer : new Integer[] {1, 2, null}) {
+            JsonObject move = only(Moves.forViewer(moves, viewer));
+            assertEquals("card:30", move.get("card").getAsString());
+            assertEquals("fizzled", move.get("why").getAsString());
+            assertFalse(move.has("said"), "the report window explains it: no tag rides on the card");
+        }
+    }
+
+    @Test
+    void aCopyEndingOnTheStackGoesNowhere() {
+        // F-0079-B: Fork's copy resolved -- it ceases to exist (no graveyard).
+        List<Moves.Move> moves = List.of(new Moves.Move(81, "stack", 1, "nowhere", null, false, null),
+                new Moves.Move(82, "stack", 1, "nowhere", null, false, "fizzled"));
+        for (Integer viewer : new Integer[] {1, 2, null}) {
+            JsonArray told = Moves.forViewer(moves, viewer);
+            assertEquals("card:81", told.get(0).getAsJsonObject().get("card").getAsString());
+            assertEquals("nowhere", told.get(0).getAsJsonObject().getAsJsonObject("to").get("zone").getAsString());
+            assertFalse(told.get(0).getAsJsonObject().getAsJsonObject("to").has("seat"));
+            assertEquals("fizzled", told.get(1).getAsJsonObject().get("why").getAsString());
+        }
+    }
 }

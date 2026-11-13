@@ -182,24 +182,34 @@ class MatchArt(
         }
         val name = entry["name"]?.jsonPrimitive?.content ?: return entry
         // Spec 0022, amending §6.128 -- a token wears only a TOKEN picture,
-        // never a card's or a face's of the same name (§7.59).
-        if (entry["token"]?.jsonPrimitive?.booleanOrNull == true) return tokenArt(entry, name, allowed)
+        // never a card's or a face's of the same name (§7.59). Spec 0079: a
+        // token that is a COPY of a card (Cackling Counterpart's Serra Angel)
+        // wears that card's picture first, the token picture otherwise.
+        val token = entry["token"]?.jsonPrimitive?.booleanOrNull == true
+        val copy = entry["copy"]?.jsonPrimitive?.booleanOrNull == true
+        if (token && !copy) return tokenArt(entry, name, allowed)
         // The art belongs to the deck of whoever OWNS the card,
         // not the viewer: that is the whole reason §6.122 exists
         // as a match-scoped route rather than a Deck Depot one.
         // Spec 0049 -- the owner, not `seat`: `seat` is the CONTROLLER,
         // and a creature taken with Control Magic was looked for in the
         // thief's deck. `seat` only for a snapshot from before `owner`.
-        val owner = seatOf(entry, "owner") ?: seatOf(entry, "seat") ?: return entry
+        // Spec 0079 -- a copy (a Clone of Bob's Serra Angel) looks like what it
+        // copied: that card's picture is in ITS owner's deck (`artOwner`, sent
+        // only when that is not the copy's own owner).
+        val owner =
+            seatOf(entry, "artOwner") ?: seatOf(entry, "owner") ?: seatOf(entry, "seat")
+                ?: return if (token) tokenArt(entry, name, allowed) else entry
         // The exact printing first, when the deck carried art for
         // it; the name otherwise, as before.
         val printing = entry["printing"]?.jsonPrimitive?.content
         // §7.59 — a face that is not a front (a card turned over) has its
         // own picture when the deck carried one, by that face's name;
         // otherwise none -- never the front's.
-        val art = bySeat[owner] ?: return entry
+        val art = bySeat[owner] ?: return if (token) tokenArt(entry, name, allowed) else entry
         val asset =
-            printing?.let { art["$PRINTING$it|$name"] } ?: art[name] ?: art[FACE + name.lowercase()] ?: return entry
+            printing?.let { art["$PRINTING$it|$name"] } ?: art[name] ?: art[FACE + name.lowercase()]
+                ?: return if (token) tokenArt(entry, name, allowed) else entry
         return wearing(entry, asset, cropIn(art, name, printing), allowed)
     }
 
@@ -280,7 +290,9 @@ class MatchArt(
         allowed: MutableSet<String>,
     ): JsonObject {
         val name = entry["name"]?.jsonPrimitive?.content ?: return entry
-        val owner = seatOf(entry, "owner") ?: seatOf(entry, "controller") ?: return entry
+        // Spec 0079 -- a copied spell (Alice's Fork of Bob's Bolt) wears the
+        // picture of the spell it copies, from that card's owner's deck.
+        val owner = seatOf(entry, "artOwner") ?: seatOf(entry, "owner") ?: seatOf(entry, "controller") ?: return entry
         val art = bySeat[owner] ?: return entry
         val asset = art[name] ?: art[FACE + name.lowercase()] ?: return entry
         return wearing(entry, asset, cropIn(art, name, null), allowed)

@@ -487,6 +487,22 @@
       "scenario": "Reconfigure onto a creature: it becomes Equipment.",
       "result": "PASSED",
       "evidence": "scripts/check-attachments.py (worker, in CI) and frontend/e2e/match-attachments.spec.ts (browser), 2026-10-20. Reconfigured onto a creature: kind no longer creature, types Artifact - Equipment, attachedTo the creature; the browser draws it on the creature and not as a creature of its own."
+    },
+    "Clone": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "F-0079-A",
+      "scenario": "Alice's Clone enters as a copy of Bob's Serra Angel.",
+      "result": "PASSED",
+      "evidence": "scripts/check-copies.py, run in CI (2026-11-12, spec 0079). Both seats: Alice's permanent is named Serra Angel with copy true, copyOf Bob's Angel's id and artOwner 2 (it wears Bob's Angel picture); on the stack it was Clone, not a copy."
+    },
+    "Grapeshot": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "F-0079-C",
+      "scenario": "Four Ornithopters, then Grapeshot: storm makes four copies, all at Bob.",
+      "result": "PASSED",
+      "evidence": "scripts/check-copies.py, run in CI (2026-11-12, spec 0079). Both seats: four stack entries with copy true and copyOf the Grapeshot's own entry; each ends to \"nowhere\" (no graveyard), told once with the board it is gone from; Bob 20 -> 15."
     }
   }
 }

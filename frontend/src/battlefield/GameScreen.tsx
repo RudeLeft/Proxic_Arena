@@ -1772,6 +1772,7 @@ export function GameScreen({
             graves={data.graves}
             tileMoves={data.tileMoves}
             countered={data.countered}
+            fizzled={data.fizzled}
             flyingOnto={flyingOnto}
             handLeft={
               theirOrigin?.zone === "hand" && theirOrigin.side === "opponent"

@@ -215,7 +215,10 @@ export function RevealTray({
             <span className="gs-reveal-name">
               {card.faceDown && !card.known ? "Face-down card" : card.name}
             </span>
-            {wentWords(card.to) && <span className="gs-reveal-to">{wentWords(card.to)}</span>}
+            {/* Spec 0079 -- a fizzle's card that left: where it is now ("in Bob's hand"). */}
+            {(card.toSaid ?? wentWords(card.to)) && (
+              <span className="gs-reveal-to">{card.toSaid ?? wentWords(card.to)}</span>
+            )}
           </li>
         ))}
         {/* Spec 0075 -- the colour chosen, the coin flipped: pictures too. */}

@@ -32,3 +32,48 @@ Phase 10 items A-15 (copies) and the rest of A-21 (spells copied, fizzled).
 | F-0079-E | Hurry, reduce motion, hidden info clean | page test; Lab hidden checks |
 
 ## Amendments
+
+### As built (2026-11-12)
+
+Built as approved (Q1 A, Q2 A, Q3 B, Q4 A, the held spot); unreleased.
+
+- **Worker.** A card that is a copy carries `copy` and `copyOf` (Forge's
+  clone state's origin; for a token copy, the target of the ability that
+  made it, read as the token enters -- Forge links the token only to a
+  prototype). A copied spell's stack entry carries `copy` and `copyOf` (the
+  stack entry whose card is the copy's `getCopiedPermanent`). Both carry
+  `artOwner` when the copied card's owner is not the copy's. `copyOf` is a
+  card id, so HiddenIds strips it whenever that card is in a zone the reader
+  cannot see. A spell Forge says fizzled (GameEventSpellResolved
+  `hasFizzled`, not bestow or mutate) has why "fizzled" on its move off the
+  stack (no tag); a copied spell ending on the stack is a move to "nowhere"
+  (Forge's ceaseToExist reports none). The report window (`action`, kind
+  FIZZLE) goes to both players, the caster's reading "Your ..."; it shows the
+  spell and each target that left while the reader may still see it, with
+  where it is now (`toSaid`, "in Bob's hand"). The play log says "copied"
+  for a copy put on the stack and "Alice's Lightning Bolt did nothing: its
+  target was gone". The spell that resolved is found by the event's id on
+  the stack, not the top of it (a storm trigger's copies sit on top of it).
+- **Pictures.** By reading MatchArt (Lab games bypass the server, so the
+  replay cannot show it): a Clone of Bob's Serra Angel, a Fork copy of
+  Bob's Bolt and a token copy looked for their picture in the copy's owner's
+  deck (a token in token pictures only), so they showed none unless that
+  deck had the card. Smallest change: MatchArt looks in `artOwner`'s deck
+  (else the owner's), and a token that is a copy wears the copied card's
+  picture before any token picture (MatchArtTest, three tests that fail
+  without it). This narrows spec 0022's "a token wears only a token
+  picture" to tokens that are not copies.
+- **Deviations.** A target still on the table but no longer legal (it
+  gained protection) reads "its target could no longer be chosen"; the play
+  log keeps "its target was gone" for both. The storm copies all arrive in
+  one board (Forge asks each copy's target before any is on the stack), so
+  the x N counts up as the copies peel on in that one update. The held spot
+  goes when its outline has broken up, on the board's animation clock (a
+  click hurries it; slow motion slows it) -- found filming: a wall-clock
+  release closed the gap under the quarter-speed beam.
+- **Lab.** New `scripts/check-copies.py` (clone, counterpart, fork, storm,
+  fizzle), in CI's Lab list; Clone and Grapeshot are PASSED in the ledger.
+- **Evidence.** Lab traces replayed into the real page at 1920x1080,
+  normal and quarter speed: `Arrow videos/0079/` (clone, counterpart, fork,
+  storm, fizzle-seat1, fizzle-seat2). Pictures cannot show there (Lab boards
+  skip the server), hence the MatchArt tests above.

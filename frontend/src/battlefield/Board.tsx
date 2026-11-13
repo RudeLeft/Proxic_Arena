@@ -220,7 +220,36 @@ import {
 import type { TileMove } from "./fromSnapshot";
 import { payWords, type PayMark } from "./payPicks";
 import { PaySign } from "./PaySign";
-import { CardBadges } from "./CardBadges";
+import { CardBadges, TWIN } from "./CardBadges";
+import {
+  COPY_FLIP_AT,
+  COPY_GHOST_MS,
+  COPY_MARK_AT,
+  FIZZLE_BEAM_OUT_AT,
+  FIZZLE_GREY_AT,
+  FIZZLE_HOLD_MS,
+  FIZZLE_MS,
+  FIZZLE_REACH_MS,
+  FIZZLE_RING_MS,
+  MARK_GROW_MS,
+  NO_HELD,
+  ORIGINAL_GLOW_MS,
+  PEEL_BEAT_MS,
+  PEEL_IN_MS,
+  PEEL_MARK_AT,
+  copyEndFrames,
+  copyGhostFrames,
+  fizzleFrames,
+  glowFrames,
+  heldBreakFrames,
+  heldCard,
+  heldId,
+  holdThenFlip,
+  markFrames,
+  nextHeld,
+  peelInFrames,
+  type HeldMemory,
+} from "./copies";
 import { SizeFigure, type Figure } from "./SizeFigure";
 import {
   countSpan,
@@ -257,6 +286,12 @@ export interface BoardCard extends LayoutCard {
   /** Spec 0078 (Phase 9 W-19's): its power and toughness as printed. */
   basePower?: number | undefined;
   baseToughness?: number | undefined;
+  /**
+   * Spec 0079 -- a copy (a Clone, a token copy), public; `copyOf` the card it
+   * copied, while this viewer may see it. The gold copy mark.
+   */
+  copy?: boolean | undefined;
+  copyOf?: string | undefined;
 }
 
 /** Spec 0045 -- a counter's name as players say it ("P1P1" is "+1/+1"). */
@@ -344,6 +379,11 @@ export interface StackView {
   count?: number;
   /** Spec 0045 — what it does, in a player's words (the hover label). */
   does?: string;
+  /** Spec 0079 -- a copy of a spell: the gold copy mark; `copyOf` the entry it copies. */
+  copy?: boolean;
+  copyOf?: string | null;
+  /** Spec 0079 (Q3 B) -- the entries drawn as this one card "xN", the one that resolves next first. */
+  members?: readonly string[];
 }
 
 /** Damage just dealt, one wave (one combat damage step, or one spell):
@@ -443,6 +483,8 @@ export interface BoardProps {
   tileMoves?: readonly TileMove[];
   /** Spec 0074 -- the spells countered this update (each spell's own card). */
   countered?: ReadonlySet<string>;
+  /** Spec 0079 -- the spells that fizzled this update (each spell's own card): their targets were gone. */
+  fizzled?: ReadonlySet<string>;
   /** Combat, while there is one (fire and shield lines, AMENDMENT 7). */
   combat?: CombatView | null;
   /** The stack, the object that resolves next FIRST. */
@@ -800,6 +842,40 @@ function tickBadge(slot: HTMLElement, start: number, changes: readonly BadgeChan
 }
 
 /**
+ * Spec 0079 (Q3 B) -- a stack card's "xN" (a storm's copies) changing as
+ * copies peel onto it and resolve off it: spec 0073's ticking badge, on the
+ * stack card's own number. On the board's animation clock.
+ */
+function tickMany(slot: HTMLElement, start: number, changes: readonly BadgeChange[]) {
+  const tag = slot.querySelector<HTMLElement>(":scope > .bf-stack-tag");
+  if (!tag || typeof tag.animate !== "function") return;
+  for (const old of tag.querySelectorAll(":scope > .bf-stack-many-was")) old.remove();
+  const total = Math.max(...changes.map((c) => c.at));
+  if (total <= 0) return;
+  const spells = badgeSpells(start, changes);
+  const badge = tag.querySelector<HTMLElement>(":scope > .bf-stack-many:not(.bf-stack-many-was)");
+  spells.forEach((spell, i) => {
+    const frames = badgeFrames(spell, total, i === 0);
+    if (i === spells.length - 1) {
+      badge?.animate(frames, { duration: total, easing: "linear" });
+      return;
+    }
+    if (spell.n < 2) return;
+    const held = document.createElement("span");
+    held.className = "bf-stack-many bf-stack-many-was";
+    held.textContent = `×${spell.n}`;
+    held.setAttribute("aria-hidden", "true");
+    held.dataset["manyWas"] = String(spell.n);
+    held.style.opacity = "0";
+    tag.appendChild(held);
+    const run = held.animate(frames, { duration: total, easing: "linear" });
+    const gone = () => held.remove();
+    run.onfinish = gone;
+    run.oncancel = gone;
+  });
+}
+
+/**
  * Spec 0074 -- a plate tile's number (the library's, a graveyard's, exile's)
  * changing as its cards leave and land, as a pile's badge does (spec 0073):
  * the number drawn is the newest, hidden until the last change; each number
@@ -911,6 +987,20 @@ interface Ghost extends Drawn {
   ash?: boolean;
   /** Spec 0074 -- going into exile out of a graveyard: the pale light rises off it. */
   motes?: boolean;
+  /**
+   * Spec 0079 -- the card inside turns while it goes (`own`): Clone's old
+   * face flipping away (A-09's "out") once the ghost of what it copied has
+   * landed on it.
+   */
+  inner?: { frames: Keyframe[]; duration: number; delay: number };
+  /** Spec 0079 -- a copy of a spell, done: gold motes rise off it (from `fxAt`) where it is. */
+  gold?: boolean;
+  /** Spec 0079 -- a spell that fizzled: smoke rises off it (from `fxAt`). */
+  smoke?: boolean;
+  /** Spec 0079 -- when its gold motes or smoke start, from when it appeared. */
+  fxAt?: number;
+  /** Spec 0079 -- it is a copy: the gold copy mark is on it. */
+  mark?: boolean;
 }
 
 /**
@@ -924,6 +1014,20 @@ interface Strike {
   d: string;
   points: Point[];
   ring: { at: Point; r: number };
+  w: number;
+  delay: number;
+}
+
+/**
+ * Spec 0079 (Q4 A) -- a fizzled spell's beam reaching the place of what it
+ * aimed at, and the dashed ring there that finds nothing and breaks up.
+ */
+interface Fizzle {
+  key: string;
+  /** The fizzled spell's card, for tests and the jump check. */
+  of: string;
+  d: string;
+  ring: { x: number; y: number; r: number };
   w: number;
   delay: number;
 }
@@ -1291,6 +1395,7 @@ export function Board({
   graves,
   tileMoves,
   countered,
+  fizzled,
   flyingOnto = null,
   handLeft = null,
   hiddenStack = null,
@@ -1348,6 +1453,8 @@ export function Board({
   const [returnMarks, setReturnMarks] = useState<ReturnMark[]>([]);
   /** Spec 0074: the countering spells' beams striking. */
   const [strikes, setStrikes] = useState<Strike[]>([]);
+  /** Spec 0079: the fizzled spells' beams finding nothing. */
+  const [fizzles, setFizzles] = useState<Fizzle[]>([]);
   const [effects, setEffects] = useState<Effect[]>([]);
   const wave = useRef<{ key: string } | null>(null);
   /** Phase 10 A-13: the fights' marks, the clock they all run on, and the dead's part in them. */
@@ -1440,8 +1547,73 @@ export function Board({
     };
   }
   const pinned = pins.current && pins.current.key !== released ? pins.current.boxes : null;
+  // Spec 0079 (owner) -- the HELD SPOT: a permanent gone while a spell on
+  // the stack still aims at it keeps its place, a dashed outline with its
+  // name faint inside, until every spell aimed at it is done (a spell that
+  // fizzled at it: until its fizzle has played). Remembered between boards,
+  // as the pins are; worked out as the board is drawn.
+  const heldMemory = useRef<HeldMemory>(NO_HELD);
+  const heldFor = useRef<{
+    battlefield: readonly BoardCard[];
+    stack: readonly StackView[] | undefined;
+    tick: number;
+  } | null>(null);
+  const [heldTick, setHeldTick] = useState(0);
+  if (
+    heldFor.current?.battlefield !== battlefield ||
+    heldFor.current.stack !== stack ||
+    heldFor.current.tick !== heldTick
+  ) {
+    const was = heldFor.current?.stack ?? [];
+    const gone = new Set(
+      was
+        .filter((s) => s.card && fizzled?.has(s.card))
+        .flatMap((s) => [s.id, ...(s.members ?? [])]),
+    );
+    heldMemory.current = nextHeld(
+      heldMemory.current,
+      battlefield,
+      stack ?? [],
+      performance.now(),
+      heldFor.current?.stack !== stack ? gone : new Set(),
+      // On the board's clock: the spot goes when its outline has broken up
+      // (releaseHeld, so a click or slow motion moves it too); this is only
+      // the latest it can stay, should that never run.
+      reducedMotion() ? 0 : FIZZLE_HOLD_MS * 20,
+    );
+    heldFor.current = { battlefield, stack, tick: heldTick };
+  }
+  const heldNow = heldMemory.current.held;
+  const table = useMemo(
+    () =>
+      heldNow.size === 0
+        ? battlefield
+        : [...battlefield, ...[...heldNow].map(([card, spot]) => heldCard(spot, card))],
+    [battlefield, heldNow],
+  );
+  // A spot kept for a fizzle goes when the fizzle has played (sooner when a
+  // click hurried it: releaseHeld), at the latest when its time is up.
+  useEffect(() => {
+    const ends = [...heldNow.values()].flatMap((spot) => (spot.until ? [spot.until] : []));
+    if (ends.length === 0) return undefined;
+    const t = window.setTimeout(
+      () => setHeldTick((n) => n + 1),
+      Math.max(0, Math.min(...ends) - performance.now()) + 16,
+    );
+    return () => window.clearTimeout(t);
+  }, [heldNow]);
+  /** Spec 0079 -- the held spots whose outline is breaking up now (the fizzle playing). */
+  const breaking = useRef(new Set<string>());
+  const releaseHeld = (card: string) => {
+    const spot = heldMemory.current.held.get(card);
+    if (!spot || spot.until === undefined) return;
+    const held = new Map(heldMemory.current.held);
+    held.delete(card);
+    heldMemory.current = { ...heldMemory.current, held };
+    setHeldTick((n) => n + 1);
+  };
   const laidOut = useMemo(() => {
-    const fighting = combat ? inCombat(battlefield, combat) : battlefield;
+    const fighting = combat ? inCombat(table, combat) : table;
     // Spec 0070: a card picked to pay stands apart from its pile, and a
     // card picked to tap leans (layout's TAPPED_TILT); paid, it is tapped.
     if (!payPicks || payPicks.size === 0) return fighting;
@@ -1449,7 +1621,7 @@ export function Board({
       const mark = payPicks.get(card.id);
       return mark ? { ...card, paying: mark.lean ? ("lean" as const) : ("mark" as const) } : card;
     });
-  }, [battlefield, combat, payPicks]);
+  }, [table, combat, payPicks]);
   // Spec 0040 — each side's card size last time, so a side grows back only
   // with room to spare. Kept in state, so layout() itself stays pure.
   const [sideSizes, setSideSizes] = useState<Partial<Record<Side, number>>>({});
@@ -1469,7 +1641,7 @@ export function Board({
       setSideSizes(scales);
     }
   }, [scales, sideSizes]);
-  const byId = useMemo(() => new Map(battlefield.map((card) => [card.id, card])), [battlefield]);
+  const byId = useMemo(() => new Map(table.map((card) => [card.id, card])), [table]);
 
   /**
    * What one object's button does and says (§7.24-§7.30). A pile answers
@@ -1616,6 +1788,35 @@ export function Board({
 
     for (const slot of result.slots) {
       const lead = byId.get(slot.ids[0]!)!;
+      // Spec 0079 (owner) -- a held spot: the place of a permanent gone while
+      // a spell still aims at it. A dashed outline with its name faint inside;
+      // nothing to click, nothing slides into it.
+      if (lead.held) {
+        const of = lead.id.slice("held:".length);
+        const name = lead.known && !lead.faceDown ? lead.name : "";
+        out.push({
+          id: lead.id,
+          ids: [lead.id],
+          box: slot.box,
+          origin: TAPPED_ORIGIN,
+          drawn: {
+            name,
+            look: lookOf(lead.kind, lead.types),
+            type: "",
+            pt: "",
+            art: null,
+            faceDown: false,
+            known: false,
+            side: slot.row.startsWith("viewer") ? "viewer" : sideOf(lead.seat),
+          },
+          content: (
+            <div className="bf-held" data-held={of} aria-hidden="true">
+              {name && <span className="bf-held-name">{name}</span>}
+            </div>
+          ),
+        });
+        continue;
+      }
       const count = slot.ids.length;
       // Spec 0073 -- a card cast onto its twins counts once its flight has
       // landed on the pile, never before.
@@ -2069,8 +2270,10 @@ export function Board({
   const arriving = useRef(new Map<string, number>());
   const rose = useRef(new Set<string>());
   const [, setArrived] = useState(0);
+  // Spec 0079 (Q3 B): every entry an "xN" card stood for was seen -- the
+  // next of a storm's copies leading the card is no new card.
   const seenStack = previous.current
-    ? new Set(previous.current.stack.map((was) => was.s.id))
+    ? new Set(previous.current.stack.flatMap((was) => [was.s.id, ...(was.s.members ?? [])]))
     : null;
   const freshOnStack = (s: StackView) =>
     seenStack !== null && !seenStack.has(s.id) && s.id !== hiddenStack && !quietStack?.has(s.id);
@@ -2114,11 +2317,109 @@ export function Board({
   useLayoutEffect(() => {
     const before = previous.current;
     if (!result || !before) return;
-    const seen = new Set(before.stack.map((was) => was.s.id));
+    const seen = new Set(before.stack.flatMap((was) => [was.s.id, ...(was.s.members ?? [])]));
+    // Spec 0079 (Q3 B) -- an "xN" copy card's number: up as more copies peel
+    // onto it, down as each resolves (the one resolving breaks off it).
+    const wasCount = new Map<string, number>();
+    for (const was of before.stack) {
+      const n = was.s.count ?? 1;
+      for (const id of [was.s.id, ...(was.s.members ?? [])]) wasCount.set(id, n);
+    }
+    const peels: Ghost[] = [];
     const g = result.geometry;
     const spots = stackSpotBoxes(g, (stack ?? []).length, stackScale);
     const still = reducedMotion();
     (stack ?? []).slice(0, spots.length).forEach((s, i) => {
+      const el0 = stackEls.current.get(s.id);
+      // Spec 0079 (Q2 A, Q3 B) -- a copied spell peels off the original
+      // stack card, see-through, and settles in front of it, solid, its
+      // gold mark growing in; more copies of a storm peel onto the same
+      // card one after another, its "xN" counting up as each lands.
+      const copyOf = s.copy && s.copyOf ? s.copyOf : null;
+      const j = copyOf
+        ? (stack ?? []).findIndex((e) => e.id === copyOf || e.members?.includes(copyOf))
+        : -1;
+      const before0 = [s.id, ...(s.members ?? [])].map((id) => wasCount.get(id) ?? 0);
+      const had =
+        seen.has(s.id) || (s.members ?? []).some((id) => seen.has(id)) ? Math.max(...before0) : 0;
+      const n = s.count ?? 1;
+      if (copyOf && j >= 0 && j < spots.length && n > had && !still && el0) {
+        const from = spots[j]!;
+        const to = spots[i]!;
+        const fresh = had === 0;
+        const side = s.seat === undefined || s.seat === viewerSeat ? "viewer" : "opponent";
+        const whole = to.scale >= STACK_READ_SCALE && !!s.art && s.name !== "Face-down";
+        if (fresh && typeof el0.animate === "function") {
+          arriving.current.set(s.id, Infinity);
+          const run = el0.animate(peelInFrames(from, to, g.cardW, g.cardH), {
+            duration: PEEL_IN_MS,
+            easing: "linear",
+            fill: "backwards",
+          });
+          const landed = () => {
+            arriving.current.set(s.id, 0);
+            setArrived((k) => k + 1);
+          };
+          const done = run.finished as Promise<Animation> | undefined;
+          if (done !== undefined) void done.then(landed, landed);
+          timers.current.push(window.setTimeout(landed, PEEL_IN_MS * 20));
+          const mark = el0.querySelector<HTMLElement>(".bf-mark-copy");
+          if (mark && typeof mark.animate === "function")
+            mark.animate(markFrames(), {
+              duration: MARK_GROW_MS,
+              delay: PEEL_MARK_AT,
+              easing: "linear",
+              fill: "backwards",
+            });
+        }
+        // The rest, each its own see-through card peeling onto it.
+        const first = fresh ? 1 : had;
+        const changes: BadgeChange[] = [];
+        for (let c = first; c < n; c++) {
+          const delay = (c - first + (fresh ? 1 : 0)) * PEEL_BEAT_MS;
+          peels.push({
+            name: s.name,
+            look: "artifact",
+            type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+            pt: "",
+            art: s.art ? artUrl(s.art) : null,
+            crop: s.crop ? artUrl(s.crop) : null,
+            faceDown: false,
+            known: false,
+            cost: s.manaCost ?? null,
+            side,
+            id: `peel:${s.id}:${c}`,
+            box: from,
+            origin: { x: 0, y: 0 },
+            to,
+            toOrigin: { x: 0, y: 0 },
+            fade: false,
+            delay,
+            own: { frames: peelInFrames(from, to, g.cardW, g.cardH), duration: PEEL_IN_MS },
+            waits: true,
+            mark: true,
+            zIndex: Z_LINES - 98,
+            stack: whole
+              ? {
+                  low: artUrl(s.art!),
+                  high: closeUpOf(artUrl(s.art!)),
+                  kind: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+                  does: s.does ?? null,
+                  whose: side === "viewer" ? " bf-stack-mine" : " bf-stack-theirs",
+                }
+              : undefined,
+          });
+          changes.push({ at: delay + PEEL_IN_MS, by: 1 });
+        }
+        if (changes.length > 0) tickMany(el0, fresh ? 1 : had, changes);
+        return;
+      }
+      // Spec 0079 (Q3 B) -- one of an "xN" copy card resolved: the number
+      // drops as it breaks off (the resolve glow, then its motes).
+      if (s.copy && had > n && !still && el0) {
+        tickMany(el0, had, [{ at: RESOLVE_MS, by: n - had }]);
+        return;
+      }
       if (seen.has(s.id) || s.id === hiddenStack || quietStack?.has(s.id)) return;
       const rises = rose.current.has(s.id);
       const ms = still ? 0 : rises ? RISE_MS : STACK_IN_MS;
@@ -2162,6 +2463,7 @@ export function Board({
       const done = rise.finished as Promise<Animation> | undefined;
       if (done !== undefined) void done.then(arrived, arrived);
     });
+    if (peels.length > 0) setGhosts((list) => [...list, ...peels]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per stack
   }, [stack]);
 
@@ -3290,11 +3592,45 @@ export function Board({
       const madeAt = (i: number) =>
         (maker ? hold + TOKEN_AFTER_MS : hold) +
         i * (makerCard ? TOKEN_BEAT_ABILITY_MS : TOKEN_BEAT_MS);
+      // Spec 0079 (Q1 A) -- a token copy sparks out of the creature it
+      // copies (the game names it, while this viewer may see it), which glows.
+      const copySource = (id: string): Point | null => {
+        const of = byId.get(id)?.copyOf;
+        const at = of ? (now.get(of) ?? before.at.get(of)) : undefined;
+        return at ? centreOf(at.box, at.origin) : null;
+      };
+      const glowing = new Set<string>();
+      const glowOriginal = (id: string, delay: number) => {
+        const of = byId.get(id)?.copyOf;
+        const item = of ? items.find((one) => one.ids.includes(of))?.id : undefined;
+        if (!item || glowing.has(item)) return;
+        glowing.add(item);
+        elements.current
+          .get(item)
+          ?.querySelector<HTMLElement>(":scope > .bf-card")
+          ?.animate(glowFrames(), {
+            duration: ORIGINAL_GLOW_MS,
+            delay: Math.max(0, delay - 80),
+            easing: "linear",
+          });
+      };
+      /** Spec 0079 -- a copy's gold mark grows in, on its card, at `delay`. */
+      const markIn = (element: HTMLElement | undefined, delay: number) => {
+        const mark = element?.querySelector<HTMLElement>(".bf-mark-copy");
+        if (mark && typeof mark.animate === "function")
+          mark.animate(markFrames(), {
+            duration: MARK_GROW_MS,
+            delay,
+            easing: "linear",
+            fill: "backwards",
+          });
+      };
       const spark = (id: string, delay: number) => {
+        const at = copySource(id) ?? sparkAt;
         returning.push({
           key: `spark:${id}:${performance.now()}`,
           kind: "spark",
-          style: { left: sparkAt.x, top: sparkAt.y },
+          style: { left: at.x, top: at.y },
           frames: sparkFrames(),
           duration: SPARK_MS,
           delay: Math.max(0, delay - SPARK_LEAD_MS),
@@ -3304,6 +3640,8 @@ export function Board({
       const joins: Ghost[] = [];
       for (const item of items) {
         if (before.mounted.has(item.id)) continue; // the same element: CSS glides it
+        // Spec 0079: a held spot is drawn where its card stood, from the first frame.
+        if (item.id.startsWith("held:")) continue;
         // The cast card is flying onto it: it appears where that lands.
         if (item.id === flyingOnto && item.ids.length === 1) continue;
         const element = elements.current.get(item.id);
@@ -3325,11 +3663,21 @@ export function Board({
           const delay = madeAt(nth);
           glide(
             element,
-            tokenFrames(boxOn(sparkAt, item.box), item.box, g.cardW, g.cardH, item.origin),
+            tokenFrames(
+              boxOn(copySource(item.id) ?? sparkAt, item.box),
+              item.box,
+              g.cardW,
+              g.cardH,
+              item.origin,
+            ),
             delay,
             TOKEN_MS,
           );
           spark(item.id, delay);
+          if (byId.get(item.id)?.copy) {
+            glowOriginal(item.id, delay);
+            markIn(element, delay + TOKEN_MS);
+          }
           landAt.set(item.id, delay + TOKEN_MS);
           continue;
         }
@@ -3366,6 +3714,117 @@ export function Board({
           );
           joins.push(backGhost(item.id, item.box, item.origin));
           landAt.set(item.id, hold + MOVE_MS);
+          continue;
+        }
+        // Spec 0079 (Q1 A) -- a permanent spell that enters as a copy (Clone):
+        // it glides to its place as it was on the stack; a see-through copy
+        // of what it copied lifts off that creature and glides onto it; then
+        // it lifts, flips (A-09) and settles as the copied face, and the gold
+        // copy mark grows in. Nothing to point at (the original out of
+        // sight): it lands, then flips.
+        const copied = byId.get(item.id);
+        const cast =
+          copied?.copy && !copied.token
+            ? before.stack.find((e) => e.s.card === item.id)
+            : undefined;
+        if (cast && !before.at.has(item.id)) {
+          const s = cast.s;
+          const { delay } = pace(item.id);
+          const of = copied!.copyOf;
+          const original = of ? (before.at.get(of) ?? now.get(of)) : undefined;
+          const flipAt = delay + (original ? COPY_FLIP_AT : MOVE_MS);
+          const side = s.seat === undefined || s.seat === viewerSeat ? "viewer" : "opponent";
+          const whole = cast.box.scale >= STACK_READ_SCALE && !!s.art && s.name !== "Face-down";
+          const run = holdThenFlip(
+            glideFrames(cast.box, item.box, g.cardW, g.cardH, { x: 0, y: 0 }, item.origin),
+            flipAt - delay,
+          );
+          joins.push({
+            name: s.name,
+            look: "artifact",
+            type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+            pt: "",
+            art: s.art ? artUrl(s.art) : null,
+            crop: s.crop ? artUrl(s.crop) : null,
+            faceDown: s.name === "Face-down",
+            known: false,
+            cost: s.manaCost ?? null,
+            side,
+            id: item.id,
+            box: cast.box,
+            origin: { x: 0, y: 0 },
+            to: item.box,
+            toOrigin: item.origin,
+            fade: false,
+            delay,
+            own: { frames: run.frames, duration: run.ms },
+            waits: false,
+            inner: {
+              frames: flipFrames(g.cardH * item.box.scale, "out"),
+              duration: FLIP_MS,
+              delay: flipAt,
+            },
+            stack: whole
+              ? {
+                  low: artUrl(s.art!),
+                  high: closeUpOf(artUrl(s.art!)),
+                  kind: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+                  does: s.does ?? null,
+                  whose: side === "viewer" ? " bf-stack-mine" : " bf-stack-theirs",
+                }
+              : undefined,
+            zIndex: Z_LINES - 50,
+          });
+          // The card itself: unseen until the flip turns its new face round.
+          element.animate(
+            [
+              { offset: 0, opacity: 0 },
+              { offset: 0.47, opacity: 0 },
+              { offset: 0.48, opacity: 1 },
+              { offset: 1, opacity: 1 },
+            ],
+            { duration: FLIP_MS, delay: flipAt, easing: "linear", fill: "backwards" },
+          );
+          element
+            .querySelector<HTMLElement>(":scope > .bf-card")
+            ?.animate(flipFrames(g.cardH * item.box.scale, "in"), {
+              duration: FLIP_MS,
+              delay: flipAt,
+              easing: "linear",
+              fill: "backwards",
+            });
+          if (original && of) {
+            const lookOfOriginal =
+              before.drawn.get(before.itemOf.get(of) ?? of) ??
+              drawn.get(items.find((one) => one.ids.includes(of))?.id ?? of);
+            if (lookOfOriginal)
+              joins.push({
+                ...lookOfOriginal,
+                id: `copy:${item.id}`,
+                box: original.box,
+                origin: original.origin,
+                to: item.box,
+                toOrigin: item.origin,
+                fade: false,
+                delay,
+                own: {
+                  frames: copyGhostFrames(
+                    original.box,
+                    original.origin,
+                    item.box,
+                    item.origin,
+                    g.cardW,
+                    g.cardH,
+                  ),
+                  duration: COPY_GHOST_MS,
+                },
+                waits: true,
+                zIndex: Z_LINES - 49,
+              });
+            glowOriginal(item.id, delay + 80);
+          }
+          markIn(element, flipAt + (COPY_MARK_AT - COPY_FLIP_AT));
+          landAt.set(item.id, flipAt + FLIP_MS);
           continue;
         }
         // A new element: from wherever the object was drawn before (a
@@ -3423,10 +3882,11 @@ export function Board({
           const nth = tokenIndex.get(id);
           if (nth !== undefined) {
             const delay = madeAt(nth);
+            if (byId.get(id)?.copy) glowOriginal(id, delay);
             joins.push({
               ...look,
               id,
-              box: boxOn(sparkAt, at.box),
+              box: boxOn(copySource(id) ?? sparkAt, at.box),
               origin: at.origin,
               to: at.box,
               toOrigin: at.origin,
@@ -3891,6 +4351,8 @@ export function Board({
       }
       for (const [id, d] of before.drawn) {
         if (elementsNow.has(id) || merged.has(id)) continue;
+        // Spec 0079: a held spot let go -- its outline is already gone; the gap closes.
+        if (id.startsWith("held:")) continue;
         // Spec 0072: the back that rose to the middle is the casting card now
         // (the fan closed on it, above): no ghost of it leaves for a pile.
         if (gap !== null && isBack(id)) continue;
@@ -4136,6 +4598,8 @@ export function Board({
       const sparks: Effect[] = [];
       const gone: Ghost[] = [];
       const struck: Strike[] = [];
+      /** Spec 0079: the fizzled spells' beams finding nothing. */
+      const fizzles: Fizzle[] = [];
       for (const { s, box } of before.stack) {
         if (stillThere.has(s.id) || (s.card && merged.has(s.card))) continue;
         // A-17: an Aura resolving onto its creature is chained into its tab.
@@ -4256,6 +4720,154 @@ export function Board({
             side,
           });
           tick(`${side}:graveyard`, hold + COUNTER_MS, 1);
+          continue;
+        }
+        const stackLook = (): Ghost["stack"] =>
+          box.scale >= STACK_READ_SCALE && !!s.art && s.name !== "Face-down"
+            ? {
+                low: artUrl(s.art),
+                high: closeUpOf(artUrl(s.art)),
+                kind: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+                does: s.does ?? null,
+                whose: side === "viewer" ? " bf-stack-mine" : " bf-stack-theirs",
+              }
+            : undefined;
+        const lookOfSpell: Drawn = {
+          name: s.name,
+          look: "artifact",
+          type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+          pt: "",
+          art: s.art ? artUrl(s.art) : null,
+          crop: s.crop ? artUrl(s.crop) : null,
+          faceDown: s.name === "Face-down",
+          known: false,
+          cost: s.manaCost ?? null,
+          side,
+        };
+        const spotOf = before.stack.findIndex((e) => e.s.id === s.id);
+        // Spec 0079 (Q4 A) -- a spell that did nothing: its beam reaches the
+        // place of what it aimed at (held, an outline) and finds nothing; the
+        // ring and the outline break up; it goes grey and see-through as
+        // smoke rises, then drifts to its graveyard (a copy just fades away).
+        if (!ret && !!s.card && !!fizzled?.has(s.card)) {
+          const entries = [s.id, ...(s.members ?? [])];
+          const spots = [...heldMemory.current.held]
+            .filter(([, spot]) => entries.some((e) => spot.by.has(e)))
+            .map(([card]) => card);
+          const aims = (
+            spots.length > 0
+              ? spots.map((card) => now.get(heldId(card)))
+              : s.targets.map((t) => ("object" in t ? now.get(t.object) : undefined))
+          ).filter((at): at is { box: Box; origin: Point } => at !== undefined);
+          const from = studAtOf(
+            before.stack.map((e) => e.box),
+            Math.max(0, spotOf),
+            g.cardH,
+          );
+          for (const at of aims) {
+            if (!from) break;
+            const c = centreOf(at.box, at.origin);
+            const end = { x: c.x, y: c.y - (g.cardH * at.box.scale) / 2 - 3 };
+            const lift = Math.min(from.y, end.y) - g.cardH * 0.4;
+            fizzles.push({
+              key: `fizzle:${s.id}:${fizzles.length}:${performance.now()}`,
+              of: s.card,
+              d: `M${from.x} ${from.y} Q ${(from.x + end.x) / 2} ${lift} ${end.x} ${end.y}`,
+              ring: {
+                x: c.x,
+                y: c.y - g.cardH * at.box.scale * 0.08,
+                r: g.cardH * at.box.scale * 0.22,
+              },
+              w: effectSizes(g).line,
+              delay: hold,
+            });
+          }
+          for (const card of spots) {
+            const outline = elements.current
+              .get(heldId(card))
+              ?.querySelector<HTMLElement>(".bf-held");
+            if (outline && typeof outline.animate === "function") {
+              const breaks = outline.animate(heldBreakFrames(), {
+                duration: FIZZLE_HOLD_MS,
+                delay: hold,
+                easing: "linear",
+                fill: "forwards",
+              });
+              breaking.current.add(card);
+              const letGo = () => {
+                breaking.current.delete(card);
+                releaseHeld(card);
+              };
+              breaks.onfinish = letGo;
+              breaks.oncancel = letGo;
+            }
+          }
+          const copy = s.copy === true;
+          const at = { box, origin: { x: 0, y: 0 } };
+          gone.push(
+            ghostAt(
+              lookOfSpell,
+              s.id,
+              at,
+              fizzleFrames(
+                poseOf(box, at.origin),
+                copy ? null : tileAt(side, "graveyard"),
+                g.cardW,
+                g.cardH,
+                at.origin,
+              ),
+              FIZZLE_MS,
+              hold,
+              {
+                waits: false,
+                smoke: true,
+                fxAt: FIZZLE_GREY_AT,
+                mark: copy,
+                zIndex: Z_LINES - 51 - Math.max(0, spotOf),
+                stack: stackLook(),
+              },
+            ),
+          );
+          if (!copy) tick(`${side}:graveyard`, hold + FIZZLE_MS, 1);
+          continue;
+        }
+        // Spec 0079 (Q2 A) -- a copy of a spell resolved: it glows, its spark
+        // runs to what it aimed at, and it breaks into gold motes where it is
+        // -- off the "xN" card it was part of, a little up and left -- never
+        // to a graveyard.
+        if (!ret && s.copy) {
+          for (const t of s.targets) {
+            const at =
+              "player" in t
+                ? where[`${t.player === viewerSeat ? "viewer" : "opponent"}:life`]
+                : (() => {
+                    const p = before.at.get(t.object);
+                    return p ? centreOf(p.box, p.origin) : null;
+                  })();
+            if (at)
+              sparks.push({
+                key: `spark:${s.id}:${sparks.length}`,
+                kind: "spark",
+                target: "player" in t ? `player:${t.player}` : t.object,
+                at: centreBox,
+                to: at,
+                amount: 0,
+                delay: 0,
+              });
+          }
+          const k = box.h / 134;
+          const apart = (s.count ?? 1) > 1 ? { x: -8 * k, y: -6 * k } : { x: 0, y: 0 };
+          const end = copyEndFrames(box, g.cardW, g.cardH, RESOLVE_MS, apart);
+          gone.push(
+            ghostAt(lookOfSpell, s.id, { box, origin: { x: 0, y: 0 } }, end.frames, end.ms, hold, {
+              waits: false,
+              gold: true,
+              fxAt: RESOLVE_MS,
+              mark: true,
+              zIndex: Z_LINES - 50,
+              stack: stackLook(),
+            }),
+          );
           continue;
         }
         for (const t of ret ? [] : s.targets) {
@@ -4381,6 +4993,11 @@ export function Board({
       }
       if (graveGhosts.length > 0) setGhosts((list) => [...list, ...graveGhosts]);
       if (struck.length > 0) setStrikes((list) => [...list, ...struck]);
+      if (fizzles.length > 0) setFizzles((list) => [...list, ...fizzles]);
+      // A spot kept for a fizzle that is not playing here (no outline to
+      // break): let go now.
+      for (const [card, spot] of heldMemory.current.held)
+        if (spot.until !== undefined && !breaking.current.has(card)) releaseHeld(card);
       // Spec 0074 -- each tile's number as its cards leave and land: the
       // number it showed, then each change at its moment (popping), on the
       // board's animation clock (a click hurries it with the cards).
@@ -4480,6 +5097,7 @@ export function Board({
     graves,
     tileMoves,
     countered,
+    fizzled,
     opponentName,
     viewerName,
     stack,
@@ -4990,14 +5608,19 @@ export function Board({
                 zIndex: focus === s.id && i > 0 ? Z_LINES - 99 : Z_LINES - 100 - i,
                 ["--stack-scale" as string]: String(box.scale),
                 ...(hiddenStack === s.id ? { opacity: 0 } : {}),
-                ...(quietStack?.has(s.id) || rose.current.has(s.id) ? { animation: "none" } : {}),
+                ...(quietStack?.has(s.id) ||
+                rose.current.has(s.id) ||
+                (s.copy && s.copyOf) ||
+                (seenStack !== null && (s.members ?? []).some((id) => seenStack.has(id)))
+                  ? { animation: "none" }
+                  : {}),
               }}
             >
               <button
                 type="button"
                 className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${whose}${a.className}`}
                 aria-label={[
-                  `${s.name}${s.count ? ` ×${s.count}` : ""}, on the stack`,
+                  `${s.copy ? "a copy of " : ""}${s.name}${s.count ? ` ×${s.count}` : ""}, on the stack`,
                   `${ordinal(i + 1)} to resolve`,
                   s.by ? `from ${s.by}` : "",
                   ...a.words,
@@ -5007,6 +5630,8 @@ export function Board({
                 data-object-id={s.id}
                 data-zone="stack"
                 data-order={i + 1}
+                data-copy={s.copy ? "true" : undefined}
+                data-count={s.count}
                 {...a.data}
                 {...a.handlers}
                 onPointerEnter={() => setPointedOnStack(s.id)}
@@ -5049,6 +5674,7 @@ export function Board({
                     cost={s.manaCost ?? null}
                   />
                 )}
+                {s.copy && <CopyMark />}
               </button>
               {/* Amendment 13 (item 8) -- paying for this one: what's still due,
                   under its words, as on a card being cast. */}
@@ -5493,6 +6119,15 @@ export function Board({
             done={() => setReturnMarks((list) => list.filter((x) => x.key !== m.key))}
           />
         ))}
+        {fizzles.map((f) => (
+          <FizzleView
+            key={f.key}
+            fizzle={f}
+            width={g.width}
+            height={g.height}
+            done={() => setFizzles((list) => list.filter((x) => x.key !== f.key))}
+          />
+        ))}
         {strikes.map((s) => (
           <StrikeView
             key={s.key}
@@ -5578,9 +6213,21 @@ function GhostCard({
       });
       element.classList.add("bf-moving");
       run.onfinish = done;
+      // Spec 0079: and the card inside it turning (Clone's old face, flipping away).
+      const card = ghost.inner ? element.querySelector<HTMLElement>(":scope > .bf-card") : null;
+      const turn =
+        ghost.inner && card && typeof card.animate === "function"
+          ? card.animate(ghost.inner.frames, {
+              duration: ghost.inner.duration,
+              delay: ghost.inner.delay,
+              easing: "linear",
+              fill: "both",
+            })
+          : null;
       return () => {
         run.onfinish = null;
         run.cancel();
+        turn?.cancel();
       };
     }
     // Phase 10 A-00: Glide to where it went -- first showing it was
@@ -5713,11 +6360,17 @@ function GhostCard({
         // an exiled card's light as it rises.
         ...(ghost.ash ? { ["--fx-delay" as string]: `${ghost.delay + STRIKE_MS}ms` } : {}),
         ...(ghost.motes ? { ["--fx-delay" as string]: `${ghost.delay}ms` } : {}),
+        // Spec 0079: a copy's gold motes as it ends; a fizzled spell's smoke.
+        ...(ghost.gold || ghost.smoke
+          ? { ["--fx-delay" as string]: `${ghost.delay + (ghost.fxAt ?? 0)}ms` }
+          : {}),
       }}
       data-peel={ghost.peel ? "true" : undefined}
       data-token={ghost.token ? "true" : undefined}
       data-turn={ghost.turn}
       data-countered={ghost.ash ? "true" : undefined}
+      data-copy-end={ghost.gold ? "true" : undefined}
+      data-fizzled={ghost.smoke ? "true" : undefined}
       data-bundle={ghost.badge}
       data-bundled={ghost.bundled ? "true" : undefined}
     >
@@ -5736,6 +6389,7 @@ function GhostCard({
             className="bf-stack-whole"
           />
           {ghost.returning?.back && <ReturnBack />}
+          {ghost.mark && <CopyMark />}
           {ghost.stack.kind !== "Spell" && ghost.stack.does && (
             <span className="bf-stack-words">
               <b>{ghost.stack.kind}</b>
@@ -5748,6 +6402,7 @@ function GhostCard({
       ) : (
         <div className={`bf-card bf-look-${ghost.look}`}>
           <CardFace {...ghost} />
+          {ghost.mark && <CopyMark />}
           {ghost.fate && <FateMarks fate={ghost.fate} />}
           {ghost.returning?.back && <ReturnBack />}
           {ghost.badge !== undefined && <span className="bf-pile">×{ghost.badge}</span>}
@@ -5755,6 +6410,8 @@ function GhostCard({
       )}
       {(ghost.fate === "exiled" || ghost.motes) && <Motes />}
       {ghost.ash && <Motes ash />}
+      {ghost.gold && <Motes kind="gold" />}
+      {ghost.smoke && <Motes kind="smoke" />}
     </div>
   );
 }
@@ -5889,6 +6546,107 @@ function StrikeView({
   );
 }
 
+/**
+ * Spec 0079 (Q4 A) -- the beam draws to the held spot (FIZZLE_REACH_MS) and
+ * fades; a dashed ring there grows, turns and breaks up. On the board's
+ * clock (a click hurries it); gone when it ends.
+ */
+function FizzleView({
+  fizzle,
+  width,
+  height,
+  done,
+}: {
+  fizzle: Fizzle;
+  width: number;
+  height: number;
+  done: () => void;
+}) {
+  const beam = useRef<SVGPathElement>(null);
+  const glow = useRef<SVGPathElement>(null);
+  const ring = useRef<SVGCircleElement>(null);
+  useLayoutEffect(() => {
+    const b = beam.current;
+    const r = ring.current;
+    if (!b || !r || typeof b.animate !== "function" || reducedMotion()) {
+      done();
+      return;
+    }
+    const total = FIZZLE_BEAM_OUT_AT + 300;
+    const at = (ms: number) => ms / total;
+    const draw: Keyframe[] = [
+      { offset: 0, strokeDashoffset: 1, opacity: 1 },
+      { offset: at(FIZZLE_REACH_MS), strokeDashoffset: 0, opacity: 1 },
+      { offset: at(FIZZLE_BEAM_OUT_AT), strokeDashoffset: 0, opacity: 1 },
+      { offset: 1, strokeDashoffset: 0, opacity: 0 },
+    ];
+    const opts = { duration: total, delay: fizzle.delay, easing: "linear", fill: "both" as const };
+    const runs = [b.animate(draw, opts)];
+    if (glow.current) runs.push(glow.current.animate(draw, opts));
+    runs.push(
+      r.animate(
+        [
+          { offset: 0, opacity: 1, transform: "scale(0.35)", strokeDashoffset: 0 },
+          { offset: 1, opacity: 0, transform: "scale(1)", strokeDashoffset: -20 },
+        ],
+        {
+          duration: FIZZLE_RING_MS,
+          delay: fizzle.delay + FIZZLE_REACH_MS,
+          easing: "linear",
+          fill: "forwards",
+        },
+      ),
+    );
+    const finish = () => {
+      if (runs.every((run) => run.playState === "finished")) done();
+    };
+    for (const run of runs) run.onfinish = finish;
+    return () => {
+      for (const run of runs) {
+        run.onfinish = null;
+        run.cancel();
+      }
+    };
+    // Runs once: it plays what it was given when it appeared.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <svg
+      className="bf-fizzle"
+      data-fizzle-of={fizzle.of}
+      width={width}
+      height={height}
+      aria-hidden="true"
+      style={{ zIndex: Z_EFFECTS + 5 }}
+    >
+      <path
+        ref={glow}
+        d={fizzle.d}
+        pathLength={1}
+        className="bf-fizzle-glow"
+        strokeWidth={fizzle.w * 2.6}
+        style={{ opacity: 0 }}
+      />
+      <path
+        ref={beam}
+        d={fizzle.d}
+        pathLength={1}
+        className="bf-fizzle-beam"
+        strokeWidth={fizzle.w}
+        style={{ opacity: 0 }}
+      />
+      <circle
+        ref={ring}
+        className="bf-fizzle-ring"
+        cx={fizzle.ring.x}
+        cy={fizzle.ring.y}
+        r={fizzle.ring.r}
+        style={{ opacity: 0, transformOrigin: `${fizzle.ring.x}px ${fizzle.ring.y}px` }}
+      />
+    </svg>
+  );
+}
+
 /** Phase 10 A-14 -- the card back that turns down over a returning card's face. */
 function ReturnBack() {
   return <img className="bf-return-back" src={cardBack} alt="" draggable={false} />;
@@ -5990,6 +6748,22 @@ function FateMarks({ fate }: { fate: Fate }) {
   );
 }
 
+/**
+ * Spec 0079 -- the gold copy mark: 0076's "gold-rimmed square = something
+ * the card is", two overlapping cards in it. On a copied spell's stack card.
+ */
+function CopyMark() {
+  return (
+    <span
+      className="bf-mark bf-mark-copy bf-copy-on-stack"
+      data-copy-mark="true"
+      aria-hidden="true"
+    >
+      {TWIN}
+    </span>
+  );
+}
+
 /** A-05 -- the pale light rising off an exiled card: fixed places, so a test can count them. */
 const MOTES = Array.from({ length: 14 }, (_, i) => ({
   x: 8 + ((i * 37) % 84),
@@ -5997,14 +6771,15 @@ const MOTES = Array.from({ length: 14 }, (_, i) => ({
   rise: 40 + ((i * 29) % 45),
   late: (i * 47) % 160,
 }));
-function Motes({ ash = false }: { ash?: boolean }) {
+function Motes({ ash = false, kind }: { ash?: boolean; kind?: "gold" | "smoke" }) {
   return (
     <span className="bf-motes" aria-hidden="true">
       {MOTES.map((m, i) => (
         <span
           key={i}
-          // Spec 0074 -- a countered spell crumbles to grey ash.
-          className={ash ? "bf-mote bf-mote-ash" : "bf-mote"}
+          // Spec 0074 -- a countered spell crumbles to grey ash. Spec 0079 --
+          // a copy ends in gold motes; a fizzled spell goes up in smoke.
+          className={ash ? "bf-mote bf-mote-ash" : kind ? `bf-mote bf-mote-${kind}` : "bf-mote"}
           style={{
             left: `${m.x}%`,
             top: `${m.y}%`,

@@ -676,6 +676,8 @@ final class PlayLog {
             landPlayed(played);
         } else if (event instanceof forge.game.event.GameEventSpellAbilityCast cast) {
             cast(cast);
+        } else if (event instanceof forge.game.event.GameEventSpellResolved resolved && resolved.hasFizzled()) {
+            fizzled(resolved);
         } else if (event instanceof forge.game.event.GameEventAttackersDeclared attack) {
             attacked(attack);
         } else if (event instanceof forge.game.event.GameEventBlockersDeclared blocks) {
@@ -763,6 +765,9 @@ final class PlayLog {
         int by = seat(instance.getActivatingPlayer());
         String kind = instance.isSpell() ? "spell" : instance.isTrigger() ? "trigger" : "ability";
         boolean down = source != null && source.isFaceDown();
+        // Spec 0079 -- a copy of a spell is put on the stack, never cast
+        // (Forge fires its cast event for every stack add, MagicStack#add).
+        boolean copied = instance.isSpell() && source != null && source.isCopiedSpell();
         Fact fact = fact(kind);
         // Item 0: the source; then each target (a card, a player, a spell).
         if (source != null) {
@@ -809,7 +814,7 @@ final class PlayLog {
                 text(out, "'s ability triggered");
             } else {
                 out.add(player(by));
-                text(out, "spell".equals(kind) ? " cast " : " activated ");
+                text(out, copied ? " copied " : "spell".equals(kind) ? " cast " : " activated ");
                 part(out, src, hiddenSource);
                 if (!"spell".equals(kind)) {
                     text(out, "'s ability");
@@ -831,6 +836,34 @@ final class PlayLog {
                     part(out, target, "a card");
                 }
             }
+            return out;
+        };
+        add(fact);
+    }
+
+    /**
+     * Spec 0079 -- the spell resolving did nothing: its targets were gone
+     * (Forge's hasFizzled). "Alice's Lightning Bolt did nothing: its target
+     * was gone", the same sentence as the report window. Not a bestowed or
+     * mutating spell (Forge resolves those as creature spells).
+     */
+    private void fizzled(forge.game.event.GameEventSpellResolved resolved) {
+        forge.game.spellability.SpellAbility sa = Copies.resolved(game, resolved);
+        Card source = sa == null ? null : sa.getHostCard();
+        if (source == null || !sa.isSpell() || sa.isBestow() || sa.isMutate()) {
+            return;
+        }
+        int by = seat(sa.getActivatingPlayer());
+        boolean copy = source.isCopiedSpell();
+        boolean down = source.isFaceDown();
+        Fact fact = fact("death");
+        addCard(fact, source, null);
+        fact.phrase = (s, items) -> {
+            JsonArray out = new JsonArray();
+            out.add(player(by));
+            text(out, copy ? "'s copy of " : "'s ");
+            part(out, items.isEmpty() ? null : items.get(0), down ? "face-down spell" : "spell");
+            text(out, " did nothing: its target was gone");
             return out;
         };
         add(fact);

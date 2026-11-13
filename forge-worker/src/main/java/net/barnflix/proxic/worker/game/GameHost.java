@@ -193,6 +193,8 @@ public final class GameHost {
         created.subscribeToEvents(new DamageLog());
         // Phase 10 A-00 -- every card's move, where from, where to, why.
         created.subscribeToEvents(new MoveLog());
+        // Spec 0079 -- what each token copy copied, recorded as it enters.
+        created.subscribeToEvents(new Copies.Listener(created));
         // Spec 0064 -- the play log, written per seat from what each may see.
         PlayLog log = new PlayLog(created, player -> seatOf.get(player.getOriginalLobbyPlayer()));
         this.playLog = log;
@@ -994,6 +996,8 @@ public final class GameHost {
         public void on(forge.game.event.GameEvent event) {
             if (event instanceof forge.game.event.GameEventCardSacrificed sacrificed && sacrificed.card() != null) {
                 sacrificing.add(sacrificed.card().getId());
+            } else if (event instanceof forge.game.event.GameEventSpellResolved resolved) {
+                spellResolved(resolved);
             } else if (event instanceof forge.game.event.GameEventShuffle shuffle && shuffle.player() != null) {
                 // Phase 10 A-14: Forge shuffled a library after cards went
                 // into it this round (Chaos Warp: moved, then shuffled).
@@ -1027,7 +1031,12 @@ public final class GameHost {
                 if ("library".equals(to)) {
                     move = move.withWhere(libraryPlace(moved.to(), card.getId()));
                 }
-                if ("graveyard".equals(to)) {
+                // Spec 0079 -- a spell that fizzled, wherever it goes (a
+                // graveyard; exile, cast with flashback): said so. The report
+                // window explains it, so no tag rides on the card.
+                if ("stack".equals(from) && fizzling.remove(card.getId())) {
+                    move = move.withSaid("fizzled", null, card.getName());
+                } else if ("graveyard".equals(to)) {
                     // Spec 0061, item 4 -- why it went there, said on its way.
                     String[] reason = Moves.graveReason(graveFacts(card, from, moved.from(), why));
                     if (reason != null) {
@@ -1036,6 +1045,46 @@ public final class GameHost {
                 }
                 movesMade.add(move);
             }
+        }
+    }
+
+    /**
+     * Spec 0079, item 1 -- a spell that fizzled (CR 608.2b: every target
+     * gone or no longer legal), as Forge says when it resolves it
+     * (GameEventSpellResolved's hasFizzled, fired before Forge takes the
+     * spell off the stack): its move off the stack says so, "fizzled". Not a
+     * bestowed or mutating spell -- Forge resolves those as creature spells
+     * instead (MagicStack#resolveStack).
+     */
+    private final java.util.Set<Integer> fizzling =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    private void spellResolved(forge.game.event.GameEventSpellResolved resolved) {
+        Game current = game;
+        if (current == null) {
+            return;
+        }
+        forge.game.spellability.SpellAbility sa = Copies.resolved(current, resolved);
+        forge.game.card.Card host = sa == null ? null : sa.getHostCard();
+        if (host == null || !sa.isSpell()) {
+            return;
+        }
+        boolean fizzled = resolved.hasFizzled() && !sa.isBestow() && !sa.isMutate();
+        if (host.isCopiedSpell()) {
+            // A copy ends where it is: Forge's ceaseToExist reports no move
+            // (MagicStack#removeCardFromStack), so the round says it -- off
+            // the stack to nowhere, never into a graveyard.
+            forge.game.zone.Zone zone = host.getZone();
+            Integer seat = host.getController() == null ? null
+                    : seatOf.get(host.getController().getOriginalLobbyPlayer());
+            if (zone != null && zone.getZoneType() == forge.game.zone.ZoneType.Stack) {
+                movesMade.add(new Moves.Move(host.getId(), "stack", seat, "nowhere", null, false,
+                        fizzled ? "fizzled" : null));
+            }
+            return;
+        }
+        if (fizzled) {
+            fizzling.add(host.getId());
         }
     }
 

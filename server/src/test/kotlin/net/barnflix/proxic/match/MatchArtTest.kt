@@ -688,4 +688,64 @@ class MatchArtTest {
         assertEquals(crop60, cropOf(seen, 1), "its own printing's crop")
         assertTrue(art.mayFetch(alice, crop60))
     }
+
+    /**
+     * Spec 0079 -- a copy wears the picture of what it copied. Found by
+     * reading the lookup (no Lab game runs through the server): Alice's
+     * Clone of Bob's Serra Angel is "Serra Angel" with Clone's printing and
+     * Alice as its owner, and her deck brought no Angel, so it showed no
+     * picture. The worker says whose deck the copied card's picture is in
+     * (`artOwner`); the copy wears it, on both screens.
+     */
+    @Test
+    fun `a copy wears the copied card's picture from that card's owner's deck`() {
+        val angel = "f".repeat(64)
+        val art = MatchArt(mapOf(alice to mapOf("Clone" to plains), bob to mapOf("Serra Angel" to angel)))
+        val before =
+            """{"id":"card:7","seat":$alice,"owner":$alice,"name":"Serra Angel","known":true,""" +
+                """"printing":"M14/47","copy":true}"""
+        assertNull(artOf(art.annotate(snapshot(before), alice)), "Alice's deck has no Serra Angel")
+        val clone = before.removeSuffix("}") + ""","artOwner":$bob}"""
+        assertEquals(angel, artOf(art.annotate(snapshot(clone), alice)))
+        assertEquals(angel, artOf(art.annotate(snapshot(clone), bob)))
+        assertTrue(art.mayFetch(alice, angel), "shown, so fetchable")
+    }
+
+    /** Spec 0079 -- Fork's copy of Bob's Bolt, Alice's spell, wears Bob's Bolt. */
+    @Test
+    fun `a copied spell wears the picture of the spell it copies`() {
+        val bobsBolt = "9".repeat(64)
+        val art = MatchArt(mapOf(alice to mapOf("Fork" to plains), bob to mapOf("Lightning Bolt" to bobsBolt)))
+        val state =
+            Json.parseToJsonElement(
+                """{"seat":1,"battlefield":[],"hand":[],"players":[],"stack":[
+                {"id":"stack:3","name":"Lightning Bolt","owner":1,"controller":1,"kind":"spell","copy":true,
+                 "artOwner":2},
+                {"id":"stack:2","name":"Lightning Bolt","owner":2,"controller":2,"kind":"spell"}]}""",
+            ).jsonObject
+        val stack = art.annotate(state, alice)["stack"]!!.jsonArray
+        assertEquals(bobsBolt, stack[0].jsonObject["art"]?.jsonPrimitive?.content)
+        assertEquals(bobsBolt, stack[1].jsonObject["art"]?.jsonPrimitive?.content)
+    }
+
+    /**
+     * Spec 0079 -- a token copy (Cackling Counterpart's Serra Angel) wears
+     * the copied card's picture; a token that is no copy still never borrows
+     * a card's (spec 0022), and a copy with no card picture keeps its token one.
+     */
+    @Test
+    fun `a token copy wears the card it copies, other tokens only token pictures`() {
+        val angel = "f".repeat(64)
+        val tokenAngel = "8".repeat(64)
+        val art = MatchArt(mapOf(alice to mapOf("Serra Angel" to angel, "${MatchArt.TOKEN}goblin" to tokenAngel)))
+        val copy =
+            """{"id":"card:9","seat":$alice,"owner":$alice,"name":"Serra Angel","known":true,""" +
+                """"token":true,"copy":true}"""
+        assertEquals(angel, artOf(art.annotate(snapshot(copy), alice)))
+        assertNull(artOf(art.annotate(snapshot(token("card:10", alice, "Serra Angel")), alice)))
+        val goblin =
+            """{"id":"card:11","seat":$alice,"owner":$alice,"name":"Goblin","known":true,""" +
+                """"token":true,"copy":true}"""
+        assertEquals(tokenAngel, artOf(art.annotate(snapshot(goblin), alice)))
+    }
 }

@@ -145,6 +145,11 @@ export interface LayoutCard {
    */
   paying?: "lean" | "mark";
   /**
+   * Spec 0079 (owner) -- the place of a permanent that has left while a
+   * spell still aims at it, held empty: drawn alone, never in a pile.
+   */
+  held?: boolean;
+  /**
    * Spec 0003 — what this attacker attacks ("player:2", "card:N"), set
    * only while it is attacking and unblocked: such identical attackers
    * pile together, one card and one fire line.
@@ -387,7 +392,7 @@ function pileKey(
   riders: readonly LayoutCard[] | undefined,
 ): string | null {
   if (card.faceDown || !card.known) return null;
-  if (card.paying) return null;
+  if (card.paying || card.held) return null;
   if (card.attachedTo !== null || attachedHosts.has(card.id)) return null;
   if (card.blocking) return null;
   if (riders) {

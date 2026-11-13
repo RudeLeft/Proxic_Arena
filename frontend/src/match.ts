@@ -523,6 +523,15 @@ export interface SnapshotCard {
    * shown until it leaves their hand.
    */
   seen?: boolean | undefined;
+  /**
+   * Spec 0079 -- a copy (a Clone, a token copy): public, as its copiable
+   * values are. `copyOf` is the card it copied ("card:N"), only while this
+   * viewer may see that card.
+   */
+  copy?: boolean | undefined;
+  copyOf?: string | undefined;
+  /** Spec 0079 -- in a report window: where a card the spell aimed at is now ("in Bob's hand"). */
+  toSaid?: string | undefined;
 }
 
 export interface SnapshotPlayer {
@@ -621,6 +630,9 @@ export interface StackEntry {
   manaCost: string | null;
   /** Spec 0045 -- why a trigger triggered ("Ajani's Pridemate entered the battlefield"). */
   why?: string | null;
+  /** Spec 0079 -- a copy of a spell (Fork's, storm's), and the entry it copies ("stack:N") while that is there. */
+  copy?: boolean | undefined;
+  copyOf?: string | undefined;
 }
 
 /** Combat, while there is one — §7.61 B4. Forge's record. */
@@ -1465,6 +1477,9 @@ function asCards(value: unknown): SnapshotCard[] {
       costWhy: asString(row["costWhy"]) ?? undefined,
       merged: asMerged(row["merged"]),
       seen: row["seen"] === true ? true : undefined,
+      copy: row["copy"] === true ? true : undefined,
+      copyOf: asString(row["copyOf"]) ?? undefined,
+      toSaid: asString(row["toSaid"]) ?? undefined,
     });
   }
   return cards;
@@ -1684,6 +1699,8 @@ function asStack(value: unknown): StackEntry[] {
       crop: asHash(row["crop"]),
       manaCost: asString(row["manaCost"]),
       why: asString(row["why"]),
+      copy: row["copy"] === true ? true : undefined,
+      copyOf: asString(row["copyOf"]) ?? undefined,
       targets: Array.isArray(row["targets"])
         ? (row["targets"] as unknown[]).map(asTarget).filter((t): t is TargetRef => t !== null)
         : [],
@@ -1939,7 +1956,16 @@ export interface SnapshotMove {
    * Why it left the battlefield, when the game says. Spec 0061, item 4: and
    * why it went to a graveyard -- "cycled", "discarded", "countered", "died".
    */
-  why: "destroyed" | "sacrificed" | "cycled" | "discarded" | "countered" | "died" | null;
+  why:
+    | "destroyed"
+    | "sacrificed"
+    | "cycled"
+    | "discarded"
+    | "countered"
+    | "died"
+    /** Spec 0079 -- a spell that did nothing: its targets were gone. */
+    | "fizzled"
+    | null;
   /**
    * Spec 0061, item 4 -- the tag the card carries on its way to a graveyard,
    * in the game's words ("Cycled", "Discarded: too many cards", "Countered by
@@ -1968,7 +1994,15 @@ export interface SnapshotMove {
   last?: { power: number; toughness: number } | null;
 }
 
-const MOVE_WHYS = new Set(["destroyed", "sacrificed", "cycled", "discarded", "countered", "died"]);
+const MOVE_WHYS = new Set([
+  "destroyed",
+  "sacrificed",
+  "cycled",
+  "discarded",
+  "countered",
+  "died",
+  "fizzled",
+]);
 
 function asMoves(value: unknown): SnapshotMove[] {
   if (!Array.isArray(value)) return [];

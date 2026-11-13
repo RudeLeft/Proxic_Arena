@@ -131,4 +131,26 @@ class HiddenIdsTest {
         assertEquals("unseen", bob.getAsJsonArray("payments").get(0).getAsJsonObject()
                 .getAsJsonArray("mana").get(0).getAsJsonObject().get("from").getAsString());
     }
+
+    @Test
+    void aCopyNamesWhatItCopiedOnlyWhileTheReaderMaySeeIt() {
+        // Spec 0079: Alice's Clone (card:39) copied Bob's Angel, now back in
+        // Bob's hand (card:20). Alice keeps "a copy" and loses the id; Bob,
+        // whose hand it is, keeps both. The Bolt it was aimed by keeps its spot.
+        String board = """
+                {"battlefield": [{"id": "card:39", "copy": true, "copyOf": "card:20", "artOwner": 2}],
+                 "hand": %s, "otherHands": [],
+                 "stack": [{"id": "stack:4", "source": "card:7", "targets": [{"object": "card:20"}]}]}
+                """;
+        JsonObject alice = JsonParser.parseString(board.formatted("[{\"id\": \"card:7\"}]")).getAsJsonObject();
+        HiddenIds.strip(alice, HiddenIds.hiddenZones(ZONES, 1));
+        JsonObject clone = alice.getAsJsonArray("battlefield").get(0).getAsJsonObject();
+        assertTrue(clone.get("copy").getAsBoolean());
+        assertFalse(clone.has("copyOf"), "no handle on a card in Bob's hand: " + alice);
+        assertEquals(2, clone.get("artOwner").getAsInt(), "whose picture it wears is public");
+        assertFalse(alice.toString().contains("card:20\""), alice.toString());
+        JsonObject bob = JsonParser.parseString(board.formatted("[{\"id\": \"card:20\"}]")).getAsJsonObject();
+        HiddenIds.strip(bob, HiddenIds.hiddenZones(ZONES, 2));
+        assertEquals("card:20", bob.getAsJsonArray("battlefield").get(0).getAsJsonObject().get("copyOf").getAsString());
+    }
 }

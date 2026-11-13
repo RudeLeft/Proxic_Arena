@@ -230,7 +230,7 @@ export const MILL_SCALE = 0.78;
 const MILL_TURN = [0.25, 0.75] as const;
 
 /** A-00's Glide in the canvas's form: eased, bowing up by 14% of the way, lifting up to 8%. */
-function glideAt(a: Pose, b: Pose, p: number, cardH: number): Pose {
+export function glideAt(a: Pose, b: Pose, p: number, cardH: number): Pose {
   const e = ease(p);
   const dx = b.x - a.x;
   const dy = b.y - a.y;

@@ -248,7 +248,12 @@ it lands; a presentation hint like the damage wave, the totals stay the
 truth (PROTO-007). Spec 0078: a creature's move off the battlefield
 carries `last`, its power and toughness as it last stood there, so a
 creature killed by shrinking can be shown shrinking before it breaks; the
-page works out every other size change by comparing two boards. What may
+page works out every other size change by comparing two boards. Spec
+0079: a copy says so (`copy`, and `copyOf` -- the card or stack entry it
+copied, only while the reader may see it); a copied spell ending on the
+stack moves to "nowhere"; a spell that fizzled has why "fizzled", and both
+players get an `action` report ("Alice's Lightning Bolt did nothing: its
+target was gone.") and a play-log line. What may
 appear is `MATCH_STATE_VISIBILITY.md`; every field is in
 `protocol/README.md`.
 
