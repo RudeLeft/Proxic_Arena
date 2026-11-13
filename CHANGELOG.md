@@ -3,6 +3,24 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.64.0 — 2026-11-12
+
+Copies, copied spells and spells that fizzle are now shown on the table.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Creature copies**
+- When Clone copies Serra Angel, a see-through Angel lifts off the original and glides onto Clone, which then flips to show the Angel. Token copies (Cackling Counterpart) spark out of the creature they copy.
+- Copies now show the copied card's picture -- before, a copy of the other player's creature, a token copy or a copied spell showed no picture.
+
+**Copied spells**
+- Fork's copy peels off the original Lightning Bolt and settles in front of it with a small gold copy mark. When it's done it breaks into gold sparkles -- a copy never goes to a graveyard.
+- Storm copies show as one copy card with a count (×5) that ticks down as each one resolves.
+
+**Spells that fizzle**
+- If a spell's target is gone when it resolves (Bob bounced his Bears in answer to your Bolt), the target's spot stays as a dashed outline with its name -- nothing slides into it -- the spell's beam reaches the empty spot, finds nothing, and the spell turns to smoke. Both players get the report window: "Your Lightning Bolt did nothing: its target was gone." Then the cards close the gap.
+
 ## 1.63.0 — 2026-11-12
 
 Creatures getting bigger or smaller now show it with rising numbers.
