@@ -3,6 +3,22 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.67.0 — 2026-11-13
+
+Copies of spells now look like what they are: copies nobody casts peel off the original, and copies that are cast come out of the card they copy.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Storm and other copies put on the stack**
+- Grapeshot's storm copies peel off Grapeshot and wait beside it while the caster picks each target, with a ×N count that rises as they're made, then ticks down into gold sparkles as each one resolves. Before, the other player saw a card seem to leave the caster's hand for every copy, and the caster saw a loose Grapeshot in the middle as if it had to be paid for again.
+- Copies aimed at different targets make separate ×N cards.
+- A copy of an ability (Strionic Resonator) peels off the ability it copies, with the gold copy mark.
+
+**Prepared spells**
+- A creature that enters prepared (Studious First-Year) now wears a small gold square with the spell's picture. The spell no longer appears as a loose card in the exile pile.
+- When cast, the spell rises off the creature with the copy mark, is paid in the middle like any spell, and ends in gold sparkles instead of seeming to go to the graveyard.
+
 ## 1.66.0 — 2026-11-13
 
 The last two places where cards popped in instead of moving are fixed.
