@@ -3,6 +3,22 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.63.0 — 2026-11-12
+
+Creatures getting bigger or smaller now show it with rising numbers.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Power and toughness**
+- Getting bigger (Giant Growth, a +1/+1 counter, Glorious Anthem): a green "+3/+3" rises off the card and its numbers switch to the new size with a small pop. Every creature an Anthem boosts does it together.
+- Getting smaller (Grasp of Darkness, a -1/-1 counter, a counter taken off): a small shake and a red "−4/−4". A creature killed by shrinking shows 0/0 in red before it shatters, so you can see why it died.
+- While a creature's size differs from what's printed, the numbers stay green (bigger) or red (smaller). Pointing at the card still shows the printed size.
+- A creature that survives damage shows how much toughness it has left in red until end of turn -- a 4/4 with 3 damage reads 4/1.
+- At end of turn, pumps and damage wear off with a grey rising number.
+- Planeswalker loyalty: a gold "+1" or a red "−3" rises as the loyalty changes.
+- Numbers on cards switch straight to their new value -- only the life shield counts point by point.
+
 ## 1.62.0 — 2026-11-12
 
 Damage, life gain and poison now land visibly on a player's life shield.
