@@ -221,6 +221,19 @@ import type { TileMove } from "./fromSnapshot";
 import { payWords, type PayMark } from "./payPicks";
 import { PaySign } from "./PaySign";
 import { CardBadges } from "./CardBadges";
+import { SizeFigure, type Figure } from "./SizeFigure";
+import {
+  countSpan,
+  endSizeSteps,
+  sizeOf,
+  sizesLength,
+  sizesStillPlaying,
+  startSizeSteps,
+  SHRINK_BEAT_MS,
+  signed,
+  type PlayedSize,
+  type SizeChanges,
+} from "./sizeTicks";
 
 export type { TargetRef } from "./effects";
 
@@ -241,6 +254,9 @@ export interface BoardCard extends LayoutCard {
   makes?: readonly string[] | undefined;
   /** Spec 0045: what put its counters on, from the game. */
   counterFrom?: readonly { counter: string; added: number; from: string }[] | undefined;
+  /** Spec 0078 (Phase 9 W-19's): its power and toughness as printed. */
+  basePower?: number | undefined;
+  baseToughness?: number | undefined;
 }
 
 /** Spec 0045 -- a counter's name as players say it ("P1P1" is "+1/+1"). */
@@ -467,6 +483,8 @@ export interface BoardProps {
   damage?: DamageWave | null;
   /** Spec 0077 -- the round's life and poison changes: played once per `key`. */
   life?: LifeChanges | null;
+  /** Spec 0078 -- the round's changes to sizes and counters: played once per `key`. */
+  sizeChanges?: SizeChanges | null;
   // --- PHASE_07 §7.24-§7.33: the board answers questions -------------
   /** A primary click on an object (a card, a pile, a tag, a hand card). */
   onPick?: (objectId: string, members?: readonly string[]) => void;
@@ -604,11 +622,14 @@ export function CardFace({
   cost,
   costChange,
   costFirst,
+  figure,
 }: {
   name: string;
   look: Look;
   type: string;
   pt: string;
+  /** Spec 0078 -- a permanent's number, drawn so a change counts and tints. */
+  figure?: Figure | undefined;
   art: string | null;
   crop?: string | null;
   faceDown: boolean;
@@ -631,7 +652,7 @@ export function CardFace({
           </span>
         )}
         <span className="bf-bar bf-bar-bottom">
-          {pt && <span className="bf-pt">{pt}</span>}
+          {pt && (figure ? <SizeFigure figure={figure} /> : <span className="bf-pt">{pt}</span>)}
           <span className="bf-type">Face down</span>
         </span>
       </>
@@ -661,7 +682,7 @@ export function CardFace({
       {/* Power/toughness on the LEFT (PHASE 7 AMENDMENT 4): a squeezed
           row shows each card's left third, and that must include it. */}
       <span className="bf-bar bf-bar-bottom">
-        {pt && <span className="bf-pt">{pt}</span>}
+        {pt && (figure ? <SizeFigure figure={figure} /> : <span className="bf-pt">{pt}</span>)}
         <span className="bf-type">{type}</span>
       </span>
     </>
@@ -716,6 +737,8 @@ interface Drawn {
   side: "viewer" | "opponent";
   /** A permanent on the table (not a hand card): it can be defeated or exiled. */
   table?: boolean;
+  /** Spec 0078 -- its number, counting and tinted (a permanent on the table). */
+  figure?: Figure | undefined;
 }
 
 /**
@@ -1283,6 +1306,7 @@ export function Board({
   handCosts,
   damage,
   life,
+  sizeChanges: sizes0078,
   onPick,
   onInspect,
   choosable,
@@ -1329,6 +1353,8 @@ export function Board({
   /** Phase 10 A-13: the fights' marks, the clock they all run on, and the dead's part in them. */
   const [marks, setMarks] = useState<FightMark[]>([]);
   const fightClock = useRef<Animation | null>(null);
+  /** Spec 0078 -- the clock a creature shrunk to death counts down on before it breaks. */
+  const deathClock = useRef<Animation | null>(null);
   // Spec 0067 -- a board that goes takes its fights' life steps with it.
   useEffect(() => () => endLifeSteps(), []);
   /** A spell's damage: what it hit waits for its burst before it leaves. */
@@ -1612,6 +1638,8 @@ export function Board({
             : lead.name,
         count > 1 ? `${count} of them` : "",
         pt,
+        // Spec 0078 (6 A): the damage it has taken, said as the close-up says it.
+        lead.damage ? `${lead.damage} damage` : "",
         lead.tapped ? "tapped" : "",
         lead.attacking ? (aim ? `attacking ${aimWords(aim)}` : "attacking") : "",
         lead.blocking
@@ -1648,6 +1676,13 @@ export function Board({
         known: lead.known,
         side,
         table: true,
+        figure: {
+          card: lead.id,
+          size: sizeOf(lead),
+          basePower: lead.basePower,
+          baseToughness: lead.baseToughness,
+          damage: lead.damage,
+        },
       };
       out.push({
         id: lead.id,
@@ -2360,6 +2395,78 @@ export function Board({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per round
   }, [life, result]);
   useEffect(() => () => lifeClock.current?.cancel(), []);
+
+  // Spec 0078 (owner 2026-11-12, canvas pt-1112) -- a permanent's number
+  // and badges changing (sizeTicks.ts), once per round, all on one clock on
+  // the board so a click hurries it (A-00): together (an Anthem's creatures
+  // all at once, 4 A), when the resolving spell's beam lands on it (a
+  // permanent spell: when it has flown onto the table; a trigger: when it
+  // has gone back into its card), after any fights still playing. Damage
+  // left by a fight shows as its fight ends (6 A): the fight keeps its own
+  // red number (A-13).
+  const sizeRound = useRef<string | null>(null);
+  const sizeClock = useRef<Animation | null>(null);
+  useLayoutEffect(() => {
+    if (!result || !sizes0078 || sizes0078.key === sizeRound.current) return;
+    sizeRound.current = sizes0078.key;
+    const root = ref.current;
+    if (
+      sizes0078.changes.length === 0 ||
+      reducedMotion() ||
+      !root ||
+      typeof root.animate !== "function"
+    )
+      return;
+    const stackNow = new Set((stack ?? []).map((s) => s.id));
+    const onTable = new Set(battlefield.map((c) => c.id));
+    let lead = 0;
+    for (const { s } of previous.current?.stack ?? []) {
+      if (stackNow.has(s.id)) continue;
+      if (s.card && onTable.has(s.card)) lead = Math.max(lead, MOVE_MS);
+      else if (s.source && onTable.has(s.source)) lead = Math.max(lead, RESOLVE_MS + MOVE_MS);
+      else lead = Math.max(lead, RESOLVE_MS);
+    }
+    const hold = holdLeft();
+    const start = hold + lead;
+    const fightNow = Number(fightClock.current?.currentTime ?? 0);
+    const hitAt = (card: string) => {
+      const item = positions.get(card)?.item;
+      const end = item !== undefined ? fightEnds.current.get(item) : undefined;
+      if (end !== undefined && hold > 0) return Math.max(0, end - fightNow - 150);
+      if (spellHits.current?.ids.has(card))
+        return Math.max(0, spellHits.current.delay - SPELL_HIT_MS + NUMBER_MS - 150);
+      return Math.max(0, hold - 150);
+    };
+    const played: PlayedSize[] = sizes0078.changes.map((change) => ({
+      key: `${sizes0078.key}:${change.card}`,
+      change,
+      at: change.look === "hit" ? hitAt(change.card) : start,
+    }));
+    const carried = sizesStillPlaying("sizes");
+    const total = Math.max(sizesLength(played), ...carried.map((s) => s.at + 200)) + 50;
+    sizeClock.current?.cancel();
+    const clock = root.animate([{ opacity: 1 }, { opacity: 1 }], {
+      duration: total,
+      id: "size-clock",
+    });
+    sizeClock.current = clock;
+    startSizeSteps("sizes", () => Number(clock.currentTime ?? total), played, carried);
+    clock.onfinish = () => {
+      if (sizeClock.current === clock) endSizeSteps("sizes");
+    };
+    clock.oncancel = () => {
+      if (sizeClock.current === clock) endSizeSteps("sizes");
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per round
+  }, [sizes0078, result]);
+  useEffect(
+    () => () => {
+      sizeClock.current?.cancel();
+      deathClock.current?.cancel();
+      endSizeSteps();
+    },
+    [],
+  );
 
   /**
    * Phase 10 A-13 -- play a combat damage step's fights, after any still
@@ -3650,6 +3757,52 @@ export function Board({
       // into the spot of the card it joined (a land into its pile), or,
       // gone from the board, toward its zone in the rail.
       const leaving: Ghost[] = [];
+      // Spec 0078, item 4 -- a creature killed by shrinking (Grasp of
+      // Darkness on a 4/4): the game says the size it last stood at, so it
+      // visibly shrinks to it (0/0, the red float) and THEN breaks (A-04).
+      // Not one killed in a fight: the fight shows its own number (A-13).
+      const shrinks: PlayedSize[] = [];
+      const shrinkFirst = (id: string, look: Drawn, delay: number): [Drawn, number] => {
+        const was = before.cards.get(id);
+        const last = sizes0078?.last.get(id);
+        if (!was || !last || was.power === null || was.toughness === null || reducedMotion())
+          return [look, delay];
+        const from = sizeOf(was);
+        const damage = Math.max(0, was.damage ?? 0);
+        const to = { power: last.power, toughness: last.toughness - damage, loyalty: null };
+        const dP = last.power - was.power;
+        const dT = last.toughness - was.toughness;
+        if (dP === 0 && dT === 0) return [look, delay];
+        const change = {
+          card: id,
+          from,
+          to,
+          look: dP + dT > 0 ? ("up" as const) : ("down" as const),
+          float: `${signed(dP)}/${signed(dT)}`,
+          badges: [],
+          fromBadge: false,
+        };
+        // It shrinks when the spell's beam lands on it (Grasp's), as a creature that lives does.
+        const stackNow = new Set((stack ?? []).map((s) => s.id));
+        const beamed = before.stack.some(
+          (e) => !stackNow.has(e.s.id) && e.s.targets.some((t) => "object" in t && t.object === id),
+        );
+        const from0 = beamed ? Math.max(delay, hold + RESOLVE_MS) : delay;
+        shrinks.push({ key: `death:${sizes0078!.key}:${id}`, change, at: from0 });
+        return [
+          {
+            ...look,
+            figure: {
+              card: id,
+              size: to,
+              basePower: was.basePower,
+              baseToughness: was.baseToughness,
+              damage,
+            },
+          },
+          from0 + countSpan(change) + SHRINK_BEAT_MS,
+        ];
+      };
       const elementsNow = new Set(items.map((item) => item.id));
       // A-14: one card going back to a hidden hand or a library, as a ghost.
       const returnGhost = (
@@ -3714,10 +3867,13 @@ export function Board({
           const fighting = hold > 0 && end !== undefined;
           const elapsed = Number(fightClock.current?.currentTime ?? 0);
           const struck = spellHits.current?.ids.has(id) ? spellHits.current.delay : 0;
-          const delay = fighting ? Math.max(0, end - elapsed) : Math.max(hold, struck);
+          const [shown, delay] =
+            fate === "defeated" && !fighting
+              ? shrinkFirst(id, look, Math.max(hold, struck))
+              : [look, fighting ? Math.max(0, end - elapsed) : Math.max(hold, struck)];
           const peel = peelOf.get(id);
           leaving.push({
-            ...look,
+            ...shown,
             id,
             ...at,
             to: boxAt(where[dest], g),
@@ -3839,22 +3995,27 @@ export function Board({
           });
           continue;
         }
+        // Spec 0078, item 4: shrunk to death -- it shrinks, then breaks.
+        const [shown, breaks] =
+          fate === "defeated" && !fought && fightEnd === undefined
+            ? shrinkFirst(id, d, delay)
+            : [d, delay];
         // Spec 0073: into a pile, the number ticks as it lands; out of one,
         // as it lifts off (peeling, D, when it was defeated or exiled).
         if (joined) landAt.set(id, delay + MOVE_MS);
-        else leaveAt.set(id, delay);
+        else leaveAt.set(id, breaks);
         const peel = fate ? peelOf.get(id) : undefined;
         leaving.push(
           joined
             ? { ...d, id, ...at, to: joined.box, toOrigin: joined.origin, fade: false, delay }
             : {
-                ...d,
+                ...shown,
                 id,
                 ...at,
                 to: boxAt(where[dest], g),
                 toOrigin: at.origin,
                 fade: true,
-                delay,
+                delay: breaks,
                 fate,
                 ...(fight ? { fight, zIndex: Z_FIGHT + 1 } : {}),
                 ...(peel ? { peel } : {}),
@@ -3928,6 +4089,23 @@ export function Board({
         for (const ghost of leaving) if (ghost.fate) ghost.delay = Math.max(ghost.delay, SWEEP_MS);
       }
       if (leaving.length + joins.length > 0) setGhosts((list) => [...list, ...joins, ...leaving]);
+      // Spec 0078, item 4 -- the shrinking dead count down on a clock of
+      // their own on the board (a click hurries it with their shatter).
+      if (shrinks.length > 0 && ref.current && typeof ref.current.animate === "function") {
+        const length = sizesLength(shrinks) + 50;
+        deathClock.current?.cancel();
+        const clock = ref.current.animate([{ opacity: 1 }, { opacity: 1 }], {
+          duration: length,
+          id: "death-size-clock",
+        });
+        deathClock.current = clock;
+        startSizeSteps("deaths", () => Number(clock.currentTime ?? length), shrinks);
+        const over = () => {
+          if (deathClock.current === clock) endSizeSteps("deaths");
+        };
+        clock.onfinish = over;
+        clock.oncancel = over;
+      }
       // Spec 0073 -- each pile's number, as the cards joining it land and the
       // cards leaving it lift off: the number it showed, then each change at
       // its moment (popping), on the board's animation clock (a click hurries
@@ -4312,6 +4490,7 @@ export function Board({
     stackScale,
     pointed,
     battlefield,
+    sizes0078,
   ]);
 
   // Phase 10 A-00 (owner, at lock and on the canvas): the player acts while

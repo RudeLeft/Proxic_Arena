@@ -8,8 +8,15 @@
 // says spec 0045's words; the close-up keeps them too. The pictures and
 // colours are the canvas's, exactly; colour always comes with a picture.
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { counterWords } from "./Board";
+import {
+  BADGE_GROW_MS,
+  BADGE_OUT_MS,
+  BADGE_POP_MS,
+  useBadgeChanges,
+  type Playing,
+} from "./sizeTicks";
 
 const W = "#fff";
 
@@ -234,6 +241,8 @@ export function CardBadges({
   room,
 }: {
   card: {
+    /** Spec 0078 -- its id: a change to its counters plays on its badges. */
+    id?: string;
     counters?: readonly Counter[];
     counterFrom?: readonly { counter: string; added: number; from: string }[] | undefined;
     ringBearer?: boolean | undefined;
@@ -243,7 +252,19 @@ export function CardBadges({
   /** What else is on the card, which the badges keep clear of. */
   room: BadgeRoom;
 }) {
-  const kinds = badgeOrder(card.counters ?? []);
+  // Spec 0078 (2 A, 8 B) -- a counter taken off for good: its badge stays,
+  // with the number it had, until it has shrunk away.
+  const changes = useBadgeChanges(card.id ?? "");
+  const leaving: Counter[] = [];
+  for (const p of card.id ? changes : [])
+    for (const b of p.change.badges)
+      if (b.to === 0 && p.wait + BADGE_OUT_MS > 0 && !card.counters?.some((c) => c.name === b.name))
+        leaving.push({ name: b.name, count: b.from });
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    if (ref.current) playBadges(ref.current, card.id ? changes : []);
+  });
+  const kinds = badgeOrder([...(card.counters ?? []), ...leaving]);
   if (kinds.length === 0 && !card.ringBearer) return null;
   // Spec item 2: past three kinds, "··· N". With less room (a tapped pile
   // that came in this turn), fold sooner, so every badge still shows whole.
@@ -264,7 +285,10 @@ export function CardBadges({
   const shown = kinds.slice(0, Math.max(0, shownN));
   const folded = kinds.length - shown.length;
   const words = [
-    ...counterWords({ counters: kinds, counterFrom: card.counterFrom }, pile),
+    ...counterWords(
+      { counters: kinds.filter((k) => !leaving.includes(k)), counterFrom: card.counterFrom },
+      pile,
+    ),
     card.ringBearer ? "Ring-bearer" : "",
   ].filter(Boolean);
   const items: { key: string; h: number; node: ReactNode }[] = [
@@ -275,6 +299,7 @@ export function CardBadges({
         <span
           className="bf-badge"
           data-counter={c.name}
+          data-leaving={leaving.some((l) => l.name === c.name) ? "true" : undefined}
           style={{ ["--k" as string]: COUNTER_KIND[c.name]?.colour ?? OTHER_COLOUR }}
         >
           <span className="bf-badge-g">
@@ -316,6 +341,7 @@ export function CardBadges({
   });
   return (
     <span
+      ref={ref}
       className="bf-badges"
       title={words.join("\n")}
       data-badges={kinds.length + (card.ringBearer ? 1 : 0)}
@@ -339,4 +365,81 @@ export function CardBadges({
 
 function lastTop(col: readonly { h: number; below: number }[]): number {
   return col.reduce((top, item) => top + item.below + item.h, 0);
+}
+
+/** Each badge change's look runs once. */
+const played = new Set<string>();
+
+/** The canvas's backOut: grows a little past its size, then settles. */
+function backOut(p: number): number {
+  const c1 = 1.9;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2);
+}
+
+/**
+ * Spec 0078 -- a counter arriving (2 A): its badge grows in with a ring in
+ * its colour, or its number pops; one taken off (8): its number pops down,
+ * the last one's badge shrinks away. On the board's clock (A-00).
+ */
+function playBadges(root: HTMLElement, changes: readonly Playing[]) {
+  for (const p of changes) {
+    for (const b of p.change.badges) {
+      const key = `${p.key}:${b.name}`;
+      if (played.has(key)) continue;
+      const badge = root.querySelector<HTMLElement>(`.bf-badge[data-counter="${b.name}"]`);
+      if (!badge || typeof badge.animate !== "function") continue;
+      played.add(key);
+      if (played.size > 400) {
+        const oldest = played.values().next();
+        if (!oldest.done) played.delete(oldest.value);
+      }
+      const colour = COUNTER_KIND[b.name]?.colour ?? OTHER_COLOUR;
+      if (b.from === 0) {
+        const frames: Keyframe[] = [];
+        for (let i = 0; i <= 10; i++) {
+          const q = i / 10;
+          frames.push({
+            offset: q,
+            transform: `scale(${Math.max(0.01, i === 0 ? 0.01 : backOut(q)).toFixed(3)})`,
+            boxShadow: `0 0 0 ${(3 * (1 - q)).toFixed(2)}px ${colour}, 0 1px 3px #000a`,
+          });
+        }
+        badge.animate(frames, {
+          duration: BADGE_GROW_MS,
+          delay: p.wait,
+          easing: "linear",
+          fill: "backwards",
+        });
+      } else if (b.to === 0) {
+        badge.animate(
+          [
+            { offset: 0, transform: "scale(1)", opacity: 1 },
+            { offset: 1, transform: "scale(0)", opacity: 0 },
+          ],
+          { duration: BADGE_OUT_MS, delay: p.wait, easing: "ease-in-out", fill: "forwards" },
+        );
+      } else {
+        const n = badge.querySelector<HTMLElement>(".bf-badge-n");
+        n?.animate(
+          [
+            { offset: 0, transform: "scale(1)" },
+            { offset: 0.5, transform: "scale(1.5)" },
+            { offset: 1, transform: "scale(1)" },
+          ],
+          { duration: BADGE_POP_MS, delay: p.wait, easing: "ease-in-out" },
+        );
+        // More of them: a green ring with the pop (the canvas's "grow").
+        if (b.to > b.from)
+          badge.animate(
+            [
+              { offset: 0, boxShadow: `0 0 0 0px ${colour}, 0 1px 3px #000a` },
+              { offset: 0.5, boxShadow: `0 0 0 3px ${colour}, 0 1px 3px #000a` },
+              { offset: 1, boxShadow: `0 0 0 0px ${colour}, 0 1px 3px #000a` },
+            ],
+            { duration: 500, delay: p.wait, easing: "linear" },
+          );
+      }
+    }
+  }
 }

@@ -12,6 +12,7 @@
 // direction, never a wrong board, because the board is the snapshot.
 
 import type { LifeChanges, Snapshot, SnapshotCard } from "../match";
+import { sizeChanges, type SizeChanges } from "./sizeTicks";
 import type {
   BoardCard,
   BoardHandCard,
@@ -36,6 +37,8 @@ export interface BoardData {
   damage: DamageWave | null;
   /** Spec 0077 -- the round's life and poison changes. */
   life: LifeChanges | null;
+  /** Spec 0078 -- each permanent's size and counters that changed this round. */
+  sizes: SizeChanges | null;
   arrivals: Map<string, AnchorId>;
   departures: Map<string, AnchorId>;
   /** Phase 10 A-10 -- each permanent that cards merged into this update, and those cards. */
@@ -203,6 +206,9 @@ function toBoardCard(card: SnapshotCard): BoardCard {
     known: card.known,
     power: card.power,
     toughness: card.toughness,
+    ...(card.basePower !== undefined ? { basePower: card.basePower } : {}),
+    ...(card.baseToughness !== undefined ? { baseToughness: card.baseToughness } : {}),
+    ...(card.damage > 0 ? { damage: card.damage } : {}),
     keywords: card.keywords,
     counters: card.counters,
     attachedTo: card.attachedTo,
@@ -483,6 +489,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     stack,
     damage: snapshot.damage,
     life: snapshot.life ?? null,
+    sizes: sizesOf(snapshot, previous),
     arrivals,
     departures,
     merges,
@@ -491,4 +498,29 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     tileMoves,
     countered,
   };
+}
+
+/**
+ * Spec 0078 -- what changed in each permanent's size and counters between
+ * the board drawn and this one (sizeTicks.ts), and the last size of each
+ * creature that left the battlefield, as its move says. Public facts only:
+ * the battlefield, which every seat sees, and the moves this seat is told.
+ */
+function sizesOf(snapshot: Snapshot, previous: Snapshot | null): SizeChanges | null {
+  const last = new Map<string, { power: number; toughness: number }>();
+  for (const move of snapshot.moves ?? [])
+    if (move.card && move.from.zone === "battlefield" && move.last) last.set(move.card, move.last);
+  if (!previous || previous.gameEpoch !== snapshot.gameEpoch) return null;
+  const fresh = snapshot.damage && snapshot.damage.key !== previous.damage?.key;
+  const struck = new Set(
+    fresh
+      ? snapshot.damage!.hits.flatMap((h) => ("object" in h.target ? [h.target.object] : []))
+      : [],
+  );
+  const changes = sizeChanges(previous.battlefield, snapshot.battlefield, {
+    wornOff: previous.turn !== snapshot.turn || snapshot.phase === "CLEANUP",
+    struck,
+  });
+  if (changes.length === 0 && last.size === 0) return null;
+  return { key: `${snapshot.gameEpoch}:${snapshot.stateRevision}`, changes, last };
 }

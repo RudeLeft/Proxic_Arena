@@ -1017,6 +1017,13 @@ public final class GameHost {
                 }
                 Moves.Move move = new Moves.Move(card.getId(), from, seatOfZone(moved.from()), to,
                         seatOfZone(moved.to()), card.isFaceDown(), why);
+                if ("battlefield".equals(from)) {
+                    // Spec 0078, item 4 -- its last size on the table.
+                    int[] last = lastSize(card.getId());
+                    if (last != null) {
+                        move = move.withLast(last[0], last[1]);
+                    }
+                }
                 if ("library".equals(to)) {
                     move = move.withWhere(libraryPlace(moved.to(), card.getId()));
                 }
@@ -1030,6 +1037,30 @@ public final class GameHost {
                 movesMade.add(move);
             }
         }
+    }
+
+    /**
+     * Spec 0078, item 4 -- a creature that just left the battlefield: its
+     * power and toughness as it last was there, {power, toughness}, from
+     * Forge's last-known information for it (GameAction#changeZone records
+     * that copy in Game#getLeftBattlefieldThisTurn before it reports the
+     * move; the event bus is synchronous). A creature killed by Grasp of
+     * Darkness reads 0/0 here, though the card in the graveyard is a 4/4
+     * again. Null when it was not a creature or Forge kept no copy.
+     */
+    private int[] lastSize(int cardId) {
+        Game current = game;
+        if (current == null) {
+            return null;
+        }
+        java.util.List<forge.game.card.Card> left = current.getLeftBattlefieldThisTurn();
+        for (int i = left.size() - 1; i >= 0; i--) {
+            forge.game.card.Card lki = left.get(i);
+            if (lki != null && lki.getId() == cardId) {
+                return lki.isCreature() ? new int[] {lki.getNetPower(), lki.getNetToughness()} : null;
+            }
+        }
+        return null;
     }
 
     /**

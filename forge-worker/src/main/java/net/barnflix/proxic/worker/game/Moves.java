@@ -41,19 +41,32 @@ final class Moves {
 
     /** One zone change. Seats are Arena seats; null when unknown or no zone. */
     record Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
-            Integer into, String where, String said, String name) {
+            Integer into, String where, String said, String name, Integer power, Integer toughness) {
 
         Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why) {
-            this(card, from, fromSeat, to, toSeat, faceDown, why, null, null, null, null);
+            this(card, from, fromSeat, to, toSeat, faceDown, why, null, null, null, null, null, null);
         }
 
         Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
                 Integer into) {
-            this(card, from, fromSeat, to, toSeat, faceDown, why, into, null, null, null);
+            this(card, from, fromSeat, to, toSeat, faceDown, why, into, null, null, null, null, null);
         }
 
         Move withWhere(String place) {
-            return new Move(card, from, fromSeat, to, toSeat, faceDown, why, into, place, said, name);
+            return new Move(card, from, fromSeat, to, toSeat, faceDown, why, into, place, said, name, power,
+                    toughness);
+        }
+
+        /**
+         * Spec 0078, item 4 -- a creature leaving the battlefield: its power
+         * and toughness as it last was there (Forge's last-known information
+         * for it), so the page can shrink a creature killed by -4/-4 to 0/0
+         * before it shatters. The board already showed both numbers while it
+         * was on the table, so this is public; it travels only with the card.
+         */
+        Move withLast(Integer lastPower, Integer lastToughness) {
+            return new Move(card, from, fromSeat, to, toSeat, faceDown, why, into, where, said, name, lastPower,
+                    lastToughness);
         }
 
         /**
@@ -64,7 +77,8 @@ final class Moves {
          * with the move itself: the board names cards by id.
          */
         Move withSaid(String reason, String words, String cardName) {
-            return new Move(card, from, fromSeat, to, toSeat, faceDown, reason, into, where, words, cardName);
+            return new Move(card, from, fromSeat, to, toSeat, faceDown, reason, into, where, words, cardName, power,
+                    toughness);
         }
     }
 
@@ -176,7 +190,8 @@ final class Moves {
                     || ("battlefield".equals(move.from()) && "exile".equals(move.to()));
             out.add(host != null && merging && host != move.card()
                     ? new Move(move.card(), move.from(), move.fromSeat(), move.to(), move.toSeat(),
-                            move.faceDown(), move.why(), host, move.where(), move.said(), move.name())
+                            move.faceDown(), move.why(), host, move.where(), move.said(), move.name(),
+                            move.power(), move.toughness())
                     : move);
         }
         return out;
@@ -234,6 +249,14 @@ final class Moves {
             }
             if (named && move.into() != null) {
                 entry.addProperty("into", "card:" + move.into());
+            }
+            // Spec 0078, item 4 -- a creature's last power and toughness on
+            // the battlefield, with the card only (the board showed them).
+            if (named && "battlefield".equals(move.from()) && move.power() != null && move.toughness() != null) {
+                JsonObject last = new JsonObject();
+                last.addProperty("power", move.power());
+                last.addProperty("toughness", move.toughness());
+                entry.add("last", last);
             }
             // Phase 10 A-14: where in the library it went. Public, as the
             // move into a library is (Griptide puts it on top for both

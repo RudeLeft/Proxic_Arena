@@ -1789,6 +1789,7 @@ export function GameScreen({
             handCosts={handCosts}
             damage={data.damage}
             life={data.life}
+            sizeChanges={data.sizes}
             onPick={pick}
             onInspect={setInspecting}
             choosable={boardChoosable}

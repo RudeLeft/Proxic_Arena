@@ -99,6 +99,47 @@ class MovesTest {
     }
 
     @Test
+    void aCreatureKilledByShrinkingCarriesItsLastSize() {
+        // Spec 0078, item 4: Grasp of Darkness on a 4/4 -- it last stood at
+        // 0/0 on the table; every seat sees that, since the board showed it.
+        List<Moves.Move> moves = List.of(
+                new Moves.Move(21, "battlefield", 2, "graveyard", 2, false, "died").withLast(0, 0));
+        for (Integer viewer : new Integer[] {1, 2, null}) {
+            JsonObject move = only(Moves.forViewer(moves, viewer));
+            assertEquals("card:21", move.get("card").getAsString());
+            assertEquals(0, move.getAsJsonObject("last").get("power").getAsInt());
+            assertEquals(0, move.getAsJsonObject("last").get("toughness").getAsInt());
+        }
+        // The size survives the other withs (said, where, into).
+        Moves.Move said = new Moves.Move(21, "battlefield", 2, "graveyard", 2, false, null).withLast(3, -1)
+                .withSaid("died", null, "Rumbling Baloth");
+        assertEquals(-1, only(Moves.forViewer(List.of(said), 1)).getAsJsonObject("last").get("toughness")
+                .getAsInt());
+    }
+
+    @Test
+    void aLastSizeNeverTravelsWithoutItsCardOrOffTheTable() {
+        // A size never travels without the card it is about (a move off the
+        // table is always named today; the rule holds anyway).
+        List<Moves.Move> hidden = List.of(
+                new Moves.Move(8, "library", 2, "exile", 2, true, null).withLast(5, 5));
+        JsonObject unseen = only(Moves.forViewer(hidden, 1));
+        assertFalse(unseen.has("card"));
+        assertFalse(unseen.has("last"), "a size must not travel with a card the viewer may not name");
+        // A creature tucked into a library from the table: named (it was on
+        // the table), so its size goes too -- both numbers were on the board.
+        assertTrue(only(Moves.forViewer(List.of(
+                new Moves.Move(8, "battlefield", 2, "library", 2, false, null).withLast(5, 5)), 1)).has("last"));
+        // Only a move off the battlefield says one.
+        List<Moves.Move> fromHand = List.of(
+                new Moves.Move(9, "hand", 1, "graveyard", 1, false, "discarded").withLast(2, 2));
+        assertFalse(only(Moves.forViewer(fromHand, 1)).has("last"));
+        // And none when the worker had none (not a creature).
+        assertFalse(only(Moves.forViewer(List.of(
+                new Moves.Move(10, "battlefield", 1, "graveyard", 1, false, "destroyed")), 1)).has("last"));
+    }
+
+    @Test
     void aLibrarysTopAndBottomAsForgeListsThem() {
         // Phase 10 A-14: Forge's library list is top first.
         assertEquals("top", Moves.libraryPlace(0, 40));

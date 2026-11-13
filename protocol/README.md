@@ -214,7 +214,7 @@ player.command            a dungeon carries its room:
                           once the Ring has tempted the player
 moves                     Phase 10 A-00: the cards moved since the last
                           round, as Forge moved them: [{card?, from {zone,
-                          seat?}, to {zone, seat?}, why?, into?, where?}]; zone is
+                          seat?}, to {zone, seat?}, why?, into?, where?, last?}]; zone is
                           battlefield|hand|library|graveyard|exile|stack|
                           command|merged|other|nowhere (a new token); why is
                           "destroyed" or "sacrificed" for a card leaving the
@@ -249,7 +249,15 @@ moves                     Phase 10 A-00: the cards moved since the last
                           Amendment 1 and spec 0075: no move with a said
                           is told as a notice any more (discarded,
                           countered, cycled), and the page shows no tag
-                          for these; the `action` report explains them
+                          for these; the `action` report explains them.
+                          Spec 0078, item 4: a creature leaving the
+                          battlefield carries last {power, toughness}, its
+                          size as it last stood there (Forge's last-known
+                          information: Grasp of Darkness on a 4/4 says
+                          {0, 0}, though the card in the graveyard is a
+                          4/4 again); only with `card`, and only from the
+                          battlefield (the board showed both numbers, so
+                          it is public)
 noticesTotal              spec 0061: how many notices this seat was told in
                           all (`notices` keeps the last six), so a page can
                           tell new ones once the list is full

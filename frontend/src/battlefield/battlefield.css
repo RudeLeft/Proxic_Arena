@@ -518,6 +518,31 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--bf-ink);
+  /* Spec 0078: it pops from here (the canvas's). */
+  transform-origin: 30% 55%;
+}
+/* Spec 0078 (at rest, A) -- bigger than printed green, smaller red; the
+   toughness a damaged creature has left, red (6 A). */
+.bf-pt .g {
+  color: #7be08a;
+}
+.bf-pt .r {
+  color: #ff6b57;
+}
+/* Spec 0078 -- the number a change rises with ("+3/+3", "−4/−4", "+1"),
+   off the card's bottom bar (or its badge), in the change's colour. */
+.bf-size-float {
+  position: absolute;
+  left: calc(var(--card-h) * 0.02);
+  font: 800 calc(var(--card-h) * 0.13) / 1 var(--pa-card);
+  white-space: nowrap;
+  text-shadow:
+    0 2px 0 #000,
+    0 0 10px #000;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  z-index: 8;
+  transform-origin: 20% 60%;
 }
 
 /* The art window between the bars. The picture is a whole scan; it is

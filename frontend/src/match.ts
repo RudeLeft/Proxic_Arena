@@ -1960,6 +1960,12 @@ export interface SnapshotMove {
    * older worker).
    */
   where?: "top" | "bottom" | "shuffled" | null;
+  /**
+   * Spec 0078, item 4 -- a creature leaving the battlefield: its power and
+   * toughness as it last stood there (Grasp of Darkness on a 4/4: 0/0).
+   * Only with a named card.
+   */
+  last?: { power: number; toughness: number } | null;
 }
 
 const MOVE_WHYS = new Set(["destroyed", "sacrificed", "cycled", "discarded", "countered", "died"]);
@@ -1984,9 +1990,19 @@ function asMoves(value: unknown): SnapshotMove[] {
         said: asString(e["said"]),
         into: asString(e["into"]),
         where: where === "top" || where === "bottom" || where === "shuffled" ? where : null,
+        last: asLast(e["last"]),
       },
     ];
   });
+}
+
+/** Spec 0078 -- a move's last size; anything malformed is none. */
+function asLast(value: unknown): { power: number; toughness: number } | null {
+  if (typeof value !== "object" || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const power = asNumber(row["power"]);
+  const toughness = asNumber(row["toughness"]);
+  return power === null || toughness === null ? null : { power, toughness };
 }
 
 function asPayments(value: unknown): SnapshotPayment[] {

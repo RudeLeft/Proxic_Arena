@@ -245,7 +245,10 @@ player's life and poison in Forge's order -- damage, loss, gain or poison,
 with the amount and the source where it is known and the reader may see it
 (an infect hit is poison, never damage) -- so the board can show each as
 it lands; a presentation hint like the damage wave, the totals stay the
-truth (PROTO-007). What may
+truth (PROTO-007). Spec 0078: a creature's move off the battlefield
+carries `last`, its power and toughness as it last stood there, so a
+creature killed by shrinking can be shown shrinking before it breaks; the
+page works out every other size change by comparing two boards. What may
 appear is `MATCH_STATE_VISIBILITY.md`; every field is in
 `protocol/README.md`.
 
