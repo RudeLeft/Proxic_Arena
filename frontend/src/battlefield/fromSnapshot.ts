@@ -223,6 +223,27 @@ function tileMovesOf(
   return out;
 }
 
+/**
+ * Spec 0083 (15 A) -- a Room on the table is drawn as its two doors, the
+ * first (`faces[1]`) the top half, the second (`faces[2]`) the bottom (the
+ * canvas's); null for any other card.
+ */
+export function roomDoors(card: Pick<SnapshotCard, "faces" | "types">): [string, string] | null {
+  const faces = card.faces ?? [];
+  return faces.length === 3 && /\bRoom\b/.test(card.types) ? [faces[1]!, faces[2]!] : null;
+}
+
+/** Spec 0083 (15 A) -- which of a Room's halves are still locked. */
+export function lockedHalves(
+  card: Pick<SnapshotCard, "locked" | "faces" | "types">,
+): ("top" | "bottom")[] {
+  const doors = roomDoors(card);
+  if (!doors) return [];
+  return (card.locked ?? []).flatMap((door) =>
+    door === doors[0] ? ["top" as const] : door === doors[1] ? ["bottom" as const] : [],
+  );
+}
+
 function toBoardCard(card: SnapshotCard, prepared?: SnapshotCard): BoardCard {
   return {
     id: card.id,
@@ -254,6 +275,8 @@ function toBoardCard(card: SnapshotCard, prepared?: SnapshotCard): BoardCard {
     // Spec 0079 -- a copy, and what it copied (while this viewer may see it).
     ...(card.copy ? { copy: true } : {}),
     ...(card.copyOf ? { copyOf: card.copyOf } : {}),
+    // Spec 0083 (15 A) -- a Room: its two doors, and which are locked.
+    ...(roomDoors(card) ? { doors: roomDoors(card)!, lockedHalves: lockedHalves(card) } : {}),
     // Spec 0080 -- phased out, regeneration shields, indestructible (public).
     ...(card.phasedOut ? { phasedOut: true } : {}),
     ...(card.shields ? { shields: card.shields } : {}),
@@ -444,6 +467,9 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     ...(key ? { key, things } : {}),
     ...(waiting ? { waiting: true } : {}),
     ...(entry.aiming ? { aiming: true } : {}),
+    // Spec 0083 (18 B) -- what the spell is: its gold squares.
+    ...(entry.splitSecond ? { splitSecond: true } : {}),
+    ...(entry.cantBeCountered ? { cantBeCountered: true } : {}),
     id: entry.id,
     name: entry.name,
     art: entry.art,

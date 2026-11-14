@@ -88,7 +88,7 @@ function recorder() {
       // Every element that draws a card: on the table, in a hand, the
       // card being cast, its flight, a stack entry, a leaving ghost.
       for (const el of board.querySelectorAll<HTMLElement>(
-        "[data-object-id], [data-ghost-of], .gs-cast-leaving[data-card], [data-mark-of]",
+        "[data-object-id], [data-ghost-of], .gs-cast-leaving[data-card], [data-mark-of], [data-door-open]",
       )) {
         const ghost = el.dataset.ghostOf;
         // Spec 0082 -- a card of copies made together draws each of them
@@ -96,18 +96,21 @@ function recorder() {
         // is followed on its way, on the stack and ticking down, whatever
         // the card's own id is at the time. A prepared spell is drawn as its
         // mark on its creature (`data-mark-of`).
+        // Spec 0083 -- a Room's door opening on it (`door:` and the card).
         const ids = el.dataset.members
           ? el.dataset.members.split(" ")
           : [
-              el.dataset.markOf
-                ? `mark:${el.dataset.markOf}`
-                : ghost
-                  ? `ghost:${ghost}`
-                  : el.classList.contains("gs-cast-leaving")
-                    ? `flight:${el.dataset.card}`
-                    : el.classList.contains("gs-cast")
-                      ? `cast:${el.dataset.objectId}`
-                      : (el.dataset.objectId ?? ""),
+              el.dataset.doorOpen
+                ? `door:${el.dataset.doorOpen}`
+                : el.dataset.markOf
+                  ? `mark:${el.dataset.markOf}`
+                  : ghost
+                    ? `ghost:${ghost}`
+                    : el.classList.contains("gs-cast-leaving")
+                      ? `flight:${el.dataset.card}`
+                      : el.classList.contains("gs-cast")
+                        ? `cast:${el.dataset.objectId}`
+                        : (el.dataset.objectId ?? ""),
             ];
         for (const id of ids) {
           if (!id) continue;

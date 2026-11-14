@@ -463,6 +463,10 @@ export interface SnapshotCard {
    */
   kind: string;
   types: string;
+  /** Spec 0083 (15 A) -- a Room on the battlefield: the names of its doors still locked. */
+  locked?: string[] | undefined;
+  /** §6.79 -- a card of more than one face: every face's name (a Room: the whole card, then each door). */
+  faces?: string[] | undefined;
   /** Creatures only; absent on everything else. */
   power: number | null;
   toughness: number | null;
@@ -655,6 +659,10 @@ export interface StackEntry {
   copyingId?: string | undefined;
   /** Spec 0082 -- a copy on its way (`copying`) whose new targets are being chosen now. */
   aiming?: boolean | undefined;
+  /** Spec 0083 (18 B) -- a split-second spell (nobody may answer while it is on the stack). */
+  splitSecond?: boolean | undefined;
+  /** Spec 0083 (18 B) -- a spell that can't be countered (Abrupt Decay). */
+  cantBeCountered?: boolean | undefined;
 }
 
 /** Combat, while there is one — §7.61 B4. Forge's record. */
@@ -801,6 +809,12 @@ export interface Snapshot {
   reveal?: SnapshotReveal | null;
   /** Phase 9 Amendment 12 -- who did what, in this reader's words. */
   action?: SnapshotReveal | null;
+  /**
+   * Spec 0083 (17) -- permanents whose identical replacement effects just
+   * applied without a question (two Leylines of the Void exiling a card):
+   * the page pulses them gold, once per key.
+   */
+  pulse?: { key: string; cards: string[] } | null;
   /**
    * Spec 0047 -- the PUBLIC view, sent to spectators: no hand, nothing
    * face down. `seat` is then the side it is drawn from, not the viewer's.
@@ -1327,7 +1341,22 @@ function asSnapshot(value: unknown): Snapshot | null {
     survived: asSurvived(row["survived"]),
     reveal: asReveal(row["reveal"]),
     action: asAction(row["action"]),
+    pulse: asPulse(row["pulse"]),
   };
+}
+
+/** Spec 0083 (17) -- the permanents to pulse gold, once per key; null when absent or malformed. */
+function asPulse(value: unknown): { key: string; cards: string[] } | null {
+  if (typeof value !== "object" || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const key = asString(row["key"]);
+  const cards = Array.isArray(row["cards"]) ? onlyStrings(row["cards"]) : [];
+  return key && cards.length > 0 ? { key, cards } : null;
+}
+
+/** The strings of a list, in order. */
+function onlyStrings(value: unknown[]): string[] {
+  return value.filter((entry): entry is string => typeof entry === "string");
 }
 
 /** Spec 0080 -- the round's phase changes, keeping only well-formed ones. */
@@ -1546,6 +1575,9 @@ function asCards(value: unknown): SnapshotCard[] {
       phasedOut: row["phasedOut"] === true ? true : undefined,
       shields: (asNumber(row["shields"]) ?? 0) > 0 ? asNumber(row["shields"])! : undefined,
       indestructible: row["indestructible"] === true ? true : undefined,
+      // Spec 0083 (15 A) -- a Room: its faces, and its doors still locked.
+      faces: Array.isArray(row["faces"]) ? onlyStrings(row["faces"]) : undefined,
+      locked: Array.isArray(row["locked"]) ? onlyStrings(row["locked"]) : undefined,
     });
   }
   return cards;
@@ -1773,6 +1805,9 @@ function asStack(value: unknown): StackEntry[] {
       group: asString(row["group"]) ?? undefined,
       copyingId: asString(row["copyingId"]) ?? undefined,
       aiming: row["aiming"] === true ? true : undefined,
+      // Spec 0083 (18 B) -- what the spell is.
+      splitSecond: row["splitSecond"] === true ? true : undefined,
+      cantBeCountered: row["cantBeCountered"] === true ? true : undefined,
       targets: Array.isArray(row["targets"])
         ? (row["targets"] as unknown[]).map(asTarget).filter((t): t is TargetRef => t !== null)
         : [],

@@ -504,8 +504,8 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
 
     // Damage: what plays. Phase 10 A-13 -- a combat damage step's wave plays
     // one fight at a time: every fighter's card moves (or, killed, its
-    // ghost), and the numbers say what each took; a spell's is a burst and a
-    // number.
+    // ghost), and the numbers say what each took; a spell's is a crack (spec
+    // 0083: `data-impact` on it) and a number.
     if (scene.damage) {
       const playing = await page.evaluate(() => ({
         fighters: [

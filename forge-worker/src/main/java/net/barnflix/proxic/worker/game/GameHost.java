@@ -519,6 +519,17 @@ public final class GameHost {
         return now != null && !cardIds.isEmpty();
     }
 
+    /**
+     * Spec 0083 (17) -- identical replacement effects applied without a
+     * question: their permanents pulse gold on the page (Causes#pulseFor).
+     */
+    void sameReplaced(java.util.List<forge.game.card.Card> hosts) {
+        Causes now = causes;
+        if (now != null) {
+            now.sameReplaced(hosts);
+        }
+    }
+
     /** Spec 0075 -- who did what (ActionReports), once a game has begun; null before. */
     ActionReports actions() {
         Causes now = causes;

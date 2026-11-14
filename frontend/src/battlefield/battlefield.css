@@ -1497,39 +1497,6 @@
   inset: 0;
   pointer-events: none;
 }
-/* The impact: a burst about a card wide, gone in half a second. */
-.bf-burst {
-  position: absolute;
-  animation: bf-burst 500ms ease-out both;
-}
-.bf-burst svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-.bf-burst-core {
-  fill: #ffd06a;
-  opacity: 0.85;
-}
-.bf-burst-ray {
-  stroke: #ff5a19;
-  stroke-width: 5;
-  stroke-linecap: round;
-}
-@keyframes bf-burst {
-  0% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(0.25);
-  }
-  55% {
-    opacity: 0.95;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1.15);
-  }
-}
 /* The damage number: rises a little and fades, about a second. */
 .bf-number {
   font-family: var(--pa-card);
@@ -1728,6 +1695,28 @@
   width: 100%;
   height: 100%;
   overflow: visible;
+}
+/* Spec 0083 (13 B) -- a spell's hit: the crack's red flash (the canvas's). */
+.bf-fight-hitflash {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgb(255 90 60 / 70%) 0 25%,
+    rgb(208 26 26 / 30%) 50%,
+    transparent 70%
+  );
+}
+/* Spec 0083 (18 B) -- a split-second spell's gold ring, lifting as it resolves. */
+.bf-fight-splitring {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid #e9c46a;
+  border-radius: 10px;
+  box-shadow:
+    0 0 12px #f2c46a88,
+    inset 0 0 10px #f2c46a44;
 }
 /* Spec 0077 -- a gain's soft green glow behind the shield. */
 .bf-fight-glow {
@@ -2482,4 +2471,315 @@ img.bf-makes-pip {
 .bf-fight-shieldbreak svg {
   width: 80%;
   height: 80%;
+}
+
+/* --- Spec 0083 (owner 2026-11-13, canvas gaps-polish-1113) ---------------- */
+
+/* 18 B -- what a spell on the stack is: 0076's gold-rimmed square, low on
+   the left (above a copy's mark on a copy); it pops in as the card lands. */
+.bf-spell-mark {
+  position: absolute;
+  left: calc(var(--card-h) * 0.03);
+  bottom: calc(var(--card-h) * 0.15);
+  z-index: 3;
+  pointer-events: none;
+  animation: bf-spell-mark-in 380ms cubic-bezier(0.34, 1.9, 0.5, 1) 100ms both;
+}
+.bf-spell-mark-above {
+  bottom: calc(var(--card-h) * 0.34);
+}
+@keyframes bf-spell-mark-in {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+/* 18 B -- split second: a gold ring closes round the stack card (from 14 px
+   out to 4 px, 0.3 s) and breathes while the spell is there. */
+.bf-split-ring {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid #e9c46a;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 4;
+  box-shadow:
+    0 0 12px #f2c46a88,
+    inset 0 0 10px #f2c46a44;
+  animation:
+    bf-split-ring-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    bf-split-ring-breathe 1050ms ease-in-out 300ms infinite alternate;
+}
+@keyframes bf-split-ring-in {
+  from {
+    inset: -14px;
+    opacity: 0;
+  }
+  to {
+    inset: -4px;
+    opacity: 1;
+  }
+}
+@keyframes bf-split-ring-breathe {
+  from {
+    box-shadow:
+      0 0 10px #f2c46a77,
+      inset 0 0 8px #f2c46a33;
+  }
+  to {
+    box-shadow:
+      0 0 20px #f2c46acc,
+      inset 0 0 14px #f2c46a66;
+  }
+}
+/* 18 B -- the other player's hand dims while a split-second spell is on the
+   stack, and brightens as it resolves. */
+.bf-card[data-zone="viewer:hand"],
+.bf-card[data-zone="opponent:hand"] {
+  transition: filter 300ms ease-out;
+}
+.bf-board[data-split-second="viewer"] .bf-card[data-zone="viewer:hand"],
+.bf-board[data-split-second="opponent"] .bf-card[data-zone="opponent:hand"] {
+  filter: brightness(0.45) saturate(0.4);
+}
+
+/* 15 A -- a Room on the table: its two doors, one above the other, each with
+   its own name bar. A locked half is a closed wooden door with the gold
+   keyhole square; unlocking, the square goes, the door swings open on its
+   hinge (left edge) and light spills out. */
+.bf-room-half {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50%;
+  overflow: hidden;
+  perspective: calc(var(--card-h) * 1.55);
+}
+.bf-room-top {
+  top: 0;
+}
+.bf-room-bottom {
+  top: 50%;
+  border-top: 1px solid #0008;
+}
+.bf-room-bar {
+  top: 0;
+  height: calc(var(--card-h) * 0.12);
+  font-size: calc(var(--card-h) * 0.072);
+  z-index: 2;
+}
+.bf-room-art {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--card-h) * 0.12);
+  bottom: 0;
+  overflow: hidden;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--frame) 70%, #fff 10%), var(--frame));
+}
+.bf-room-art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  pointer-events: none;
+}
+.bf-room-door {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--card-h) * 0.12);
+  bottom: 0;
+  z-index: 3;
+  background: repeating-linear-gradient(90deg, #3a2a1c 0 7px, #2c1f15 7px 9px);
+  border: 1px solid #6a4a2a;
+  transform-origin: 0 50%;
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+.bf-room-door::after {
+  content: "";
+  position: absolute;
+  right: 12%;
+  top: 46%;
+  width: calc(var(--card-h) * 0.04);
+  height: calc(var(--card-h) * 0.04);
+  border-radius: 50%;
+  background: #c9a35a;
+}
+.bf-room-light {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--card-h) * 0.12);
+  bottom: 0;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 20% 50%, rgb(255 220 140 / 90%), transparent 70%);
+}
+.bf-room-key {
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  width: calc(var(--card-h) * 0.2);
+  height: calc(var(--card-h) * 0.2);
+  margin: calc(var(--card-h) * -0.1) 0 0 calc(var(--card-h) * -0.1);
+  z-index: 5;
+  pointer-events: none;
+}
+/* Opening (the canvas's: the square 0.2 s; the door 0.6 s from 0.15 s; the
+   light rising and falling over 0.9 s from 0.15 s). */
+[data-door-state="opening"] > .bf-room-key {
+  animation: bf-room-key-out 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+[data-door-state="opening"] > .bf-room-door {
+  animation: bf-room-swing 600ms cubic-bezier(0.65, 0, 0.35, 1) 150ms both;
+}
+[data-door-state="opening"] > .bf-room-light {
+  animation: bf-room-light 900ms linear 150ms both;
+}
+@keyframes bf-room-key-out {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(0);
+  }
+}
+@keyframes bf-room-swing {
+  0% {
+    transform: rotateY(0deg);
+    opacity: 1;
+  }
+  99% {
+    transform: rotateY(-108deg);
+    opacity: 1;
+  }
+  100% {
+    transform: rotateY(-108deg);
+    opacity: 0;
+  }
+}
+@keyframes bf-room-light {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+/* The card glows gold a moment as its door opens. */
+.bf-room-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 6;
+  animation: bf-room-glow 500ms linear 600ms both;
+}
+@keyframes bf-room-glow {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 rgb(242 196 106 / 0%);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 2px rgb(242 196 106 / 90%),
+      inset 0 0 calc(var(--card-h) * 0.12) rgb(242 196 106 / 60%);
+  }
+}
+
+/* 14 C -- day becoming night (or back): a short, light wash across the
+   table (the canvas's C: 0.6 of A's strength, up 0.45 s, held 0.25 s, down
+   0.55 s) -- blue dusk with a little dark, or gold dawn. */
+.bf-wash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4400;
+}
+.bf-wash > span {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.bf-wash-tint {
+  mix-blend-mode: screen;
+  animation: bf-wash-tint 1250ms linear both;
+}
+.bf-wash-night .bf-wash-tint {
+  background: linear-gradient(
+    180deg,
+    rgb(70 90 200 / 70%),
+    rgb(40 40 120 / 45%) 60%,
+    rgb(20 20 70 / 30%)
+  );
+}
+.bf-wash-day .bf-wash-tint {
+  background: linear-gradient(
+    180deg,
+    rgb(255 200 110 / 60%),
+    rgb(255 150 70 / 30%) 60%,
+    rgb(255 120 60 / 15%)
+  );
+}
+.bf-wash-dark {
+  background: #03061a;
+  animation: bf-wash-dark 1250ms linear both;
+}
+@keyframes bf-wash-tint {
+  0% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  36% {
+    opacity: 0.6;
+  }
+  56% {
+    opacity: 0.6;
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes bf-wash-dark {
+  0% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  36% {
+    opacity: 0.21;
+  }
+  56% {
+    opacity: 0.21;
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bf-wash {
+    display: none;
+  }
+  .bf-spell-mark,
+  .bf-split-ring,
+  [data-door-state="opening"] > .bf-room-key,
+  [data-door-state="opening"] > .bf-room-door,
+  [data-door-state="opening"] > .bf-room-light,
+  .bf-room-glow {
+    animation: none;
+  }
+  .bf-card[data-zone="viewer:hand"],
+  .bf-card[data-zone="opponent:hand"] {
+    transition: none;
+  }
 }

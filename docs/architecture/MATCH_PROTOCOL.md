@@ -260,7 +260,12 @@ while Forge holds it until its maker has resolved -- never in `casting`;
 copies of one batch carry a stable `group`, an ability copy is marked
 `copy` too, and a prepared creature names its prepared spell (`prepared`),
 a copy of it (`copyOf`) in exile and while it is cast; a cast copy (a token
-spell) ends "nowhere". Spec 0080: phased-out permanents
+spell) ends "nowhere". Spec 0083: a stack entry says `splitSecond` or
+`cantBeCountered` (Forge's own checks), a Room its `locked` doors, a card
+revealed from an opening hand reaches the other player's report window
+(`reveal`, through turn 1), and identical replacement effects applied
+without a question send `pulse` (their permanents) instead of a notice.
+Spec 0080: phased-out permanents
 are sent, flagged `phasedOut` (they were left out and drawn exiled), with
 the round's `phased` changes; a flicker is one move ("flickered", `via`
 its exile); `shields` and `indestructible` ride on a permanent; the

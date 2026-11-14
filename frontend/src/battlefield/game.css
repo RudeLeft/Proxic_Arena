@@ -4756,3 +4756,52 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   z-index: 3;
   pointer-events: none;
 }
+
+/* Spec 0083 (14 C) -- the sun/moon medallion beside the turn ladder's steps:
+   gold-ringed, the sun warm, the moon cool (the canvas's). It turns over as
+   day becomes night (DayMedallion's animation) and stays. */
+.gs-medal {
+  position: absolute;
+  right: 10px;
+  top: 30px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+.gs-medal-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  box-shadow:
+    0 0 0 2px #121a17,
+    0 0 0 3px #c9a35a;
+}
+.gs-medal-face svg {
+  width: 70%;
+  height: 70%;
+}
+.gs-medal-sun {
+  background: radial-gradient(circle at 40% 35%, #ffe8a0, #d8901a);
+}
+.gs-medal-moon {
+  background: radial-gradient(circle at 40% 35%, #c8d4ff, #3b4a8a);
+  opacity: 0;
+}
+.gs-medal-night .gs-medal-sun {
+  opacity: 0;
+}
+.gs-medal-night .gs-medal-moon {
+  opacity: 1;
+}
+
+/* Spec 0083 (16 A) -- poison counters taken away: the same dark pill as
+   poison given (battlefield.css .bf-fight-poison), "-N", rising off the badge. */
+.gs-unpoison {
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  font-size: var(--pa-size-md);
+  opacity: 0;
+}

@@ -7,9 +7,16 @@
 // poison counters lose the game, CR 704.5c). It pulses as counters arrive
 // and its full ring breathes at 10. It replaces the status tray's "N poison"
 // chip. With reduce motion: no pulse, no breathing; the count shows.
+//
+// Spec 0083 (owner 2026-11-13, canvas gaps-polish-1113, 16 A) -- poison
+// counters REMOVED (Leeches): the same dark pill as poison given, now "-N",
+// rises off the badge; the notches go dark one by one (0077's 90 ms a point)
+// as the badge swells a little; at zero the badge shrinks away. A click
+// hurries it (A-00); with reduce motion the count just shows (none: gone).
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Snapshot } from "../match";
+import { hurry } from "./motion";
 
 type Player = Snapshot["players"][number];
 
@@ -50,12 +57,47 @@ const GROW_FRAMES: Keyframe[] = [
 ];
 const GROW_MS = 520;
 
+/** Spec 0083 (16 A) -- each notch goes dark this long after the one before (0077's point). */
+export const UNPOISON_STEP_MS = 90;
+/** The "-N" pill's rise (0077's, LIFE_MARK_MS). */
+export const UNPOISON_PILL_MS = 1000;
+/** At zero, the badge shrinks away from this long after the removal (the canvas's 0.67 s), over 0.3 s. */
+export const UNPOISON_GONE_AT = 670;
+export const UNPOISON_GONE_MS = 300;
+const UNPOISON_SWELL: Keyframe[] = [
+  { offset: 0, transform: "scale(1)" },
+  { offset: 0.5, transform: "scale(1.15)" },
+  { offset: 1, transform: "scale(1)" },
+];
+const UNPOISON_PILL: Keyframe[] = [
+  { offset: 0, opacity: 0, transform: "translate(-50%, -50%) scale(0.6)" },
+  { offset: 0.15, opacity: 1, transform: "translate(-50%, -110%) scale(1)" },
+  { offset: 0.75, opacity: 1, transform: "translate(-50%, -150%) scale(1)" },
+  { offset: 1, opacity: 0, transform: "translate(-50%, -170%) scale(1)" },
+];
+
+function reducedMotion(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : true;
+}
+
 /** The badge, or nothing at no poison. [pulses] counts the counters' arrivals: each new one pulses. */
 export function PoisonBadge({ count, pulses }: { count: number; pulses: number }) {
   const ref = useRef<HTMLSpanElement>(null);
   const seen = useRef(pulses);
   // The count the badge showed before this pulse: none means it appears now.
   const shownBefore = useRef(count);
+  // Spec 0083 -- counters taken away: from how many (the badge stays, at
+  // zero too, until it has shrunk away).
+  const [removed, setRemoved] = useState<{ from: number; to: number; key: number } | null>(null);
+  const lastCount = useRef(count);
+  if (lastCount.current !== count) {
+    const was = lastCount.current;
+    lastCount.current = count;
+    if (count < was && !reducedMotion()) setRemoved({ from: was, to: count, key: Date.now() });
+    else if (removed && count > removed.to) setRemoved(null);
+  }
   useEffect(() => {
     const before = shownBefore.current;
     shownBefore.current = count;
@@ -67,7 +109,65 @@ export function PoisonBadge({ count, pulses }: { count: number; pulses: number }
     if (before <= 0) el.animate(GROW_FRAMES, { duration: GROW_MS, easing: "ease-out" });
     else el.animate(PULSE_FRAMES, { duration: PULSE_MS, easing: "ease-out" });
   }, [pulses, count]);
-  if (count <= 0) return null;
+  // Spec 0083 -- the removal's movements, each on the page's animation clock.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!removed || !el || typeof el.animate !== "function") return;
+    el.animate(UNPOISON_SWELL, { duration: 500, easing: "linear" });
+    const pill = el.querySelector<HTMLElement>(".gs-unpoison");
+    const rise = pill?.animate(UNPOISON_PILL, {
+      duration: UNPOISON_PILL_MS,
+      easing: "linear",
+      fill: "both",
+    });
+    // The notches that went dark, from the highest down, one a point.
+    const dark = [...el.querySelectorAll<SVGPathElement>("[data-notch]")];
+    for (let i = Math.min(removed.from, POISON_NOTCHES) - 1, k = 0; i >= removed.to; i--, k++) {
+      dark[i]?.animate(
+        [
+          { offset: 0, stroke: "#9fe05a" },
+          { offset: 1, stroke: "#9fe05a" },
+        ],
+        { duration: (k + 1) * UNPOISON_STEP_MS, easing: "steps(1, end)" },
+      );
+    }
+    const done = () => setRemoved((now) => (now?.key === removed.key ? null : now));
+    if (removed.to > 0) {
+      // Counters left: the badge stays; the pill goes when it has risen.
+      if (rise) {
+        rise.onfinish = done;
+        rise.oncancel = done;
+      } else done();
+      return;
+    }
+    const shrink = el.animate(
+      [
+        { offset: 0, transform: "scale(1)", opacity: 1 },
+        { offset: 1, transform: "scale(0)", opacity: 0 },
+      ],
+      {
+        duration: UNPOISON_GONE_MS,
+        delay: UNPOISON_GONE_AT,
+        easing: "cubic-bezier(0.65, 0, 0.35, 1)",
+        fill: "forwards",
+      },
+    );
+    shrink.onfinish = done;
+    shrink.oncancel = done;
+  }, [removed]);
+  // A click or a key hurries it, as the board does with its own movements.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !removed) return undefined;
+    const now = () => hurry(el);
+    document.addEventListener("pointerdown", now, true);
+    document.addEventListener("keydown", now, true);
+    return () => {
+      document.removeEventListener("pointerdown", now, true);
+      document.removeEventListener("keydown", now, true);
+    };
+  }, [removed]);
+  if (count <= 0 && !removed) return null;
   const lit = Math.min(count, POISON_NOTCHES);
   const words = `${count} poison counter${count === 1 ? "" : "s"}`;
   return (
@@ -76,8 +176,18 @@ export function PoisonBadge({ count, pulses }: { count: number; pulses: number }
       className={`gs-poison${count >= POISON_NOTCHES ? " gs-poison-full" : ""}`}
       data-poison={count}
       data-blows={pulses}
+      data-unpoison={removed ? removed.from - removed.to : undefined}
       title={words}
     >
+      {removed && (
+        // The same dark pill as poison given (Board's), now "-N".
+        <span className="bf-fight-poison gs-unpoison" aria-hidden="true">
+          <svg viewBox="-8 -11 16 18" aria-hidden="true">
+            <path d="M0 -10.2 C6 -1.8 7.8 2.4 6 6 A6.3 6.3 0 0 1 -6 6 C-7.8 2.4 -6 -1.8 0 -10.2Z" />
+          </svg>
+          <span>−{removed.from - removed.to}</span>
+        </span>
+      )}
       <svg viewBox="-20 -20 40 40" aria-hidden="true">
         {Array.from({ length: POISON_NOTCHES }, (_, i) => (
           <path

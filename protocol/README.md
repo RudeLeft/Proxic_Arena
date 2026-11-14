@@ -535,6 +535,11 @@ card.prepared             spec 0082: on a creature that is prepared, its
 action.cards[].toSaid     spec 0079: in a fizzle report, where a card the
                           spell aimed at is now, in the reader's words ("in
                           Bob's hand"); only while the reader may see it
+card.locked               spec 0083 (15 A): on a Room on the battlefield, the
+                          names of its doors still locked (Forge's
+                          Card#getLockedRoomNames); absent when both are
+                          open. Public. Its `faces` name the whole card, then
+                          each door
 card.basePower,           a creature's power and toughness before counters
 card.baseToughness        and effects (Phase 9 W-19: "printed 2/3, now 4/5")
 card.exiledBy             in exile: the name of the card that exiled it, for
@@ -569,6 +574,14 @@ choice the other player's `action` report, a coin flip both players'
 `marks`); the player who chose is told nothing.
 A reveal shown in the report window (`reveal`, `action`) is no "Looking
 at ..." notice either: only a reveal with no window is told in words.
+Spec 0083 (17): a card revealed from an opening hand before the game
+began (Chancellor of the Annex) is the other player's `reveal`, with `by`,
+`source` (the card) and `said` ("Bob revealed Chancellor of the Annex from
+their opening hand"); it lasts through the first turn. Identical
+replacement effects applied without a question (two Leylines of the Void)
+are no notice ("they do the same thing here...") but `pulse`: {key
+"pulse:N", cards ["card:N", ...]}, their permanents face up on the
+battlefield, which the page pulses gold once per key. Public.
 
 ## What the board is told (Phase 7, §7.61)
 
@@ -604,6 +617,13 @@ stack[]             B2  per entry, besides id and description:
                                     storm's four, Fork's one), stable while
                                     it lasts; copyingId "copying:N", the id
                                     it had in `copying` on its way
+                        splitSecond spec 0083 (18 B): true on a spell with
+                                    split second (the keyword Forge's
+                                    isSplitSecondOnStack reads)
+                        cantBeCountered spec 0083: true on a spell Forge's
+                                    Spell#isCounterableBy says no counterspell
+                                    can counter (Abrupt Decay). Both only for
+                                    a spell this viewer may identify
                         description is "Face-down spell" when its source
                                     is a face-down card this viewer may not
                                     identify (it began with the card's name)

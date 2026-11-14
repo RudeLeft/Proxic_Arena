@@ -425,6 +425,18 @@ final class ViewerSnapshot {
                     if (printed != null && !printed.isNoCost()) {
                         entry.addProperty("manaCost", printed.toString());
                     }
+                    // Spec 0083 (18 B) -- what the spell is, as Forge's rules
+                    // apply it: split second (the keyword Forge's own
+                    // MagicStack#isSplitSecondOnStack reads) and "can't be
+                    // countered" (Forge's Spell#isCounterableBy, the
+                    // replacement check its counterspells make). Public: the
+                    // card is face up on the stack.
+                    if (Polish.splitSecond(source)) {
+                        entry.addProperty("splitSecond", true);
+                    }
+                    if (Polish.cantBeCountered(instance.getSpellAbility())) {
+                        entry.addProperty("cantBeCountered", true);
+                    }
                 }
             }
             Player by = instance.getActivatingPlayer();
@@ -502,6 +514,13 @@ final class ViewerSnapshot {
             if (action != null) {
                 snapshot.add("action", action);
             }
+        }
+        // Spec 0083 (17) -- permanents whose identical replacement effects
+        // just applied (two Leylines of the Void): pulsed gold. Public: face
+        // up on the battlefield, so every viewer, spectators too.
+        JsonObject pulse = causes == null ? null : causes.pulseFor();
+        if (pulse != null) {
+            snapshot.add("pulse", pulse);
         }
 
         // §7.61 B4 -- combat: who attacks what, who blocks whom. Public,
@@ -932,6 +951,17 @@ final class ViewerSnapshot {
             JsonArray named = new JsonArray();
             faces.forEach(named::add);
             entry.add("faces", named);
+            // Spec 0083 (15 A) -- a Room on the battlefield: its doors still
+            // locked, by name (Forge's own list), so the page draws a closed
+            // door on that half and opens only that one as it unlocks.
+            // Public, as the Room itself is.
+            if (card.isRoom() && card.isInZone(ZoneType.Battlefield)) {
+                JsonArray locked = new JsonArray();
+                card.getLockedRoomNames().forEach(locked::add);
+                if (locked.size() > 0) {
+                    entry.add("locked", locked);
+                }
+            }
         }
 
         // What SORT of thing it is, so a board can group lands

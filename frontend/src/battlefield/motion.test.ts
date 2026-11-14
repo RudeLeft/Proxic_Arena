@@ -12,6 +12,8 @@ import {
   glideFrames,
   handZoomBox,
   hurry,
+  MERGE_FADE_AT,
+  MERGE_FADE_MS,
   MERGE_MS,
   MERGE_PULL_MS,
   MERGE_RISE_SCALE,
@@ -366,13 +368,22 @@ describe("Fusion burst (Phase 10 A-10)", () => {
     expect(frames.some((f) => String(f["filter"]).includes(`rgb(${colour}`))).toBe(true);
   });
 
-  it("the partner and the old face: pulled in with a wind-up away, gone at the slam, either side of the spot", () => {
+  it("the partner and the old face: pulled in with a wind-up away, fading into the merge from the slam, either side of the spot", () => {
     const coming = mergeFrames("partner", partner, host, 110, 154, origin, colour);
     const old = mergeFrames("old", host, host, 110, 154, origin, colour);
     for (const frames of [coming, old]) {
       expect(frames[0]!["opacity"]).toBe(1);
       expect(frames.at(-1)!["opacity"]).toBe(0);
-      expect(slamAt(frames, 0)).toBeCloseTo(MERGE_PULL_MS + 1, 6);
+      // Spec 0083 (L1): still seen at the slam, then fading out over
+      // MERGE_FADE_MS from just after it -- never gone at full strength.
+      const at = (ms: number) =>
+        frames.find((f) => Math.abs(Number(f["offset"]) * MERGE_MS - ms) < 1e-6);
+      expect(at(MERGE_PULL_MS + 1)!["opacity"]).toBe(1);
+      const gone = slamAt(frames, 0);
+      expect(gone).toBeGreaterThanOrEqual(MERGE_PULL_MS + MERGE_FADE_AT + MERGE_FADE_MS - 1);
+      const opacities = frames.map((f) => Number(f["opacity"]));
+      for (let i = 1; i < opacities.length; i++)
+        expect(opacities[i]!).toBeLessThanOrEqual(opacities[i - 1]!);
     }
     expect(coming[0]!["transform"]).toBe(placement(partner, 110, 154, origin).transform);
     expect(old[0]!["transform"]).toBe(placement(host, 110, 154, origin).transform);
@@ -382,7 +393,7 @@ describe("Fusion burst (Phase 10 A-10)", () => {
     // The wind-up: the partner first moves AWAY from the spot (right), and up.
     expect(xOf(coming[3]!)).toBeGreaterThan(xOf(coming[0]!));
     // The slam: 18 canvas pixels right of the spot, the old face 18 left.
-    const atSlam = (frames: Keyframe[]) => frames.find((f) => f["opacity"] === 0)!;
+    const atSlam = (frames: Keyframe[]) => frames.at(-1)!;
     expect(xOf(atSlam(coming)) - hostX).toBeCloseTo(18, 6);
     expect(xOf(atSlam(old)) - hostX).toBeCloseTo(-18, 6);
   });
@@ -392,9 +403,11 @@ describe("Fusion burst (Phase 10 A-10)", () => {
       mergeFrames(part, partner, host, 110, 154, origin, colour),
     );
     for (const frames of parts) expect(frames.at(-1)!["offset"]).toBe(1);
-    // The slam is the same moment in all three.
-    const slams = parts.map((frames, i) => slamAt(frames, i === 2 ? 1 : 0));
-    expect(new Set(slams).size).toBe(1);
+    // The slam is the same moment in all three: the new face appears as the
+    // others are at their slam spot (spec 0083: they fade from there).
+    const slam = (MERGE_PULL_MS + 1) / MERGE_MS;
+    expect(slamAt(parts[2]!, 1)).toBeCloseTo(MERGE_PULL_MS + 1, 6);
+    for (const frames of parts) expect(frames.some((f) => f["offset"] === slam)).toBe(true);
   });
 
   it("a hurry finishes a merge in a tenth of a second, like every other movement", () => {

@@ -53,11 +53,15 @@ final class Causes {
         /** Spec 0057, item 7 -- who revealed them and why, for a reveal paid as a cost. */
         final Told told;
 
-        Reveal(long key, String title, java.util.List<Integer> cards, Told told) {
+        /** Spec 0083 (17) -- the turn it was made in: 0 before the game began. */
+        final int turn;
+
+        Reveal(long key, String title, java.util.List<Integer> cards, Told told, int turn) {
             this.key = key;
             this.title = title;
             this.cards = cards;
             this.told = told;
+            this.turn = turn;
         }
     }
 
@@ -111,7 +115,15 @@ final class Causes {
                 // A reveal is about the moment it happened; a new turn
                 // is the game moving on.
                 settleReveals();
-                reveals.clear();
+                // Spec 0083 (17) -- except one made before the game began
+                // (Chancellor of the Annex revealed from an opening hand):
+                // no board was sent in between, so it is shown through the
+                // first turn, until the second begins.
+                int now = game.getPhaseHandler().getTurn();
+                reveals.values().removeIf(reveal -> !(reveal.turn == 0 && now <= 1));
+                // The pulse is kept: a cleanup discard exiled by two Leylines
+                // is followed by the next turn before any board is sent. The
+                // page pulses once per key.
             }
         }
     }
@@ -246,6 +258,54 @@ final class Causes {
     }
 
     /**
+     * Spec 0083 (17) -- identical replacement effects that applied without a
+     * question (two Leylines of the Void exiling a card): their permanents,
+     * which the page pulses gold as the card moves. The latest only; a new
+     * key each time. Was a grey notice ("they do the same thing here...").
+     */
+    private record Pulse(long key, java.util.List<Integer> cards) {}
+
+    private volatile Pulse pulse;
+    private final java.util.concurrent.atomic.AtomicLong pulseKeys = new java.util.concurrent.atomic.AtomicLong();
+
+    void sameReplaced(java.util.List<Card> hosts) {
+        java.util.List<Integer> ids = new java.util.ArrayList<>();
+        for (Card host : hosts) {
+            if (host != null && !ids.contains(host.getId())) {
+                ids.add(host.getId());
+            }
+        }
+        if (!ids.isEmpty()) {
+            pulse = new Pulse(pulseKeys.incrementAndGet(), java.util.List.copyOf(ids));
+        }
+    }
+
+    /**
+     * The latest pulse, as the cards' ids that are face up on the battlefield
+     * now -- public, so the same for every viewer -- or null.
+     */
+    JsonObject pulseFor() {
+        Pulse now = pulse;
+        if (now == null) {
+            return null;
+        }
+        JsonArray cards = new JsonArray();
+        for (int id : now.cards()) {
+            Card card = game.findById(id);
+            if (card != null && card.isInZone(ZoneType.Battlefield) && !card.isFaceDown()) {
+                cards.add("card:" + id);
+            }
+        }
+        if (cards.isEmpty()) {
+            return null;
+        }
+        JsonObject out = new JsonObject();
+        out.addProperty("key", "pulse:" + now.key());
+        out.add("cards", cards);
+        return out;
+    }
+
+    /**
      * A seat was shown these cards. The title names what showed them --
      * the card resolving -- or, outside a resolution, Forge's own words.
      */
@@ -259,7 +319,8 @@ final class Causes {
         }
         String by = resolvingName();
         String title = told != null ? told.said() : by != null ? by + " revealed:" : forgeWords;
-        reveals.put(seat, new Reveal(revealKeys.incrementAndGet(), title, java.util.List.copyOf(cardIds), told));
+        reveals.put(seat, new Reveal(revealKeys.incrementAndGet(), title, java.util.List.copyOf(cardIds), told,
+                game.getPhaseHandler().getTurn()));
     }
 
     /** The revealing effect finished: where each card went is now fixed. */

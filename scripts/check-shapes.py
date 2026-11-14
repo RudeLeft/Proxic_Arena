@@ -15,7 +15,9 @@ by them: each half must be offered under its own name at its own cost.
   fuse       Wear // Tear: both halves at once ({1}{R}{W}) destroy an
              artifact and an enchantment
   rooms      Bottomless Pool // Locker Room and Dollmaker's Shop //
-             Porcelain Gallery: cast one door, unlock the other
+             Porcelain Gallery: cast one door, unlock the other. Spec 0083
+             (15 A), both seats: a Room with one door open says its other
+             door is `locked`; with both open, nothing is
   mutate     Gemrazer mutated ON TOP of Grizzly Bears: one creature, now
              Gemrazer's 4/4; both seats told Gemrazer went stack -> merged
              `into` the Bears (Phase 10 A-10)
@@ -356,7 +358,7 @@ def rooms():
     # (first door and its cost, the door to unlock and its cost)
     doors = {"Bottomless Pool // Locker Room": ("Bottomless Pool", "{U}", "Locker Room", "{4}{U}"),
              "Dollmaker's Shop // Porcelain Gallery": ("Dollmaker's Shop", "{1}{W}", "Porcelain Gallery", "{4}{W}{W}")}
-    st = {"room": {}, "unlocked": {}, "unlock_labels": {}}
+    st = {"room": {}, "unlocked": {}, "unlock_labels": {}, "locks": set()}
     seat2 = seat2_plays("Grizzly Bears")
 
     def on_board(g, first):
@@ -397,13 +399,19 @@ def rooms():
         return DEFAULT
 
     def until(g):
+        # Spec 0083 -- each Room as each seat sees it: its name and its locked doors.
+        for seat in (1, 2):
+            for c in g.zone(seat, "battlefield", owner=1):
+                if "Room" in (c.get("types") or ""):
+                    st["locks"].add((seat, c.get("name"), tuple(c.get("locked") or ())))
         return len(st["unlocked"]) == 2 and calm(g) and all(
             second in str([c.get("name") for c in g.mine(1) if c["id"] == st["room"].get(room)])
             for room, (_, _, second, _) in doors.items())
 
     g.run(policy, until=until, max_turn=46)
     found = {"rooms": {room: [c.get("name") for c in g.mine(1) if c["id"] == st["room"].get(room)] for room in doors},
-             "unlock_labels": st["unlock_labels"], "unlocked": st["unlocked"], "stopped": g.stopped_badly()}
+             "unlock_labels": st["unlock_labels"], "unlocked": st["unlocked"], "locks": sorted(st["locks"]),
+             "stopped": g.stopped_badly()}
     if len(st["room"]) < 2:
         return "inconclusive", "both Rooms never reached the battlefield", found
     problems = [found["stopped"]] if found["stopped"] else []
@@ -415,6 +423,12 @@ def rooms():
             problems.append(f"{room}: the unlock is offered at the wrong price: {label!r}")
         if second not in str(found["rooms"].get(room)):
             problems.append(f"{room}: {second} did not unlock: {found['rooms'].get(room)}")
+        for seat in (1, 2):
+            seen = {name: locked for s, name, locked in st["locks"] if s == seat}
+            if seen.get(first) != (second,):
+                problems.append(f"{room}, seat {seat}: with {first} open, {second} should be locked: {seen.get(first)}")
+            if seen.get(room, ()) != ():
+                problems.append(f"{room}, seat {seat}: both doors open, nothing is locked: {seen.get(room)}")
     return result(problems, "each Room cast by one door at its own cost, and the other unlocked for its own cost", found)
 
 

@@ -222,7 +222,8 @@ import type { Survive, TileMove, TileZone } from "./fromSnapshot";
 import { domeMarks, shieldBreakMarks, wardMarks, type SurviveMark } from "./survive";
 import { payWords, type PayMark } from "./payPicks";
 import { PaySign } from "./PaySign";
-import { BADGE_FLOOR, CardBadges, MARK_H, REGEN_SHIELD, TWIN } from "./CardBadges";
+import { BADGE_FLOOR, CardBadges, MARK_H, REGEN_SHIELD, SEAL, STOPWATCH, TWIN } from "./CardBadges";
+import { RoomFace } from "./RoomDoors";
 import {
   COPY_FLIP_AT,
   COPY_GHOST_MS,
@@ -253,7 +254,7 @@ import {
   waitingBoxes,
   type HeldMemory,
 } from "./copies";
-import { SizeFigure, type Figure } from "./SizeFigure";
+import { SizeFigure, shakeFrames, type Figure } from "./SizeFigure";
 import {
   countSpan,
   endSizeSteps,
@@ -261,6 +262,7 @@ import {
   sizesLength,
   sizesStillPlaying,
   startSizeSteps,
+  SHAKE_MS,
   SHRINK_BEAT_MS,
   signed,
   type PlayedSize,
@@ -308,6 +310,13 @@ export interface BoardCard extends LayoutCard {
   phasedOut?: boolean | undefined;
   shields?: number | undefined;
   indestructible?: boolean | undefined;
+  /**
+   * Spec 0083 (15 A) -- a Room: its two doors (drawn as the card's top and
+   * bottom halves), and the halves still locked -- each a closed door with
+   * the gold keyhole square.
+   */
+  doors?: readonly [string, string] | undefined;
+  lockedHalves?: readonly ("top" | "bottom")[] | undefined;
 }
 
 /** Spec 0045 -- a counter's name as players say it ("P1P1" is "+1/+1"). */
@@ -411,6 +420,10 @@ export interface StackView {
   waiting?: boolean;
   /** Spec 0082 -- one of them is being asked "new target?" now. */
   aiming?: boolean;
+  /** Spec 0083 (18 B) -- split second: the gold stopwatch square; the stack locks while it is there. */
+  splitSecond?: boolean;
+  /** Spec 0083 (18 B) -- can't be countered: the gold seal square. */
+  cantBeCountered?: boolean;
 }
 
 /** Damage just dealt, one wave (one combat damage step, or one spell):
@@ -560,6 +573,10 @@ export interface BoardProps {
   life?: LifeChanges | null;
   /** Spec 0078 -- the round's changes to sizes and counters: played once per `key`. */
   sizeChanges?: SizeChanges | null;
+  /** Spec 0083 (14 C) -- day or night (null before a daybound card made it one): a change washes the table. */
+  dayTime?: string | null;
+  /** Spec 0083 (17) -- permanents whose identical replacement effects just applied: pulsed gold once per `key`. */
+  pulse?: { key: string; cards: readonly string[] } | null;
   // --- PHASE_07 §7.24-§7.33: the board answers questions -------------
   /** A primary click on an object (a card, a pile, a tag, a hand card). */
   onPick?: (objectId: string, members?: readonly string[]) => void;
@@ -814,6 +831,11 @@ interface Drawn {
   table?: boolean;
   /** Spec 0078 -- its number, counting and tinted (a permanent on the table). */
   figure?: Figure | undefined;
+  /**
+   * Spec 0083 (15 A) -- a Room on the table: unlocking a door renames it, and
+   * only that half's door opens (RoomDoors) -- never A-09's whole-card flip.
+   */
+  room?: boolean;
 }
 
 /**
@@ -1120,6 +1142,79 @@ const CRACK = (
   </svg>
 );
 
+/** Spec 0083 (13 B) -- the same crack, drawn across a card (stretched to its box). */
+const CRACK_CARD = (
+  <svg viewBox="0 0 46 54" preserveAspectRatio="none" aria-hidden="true">
+    <path
+      d="M23 6 L20 16 L26 22 L19 33 L24 41 M26 22 L35 27 M19 33 L10 37"
+      fill="none"
+      stroke="#ff3a24"
+      strokeWidth="4"
+      opacity=".45"
+      strokeLinejoin="round"
+      vectorEffect="non-scaling-stroke"
+    />
+    <path
+      d="M23 6 L20 16 L26 22 L19 33 L24 41 M26 22 L35 27 M19 33 L10 37"
+      fill="none"
+      stroke="#fff1e0"
+      strokeWidth="1.6"
+      strokeLinejoin="round"
+      vectorEffect="non-scaling-stroke"
+    />
+  </svg>
+);
+
+/** Spec 0083 (13 B) -- the red flash under a crack: the canvas's, 1.6 of what was hit, over its first 60%. */
+const HIT_FLASH_SPAN = 1.6;
+
+/**
+ * Spec 0083 (13 B, owner) -- a spell's or an ability's hit: 0077's crack
+ * across what it hit (a card's box, or a shield's 46 x 54), with its red
+ * flash, on 0077's clock (LIFE_CRACK_MS). The shake is the card's own.
+ */
+function hitMarks(
+  key: string,
+  at: Point,
+  w: number,
+  h: number,
+  delay: number,
+  of: string,
+): FightMark[] {
+  const span = w * HIT_FLASH_SPAN;
+  return [
+    {
+      key: `${key}:hitflash`,
+      kind: "hitflash",
+      style: { left: at.x - span / 2, top: at.y - span / 2, width: span, height: span },
+      frames: [
+        { offset: 0, opacity: 0 },
+        { offset: 0.3, opacity: 0.9 },
+        { offset: 0.6, opacity: 0 },
+        { offset: 1, opacity: 0 },
+      ],
+      duration: LIFE_CRACK_MS,
+      delay,
+      of,
+    },
+    {
+      key: `${key}:crack`,
+      kind: "crack",
+      card: true,
+      impact: of,
+      style: { left: at.x - w / 2, top: at.y - h / 2, width: w, height: h },
+      frames: [
+        { offset: 0, opacity: 0 },
+        { offset: 0.15, opacity: 1 },
+        { offset: 1, opacity: 0 },
+      ],
+      duration: LIFE_CRACK_MS,
+      delay,
+      of,
+    },
+  ];
+}
+
 /**
  * Spec 0077 -- the poison badge's centre, from the life shield's centre: down
  * and to the left, touching the shield, clear of its number (game.css
@@ -1178,7 +1273,16 @@ const FIZZLE_WARD_MS = 350;
 /** Spec 0080 -- a phased-out permanent turning solid again as it phases in. */
 export const PHASE_IN_MS = 500;
 
-/** A card a spell killed leaves once its burst has landed. */
+/** Spec 0083 (17) -- the sources' gold pulse (the canvas's 0.7 s). */
+const PULSE_MS = 700;
+
+/** Spec 0083 (14 C) -- the day/night wash: up 0.45 s, held 0.25 s, down 0.55 s (the canvas's C). */
+export const WASH_MS = 1250;
+
+/** Spec 0083 (18 B) -- a split-second spell's ring lifts over this long as it resolves (the canvas's). */
+const SPLIT_LIFT_MS = 250;
+
+/** A card a spell killed leaves once its crack has landed. */
 const SPELL_HIT_MS = 150;
 
 /** Phase 10 A-13: the fights' dimming, above the table; the fighters above it. */
@@ -1205,7 +1309,16 @@ interface FightMark {
     | "dome"
     | "spark"
     | "ward"
-    | "shieldbreak";
+    | "shieldbreak"
+    // Spec 0083: a spell's hit's red flash; a split-second spell's ring lifting.
+    | "hitflash"
+    | "splitring";
+  /** Spec 0083 (13 B) -- a crack drawn across a card's box (stretched), not a shield's. */
+  card?: boolean;
+  /** Spec 0083 -- what a spell's hit landed on, for the browser checks (as the burst's was). */
+  impact?: string;
+  /** Spec 0083 -- a spell's rising "−N": what it landed on (as the old number's attribute). */
+  damageNumber?: string;
   style: CSSProperties;
   frames: Keyframe[];
   duration: number;
@@ -1305,7 +1418,7 @@ interface Tab {
 /** A burst, a damage number or a resolving spell's spark, on its way out. */
 interface Effect {
   key: string;
-  kind: "burst" | "number" | "spark";
+  kind: "number" | "spark";
   /** What was hit: an object id, or "player:N". */
   target: string;
   at: Point;
@@ -1491,6 +1604,8 @@ export function Board({
   damage,
   life,
   sizeChanges: sizes0078,
+  dayTime = null,
+  pulse = null,
   onPick,
   onInspect,
   choosable,
@@ -1549,7 +1664,12 @@ export function Board({
   // Spec 0067 -- a board that goes takes its fights' life steps with it.
   useEffect(() => () => endLifeSteps(), []);
   /** A spell's damage: what it hit waits for its burst before it leaves. */
-  const spellHits = useRef<{ ids: Set<string>; delay: number } | null>(null);
+  const spellHits = useRef<{
+    ids: Set<string>;
+    delay: number;
+    /** Spec 0083 -- when each hit lands (its crack and number). */
+    landed: Map<string, number>;
+  } | null>(null);
   const fightGhosts = useRef(
     new Map<string, { frames: Keyframe[]; duration: number; delay: number; shatterAt: number }>(),
   );
@@ -1961,6 +2081,7 @@ export function Board({
         known: lead.known,
         side,
         table: true,
+        ...(lead.doors ? { room: true } : {}),
         figure: {
           card: lead.id,
           size: sizeOf(lead),
@@ -2037,7 +2158,21 @@ export function Board({
                   }
                 : {})}
             >
-              <CardFace {...drawn} />
+              {/* Spec 0083 (15 A) -- a Room: its two doors, the locked ones
+                  closed with the gold keyhole square; one swings open as it
+                  unlocks, and the other half does not move. */}
+              {lead.doors && !lead.faceDown ? (
+                <RoomFace
+                  id={lead.id}
+                  doors={lead.doors}
+                  locked={lead.lockedHalves ?? []}
+                  art={drawn.art}
+                  crop={drawn.crop ?? null}
+                  look={look}
+                />
+              ) : (
+                <CardFace {...drawn} />
+              )}
               {/* Spec 0076 -- its counters and the Ring-bearer as badges, low
                   on the left; pointing says spec 0045's words. They keep
                   clear of everything else on the card (item 5): the state
@@ -2366,13 +2501,31 @@ export function Board({
   // being aimed picked its target; the cards landed), that card's key.
   // `copyCards` is what each was last drawn as: its key, count, box, things.
   const copyCards = useRef(new Map<string, { n: number; box: Box; things: readonly string[] }>());
+  // Spec 0083 (L2) -- the element each stack entry was last drawn on, by
+  // entry id (every member of an "xN" card too): when the entry leading a
+  // card of identical triggers resolves, the next one takes the card over
+  // -- the same element, never a new card popping in at full strength.
+  const drawnOn = useRef(new Map<string, string>());
   const renderKeys = useMemo(() => {
     const out = new Map<string, string>();
     const all = [...(stack ?? []), ...copying];
     const present = new Set(all.map((s) => s.key ?? s.id));
     const taken = new Set<string>();
+    const lastDrawn = drawnOn.current;
+    const next = new Map<string, string>();
     for (const s of all) {
       let k = s.key ?? s.id;
+      if (!s.key) {
+        // Was it (or one of its members) drawn on a card whose own lead has
+        // gone? That card is this one.
+        const inherited = [s.id, ...(s.members ?? [])]
+          .map((id) => lastDrawn.get(id))
+          .find(
+            (old) =>
+              old !== undefined && (old === s.id || !all.some((o) => o !== s && o.id === old)),
+          );
+        if (inherited) k = inherited;
+      }
       if (s.key && !copyCards.current.has(k)) {
         for (const [old, was] of copyCards.current) {
           if (present.has(old) || taken.has(old)) continue;
@@ -2385,7 +2538,9 @@ export function Board({
       while (taken.has(k)) k += "+";
       taken.add(k);
       out.set(s.id, k);
+      for (const id of [s.id, ...(s.members ?? [])]) next.set(id, k);
     }
+    drawnOn.current = next;
     return out;
   }, [stack, copying]);
   const keyOf = (s: StackView) => renderKeys.get(s.id) ?? s.key ?? s.id;
@@ -2792,7 +2947,7 @@ export function Board({
   // moves in the same update waits for the fights. Phase 10 A-13 (owner
   // 2026-11-06, Amendment 15): a combat damage step's damage plays one fight
   // at a time (fights.ts) -- the game says who fought whom; anything else
-  // (a spell) is a burst and the amount where it landed.
+  // (a spell) cracks what it hit (spec 0083) and the amount rises there.
   useLayoutEffect(() => {
     if (!result || !damage || damage.key === wave.current?.key) return;
     wave.current = { key: damage.key };
@@ -2896,35 +3051,109 @@ export function Board({
       totals.set(k, { ref: hit.target, amount: (totals.get(k)?.amount ?? 0) + hit.amount });
     }
     const added: Effect[] = [];
+    const cracks: FightMark[] = [];
+    // Spec 0083 (13 B) -- 0077's timing: a hit lands when the resolving
+    // spell's spark reaches it (RESOLVE_MS after it starts), as the life
+    // shield's crack does; at once with no spark, and after any fights.
+    const stackNow = new Set((stack ?? []).map((s) => s.id));
+    const sparked = new Set<string>();
+    for (const { s } of before?.stack ?? []) {
+      if (stackNow.has(s.id)) continue;
+      for (const t of s.targets) sparked.add(refKey(t));
+    }
+    const landsAt = (k: string) => Math.max(hold, sparked.has(k) ? RESOLVE_MS : 0);
+    let lastLanding = hold;
+    const landed = new Map<string, number>();
     for (const [k, { ref, amount }] of totals) {
       const point = pointOf(ref);
       if (!point) continue;
-      if (!still)
-        added.push({
-          key: `${damage.key}:${k}:burst`,
-          kind: "burst",
-          target: k,
-          at: point,
-          amount,
-          delay: hold,
+      const lands = landsAt(k);
+      lastLanding = Math.max(lastLanding, lands);
+      landed.set(k, lands);
+      // Spec 0083 (13 B, owner) -- one hit look: a spell or ability hitting
+      // anything cracks it -- on a creature exactly as on a life shield
+      // (0077's crack, its red flash and shake, its timing). Combat still
+      // slashes (A-13, above). The old orange starburst is gone.
+      if (!still) {
+        const box =
+          "object" in ref
+            ? (positions.get(ref.object)?.box ?? before?.at.get(ref.object)?.box)
+            : undefined;
+        const unit = g.height / 900;
+        cracks.push(
+          ...hitMarks(
+            `${damage.key}:${k}`,
+            point,
+            box ? box.w : 46 * unit,
+            box ? box.h : 54 * unit,
+            lands,
+            k,
+          ),
+        );
+        if (box && "object" in ref) {
+          const item = positions.get(ref.object)?.item;
+          const card = item
+            ? elements.current.get(item)?.querySelector<HTMLElement>(":scope > .bf-card")
+            : null;
+          if (card && typeof card.animate === "function")
+            card.animate(shakeFrames(box.h), {
+              duration: SHAKE_MS,
+              delay: lands,
+              easing: "linear",
+              composite: "add",
+            });
+        }
+        // The red "−N" rises off what was hit with the crack (the canvas's
+        // B: off the card's right, as 0077's rises off a shield's left), on
+        // the board's clock, so a slowed or hurried clock keeps it with the
+        // crack (a page timer cut it short on a slowed clock).
+        const w = box ? box.w : 46 * unit;
+        const h = box ? box.h : 54 * unit;
+        cracks.push({
+          key: `${damage.key}:${k}:number`,
+          kind: "number",
+          damageNumber: k,
+          style: {
+            left: box ? point.x + w * 0.34 : point.x - 52 * unit,
+            top: box ? point.y - h * 0.1 : point.y - 4 * unit,
+            fontSize: box ? h * 0.24 : 34 * unit,
+          },
+          frames: [
+            { offset: 0, opacity: 0, transform: "translate(-50%, -50%) translateY(-30%)" },
+            { offset: 0.12, opacity: 1 },
+            { offset: 0.7, opacity: 1 },
+            { offset: 1, opacity: 0, transform: "translate(-50%, -50%) translateY(-130%)" },
+          ],
+          duration: LIFE_MARK_MS,
+          delay: lands,
+          text: `−${amount}`,
+          of: k,
         });
+        continue;
+      }
+      // Reduce motion: the number alone, still (bf-number-still).
       added.push({
         key: `${damage.key}:${k}:number`,
         kind: "number",
         target: k,
         at: point,
         amount,
-        delay: hold,
+        delay: lands,
       });
     }
     setEffects((list) => [...list.filter((e) => !e.key.startsWith(`${damage.key}:`)), ...added]);
+    if (cracks.length > 0) setMarks((list) => [...list, ...cracks]);
     timers.current.push(
       window.setTimeout(
         () => setEffects((list) => list.filter((e) => !added.includes(e))),
-        hold + NUMBER_MS + 50,
+        lastLanding + NUMBER_MS + 50,
       ),
     );
-    spellHits.current = { ids: new Set(totals.keys()), delay: hold + SPELL_HIT_MS };
+    spellHits.current = {
+      ids: new Set(totals.keys()),
+      delay: lastLanding + SPELL_HIT_MS,
+      landed,
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [damage, result, positions, viewerSeat]);
 
@@ -3055,6 +3284,74 @@ export function Board({
   }, [life, result]);
   useEffect(() => () => lifeClock.current?.cancel(), []);
 
+  // Spec 0083 (14 C, owner) -- day becoming night (or back): a short, light
+  // wash crosses the table -- blue dusk for night, gold dawn for day -- and
+  // fades (the turn ladder's medallion says which it is now). Not the first
+  // day or night a daybound card makes: only a change.
+  const dayWas = useRef(dayTime);
+  const [wash, setWash] = useState<{ key: number; to: "day" | "night" } | null>(null);
+  useLayoutEffect(() => {
+    const was = dayWas.current;
+    dayWas.current = dayTime;
+    if (!was || !dayTime || was === dayTime || reducedMotion()) return;
+    setWash({ key: performance.now(), to: dayTime === "night" ? "night" : "day" });
+  }, [dayTime]);
+
+  // Spec 0083 (17, owner) -- identical replacement effects applied without a
+  // question (two Leylines of the Void exiling a card): no words; their
+  // permanents pulse gold as the card moves.
+  const pulseSeen = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (!pulse || pulse.key === pulseSeen.current || !result) return;
+    const first = pulseSeen.current === null && previous.current === null;
+    pulseSeen.current = pulse.key;
+    if (first || reducedMotion()) return;
+    // A pile of them (two Leylines side by side are one pile) pulses once.
+    const items = new Set(pulse.cards.map((id) => positions.get(id)?.item));
+    for (const item of items) {
+      const card = item
+        ? elements.current.get(item)?.querySelector<HTMLElement>(":scope > .bf-card")
+        : null;
+      if (card && typeof card.animate === "function")
+        card.animate(glowFrames(), { duration: PULSE_MS, easing: "linear" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per pulse
+  }, [pulse, result]);
+
+  // Spec 0083 (18 B) -- a split-second spell leaving the stack (it
+  // resolved): its gold ring lifts, fading where it was, as the card glows
+  // and goes; the dimmed hand brightens with it (CSS, the board's
+  // data-split-second).
+  useLayoutEffect(() => {
+    const was = previous.current?.stack ?? [];
+    if (!result || reducedMotion()) return;
+    const now = new Set((stack ?? []).map((s) => s.id));
+    const lifted: FightMark[] = [];
+    for (const { s, box } of was) {
+      if (!s.splitSecond || now.has(s.id)) continue;
+      const out = 4 * box.scale;
+      lifted.push({
+        key: `split:${s.id}:${performance.now()}`,
+        kind: "splitring",
+        style: {
+          left: box.x - out,
+          top: box.y - out,
+          width: box.w + 2 * out,
+          height: box.h + 2 * out,
+        },
+        frames: [
+          { offset: 0, opacity: 1 },
+          { offset: 1, opacity: 0 },
+        ],
+        duration: SPLIT_LIFT_MS,
+        delay: 0,
+        of: s.id,
+      });
+    }
+    if (lifted.length > 0) setMarks((list) => [...list, ...lifted]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per stack
+  }, [stack]);
+
   // Spec 0078 (owner 2026-11-12, canvas pt-1112) -- a permanent's number
   // and badges changing (sizeTicks.ts), once per round, all on one clock on
   // the board so a click hurries it (A-00): together (an Anthem's creatures
@@ -3092,8 +3389,13 @@ export function Board({
       const item = positions.get(card)?.item;
       const end = item !== undefined ? fightEnds.current.get(item) : undefined;
       if (end !== undefined && hold > 0) return Math.max(0, end - fightNow - 150);
+      // Spec 0083 (13 B): a spell's damage shows on the card's number as its
+      // crack and rising "−N" land (the spark arriving), not after.
       if (spellHits.current?.ids.has(card))
-        return Math.max(0, spellHits.current.delay - SPELL_HIT_MS + NUMBER_MS - 150);
+        return Math.max(
+          0,
+          spellHits.current.landed.get(card) ?? spellHits.current.delay - SPELL_HIT_MS,
+        );
       return Math.max(0, hold - 150);
     };
     const played: PlayedSize[] = sizes0078.changes.map((change) => ({
@@ -4621,7 +4923,10 @@ export function Board({
         if (
           item.drawn.table &&
           oldFace &&
-          (oldFace.name !== item.drawn.name || oldFace.faceDown !== item.drawn.faceDown)
+          (oldFace.faceDown !== item.drawn.faceDown ||
+            // Spec 0083 (15 A): a Room's door unlocking renames it; only that
+            // door opens (RoomDoors), the card does not turn over.
+            (oldFace.name !== item.drawn.name && !(oldFace.room && item.drawn.room)))
         ) {
           const card = elements.current
             .get(item.id)
@@ -5736,6 +6041,10 @@ export function Board({
 
   if (!result) return <div ref={ref} className="bf-board" data-testid="battlefield" />;
   const g = result.geometry;
+  // Spec 0083 (18 B) -- whose hand a split-second spell locks: the side that
+  // did not cast it.
+  const splitEntry = (stack ?? []).find((s) => s.splitSecond);
+  const splitLock = splitEntry ? (splitEntry.seat === viewerSeat ? "opponent" : "viewer") : null;
   const where = anchors(g);
   const sizes = effectSizes(g);
 
@@ -6084,8 +6393,30 @@ export function Board({
   }
 
   return (
-    <div ref={ref} className="bf-board" data-testid="battlefield">
+    <div
+      ref={ref}
+      className="bf-board"
+      data-testid="battlefield"
+      // Spec 0083 (18 B) -- a split-second spell on the stack: the other
+      // player's hand dims (battlefield.css) until it resolves.
+      data-split-second={splitLock ?? undefined}
+    >
       <div className="bf-felt-edge" style={{ width: g.play.w }} />
+      {wash && (
+        // Spec 0083 (14 C) -- the dusk or dawn wash, across the table.
+        <div
+          key={wash.key}
+          className={`bf-wash bf-wash-${wash.to}`}
+          data-wash={wash.to}
+          aria-hidden="true"
+          onAnimationEnd={(event) => {
+            if ((event.target as HTMLElement).classList.contains("bf-wash-tint")) setWash(null);
+          }}
+        >
+          {wash.to === "night" && <span className="bf-wash-dark" />}
+          <span className="bf-wash-tint" />
+        </div>
+      )}
       <div className="bf-divider" style={{ top: g.height / 2, width: g.play.w }} />
       <aside
         className="bf-rail"
@@ -6238,6 +6569,8 @@ export function Board({
                 className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${whose}${a.className}`}
                 aria-label={[
                   `${s.copy ? "a copy of " : ""}${s.name}${s.count ? ` ×${s.count}` : ""}, ${waiting ? "on its way to the stack" : "on the stack"}`,
+                  s.splitSecond ? "split second" : "",
+                  s.cantBeCountered ? "can't be countered" : "",
                   waiting ? "" : `${ordinal(i + 1)} to resolve`,
                   s.by ? `from ${s.by}` : "",
                   ...a.words,
@@ -6254,7 +6587,11 @@ export function Board({
                 data-members={
                   s.things
                     ? s.things.filter((t) => !peeling.current.has(t)).join(" ") || undefined
-                    : undefined
+                    : // Spec 0083 (L2) -- an "xN" card of identical triggers draws
+                      // each of them: the next takes over as the one leading resolves.
+                      s.members && s.members.length > 1
+                      ? s.members.join(" ")
+                      : undefined
                 }
                 {...a.data}
                 {...a.handlers}
@@ -6299,7 +6636,17 @@ export function Board({
                   />
                 )}
                 {s.copy && <CopyMark />}
+                {/* Spec 0083 (18 B) -- what the spell is: split second's
+                    stopwatch, can't be countered's seal. */}
+                {(s.splitSecond || s.cantBeCountered) && (
+                  <SpellMark splitSecond={!!s.splitSecond} above={!!s.copy} />
+                )}
               </button>
+              {/* Spec 0083 (18 B) -- split second: a gold ring closes round
+                  the card while it is on the stack (nobody may answer). */}
+              {s.splitSecond && !waiting && (
+                <span className="bf-split-ring" data-split-ring={s.id} aria-hidden="true" />
+              )}
               {/* Amendment 13 (item 8) -- paying for this one: what's still due,
                   under its words, as on a card being cast. */}
               {i === 0 && stackPay && stackPay.length > 0 && <OwePill pips={stackPay} />}
@@ -6600,37 +6947,6 @@ export function Board({
                   ["--spark-ms" as string]: `${RESOLVE_MS}ms`,
                 }}
               />
-            ) : effect.kind === "burst" ? (
-              <div
-                key={effect.key}
-                className="bf-burst"
-                data-impact={effect.target}
-                style={{
-                  left: effect.at.x,
-                  top: effect.at.y,
-                  width: sizes.burst,
-                  height: sizes.burst,
-                  animationDelay: `${effect.delay}ms`,
-                }}
-              >
-                <svg viewBox="-50 -50 100 100">
-                  <circle r="22" className="bf-burst-core" />
-                  {Array.from({ length: 10 }, (_, i) => {
-                    const t = (i / 10) * Math.PI * 2;
-                    const r1 = i % 2 ? 26 : 30;
-                    return (
-                      <line
-                        key={i}
-                        x1={Math.cos(t) * r1}
-                        y1={Math.sin(t) * r1}
-                        x2={Math.cos(t) * 48}
-                        y2={Math.sin(t) * 48}
-                        className="bf-burst-ray"
-                      />
-                    );
-                  })}
-                </svg>
-              </div>
             ) : (
               <div
                 key={effect.key}
@@ -7076,10 +7392,16 @@ function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
       className={`bf-fight-${mark.kind}${mark.deathtouch ? " bf-fight-deathtouch" : ""}${mark.poison ? " bf-fight-poisoned" : ""}${mark.tone ? ` bf-fight-${mark.tone}` : ""}`}
       data-fight={mark.kind}
       data-of={mark.of}
+      data-impact={mark.impact}
+      data-damage-number={mark.damageNumber}
       style={{ ...mark.style, opacity: 0 }}
     >
       {mark.kind === "crack" ? (
-        CRACK
+        mark.card ? (
+          CRACK_CARD
+        ) : (
+          CRACK
+        )
       ) : mark.kind === "dome" ? (
         <HexDome id={mark.key} />
       ) : mark.kind === "shieldbreak" ? (
@@ -7391,6 +7713,24 @@ function CopyMark() {
       aria-hidden="true"
     >
       {TWIN}
+    </span>
+  );
+}
+
+/**
+ * Spec 0083 (18 B) -- 0076's gold-rimmed square on a spell's stack card:
+ * split second (a stopwatch) or can't be countered (a seal), low on the left
+ * where a copy's mark goes (above it, on a copy). It pops in as the card
+ * lands on the stack.
+ */
+function SpellMark({ splitSecond, above }: { splitSecond: boolean; above: boolean }) {
+  return (
+    <span
+      className={`bf-mark bf-spell-mark${above ? " bf-spell-mark-above" : ""}`}
+      data-spell-mark={splitSecond ? "split-second" : "cant-be-countered"}
+      aria-hidden="true"
+    >
+      {splitSecond ? STOPWATCH : SEAL}
     </span>
   );
 }

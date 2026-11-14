@@ -38,7 +38,7 @@
       "tests": "P6-AC, §6.68",
       "scenario": "In the opening hand, Forge offers beginning the game with it on the battlefield; it arrives without being cast.",
       "result": "PASSED",
-      "evidence": "scripts/check-leyline.py (worker, in CI) and frontend/e2e/match-leyline.spec.ts (browser, in CI), 2026-10-20. Asked before the first turn, one pick per question with Pass for 'no more'; exactly the chosen cards begin on the battlefield, uncast (no stack, no mana); a declined Leyline stays in hand; the opponent's discard is exiled by Forge's replacement -- forced every run in the case that used to fail, before anyone has acted (patch 0001). In the browser: the offer with Forge's wording and a Pass, then the Leyline on the player's own battlefield at turn 1. Screenshots seen/leyline-*.png.",
+      "evidence": "scripts/check-leyline.py (worker, in CI) and frontend/e2e/match-leyline.spec.ts (browser, in CI), 2026-10-20. Asked before the first turn, one pick per question with Pass for 'no more'; exactly the chosen cards begin on the battlefield, uncast (no stack, no mana); a declined Leyline stays in hand; the opponent's discard is exiled by Forge's replacement -- forced every run in the case that used to fail, before anyone has acted (patch 0001). In the browser: the offer with Forge's wording and a Pass, then the Leyline on the player's own battlefield at turn 1. Screenshots seen/leyline-*.png. Spec 0083 (2026-11-13): two identical Leylines are neither asked nor told (no grey notice); both seats are sent a `pulse` naming both Leylines, which the page pulses gold.",
       "notes": "Was a loud stub (chooseSaToActivateFromOpeningHand): any deck with a Leyline stopped the match before turn one. Found 2026-10-20: if nobody acted before the first card moved to a graveyard, Forge skipped the replacement (its last-known battlefield was not refreshed after opening-hand actions). Owner-approved Forge patch forge_patches/0001-leyline-last-known-state.patch fixes it; the rules record is docs/testing/evidence/p6-af-rules-record.md."
     },
     "Karn Liberated": {
@@ -189,7 +189,7 @@
       "tests": "P6-AJ, P6-BF, §6.82",
       "scenario": "Room: cast one door, unlock the other.",
       "result": "PASSED",
-      "evidence": "scripts/check-shapes.py rooms (worker, in CI), 2026-10-20. Cast by one door ({U}); the other door unlocked for its own {4}{U}. Found: the unlock was offered at the open door's price, {U} -- labels now use the ability's own mana cost."
+      "evidence": "scripts/check-shapes.py rooms (worker, in CI), 2026-10-20. Cast by one door ({U}); the other door unlocked for its own {4}{U}. Found: the unlock was offered at the open door's price, {U} -- labels now use the ability's own mana cost. Spec 0083 (2026-11-13): both seats see the Room's locked door by name (`locked`) while one door is open, nothing locked once both are."
     },
     "Dollmaker's Shop // Porcelain Gallery": {
       "owner": "P6_REQUIRED",

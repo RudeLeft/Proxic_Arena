@@ -1691,7 +1691,7 @@ public final class MatchController extends GeneratedControllerBase {
         boolean allTheSame = possible.stream()
                 .allMatch(effect -> effect == first || firstText.equals(withoutCardNumbers(String.valueOf(effect))));
         if (allTheSame) {
-            sameNotAsked(first, possible.size());
+            sameNotAsked(possible);
             return first;
         }
 
@@ -1731,28 +1731,18 @@ public final class MatchController extends GeneratedControllerBase {
         return text == null ? "" : text.replaceAll(" \\(\\d+\\)", "");
     }
 
-    /** Phase 9 Amendment 20 -- the names already said "not asked" this turn. */
-    private final java.util.Set<String> sameSaid = new java.util.HashSet<>();
-
-    private int sameSaidTurn = -1;
-
     /**
-     * Phase 9 Amendment 20 -- identical choices are not asked; the player is
-     * told once a turn per card name, so a sweeper with two Leylines out
-     * says it once, not for every creature.
+     * Phase 9 Amendment 20 -- identical choices are not asked. Spec 0083
+     * (17, owner): nor told -- the grey "they do the same thing here, so the
+     * order doesn't matter" notice is gone; the card's own move shows what
+     * happened, and the effects' permanents pulse gold (Causes#pulseFor).
      */
-    private void sameNotAsked(forge.game.replacement.ReplacementEffect effect, int count) {
-        forge.game.card.Card host0 = effect.getHostCard();
-        String name = host0 == null ? "These effects" : host0.getName();
-        int turn = player.getGame().getPhaseHandler().getTurn();
-        if (turn != sameSaidTurn) {
-            sameSaid.clear();
-            sameSaidTurn = turn;
+    private void sameNotAsked(List<forge.game.replacement.ReplacementEffect> possible) {
+        java.util.List<forge.game.card.Card> hosts = new java.util.ArrayList<>();
+        for (forge.game.replacement.ReplacementEffect effect : possible) {
+            hosts.add(effect.getHostCard());
         }
-        if (sameSaid.add(name)) {
-            host.note(actedForSeat, name + " ×" + count + ": they do the same thing here, so the order"
-                    + " doesn't matter. You weren't asked.");
-        }
+        host.sameReplaced(hosts);
     }
 
     /**
@@ -5898,6 +5888,16 @@ public final class MatchController extends GeneratedControllerBase {
             // Vanquisher's Elf): who, what and why, as a report.
             GameHost.CostReveal paid = own ? null : host.costRevealOf(ids);
             Causes.Told told = paid == null ? null : toldOf(paid, names, zone);
+            // Spec 0083 (17, owner) -- a card revealed from an opening hand
+            // before the game began (Chancellor of the Annex): the report
+            // window, with who and which card, as every other reveal --
+            // never a grey "Looking at ..." line (it was not even that: the
+            // reveal was cleared as turn 1 began, before any board was sent).
+            if (told == null && !own && owner != null && zone == forge.game.zone.ZoneType.Hand
+                    && player.getGame().getPhaseHandler().getTurn() == 0) {
+                told = new Causes.Told(seatOfPlayer(owner), names.get(0),
+                        PlainWords.revealSaid(owner.getName(), names, "opening hand"), null);
+            }
             // Spec 0045 -- the cards themselves, face up in a tray,
             // for this seat alone (Forge told this controller). Spec 0075:
             // the tray (or a report after it) says it -- no "Looking at ..."

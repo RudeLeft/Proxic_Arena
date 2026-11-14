@@ -171,6 +171,42 @@ export const TWIN = (
 );
 
 /**
+ * Spec 0083 (owner 2026-11-13, canvas gaps-polish-1113, 18 B) -- two more
+ * "something the card is" squares, on a spell's stack card: split second (a
+ * stopwatch) and can't be countered (a seal with a tick). The canvas's.
+ */
+export const STOPWATCH = (
+  <svg viewBox="0 0 20 20" aria-hidden="true">
+    <circle cx="10" cy="11" r="6.5" fill="none" stroke="#f2c95c" strokeWidth="1.8" />
+    <path
+      d="M10 11 V7.5 M8 2.5 H12 M10 2.5 V4.5"
+      stroke="#f2c95c"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+export const SEAL = (
+  <svg viewBox="0 0 20 20" aria-hidden="true">
+    <path
+      d="M10 2 L12 4.2 L15 3.8 L15.4 6.8 L18 8.4 L16.6 11 L17.6 13.8 L14.8 14.8 L13.6 17.6 L10.8 16.6 L10 16.8 L7.2 17.6 L6 14.8 L3.2 13.8 L4.2 11 L2.8 8.4 L5.4 6.8 L5.8 3.8 L8.8 4.2 Z"
+      fill="none"
+      stroke="#f2c95c"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6.8 10.2 L9 12.4 L13.4 7.8"
+      fill="none"
+      stroke="#f2c95c"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+/**
  * Spec 0080 (owner 2026-11-12, canvas survive-1112) -- three more "something
  * the card is" squares, the canvas's pictures exactly: phased out (two cards,
  * one dashed, pale blue: Q2 A), a regeneration shield (a green shield with a

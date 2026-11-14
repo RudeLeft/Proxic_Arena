@@ -102,8 +102,13 @@ def thing_of(key, stack_card):
     k = key.split("#")[0]
     if k.startswith("player:") or k == "__gap":
         return None
+    # Spec 0083 (15 A): a Room's door opening on its card -- not a card.
+    if k.startswith("door:"):
+        return None
     # Spec 0082: "mark:" -- a prepared spell drawn as its mark on its creature.
-    for p in ("ghost:", "flight:", "cast:", "mark:"):
+    # Spec 0083 (L1): "merge:" -- a merged card's old face (A-10), the same
+    # card as its new face, pulled into the merge where it stood.
+    for p in ("ghost:", "flight:", "cast:", "mark:", "merge:"):
         if k.startswith(p):
             k = k[len(p):]
     if k.startswith("stack:"):
@@ -247,8 +252,11 @@ def analyse(file, trace, seat):
         for e in ev:
             if e[1] and "->" in e[0] and e[1] not in seen_any and e[0] != "hidden (library or a hand)->hand":
                 found.append(("not shown at all", e[1], e[0]))
+        # Spec 0083 (15 A): a Room unlocking a door is renamed, and only that
+        # door swings open on it (the card itself does not move or turn).
+        doors = {str(r["id"]).split("#")[0][len("door:"):] for r in rs if str(r["id"]).startswith("door:")}
         for e in ev:
-            if e[0] == "battlefield: changed form" and path[e[1]] < 5:
+            if e[0] == "battlefield: changed form" and path[e[1]] < 5 and e[1] not in doors:
                 found.append(("changed form, no animation", e[1], e[2]))
         out.append({"board": i, "events": ev, "found": found, "names": names, "dropped": len(gaps)})
     return out

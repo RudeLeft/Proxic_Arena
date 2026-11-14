@@ -26,7 +26,10 @@ off the protocol:
   the same    Phase 9 Amendment 20: with two Leylines out, both would
                exile the discard -- word for word the same effect, so
                the order can't matter: nobody is asked which applies
-               first, and the player is told so
+               first, and (spec 0083, 17) nobody is TOLD either: no grey
+               "they do the same thing here" notice; instead both
+               seats' boards carry a `pulse` naming seat 1's two
+               Leylines (the page pulses them gold as the card moves)
 
 A focused deck (Layer B): three Leylines to every Swamp, so an
 opening hand holds several -- the first version used half and half,
@@ -93,7 +96,8 @@ def respond(frame, action_id):
 state = {}
 found = {
     "same_asked": [],               # which-replacement-first questions (Amendment 20: none)
-    "same_told": [],                # the "do the same thing" notices
+    "same_told": [],                # the "do the same thing" notices (spec 0083: none)
+    "pulses": {1: [], 2: []},     # per seat: each `pulse` (spec 0083), once
     "asked": {1: [], 2: []},      # per seat: [(options, prompt)] for each question
     "chosen": [],                 # seat 1's picks, in order
     "pregame_kinds": [],          # every other decision kind before the first priority
@@ -136,6 +140,9 @@ for line in proc.stdout:
         for notice in s.get("notices") or []:
             if "do the same thing" in notice and notice not in found["same_told"]:
                 found["same_told"].append(notice)
+        pulse = s.get("pulse")
+        if pulse and pulse not in found["pulses"][s.get("seat")]:
+            found["pulses"][s.get("seat")].append(pulse)
         if not started and s.get("stack"):
             found["pregame_stack"] = True
         if discarding is not None and s.get("seat") == 2:
@@ -244,8 +251,12 @@ if discard["graveyard_after"] != discard["graveyard_before"]:
 if len(found["chosen"]) >= 2:
     if found["same_asked"]:
         problems.append(f"two identical Leylines: nobody should be asked which applies first: {found['same_asked']}")
-    if not found["same_told"]:
-        problems.append("two identical Leylines: the player is told the order doesn't matter")
+    if found["same_told"]:
+        problems.append(f"spec 0083: no grey notice for identical Leylines: {found['same_told']}")
+    for who in (1, 2):
+        if not any(sorted(p.get("cards", [])) == sorted(found["chosen"]) for p in found["pulses"][who]):
+            problems.append(f"spec 0083: seat {who} should be sent a pulse naming both Leylines "
+                            f"{found['chosen']}: {found['pulses'][who]}")
 if problems:
     print("WRONG:", "; ".join(problems))
     sys.exit(1)

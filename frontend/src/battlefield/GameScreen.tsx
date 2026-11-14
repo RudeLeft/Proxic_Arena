@@ -26,6 +26,7 @@ import {
 } from "react";
 import { useShownPlate } from "./lifeTicks";
 import { PoisonBadge, poisonOf } from "./PoisonBadge";
+import { DayMedallion } from "./DayMedallion";
 import libraryArt from "../assets/zones/library.webp";
 import graveyardArt from "../assets/zones/graveyard.webp";
 import exileArt from "../assets/zones/exile.webp";
@@ -822,6 +823,17 @@ export function GameScreen({
   }
   const theirOrigin =
     theirCast && originOf.current?.id === theirCast.id ? originOf.current.origin : null;
+  // Spec 0083 (L3, checked live) -- your own spell cast from your graveyard
+  // or exile (flashback, escape, an adventure's creature, aftermath) is
+  // chosen from the question's list: nothing on the table was clicked, so
+  // it rose from nowhere. It rises out of the pile it was in, as the other
+  // player's does (spec 0072), with its pips as your own casts have.
+  const ownPileRise = (card: SnapshotCard, geometry: Geometry): Box | null => {
+    if (!board || board.spectator || card.seat !== board.seat || theirCast) return null;
+    const zone = castOrigin(card, board, frames.current.previous).zone;
+    if (zone !== "graveyard" && zone !== "exile") return null;
+    return boxAt(anchors(geometry)[`viewer:${zone}`], geometry);
+  };
   const castingHiddenBy =
     theirCast && board && !theirOrigin?.faceUp
       ? (board.players.find((p) => p.seat === theirCast.seat)?.name ?? "Your opponent")
@@ -1846,6 +1858,8 @@ export function GameScreen({
             damage={data.damage}
             life={data.life}
             sizeChanges={data.sizes}
+            dayTime={board.dayTime}
+            pulse={board.pulse ?? null}
             onPick={pick}
             onInspect={setInspecting}
             choosable={boardChoosable}
@@ -2020,7 +2034,11 @@ export function GameScreen({
                       key={casting.id}
                       card={casting}
                       geometry={geometry}
-                      from={castFrom.current?.id === casting.id ? castFrom.current.box : null}
+                      from={
+                        castFrom.current?.id === casting.id
+                          ? castFrom.current.box
+                          : ownPileRise(casting, geometry)
+                      }
                       owing={castOwing}
                       cost={castCost}
                       paid={castPaid?.mana ?? null}
@@ -2464,6 +2482,10 @@ function StepLadder({
           <span className={`gs-whose${mine ? " gs-whose-mine" : ""}`}>{whose}</span>
         )}
       </div>
+      {/* Spec 0083 (14 C) -- the sun/moon medallion beside the ladder's steps
+          (the head's words keep their room): turns over as day becomes night
+          (or back), and stays as the mark of which it is. */}
+      {board.dayTime && board.turn > 0 && <DayMedallion night={board.dayTime === "night"} />}
       {/* Spec 0047 -- players see how many are watching (spec 0067 item 2:
           a spectator no longer sees "You are watching"; the chip says it).
           Its own line, so whose turn it is keeps the head. Spec 0067 --

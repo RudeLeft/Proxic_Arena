@@ -327,6 +327,10 @@ const MERGE_STEPS = 14;
  * of "new" is exactly `placement(to, ..., origin)`: it lands where the
  * layout puts it. `origin` is the element's own transform origin.
  */
+/** Spec 0083 (L1) -- the old face and the merging card fade out from just after the slam (the canvas's 0.05 s, 0.35 s). */
+export const MERGE_FADE_AT = 50;
+export const MERGE_FADE_MS = 350;
+
 export function mergeFrames(
   part: "partner" | "old" | "new",
   from: Box,
@@ -384,12 +388,12 @@ export function mergeFrames(
     const glow = t <= peak ? t / peak : Math.max(0, 1 - (t - peak) / (MERGE_GLOW_MS - peak));
     return { bright, glow };
   };
-  const frame = (p: Placed, ms: number, seen: boolean): Keyframe => {
+  const frame = (p: Placed, ms: number, seen: boolean | number): Keyframe => {
     const { bright, glow } = lightAt(ms);
     return {
       offset: ms / MERGE_MS,
       transform: `translate3d(${p.x}px, ${p.y}px, 0) rotate(${p.r}deg) scale(${p.s})`,
-      opacity: seen ? 1 : 0,
+      opacity: typeof seen === "number" ? seen : seen ? 1 : 0,
       filter: `brightness(${bright}) drop-shadow(0px 0px ${40 * k * glow}px rgb(${colour} / ${0.95 * glow}))`,
     };
   };
@@ -400,16 +404,21 @@ export function mergeFrames(
     const p = i === 0 ? a : i === MERGE_STEPS ? pull[2]! : along(pull, pullEase(t));
     frames.push(frame(p, t * MERGE_PULL_MS, before));
   }
-  // The slam: what was seen goes, what was not is there.
+  // The slam: what was not seen is there. Spec 0083 (L1): what was seen --
+  // the old face, the mutating spell -- fades into the merge where it
+  // slammed (MERGE_FADE_MS, under the flash), never gone at full strength.
+  const fading = (ms: number) =>
+    before ? Math.max(0, 1 - Math.max(0, ms - MERGE_PULL_MS - MERGE_FADE_AT) / MERGE_FADE_MS) : 1;
   frames.push({
-    ...frame(pull[2]!, MERGE_PULL_MS, !before),
+    ...frame(pull[2]!, MERGE_PULL_MS, before ? 1 : true),
     offset: (MERGE_PULL_MS + 1) / MERGE_MS,
   });
   for (let i = 1; i <= MERGE_STEPS; i++) {
     const t = i / MERGE_STEPS;
+    const ms = MERGE_PULL_MS + t * MERGE_RISE_MS;
     const p = i === MERGE_STEPS ? b : along(rise, riseEase(t));
-    // Only the new face rises; the others wait, unseen, where they slammed.
-    frames.push(frame(part === "new" ? p : pull[2]!, MERGE_PULL_MS + t * MERGE_RISE_MS, !before));
+    // Only the new face rises; the others fade where they slammed.
+    frames.push(frame(part === "new" ? p : pull[2]!, ms, before ? fading(ms) : true));
   }
   return frames;
 }
