@@ -3,6 +3,31 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.68.0 — 2026-11-13
+
+A round of polish on the table, plus four things that used to be invisible or looked wrong: cards used up to pay for something, library shuffles, vehicles coming alive, and fight spells.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Polish**
+- A spell or ability hitting a creature now cracks it like the life shield, with a red −N rising as its toughness drops. The old orange starburst is gone. Combat still slashes.
+- Day and night: a light dusk or dawn wash crosses the table, and a sun/moon medallion turns over by the turn number.
+- Unlocking a Room's second door swings that door open; the other half stays still.
+- Poison counters removed show a rising −N, and the poison badge shrinks away at zero.
+- The grey "they do the same thing here" notice is gone (the Leylines just glow). An opening-hand reveal such as Chancellor of the Annex now gets the report window. Before, the other player saw nothing at all.
+- Split second: a stopwatch mark and a gold ring on the stack card, and the other player's hand dims while it's there. Can't-be-countered spells get a seal mark.
+- Fixed: mutate no longer blinks out; a group of identical triggers no longer pops each time one resolves; your own flashback or escape cast now rises from your graveyard instead of fading in.
+
+**Spent, not killed**
+- A Treasure, Clue, fetch land or Evolving Wilds used up to pay for something now dims, folds and slips to the graveyard (a Treasure gives a coin spark) instead of getting a creature's death look. Three at once no longer set off the board-wipe flash. Forced sacrifices like Diabolic Edict still get the death look.
+- An ability whose card left as part of using it (a Clue, Sinister Concoction, cycling) now lifts off the card instead of appearing from nowhere.
+
+**Shuffles, vehicles, fights**
+- Whenever a library is shuffled (fetch land, Rampant Growth, a tutor), the library riffles.
+- A crewed vehicle or animated land gets gold sparks from whatever made it alive, a gold ring, and its power/toughness rising in green. At end of turn it fades back.
+- Fight and bite spells (Prey Upon, Ram Through) use the combat fight: the creatures lunge, slash and step back.
+
 ## 1.67.0 — 2026-11-13
 
 Copies of spells now look like what they are: copies nobody casts peel off the original, and copies that are cast come out of the card they copy.
