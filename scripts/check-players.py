@@ -33,8 +33,9 @@ and whose turn it is -- never inferred:
               Alice's command zone, both seats (F-0086-D)
   extra-turn  Time Warp: the next turn is Alice's again, and its report
               ("Extra turn: this is Alice's turn again.", Time Warp's card)
-              reaches both seats at its start; ordinary turns change hands
-              with no such report (F-0086-E)
+              reaches both seats at its start, once (spec 0088: it then stays
+              until closed, through the next turn line); ordinary turns
+              change hands with no such report (F-0086-E)
   mana        A Swamp's black floated, Dark Ritual paid from it and its
               three black, Hypnotic Specter paid from those: `manaFrom` says
               the Swamp, then Dark Ritual (n 3), both seats (F-0086-F)
@@ -537,8 +538,12 @@ def extra_turn():
         found[f"extra-turn reports, seat {seat}"] = sorted(set(at))
         if not reports or reports[0].get("said") != said:
             problems.append(f"seat {seat}: the extra turn's report should say {said!r}: {reports[:1]}")
-        elif set(at) != {extra}:
-            problems.append(f"seat {seat}: told on turn {extra} only, not {sorted(set(at))}")
+        # Spec 0088 (Q2 A): a report is no longer cleared at the turn line --
+        # it stays until closed, so the one report, told at the extra turn's
+        # start, may still be there on the turn after.
+        elif min(at) != extra or len({r.get("key") for r in reports}) != 1:
+            problems.append(f"seat {seat}: told once, from turn {extra}: turns {sorted(set(at))}, "
+                            f"reports {sorted({r.get('key') for r in reports})}")
         elif [c.get("name") for c in reports[0].get("cards") or []] != ["Time Warp"]:
             problems.append(f"seat {seat}: the report shows Time Warp: {reports[0].get('cards')}")
     return result(problems, "Time Warp's extra turn is Alice's again, told to both seats at its start", found)

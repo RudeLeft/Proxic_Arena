@@ -49,6 +49,7 @@ import {
   type Snapshot,
   type SnapshotCard,
   type SnapshotPlayer,
+  type SnapshotReveal,
 } from "../match";
 import { abandonMatch, type MatchView } from "../lobby";
 import {
@@ -118,6 +119,8 @@ import {
   targetsTitle,
 } from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
+import { openReports } from "./reports";
+import { LibraryTop, libraryTopBox } from "./LibraryTop";
 import { StatusTray } from "./StatusTray";
 import { PlayerFlights } from "./flights";
 import { FaceMarks } from "./playerMarks";
@@ -424,6 +427,8 @@ export function GameScreen({
     const ids = new Set<string>();
     if (!board) return ids;
     for (const card of [...board.battlefield, ...board.hand]) ids.add(card.id);
+    // Spec 0088 (Q4 C) -- a library's top card on its tile is clicked as a card.
+    for (const card of board.libraryTop ?? []) ids.add(card.id);
     for (const entry of board.stack) ids.add(entry.id);
     for (const player of board.players) ids.add(`player:${player.seat}`);
     return ids;
@@ -843,6 +848,12 @@ export function GameScreen({
   const ownPileRise = (card: SnapshotCard, geometry: Geometry): Box | null => {
     if (!board || board.spectator || card.seat !== board.seat || theirCast) return null;
     const zone = castOrigin(card, board, frames.current.previous).zone;
+    // Spec 0088 (Q4 C) -- cast from the top of the library (Bolas's
+    // Citadel): it rises from the small card on the tile, as from a fan.
+    if (zone === "library")
+      return (frames.current.previous?.libraryTop ?? []).some((c) => c.id === card.id)
+        ? libraryTopBox(geometry, "viewer")
+        : null;
     if (zone !== "graveyard" && zone !== "exile") return null;
     return atRef.current?.(card.id) ?? boxAt(anchors(geometry)[`viewer:${zone}`], geometry);
   };
@@ -1540,40 +1551,90 @@ export function GameScreen({
   // Spec 0045 -- the cards Forge last showed this player, until closed
   // (the worker stops sending them at the next turn).
   const [closedReveal, setClosedReveal] = useState<string | null>(null);
+  // Spec 0088 (Q2 A, Q3 C) -- the newest stamp this player has closed: every
+  // report up to it is gone from the window at once (the worker drops them
+  // from the next boards too). Kept for the match's game across a reload,
+  // since the server replays the last board it sent.
+  const closedKey = `proxic:reports-closed:${match.matchId}:${board?.gameEpoch ?? 1}`;
+  const [closedUpTo, setClosedUpTo] = useState<{ key: string; upTo: number }>({
+    key: "",
+    upTo: 0,
+  });
+  const closedNow =
+    closedUpTo.key === closedKey
+      ? closedUpTo.upTo
+      : (() => {
+          try {
+            return Number(window.sessionStorage.getItem(closedKey) ?? 0) || 0;
+          } catch {
+            return 0;
+          }
+        })();
   // PHASE_09 group 3 -- a tray that shows the revealed cards itself (a
   // hand to choose from, Fact or Fiction's five) takes the reveal's place.
   const trayShowsReveal =
     !!decision &&
     (trayOf(decision) === "split" || trayOf(decision) === "piles" || trayOf(decision) === "hidden");
+  // Spec 0088 (Q3 C) -- the reports not closed yet: the newest, and the
+  // older ones gathered with it (each its own stamp).
+  const openAction = openReports(board?.action ?? null, closedNow);
   // Phase 9 Amendment 12 -- a report of who did what, or a plain reveal:
   // whichever came last.
   const latestTray =
-    board?.action && (!board.reveal || (board.action.stamp ?? 0) >= (board.reveal.stamp ?? 0))
-      ? board.action
+    openAction && (!board?.reveal || (openAction.stamp ?? 0) >= (board.reveal.stamp ?? 0))
+      ? openAction
       : (board?.reveal ?? null);
   const latestReveal =
-    latestTray && latestTray.key !== closedReveal && !trayShowsReveal ? latestTray : null;
+    latestTray &&
+    latestTray.key !== closedReveal &&
+    // A reveal shares the reports' stamps: one closed with them stays closed.
+    (!latestTray.stamp || latestTray.stamp > closedNow) &&
+    !trayShowsReveal
+      ? latestTray
+      : null;
   // Spec 0085 Amendment 1 (owner, 2026-11-14) -- the report comes up at once; no wait for the board.
   const reveal = latestReveal;
+  /** Spec 0088 (Q3 C) -- closing the window clears the gathered set, here and in the game. */
+  const closeReports = (shown: SnapshotReveal) => {
+    setClosedReveal(shown.key);
+    const upTo = Math.max(
+      closedNow,
+      shown.stamp ?? 0,
+      ...(shown.gathered ?? []).map((r) => r.stamp ?? 0),
+    );
+    if (upTo <= closedNow) return;
+    setClosedUpTo({ key: closedKey, upTo });
+    try {
+      window.sessionStorage.setItem(closedKey, String(upTo));
+    } catch {
+      // Private window: the worker forgets them all the same.
+    }
+    if (!board?.spectator) socketRef.current?.reportsClosed(upTo);
+  };
+  // Phase 9 Amendment 12 -- a report's acting player: their picture and
+  // name. Spec 0088 (Q3 C) -- each gathered row has its own (smaller).
+  const actingAs = (actingSeat: number | null, size = 44) => {
+    const actingUser = match.participants.find((p) => p.seatNumber === actingSeat)?.userId ?? null;
+    return actingSeat
+      ? {
+          name:
+            actingSeat === board?.seat && !board?.spectator
+              ? "You"
+              : (board?.players.find((p) => p.seat === actingSeat)?.name ?? "A player"),
+          face: (
+            <span className="gs-reveal-face">
+              <Avatar
+                avatar={actingUser ? avatarOf(lobby, actingUser) : null}
+                size={size}
+                rank={actingUser ? rankOf(lobby, actingUser) : undefined}
+              />
+            </span>
+          ),
+        }
+      : null;
+  };
   const actingSeat = reveal?.by ?? null;
-  const actingUser = match.participants.find((p) => p.seatNumber === actingSeat)?.userId ?? null;
-  const acting = actingSeat
-    ? {
-        name:
-          actingSeat === board?.seat && !board?.spectator
-            ? "You"
-            : (board?.players.find((p) => p.seat === actingSeat)?.name ?? "A player"),
-        face: (
-          <span className="gs-reveal-face">
-            <Avatar
-              avatar={actingUser ? avatarOf(lobby, actingUser) : null}
-              size={44}
-              rank={actingUser ? rankOf(lobby, actingUser) : undefined}
-            />
-          </span>
-        ),
-      }
-    : null;
+  const acting = actingAs(actingSeat);
 
   // PHASE_09 group 1 -- the questions in the W-00 frame: a yes/no, a
   // trigger's target for many copies, different triggers to order. The
@@ -2127,10 +2188,11 @@ export function GameScreen({
                     <RevealTray
                       reveal={reveal}
                       who={acting}
+                      whoOf={actingAs}
                       geometry={geometry}
                       atTop={windowed}
                       artUrl={artUrl}
-                      onClose={() => setClosedReveal(reveal.key)}
+                      onClose={() => closeReports(reveal)}
                     />
                   )}
                   {/* Amendment 22: every window shows a refusal, and who it answers for. */}
@@ -2701,6 +2763,13 @@ function SeatBlock({
   // Spec 0087 -- a tile glows gold while it holds a card someone may still
   // use from there (a suspended card, not playable yet, does not light it).
   const glows = pileGlows(fanCards(board), mine ? "viewer" : "opponent");
+  // Spec 0088 (Q4 C) -- this library's top card, when the game lets this
+  // viewer see it (public, or theirs to look at): small on the tile.
+  const libTop = (board.libraryTop ?? []).find((c) => c.seat === player.seat) ?? null;
+  const firstBoard = useRef(true);
+  useEffect(() => {
+    firstBoard.current = false;
+  });
   // Spec 0067, item 1 -- the life steps down at each blow of the fights
   // playing (lifeTicks), and settles on the board's when they end.
   // Spec 0077 -- every other life change steps too, and poison on its badge.
@@ -2814,6 +2883,14 @@ function SeatBlock({
               : "Library"}
           </span>
         </div>
+        <LibraryTop
+          card={libTop}
+          owner={mine && !board.spectator ? "your" : `${player.name}'s`}
+          choosable={!!libTop && Boolean(question?.onBoard.has(libTop.id))}
+          busy={busy}
+          quiet={firstBoard.current}
+          onPick={onPick}
+        />
         <button
           type="button"
           className={`gs-zone${glows.graveyard ? " gs-zone-playable" : ""}`}
@@ -4906,6 +4983,10 @@ function placeOf(
   // Spec 0087 -- a card cast from a fan beside a plate (Light Up the
   // Stage's, a foretold card, a suspended one at 0) rises from where it
   // stood there, as one cast from the hand does.
+  // Spec 0088 (Q4 C) -- one cast from the top of a library its viewer saw
+  // on the tile (Future Sight's) rises from the small card there.
+  if (origin.zone === "library" && origin.faceUp)
+    return { box: libraryTopBox(g, origin.side), origin: { x: 0, y: 0 } };
   if ((origin.zone === "graveyard" || origin.zone === "exile") && card && at) {
     const stood = at(card);
     if (stood) return { box: stood, origin: { x: 0, y: 0 } };

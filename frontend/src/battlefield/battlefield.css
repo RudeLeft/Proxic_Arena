@@ -1477,19 +1477,56 @@
   }
 }
 
-/* What a spell on the stack targets: a gold glow, breathing. */
-.bf-card.bf-targeted {
-  box-shadow:
-    0 0 0 2px #f4c25e,
-    0 0 18px 4px rgb(240 168 48 / 55%);
-  animation: bf-targeted 1.6s ease-in-out infinite;
+/* Spec 0088 (owner Q5 C) -- what a spell or ability on the stack targets
+   wears four still gold corners just outside it, like a sight (Sight.tsx);
+   "you can pick this" keeps its gold breath. Never animated: they read with
+   motion turned down and without colour. The canvas's numbers on its
+   135-high card: 15 px outside each edge, 24 px arms, a 4 px pale-gold
+   stroke over an 8 px dark one. (Until 0088 a target breathed gold too.) */
+.bf-sight {
+  position: absolute;
+  inset: calc(var(--card-h) * -0.1111);
+  z-index: 2;
+  pointer-events: none;
 }
-@keyframes bf-targeted {
-  50% {
-    box-shadow:
-      0 0 0 2px #fff0c8,
-      0 0 26px 8px rgb(240 168 48 / 70%);
-  }
+.bf-sight svg {
+  position: absolute;
+  width: calc(var(--card-h) * 0.1778);
+  height: calc(var(--card-h) * 0.1778);
+  overflow: visible;
+}
+.bf-sight-tl {
+  left: 0;
+  top: 0;
+}
+.bf-sight-tr {
+  right: 0;
+  top: 0;
+  transform: rotate(90deg);
+}
+.bf-sight-br {
+  right: 0;
+  bottom: 0;
+  transform: rotate(180deg);
+}
+.bf-sight-bl {
+  left: 0;
+  bottom: 0;
+  transform: rotate(270deg);
+}
+.bf-sight-under,
+.bf-sight-over {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bf-sight-under {
+  stroke: #0b0f0d;
+  stroke-width: 8;
+}
+.bf-sight-over {
+  stroke: #ffd98a;
+  stroke-width: 4;
 }
 
 .bf-effects {
@@ -1549,8 +1586,7 @@
   .bf-swords-swing-l,
   .bf-swords-burst,
   .bf-swords-glint,
-  .bf-stack-slot,
-  .bf-card.bf-targeted {
+  .bf-stack-slot {
     animation: none;
   }
   .bf-line-shadow {
@@ -1983,14 +2019,6 @@ img.bf-makes-pip {
 }
 .bf-card.bf-fly.bf-fly-bob {
   animation-name: bf-fly-bob;
-}
-.bf-card.bf-fly.bf-targeted {
-  animation:
-    bf-fly 5s ease-in-out infinite,
-    bf-targeted 1.6s ease-in-out infinite;
-}
-.bf-card.bf-fly.bf-fly-bob.bf-targeted {
-  animation-name: bf-fly-bob, bf-targeted;
 }
 @keyframes bf-fly {
   0%,

@@ -152,6 +152,32 @@ class MatchArtTest {
     }
 
     /**
+     * Spec 0088 — a report's older reports gathered with it (Q3 C) carry
+     * their cards' pictures, as the newest does; so does a library's top
+     * card the viewer was sent (Q4 C). Only for the seat the snapshot is for.
+     */
+    @Test
+    fun `gathered reports and a library's top card carry their art`() {
+        val art = art()
+        val state =
+            Json.parseToJsonElement(
+                """{"seat":1,"battlefield":[],"hand":[],"players":[],
+                "libraryTop":[${card("card:12", alice, "Plains")}],
+                "action":{"key":"action:3","said":"Bob surveilled 1.","cards":[],
+                "gathered":[{"key":"action:1","said":"Bob searched.",
+                "cards":[${card("action:1:0", bob, "Black Lotus")}]}]}}""",
+            ).jsonObject
+
+        val seen = art.annotate(state, alice)
+        assertEquals(plains, seen["libraryTop"]!!.jsonArray[0].jsonObject["art"]?.jsonPrimitive?.content)
+        val row = seen["action"]!!.jsonObject["gathered"]!!.jsonArray[0].jsonObject
+        assertEquals("Bob searched.", row["said"]?.jsonPrimitive?.content)
+        assertEquals(secret, row["cards"]!!.jsonArray[0].jsonObject["art"]?.jsonPrimitive?.content)
+        assertTrue(art.mayFetch(alice, secret), "shown in a gathered row, so fetchable")
+        assertFalse(art.mayFetch(bob, secret), "only the seat it was shown to")
+    }
+
+    /**
      * P6-Y, §6.124, §6.125 — a card the viewer may not identify
      * carries no reference, so there is nothing to ask for.
      *

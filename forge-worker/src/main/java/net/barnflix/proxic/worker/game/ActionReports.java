@@ -166,8 +166,31 @@ final class ActionReports {
     /** Spec 0080 -- the permanents this effect phased out, as Forge did it. */
     private final List<Card> phasedOut = new ArrayList<>();
 
-    /** The latest report, for every reader; replaced by the next. */
+    /** The latest report, for every reader (a choice's values merge into it). */
     private volatile Report latest;
+
+    /**
+     * Spec 0088 (Q2 A, Q3 C) -- every report each reader has not closed:
+     * they stay through the turn line, and a newer one gathers the older ones
+     * into the same window.
+     */
+    private final ReportBook<Player, Report> book = new ReportBook<>();
+
+    /** A finished report, for every reader it tells. */
+    private void tell(Report report) {
+        latest = report;
+        book.add(report.key, null, report);
+    }
+
+    /**
+     * Spec 0088 (Q3 C) -- [reader] closed the report window, which showed
+     * reports up to [upTo] (its newest stamp): they are gone for that reader,
+     * and the ones every reader has closed are forgotten.
+     */
+    void closed(Player reader, long upTo) {
+        book.close(reader, upTo);
+        book.prune(game.getRegisteredPlayers());
+    }
 
     ActionReports(Game game, java.util.concurrent.atomic.AtomicLong keys) {
         this.game = game;
@@ -216,10 +239,10 @@ final class ActionReports {
                 }
                 return;
             } else if (event instanceof forge.game.event.GameEventTurnBegan) {
-                // The tray is about the moment it happened; a new turn is
-                // the game moving on.
-                latest = null;
-                personal.clear();
+                // Spec 0088 (Q2 A) -- a report is no longer cleared at the
+                // turn line: Bob's Opt in Alice's end step stays until she
+                // closes it (ReportBook). Only what was being gathered for an
+                // effect still resolving is dropped.
                 reset();
                 // Spec 0086 (10 B) -- unless it is an extra turn: that is told now.
                 extraTurn();
@@ -312,7 +335,7 @@ final class ActionReports {
             for (Aim aim : aimed) {
                 report.cards.put(aim.card().getId(), aim.card());
             }
-            latest = report;
+            tell(report);
             return true;
         } finally {
             reset();
@@ -364,7 +387,7 @@ final class ActionReports {
                 report = told;
             }
             if (report != null) {
-                latest = report;
+                tell(report);
             }
         } finally {
             reset();
@@ -605,7 +628,7 @@ final class ActionReports {
         if (host != null) {
             report.cards.put(host.getId(), host);
         }
-        latest = report;
+        tell(report);
     }
 
     /** Spec 0086 (8) -- how many dungeons each player had completed, as last seen. */
@@ -633,7 +656,7 @@ final class ActionReports {
             Report report = new Report(keys.incrementAndGet(), player, dungeon.getName(), Kind.DUNGEON, player, 0,
                     List.of(), new java.util.HashMap<>(), false, -1, 0);
             report.chooser = player;
-            latest = report;
+            tell(report);
         }
     }
 
@@ -683,7 +706,7 @@ final class ActionReports {
         Report now = latest;
         if (now == null || now.kind != Kind.CHOICE || now.from != sa) {
             now = choiceReport(sa);
-            latest = now;
+            tell(now);
         }
         now.values.merge(reader, List.of(value), (a, b) -> {
             List<Value> both = new ArrayList<>(a);
@@ -711,11 +734,9 @@ final class ActionReports {
                 new java.util.HashMap<>(), false, -1, 0);
         report.chooser = actor;
         report.zone = zone.getTranslatedName().toLowerCase(java.util.Locale.ROOT);
-        personal.put(reader, report);
+        // Made for this reader alone (ReportBook's onlyFor).
+        book.add(report.key, reader, report);
     }
-
-    /** Spec 0075 -- the latest report made for one reader alone (an empty look). */
-    private final java.util.Map<Player, Report> personal = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * Amendment 13 (item 7) -- is [player] the one making the choices for an
@@ -872,29 +893,50 @@ final class ActionReports {
         if (reader == null) {
             return null;
         }
-        Report report = latest;
-        // Spec 0075 -- the other player's choices and flips this reader was told.
-        List<Value> told = new ArrayList<>();
-        if (report != null) {
-            for (Value value : report.values.getOrDefault(reader, List.of())) {
-                if (showsValue(reader, value.who(), value.mark())) {
-                    told.add(value);
-                }
+        // Spec 0088 (Q3 C) -- every report this reader has not closed, each
+        // in their words: the newest in full, the older ones gathered with
+        // it (oldest first), each with its own key, stamp and cards.
+        List<JsonObject> open = new ArrayList<>();
+        for (ReportBook.Entry<Player, Report> entry : book.openFor(reader)) {
+            JsonObject one = render(entry.report(), entry.onlyFor() != null, reader, revealedTo, shown, seatOf);
+            if (one != null) {
+                open.add(one);
             }
         }
-        boolean main = report != null && (tells(report.kind, reader, report.actor, report.subject, report.chooser)
-                || (report.emptyHand && reader == report.chooser));
-        if (!main && told.isEmpty()) {
-            report = null;
+        if (open.isEmpty()) {
+            return null;
         }
-        // Spec 0075 -- an empty look, made for this reader alone, when it is the newer.
-        Report own = personal.get(reader);
-        if (own != null && (report == null || own.key > report.key)) {
-            report = own;
+        // Spec 0088, Amendment 1 (owner) -- the newest and at most three older
+        // ones as rows; the rest drop off.
+        open = ReportBook.window(open);
+        JsonObject newest = open.get(open.size() - 1);
+        if (open.size() > 1) {
+            JsonArray older = new JsonArray();
+            open.subList(0, open.size() - 1).forEach(older::add);
+            newest.add("gathered", older);
+        }
+        return newest;
+    }
+
+    /** One report as [reader] reads it, or null when it tells them nothing. */
+    private JsonObject render(Report report, boolean personal, Player reader,
+            java.util.function.Predicate<Integer> revealedTo,
+            java.util.function.Function<Card, JsonObject> shown, java.util.function.ToIntFunction<Player> seatOf) {
+        // Spec 0075 -- the other player's choices and flips this reader was told.
+        List<Value> told = new ArrayList<>();
+        for (Value value : report.values.getOrDefault(reader, List.of())) {
+            if (showsValue(reader, value.who(), value.mark())) {
+                told.add(value);
+            }
+        }
+        boolean main = tells(report.kind, reader, report.actor, report.subject, report.chooser)
+                || (report.emptyHand && reader == report.chooser);
+        // Spec 0075 -- an empty look, made for this reader alone.
+        if (personal) {
             main = true;
             told = List.of();
         }
-        if (report == null) {
+        if (!main && told.isEmpty()) {
             return null;
         }
         Words w = new Words(reader, report.actor);

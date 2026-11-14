@@ -449,6 +449,19 @@ export function showAt(railX: number, height: number, top: boolean): Point {
   return { x: railX - (1092 - 985) * k, y: (top ? 230 : 500) * k };
 }
 
+/**
+ * Spec 0088 (the canvas "deep2-triggers-reports-1113", its showSpot) -- where a
+ * pile card stops to be shown while its trigger lifts off it, or a library's
+ * new top card shows: just left of the column (82 of the canvas's 1080 pixels),
+ * level with the tile it rose from (30 above its middle), kept on the board.
+ * The canvas's 1920 x 1080 numbers, scaled by the board's height; beside the
+ * plates, so it never stands on the stack card between them.
+ */
+export function besideTile(railX: number, height: number, tileY: number): Point {
+  const k = height / 1080;
+  return { x: railX - 82 * k, y: Math.min(height - 104 * k, Math.max(104 * k, tileY - 30 * k)) };
+}
+
 /** Where it goes, as the canvas bows each: up, down to the other player's fan, a little into exile. */
 export type ShowTo = "table" | "hand" | "theirHand" | "library" | "exile" | "graveyard";
 const SHOW_BOW: Record<ShowTo, number> = {

@@ -108,7 +108,9 @@ def thing_of(key, stack_card):
     # Spec 0082: "mark:" -- a prepared spell drawn as its mark on its creature.
     # Spec 0083 (L1): "merge:" -- a merged card's old face (A-10), the same
     # card as its new face, pulled into the merge where it stood.
-    for p in ("ghost:", "flight:", "cast:", "mark:", "merge:"):
+    # Spec 0088 (Q1 A): "show:" -- a pile card risen out of its tile and
+    # shown while its trigger lifts off it (the ghost "show:card:N").
+    for p in ("ghost:", "flight:", "cast:", "mark:", "merge:", "show:"):
         if k.startswith(p):
             k = k[len(p):]
     if k.startswith("stack:"):

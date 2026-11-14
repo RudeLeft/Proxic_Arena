@@ -515,6 +515,34 @@ action.marks              spec 0075: pictures that are not cards, in
                           order: {kind "color", color "white"|"blue"|
                           "black"|"red"|"green"} for a colour chosen,
                           {kind "coin", won} for a coin flip
+action.gathered           spec 0088 (Q2 A, Q3 C): a report is no longer
+                          cleared when a turn begins. `action` is the
+                          newest report this reader has not closed; the
+                          older ones are `gathered` with it, oldest first,
+                          at most three (Amendment 1: older ones drop off),
+                          each a whole report of its own (key, stamp, by,
+                          source, said, cards, marks -- never `gathered`),
+                          its cards under its own ids ("action:N:I"), a card
+                          hidden from the reader a nameless back. Kept per
+                          reader (ReportBook, at most 40) until the server
+                          sends the worker REPORTS_CLOSED {seat, upTo}: the
+                          reader closed the window, which showed reports up
+                          to `upTo`; those are gone for that seat only
+snapshot.libraryTop       spec 0088 (Q4 C): the top card of each library
+                          this viewer may see, as Forge says --
+                          CardView#canBeShownTo, which reads the card's
+                          MayLookAt: every player for Courser of Kruphix's
+                          and Future Sight's "play with the top card of
+                          your library revealed", its owner alone for Bolas's
+                          Citadel's and Vizier of the Menagerie's "you may
+                          look at". Described as any card (its `seat` is its
+                          owner's), with `public` when every player may see
+                          it and `uses` [{seat, how "cast"}] for each player
+                          Forge's Card#mayPlay lets play it from there
+                          (Courser: a land only). Absent when there is none
+                          to show; a viewer not allowed to see a top card is
+                          sent nothing of it, and its id is in no other key
+                          (HiddenIds counts the list as part of the board)
 player.mulligans          how many times the player has mulliganed, for every
                           viewer (public, as in paper Magic; Phase 9 W-15)
 card.ringBearer           true on the Ring-bearer, for every viewer

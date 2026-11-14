@@ -221,6 +221,8 @@ import {
   SHOW_HOLD_MS,
   SHOW_MS,
   SHOW_RISE_MS,
+  SHOW_SCALE,
+  besideTile,
   showAt,
   showFrames,
   STRIKE_FX_MS,
@@ -238,7 +240,7 @@ import {
   type ShowTo,
   type TileChange,
 } from "./graves";
-import type { Moments, Survive, TileMove, TileZone } from "./fromSnapshot";
+import type { Moments, ShowFrom, Survive, TileMove, TileZone } from "./fromSnapshot";
 import { domeMarks, shieldBreakMarks, wardMarks, type SurviveMark } from "./survive";
 import { payWords, type PayMark } from "./payPicks";
 import { PaySign } from "./PaySign";
@@ -278,6 +280,7 @@ import {
   whyPulseFrames,
 } from "./markMotion";
 import { RoomFace } from "./RoomDoors";
+import { Sight } from "./Sight";
 import {
   ALIVE_BACK_MS,
   ALIVE_PULSE_MS,
@@ -485,6 +488,14 @@ export interface StackView {
    * "initiative:2", or a dungeon's or emblem's card id; it rises from there.
    */
   riseFrom?: string | null;
+  /**
+   * Spec 0088 (Q1 A) -- a trigger whose card lies in a graveyard or exile
+   * tile: the tile glows, the card rises and is shown (0074), and the trigger
+   * lifts off it -- after the card has landed there, when it went there now.
+   */
+  showFrom?: ShowFrom;
+  /** Spec 0088 (Q1 A) -- an ability of a card the other player cycled from their hidden hand: off the middle of their fan. */
+  fromTheirHand?: number;
   targets: readonly TargetRef[];
   /** Spec 0028 — the seat that controls it: gold edge yours, red theirs. */
   seat?: number;
@@ -1905,6 +1916,16 @@ function floatFrames(rise: number): Keyframe[] {
  * to rise from slides in (`bf-stack-in`, 260 ms). Its arrows wait for it.
  */
 export const RISE_MS = 520;
+/**
+ * Spec 0088 (Q1 A) -- a trigger of a card in a graveyard or exile tile lifts
+ * off it this long after the card has risen there to be shown (the canvas:
+ * shown from 1.5 s, the lift at 2.1 s; 0074's hold is 0.6 s).
+ */
+export const SHOW_LIFT_AT = 400;
+/** Spec 0088 (Q1 A) -- a cascade trigger rises out of its spell's middle from this size (of a table card). */
+export const CASCADE_FROM = 0.42;
+/** Spec 0088 (Q1 A) -- a cascade trigger waits, unseen, at most this long for its spell to land. */
+export const SPELL_WAIT_MS = 4000;
 export const STACK_IN_MS = 260;
 
 /** The board fills its container and lays itself out for that size. */
@@ -2341,6 +2362,8 @@ export function Board({
         ],
         marks,
         chosen: isChosen,
+        // Spec 0088 (Q5 C) -- the sight corners go on it.
+        targeted: isTargeted,
         pay,
         data: {
           "data-choosable": canChoose ? "true" : undefined,
@@ -2541,6 +2564,8 @@ export function Board({
         drawn,
         content: (
           <>
+            {/* Spec 0088 (Q5 C) -- targeted: four still gold corners just outside it. */}
+            {leadAct.targeted && <Sight />}
             {flies(lead) && (
               <span
                 className={`bf-fly-shadow${crowded.has(slot.row) ? " bf-fly-bob" : ""}`}
@@ -2965,6 +2990,8 @@ export function Board({
   const stackEls = useRef(new Map<string, HTMLDivElement>());
   const arriving = useRef(new Map<string, number>());
   const rose = useRef(new Set<string>());
+  // Spec 0088 (Q1 A) -- triggers waiting for their spell to land (cascade), by the spell's stack id.
+  const afterLanding = useRef(new Map<string, () => void>());
   const [, setArrived] = useState(0);
   // Spec 0082 -- each card of copies made together is ONE element while it
   // lasts: on its way (beside the entry it copies), landing on the stack and
@@ -3100,6 +3127,12 @@ export function Board({
     const was = wasHidden.current;
     wasHidden.current = hiddenStack;
     if (!was || was === hiddenStack) return;
+    // Spec 0088 (Q1 A) -- the spell landed: its cascade trigger lifts off it now.
+    const lift = afterLanding.current.get(was);
+    if (lift) {
+      afterLanding.current.delete(was);
+      lift();
+    }
     const done = () => {
       arriving.current.set(was, 0);
       setArrived((n) => n + 1);
@@ -3512,6 +3545,126 @@ export function Board({
     const peels: Ghost[] = [];
     const spots = spotsNow;
     const still = reducedMotion();
+    /** Out of its card, up off the table in a short arc, growing to the stack card's size (520 ms). */
+    const riseOff = (el: HTMLElement, from: Box, to: Box, delay: number, arrived: () => void) => {
+      const k0 = from.h / g.cardH;
+      const lift = g.cardH * 0.4;
+      const at = (f: number) =>
+        `translate3d(${from.x + (to.x - from.x) * f}px, ${
+          from.y + (to.y - from.y) * f - Math.sin(Math.PI * f) * lift
+        }px, 0) scale(${k0 + (to.scale - k0) * f})`;
+      const rise = el.animate(
+        [0, 0.15, 0.35, 0.5, 0.65, 0.85, 1].map((f) => ({
+          offset: f,
+          transform: at(f),
+          opacity: f === 0 ? 0 : 1,
+        })),
+        {
+          duration: RISE_MS,
+          delay,
+          easing: "cubic-bezier(0.45, 0, 0.25, 1)",
+          fill: "backwards",
+        },
+      );
+      // (A test's stand-in animation may have no promise.)
+      const done = rise.finished as Promise<Animation> | undefined;
+      if (done !== undefined) void done.then(arrived, arrived);
+    };
+    /**
+     * Spec 0088 (Q1 A) -- where the middle back of the other player's fan
+     * was drawn (the card they cycled left from there: spec 0072's rule, by
+     * place only, never an id).
+     */
+    const middleBack = (seat: number): Box | undefined => {
+      const backs = [...before.at.keys()].filter((k) => k.startsWith(`hidden-hand:${seat}:`));
+      if (backs.length === 0) return undefined;
+      return before.at.get(`hidden-hand:${seat}:${Math.floor((backs.length - 1) / 2)}`)?.box;
+    };
+    const resolvedNow = before.stack.some((e) => !(stack ?? []).some((x) => x.id === e.s.id));
+    /**
+     * Spec 0088 (Q1 A) -- a trigger whose card is in a graveyard or exile
+     * tile: once the card has landed there (its fate off the table, or its
+     * drop out of a hand, when it went there now), the tile glows and the
+     * card rises out of it and is shown (0074's rise and show); the trigger
+     * lifts off it while it is shown; the card sinks back. The shown card is
+     * a ghost of the board (a click hurries it). Returns the shown card's
+     * box, and when the trigger lifts (after the board's own hold).
+     */
+    // Two triggers of one card (both of a creature's "dies" triggers): one
+    // card shown, both lift off it.
+    const shownNow = new Map<string, { box: Box; lift: number }>();
+    const showTrigger = (s: StackView, ghosts: Ghost[]): { box: Box; lift: number } | undefined => {
+      const sf = s.showFrom;
+      if (!sf) return undefined;
+      const already = shownNow.get(sf.card);
+      if (already) return already;
+      const anchor = anchors(g)[`${sf.side}:${sf.zone}` as AnchorId];
+      const lead = resolvedNow ? RESOLVE_MS : 0;
+      const land =
+        sf.came === null
+          ? 0
+          : sf.came === "hand"
+            ? lead + DISCARD_MS
+            : lead + fateMs(sf.came) + MOVE_MS;
+      const wait = holdLeft() + land;
+      const centred = { x: 0.5, y: 0.5 };
+      const tile: Pose = { x: anchor.x, y: anchor.y, r: 0, s: AT_ZONE_SCALE, o: 1 };
+      const spot = besideTile(g.rail.x, g.height, anchor.y);
+      const at = boxAt(anchor, g);
+      ghosts.push({
+        name: sf.face.name,
+        look: lookOf(sf.face.kind, sf.face.types),
+        type: shortType(sf.face.types),
+        pt: figure(sf.face),
+        art: sf.face.art ? artUrl(sf.face.art) : null,
+        crop: sf.face.crop ? artUrl(sf.face.crop) : null,
+        faceDown: sf.face.faceDown,
+        known: sf.face.known,
+        side: sf.side,
+        id: `show:${sf.card}`,
+        box: at,
+        origin: centred,
+        to: at,
+        toOrigin: centred,
+        fade: false,
+        delay: wait,
+        own: {
+          frames: showFrames(tile, spot, tile, g.cardW, g.cardH, centred, sf.zone, null),
+          duration: SHOW_MS,
+        },
+        waits: true,
+        zIndex: Z_RETURN_MARK - 10,
+      });
+      // The tile glows while its card is shown (the canvas: up 0.2 s, held, down 0.3 s).
+      const tileEl =
+        typeof document === "undefined"
+          ? null
+          : document.querySelector<HTMLElement>(`[data-rise-from="${s.riseFrom}"]`);
+      if (tileEl && typeof tileEl.animate === "function") {
+        const lit =
+          "0 0 0 2px #f2c46a, 0 0 20px rgb(242 196 106 / 80%), inset 0 0 14px rgb(240 190 90 / 35%)";
+        const dark =
+          "0 0 0 0 rgb(242 196 106 / 0%), 0 0 0 rgb(242 196 106 / 0%), inset 0 0 0 rgb(240 190 90 / 0%)";
+        const total = SHOW_MS + 300;
+        tileEl.animate(
+          [
+            { offset: 0, boxShadow: dark },
+            { offset: 200 / total, boxShadow: lit },
+            { offset: (SHOW_MS - 120) / total, boxShadow: lit },
+            { offset: 1, boxShadow: dark },
+          ],
+          { duration: total, delay: wait, easing: "linear" },
+        );
+      }
+      const w = g.cardW * SHOW_SCALE;
+      const h = g.cardH * SHOW_SCALE;
+      const shown = {
+        box: { x: spot.x - w / 2, y: spot.y - h / 2, w, h, scale: 1, rotation: 0, z: 0 },
+        lift: land + SHOW_RISE_MS + SHOW_LIFT_AT,
+      };
+      shownNow.set(sf.card, shown);
+      return shown;
+    };
     (stack ?? []).slice(0, spots.length).forEach((s, i) => {
       if (handledKeys.has(s.id)) return;
       const el0 = stackEls.current.get(s.id);
@@ -3628,7 +3781,15 @@ export function Board({
       }
       const rises = rose.current.has(s.id);
       const ms = still ? 0 : rises ? RISE_MS : STACK_IN_MS;
+      // Spec 0088 (owner Q1 A) -- a trigger of a card in a graveyard or exile
+      // tile lifts off it once it has risen and been shown; an ability of a
+      // card the other player cycled lifts off the middle of their fan.
+      const shown = rises && !still && s.showFrom ? showTrigger(s, peels) : undefined;
+      const theirBack =
+        rises && s.fromTheirHand !== undefined ? middleBack(s.fromTheirHand) : undefined;
       const from =
+        shown?.box ??
+        theirBack ??
         (s.source ? sourceBox(s.source) : s.leftFrom ? sourceBox(s.leftFrom) : undefined) ??
         railBox(s);
       const to = spots[i]!;
@@ -3647,7 +3808,7 @@ export function Board({
       // above, or an older wave's): a card that arrives with them waits until
       // their blows have landed. A trigger the hit caused (the monarch's, a
       // "deals combat damage" trigger) never rises before the hit.
-      const hold = still ? 0 : holdLeft();
+      const hold = (still ? 0 : holdLeft()) + (shown?.lift ?? 0);
       if (sliding && hold > 0) sliding.effect?.updateTiming({ delay: hold, fill: "backwards" });
       arriving.current.set(s.id, still ? 0 : Infinity);
       timers.current.push(
@@ -3655,30 +3816,43 @@ export function Board({
       );
       if (sliding) void sliding.finished.then(arrived, arrived);
       if (!rises || !from || !el || typeof el.animate !== "function") return;
-      // Out of its card, up off the table in a short arc, growing to the
-      // stack card's size (the canvas: 520 ms, eased in and out).
-      const k0 = from.h / g.cardH;
-      const lift = g.cardH * 0.4;
-      const at = (f: number) =>
-        `translate3d(${from.x + (to.x - from.x) * f}px, ${
-          from.y + (to.y - from.y) * f - Math.sin(Math.PI * f) * lift
-        }px, 0) scale(${k0 + (to.scale - k0) * f})`;
-      const rise = el.animate(
-        [0, 0.15, 0.35, 0.5, 0.65, 0.85, 1].map((f) => ({
-          offset: f,
-          transform: at(f),
-          opacity: f === 0 ? 0 : 1,
-        })),
-        {
-          duration: RISE_MS,
-          delay: hold,
-          easing: "cubic-bezier(0.45, 0, 0.25, 1)",
-          fill: "backwards",
-        },
-      );
-      // (A test's stand-in animation may have no promise.)
-      const done = rise.finished as Promise<Animation> | undefined;
-      if (done !== undefined) void done.then(arrived, arrived);
+      // Spec 0088 (Q1 A) -- a trigger of the spell being cast (cascade) lifts
+      // off that spell: when the spell is still flying onto the stack (it
+      // arrived with this very board), the trigger waits, unseen, until the
+      // spell has landed, then lifts off it there.
+      const spellOf = s.riseFrom?.startsWith("spell:")
+        ? (stack ?? []).find((e) => e.kind === "spell" && e.card === s.riseFrom!.slice(6))
+        : undefined;
+      // Out of the spell's own card: from its middle, small (the canvas: a
+      // box 0.42 of a table card at the spell's centre), growing to its place.
+      const outOf = (spell: Box): Box => {
+        const w = g.cardW * CASCADE_FROM;
+        const h = g.cardH * CASCADE_FROM;
+        return {
+          x: spell.x + spell.w / 2 - w / 2,
+          y: spell.y + spell.h / 2 - h / 2,
+          w,
+          h,
+          scale: 1,
+          rotation: 0,
+          z: 0,
+        };
+      };
+      if (spellOf && spellOf.id === hiddenStack) {
+        const unseen = el.animate([{ opacity: 0 }, { opacity: 0, offset: 0.9 }, { opacity: 1 }], {
+          duration: SPELL_WAIT_MS,
+          id: "await-spell",
+        });
+        afterLanding.current.set(spellOf.id, () => {
+          if (unseen.playState !== "running") return;
+          unseen.cancel();
+          const off = railBox(s);
+          if (off) riseOff(el, outOf(off), to, 0, arrived);
+          else arrived();
+        });
+        return;
+      }
+      riseOff(el, spellOf ? outOf(from) : from, to, hold, arrived);
     });
     if (peels.length > 0) setGhosts((list) => [...list, ...peels]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per stack
@@ -7668,6 +7842,8 @@ export function Board({
                   : {}),
               }}
             >
+              {/* Spec 0088 (Q5 C) -- a spell a spell targets (Counterspell's) wears the corners too. */}
+              {a.targeted && <Sight />}
               <button
                 type="button"
                 className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${whose}${a.className}`}
@@ -7683,6 +7859,8 @@ export function Board({
                   .join(", ")}
                 data-object-id={s.id}
                 data-zone="stack"
+                // Spec 0088 (Q1 A) -- a spell's own triggers (cascade) lift off it.
+                data-rise-from={s.kind === "spell" && s.card ? `spell:${s.card}` : undefined}
                 data-order={i + 1}
                 data-copy={s.copy ? "true" : undefined}
                 data-count={s.count}

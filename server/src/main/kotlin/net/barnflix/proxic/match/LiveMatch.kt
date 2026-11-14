@@ -325,6 +325,20 @@ fun LiveMatch.concede(
 }
 
 /**
+ * Spec 0088 (Q3 C) -- [userId] closed their report window, up to the
+ * stamp [upTo]: their own seat's reports only, never another's (a spectator
+ * or a stranger has none). Null when it went to the worker, or why not.
+ */
+fun LiveMatch.reportsClosed(
+    userId: UUID,
+    upTo: Long,
+    send: (Int, Long) -> Boolean = worker::reportsClosed,
+): String? {
+    val seat = seatOf(userId) ?: return "NOT_A_PLAYER"
+    return if (send(seat, upTo)) null else "UNREACHABLE"
+}
+
+/**
  * Spec 0054 (owner 2026-11-03) -- [userId] ends the game because the
  * other player has been offline at least [away]: the other player's
  * concession, so the winner is still the game's to name. The one

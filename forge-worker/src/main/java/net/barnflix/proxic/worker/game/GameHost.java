@@ -536,6 +536,29 @@ public final class GameHost {
         return now == null ? null : now.actions();
     }
 
+    /**
+     * Spec 0088 (Q3 C) -- the player at [seat] closed their report window,
+     * which showed reports up to [upTo]: those are gone from their next
+     * snapshots (the page hides them at once). `seat` is the server's,
+     * resolved from the authenticated user. Nothing in the game changes, so
+     * no snapshot is sent for it. False when there is no such seat or game.
+     */
+    public boolean reportsClosed(int seat, long upTo) {
+        Game g = game;
+        ActionReports reports = actions();
+        if (g == null || reports == null) {
+            return false;
+        }
+        for (Player each : g.getRegisteredPlayers()) {
+            Integer at = seatOf.get(each.getOriginalLobbyPlayer());
+            if (at != null && at == seat) {
+                reports.closed(each, upTo);
+                return true;
+            }
+        }
+        return false;
+    }
+
     java.util.List<String> noticesFor(int seat) {
         java.util.Deque<String> queue = notices.get(seat);
         if (queue == null) {

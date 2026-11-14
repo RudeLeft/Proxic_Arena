@@ -187,7 +187,18 @@ DECISION_SEARCH     decisionId, query        searchable questions only
 CONCEDE             (nothing)                PHASE_07 §7.55: for your own seat
 END_FOR_AWAY        (nothing)                spec 0054: the OTHER seat concedes, only
                                              once its player has been offline 10 min
+REPORTS_CLOSED      upTo                     spec 0088: the report window was closed;
+                                             reports up to that stamp are gone for
+                                             your own seat. No reply
 ```
+
+**Spec 0088 — reports that stay and gather.** A report window is no longer
+cleared when a turn begins: the worker keeps every report each seat has not
+closed (`ReportBook`), sends the newest as `action` with the older ones
+`gathered`, and forgets them for a seat once the server sends the worker
+`REPORTS_CLOSED` (seat, upTo) for that seat's user. The page hides closed
+reports at once and keeps the stamp for the match's game (the server
+replays the last board it sent).
 
 **Spec 0054 — the player left waiting.** The one exception to "a
 disconnect never concedes" (§6.111): when the other player has had no

@@ -389,6 +389,26 @@ final class ViewerSnapshot {
         }
         snapshot.add("exile", exile);
 
+        // Spec 0088 (Q4 C) -- the top card of each library this viewer may
+        // see: public (Courser of Kruphix, Future Sight: every player), or
+        // looked at by its owner alone (Bolas's Citadel, Vizier of the
+        // Menagerie). LibraryTops asks Forge's own CardView#canBeShownTo,
+        // which reads the card's MayLookAt; nothing is sent to anyone else.
+        JsonArray tops = new JsonArray();
+        java.util.Set<Player> everyone = new java.util.HashSet<>(game.getRegisteredPlayers());
+        for (Player player : game.getRegisteredPlayers()) {
+            Card top = LibraryTops.topOf(player);
+            if (top == null || !LibraryTops.shownTo(top, viewing, everyone)) {
+                continue;
+            }
+            JsonObject entry = describe(top, viewing, seatOf);
+            LibraryTops.mark(entry, top, everyone, seatOf);
+            tops.add(entry);
+        }
+        if (tops.size() > 0) {
+            snapshot.add("libraryTop", tops);
+        }
+
         JsonArray stack = new JsonArray();
         game.getStack().forEach(instance -> {
             JsonObject entry = new JsonObject();

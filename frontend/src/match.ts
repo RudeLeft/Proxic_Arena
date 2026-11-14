@@ -681,6 +681,12 @@ export interface SnapshotReveal {
   why?: string;
   /** Spec 0075 -- the pictures that are not cards: a colour chosen, a coin flipped. */
   marks?: ReportMark[];
+  /**
+   * Spec 0088 (Q3 C) -- the older reports this reader has not closed,
+   * gathered with this one, oldest first: one-line rows at the top of the
+   * same window. Each is a whole report (its own key, stamp and cards).
+   */
+  gathered?: SnapshotReveal[];
 }
 
 /** Spec 0075 -- one picture in a report window that is not a card. */
@@ -889,6 +895,12 @@ export interface Snapshot {
   pulse?: { key: string; cards: string[] } | null;
   /** Spec 0086 (8) -- every emblem, with the card that made it; empty when none. */
   emblems?: SnapshotEmblem[];
+  /**
+   * Spec 0088 (Q4 C) -- the top card of each library this viewer may see
+   * (public, or theirs to look at), each with its `owner`, `public` and
+   * `uses`. Absent when there is none to show.
+   */
+  libraryTop?: SnapshotCard[];
   /**
    * Spec 0047 -- the PUBLIC view, sent to spectators: no hand, nothing
    * face down. `seat` is then the side it is drawn from, not the viewer's.
@@ -1419,6 +1431,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     action: asAction(row["action"]),
     pulse: asPulse(row["pulse"]),
     emblems: asEmblems(row["emblems"]),
+    libraryTop: asCards(row["libraryTop"]),
   };
 }
 
@@ -1503,13 +1516,21 @@ function asReveal(value: unknown): SnapshotReveal | null {
 }
 
 /** Phase 9 Amendment 12 -- a report: who acted, the sentence, the cards (a look may have none). */
-function asAction(value: unknown): SnapshotReveal | null {
+function asAction(value: unknown, nested = false): SnapshotReveal | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const row = value as Record<string, unknown>;
   const key = asString(row["key"]);
   const said = asString(row["said"]);
   if (!key || !said) return null;
   const marks = asMarks(row["marks"]);
+  // Spec 0088 (Q3 C) -- the older reports gathered with it, one level deep.
+  const gathered =
+    !nested && Array.isArray(row["gathered"])
+      ? (row["gathered"] as unknown[]).flatMap((one) => {
+          const r = asAction(one, true);
+          return r ? [r] : [];
+        })
+      : [];
   return {
     key,
     title: said,
@@ -1519,6 +1540,7 @@ function asAction(value: unknown): SnapshotReveal | null {
     by: asNumber(row["by"]) ?? 0,
     source: asString(row["source"]) ?? "",
     ...(marks.length ? { marks } : {}),
+    ...(gathered.length ? { gathered } : {}),
   };
 }
 
@@ -2473,6 +2495,12 @@ export interface MatchSocket {
   concede(): void;
   /** Spec 0054 — end the game because the other player is away; the server checks. */
   endForAway(): void;
+  /**
+   * Spec 0088 (Q3 C) — the report window was closed, showing reports up to
+   * the stamp [upTo]: they are gone from this seat's next boards. Whose
+   * window it was is the session's.
+   */
+  reportsClosed(upTo: number): void;
   close(): void;
 }
 
@@ -2579,6 +2607,10 @@ export function connectMatch(
     endForAway() {
       if (socket.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify({ type: "END_FOR_AWAY" }));
+    },
+    reportsClosed(upTo) {
+      if (socket.readyState !== WebSocket.OPEN) return;
+      socket.send(JSON.stringify({ type: "REPORTS_CLOSED", upTo }));
     },
     close() {
       closedByUs = true;

@@ -24,7 +24,7 @@ import type {
   Return,
   StackView,
 } from "./Board";
-import type { AnchorId } from "./motion";
+import type { AnchorId, Fate } from "./motion";
 import { sameTrigger, stackWords } from "./triggers";
 import { copyKey, copyThing, joinsAimed, sameCopy } from "./copies";
 import { fanCards, onTheirWay, type FanCard } from "./pileFan";
@@ -134,6 +134,22 @@ export interface TileMove {
   hidden: boolean;
   /** Into a library: where, when the game says (A-14). */
   where: "top" | "bottom" | "shuffled" | null;
+}
+
+/**
+ * Spec 0088 (Q1 A) -- a trigger whose card lies in a graveyard or exile tile
+ * (not in its fan): the card as this viewer saw it there, risen out of the
+ * tile and shown before the trigger lifts off it. came: how it arrived
+ * there this update (its fate off the table, or out of a hand), so the show
+ * waits for it to land; null when it was already there.
+ */
+export interface ShowFrom {
+  /** The card ("card:N"), where it lies. */
+  card: string;
+  face: TileFace;
+  side: "viewer" | "opponent";
+  zone: "graveyard" | "exile";
+  came: Fate | "hand" | null;
 }
 
 function faceOf(card: SnapshotCard): TileFace {
@@ -514,7 +530,23 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   // card in its fan (data-rise-from is the card's id), else from the tile of
   // the pile it is in -- never sliding in at the stack spot. A trigger of a
   // card anywhere else keeps rising from its own picture (spec 0086).
-  const pileRise = (source: string, kind: string): { riseFrom?: string } => {
+  //
+  // Spec 0088 (owner Q1 A) -- and a TRIGGER of a card lying in a graveyard or
+  // exile tile (Solemn Simulacrum's death draw, Gempalm's "when you cycle"):
+  // the tile glows, the card rises out of it and is shown (0074's rise and
+  // show), and the trigger lifts off it (`showFrom`: the card as this viewer
+  // saw it there, and whether it arrived there this update -- off the table,
+  // or out of a hand -- so the show waits for it to land). A trigger of the
+  // spell being cast (cascade, "when you cast") lifts off that spell on the
+  // stack ("spell:card:N"). An ability of a card the other player cycled from
+  // their hidden hand lifts off the middle of their fan (`fromTheirHand`),
+  // where the card back left from. A source this viewer never saw keeps the
+  // stack-spot entrance: nothing is guessed.
+  const raw = snapshot.moves ?? [];
+  const pileRise = (
+    source: string,
+    kind: string,
+  ): { riseFrom?: string; showFrom?: ShowFrom; fromTheirHand?: number } => {
     const found = (previous ? [snapshot, previous] : [snapshot]).flatMap((board) =>
       (["graveyard", "exile"] as const).flatMap((zone) =>
         board[zone].filter((c) => c.id === source).map((card) => ({ card, zone })),
@@ -522,7 +554,40 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     );
     if (found.some((f) => f.card.uses?.length)) return { riseFrom: source };
     const lies = found[0];
-    if (lies) return { riseFrom: `pile:${lies.card.seat}:${lies.zone}` };
+    if (lies) {
+      const riseFrom = `pile:${lies.card.seat}:${lies.zone}`;
+      const came = raw.find((m) => m.card === source && m.to.zone === lies.zone);
+      const theirHand =
+        came?.from.zone === "hand" &&
+        came.from.seat !== null &&
+        came.from.seat !== viewer &&
+        !(previous?.otherHands ?? []).some((c) => c.id === source)
+          ? came.from.seat
+          : undefined;
+      if (kind === "trigger" && lies.card.known !== false)
+        return {
+          riseFrom,
+          showFrom: {
+            card: source,
+            face: faceOf(lies.card),
+            side: side(lies.card.seat),
+            zone: lies.zone,
+            came:
+              came?.from.zone === "battlefield"
+                ? lies.zone === "exile"
+                  ? "exiled"
+                  : came.spent
+                    ? "spent"
+                    : "defeated"
+                : came?.from.zone === "hand"
+                  ? "hand"
+                  : null,
+          },
+        };
+      return theirHand !== undefined ? { riseFrom, fromTheirHand: theirHand } : { riseFrom };
+    }
+    if (kind === "trigger" && snapshot.stack.some((e) => e.kind === "spell" && e.source === source))
+      return { riseFrom: `spell:${source}` };
     return kind === "trigger" ? { riseFrom: source } : {};
   };
   const view = (

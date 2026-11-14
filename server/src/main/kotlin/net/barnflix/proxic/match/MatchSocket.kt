@@ -234,6 +234,15 @@ private fun handle(
                 else -> concedeRefusedMessage(refusal)
             }
 
+        // Spec 0088 (Q3 C) — the player closed their report window, which
+        // showed reports up to `upTo` (a stamp the worker gave). Only that
+        // is read: whose window it was is the session's. No reply.
+        "REPORTS_CLOSED" -> {
+            val upTo = runCatching { message.getValue("upTo").jsonPrimitive.long }.getOrNull() ?: return null
+            runtime.reportsClosed(matchId, userId, upTo)
+            null
+        }
+
         // Spec 0054 — the other player has been offline long enough:
         // the player still here ends the game, as the other's
         // concession, so the game names the winner. Nothing but the

@@ -45,7 +45,9 @@ final class HiddenIds {
     /** The snapshot lists that ARE the board: what is in them, the viewer sees. */
     private static final List<String> BOARD = List.of(
             "battlefield", "hand", "otherHands", "casting", "graveyard", "exile", "command", "stack",
-            "copying");
+            "copying",
+            // Spec 0088 (Q4 C) -- a library's top card, sent only to a viewer Forge lets see it.
+            "libraryTop");
 
     /** A move's fields that travel only with its card (Moves.forViewer). */
     private static final List<String> WITH_CARD = List.of("why", "said", "into", "spent");

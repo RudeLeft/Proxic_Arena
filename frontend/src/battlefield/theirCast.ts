@@ -99,6 +99,8 @@ export function castOrigin(
   } else {
     // The top of a library, only when this viewer was shown it.
     faceUp = !!was(previous?.reveal?.cards) || !!was(now.reveal?.cards);
+    // Spec 0088 (Q4 C) -- or it stood on the library's tile (Future Sight's top card).
+    faceUp ||= !!was(previous?.libraryTop);
   }
   return { zone, side, faceUp: faceUp && seenNow, shown: null, back: null };
 }

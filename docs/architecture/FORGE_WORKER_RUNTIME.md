@@ -103,6 +103,11 @@ WATCHED  on                     (no reply)          spec 0047: build the public 
                                                     sent as MATCH_SNAPSHOT seat 0;
                                                     spec 0067: its playLog is the
                                                     public log, from line 1
+REPORTS_CLOSED seat, upTo       (no reply)          spec 0088: that seat closed its
+                                                    report window; its reports up to
+                                                    the stamp `upTo` are gone from its
+                                                    next snapshots (nothing in the game
+                                                    changes, no snapshot is sent for it)
 GAME_RESULT (diagnostics)       GAME_RESULT
                                 GAME_ENDED          outcome, winningSeat, reason?, turn
                                 GAME_LOG            entries: [{type, message}] -- Forge's

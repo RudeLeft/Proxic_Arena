@@ -394,6 +394,33 @@ class LiveMatchTest {
     }
 
     /**
+     * Spec 0088 (Q3 C) — closing the report window clears the gathered
+     * reports of the player's OWN seat, never the other's; a stranger closes
+     * nothing.
+     */
+    @Test
+    fun `a closed report window is the closing player's own seat's`() {
+        val closed = mutableListOf<Pair<Int, Long>>()
+        val match = live()
+
+        assertNull(
+            match.reportsClosed(bob, 41) { seat, upTo ->
+                closed += seat to upTo
+                true
+            },
+        )
+        assertEquals(
+            "NOT_A_PLAYER",
+            match.reportsClosed(stranger, 41) { seat, upTo ->
+                closed += seat to upTo
+                true
+            },
+        )
+        assertEquals(listOf(2 to 41L), closed)
+        assertEquals("UNREACHABLE", match.reportsClosed(alice, 3) { _, _ -> false })
+    }
+
+    /**
      * Spec 0054 — the player left waiting ends the game once the other
      * has been offline 10 minutes: the OTHER seat concedes, so the game
      * names the one who stayed. Not before, not if they are back, and

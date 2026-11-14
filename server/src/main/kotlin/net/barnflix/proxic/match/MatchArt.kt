@@ -119,17 +119,16 @@ class MatchArt(
                         // card that made it (its planeswalker), from that card's
                         // owner's deck; the worker names it as it names any card.
                         "emblems" -> zone(key)
+                        // Spec 0088 (Q4 C) -- a library's top card, sent only to a
+                        // viewer the game lets see it: its picture, as any card shown.
+                        "libraryTop" -> zone(key)
                         // Spec 0082 -- a copy on its way onto the stack wears its picture as it will there.
                         "stack", "copying" ->
                             (value as? JsonArray)?.map { stackArt(it.jsonObject, allowed) }?.let(::JsonArray)
                         // Spec 0045 -- the cards Forge showed this seat; Phase 9
                         // Amendment 12 -- and a report's cards this seat may know.
                         "reveal", "action" ->
-                            (value as? JsonObject)?.let { reveal ->
-                                buildJsonObject {
-                                    reveal.forEach { (k, v) -> put(k, if (k == "cards") cards(v) ?: v else v) }
-                                }
-                            }
+                            (value as? JsonObject)?.let { reveal -> reportPictures(reveal, ::cards) }
                         // Spec 0064 -- each card a play log line names to this seat
                         // (the worker named it only if this seat may identify it)
                         // wears its picture, so pointing at the name shows the card.
@@ -370,3 +369,30 @@ private fun pictured(
     val withArt = parts.map { part -> (part as? JsonObject)?.takeIf { "name" in it }?.let(card) ?: part }
     return JsonObject(row + ("parts" to JsonArray(withArt)))
 }
+
+/**
+ * Spec 0045 / Phase 9 Amendment 12 -- a reveal's or a report's cards wear
+ * their pictures; spec 0088 (Q3 C) -- and so do the cards of each older
+ * report gathered with it (`gathered`), which the window shows as rows and
+ * opens in full on a click.
+ */
+private fun reportPictures(
+    report: JsonObject,
+    cards: (kotlinx.serialization.json.JsonElement?) -> JsonArray?,
+): JsonObject =
+    buildJsonObject {
+        report.forEach { (key, value) ->
+            val rewritten =
+                when (key) {
+                    "cards" -> cards(value)
+                    "gathered" ->
+                        (value as? JsonArray)?.let { rows ->
+                            JsonArray(
+                                rows.map { row -> (row as? JsonObject)?.let { reportPictures(it, cards) } ?: row },
+                            )
+                        }
+                    else -> null
+                }
+            put(key, rewritten ?: value)
+        }
+    }

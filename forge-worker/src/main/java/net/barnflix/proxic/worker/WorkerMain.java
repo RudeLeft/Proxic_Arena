@@ -642,6 +642,15 @@ public final class WorkerMain {
                 reply.add("options", options);
                 send(reply);
             }
+            case "REPORTS_CLOSED" -> {
+                // Spec 0088 (Q3 C) -- a player closed the report window: the
+                // reports up to `upTo` are gone for that seat (`seat` is the
+                // server's, resolved from the authenticated user). Not an
+                // answer: nothing in the game changes, and no reply.
+                if (GAME != null && request.has("seat") && request.has("upTo")) {
+                    GAME.reportsClosed(request.get("seat").getAsInt(), request.get("upTo").getAsLong());
+                }
+            }
             case "WATCHED" -> {
                 // Spec 0047 -- the server has spectators for this game (or
                 // no longer has): build the public view, sent as seat 0.

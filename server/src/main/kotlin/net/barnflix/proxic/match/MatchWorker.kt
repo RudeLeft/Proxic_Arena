@@ -465,6 +465,12 @@ fun MatchWorker.watched(on: Boolean): Boolean = forward(watchedFrame(on), "watch
 /** §7.55 — forward a concession the server authorised. Forge ends the game. */
 fun MatchWorker.concede(seat: Int): Boolean = forward(concedeFrame(seat), "a concession")
 
+/** Spec 0088 (Q3 C) — a player's report window closed, up to [upTo], for their seat. */
+fun MatchWorker.reportsClosed(
+    seat: Int,
+    upTo: Long,
+): Boolean = forward(reportsClosedFrame(seat, upTo), "a closed report")
+
 /** P6-AG — ask the worker what matches; the reply is a [WorkerEvent.Options]. */
 fun MatchWorker.search(
     decisionId: Long,

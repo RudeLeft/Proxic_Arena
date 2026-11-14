@@ -8,8 +8,9 @@
 // stops sending it then). Only what Forge revealed, to whom it revealed
 // it: the worker fills this from the reveal Forge makes to each player.
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { ReportMark, SnapshotReveal } from "../match";
+import { FOLD_MS, GATHERED_W, layoutOf } from "./reports";
 import type { Geometry } from "./layout";
 import { BigCard } from "./QuestionWindows";
 import { ManaText, symbolUrl } from "./ManaCost";
@@ -162,6 +163,55 @@ function markWords(mark: ReportMark): [string, string] {
   return ["Coin flip", mark.won ? "Won" : "Lost"];
 }
 
+/**
+ * Spec 0088 (Q3 C) -- an older report folded into one line at the top of the
+ * window: its player's medallion, WHO · CARD, the sentence, a small picture
+ * of its first card. A click opens it in full.
+ */
+function ReportRow({
+  report,
+  who,
+  artUrl,
+  onOpen,
+}: {
+  report: SnapshotReveal;
+  who: { name: string; face: ReactNode } | null;
+  artUrl: (art: string) => string;
+  onOpen: () => void;
+}) {
+  const first = report.cards[0];
+  const pic = first && !(first.faceDown && !first.known) ? (first.crop ?? first.art) : null;
+  return (
+    // Not a list item: the scripted games read a question's choices as
+    // list items' buttons, and a row is no choice.
+    <div className="gs-report-row" data-report={report.key}>
+      <button
+        type="button"
+        className="gs-report-row-open"
+        onClick={onOpen}
+        aria-label={`Open: ${who?.name ?? "A player"}, ${report.source}. ${report.said ?? ""}`}
+      >
+        <span className="gs-report-row-face" aria-hidden="true">
+          {who?.face}
+        </span>
+        <span className="gs-report-row-words">
+          <span className="gs-reveal-by">
+            {who?.name ?? "A player"} · {report.source}
+          </span>
+          <span className="gs-report-row-said">{report.said}</span>
+        </span>
+        {first && (
+          <span
+            className={`gs-report-row-pic${pic ? "" : " gs-report-row-back"}`}
+            aria-hidden="true"
+            style={pic ? { backgroundImage: `url(${artUrl(pic)})` } : undefined}
+          />
+        )}
+      </button>
+    </div>
+  );
+}
+
 export function RevealTray({
   reveal,
   geometry,
@@ -169,9 +219,12 @@ export function RevealTray({
   artUrl,
   onClose,
   who,
+  whoOf,
 }: {
   /** Phase 9 Amendment 12 -- a report's acting player: their picture and name. */
   who?: { name: string; face: ReactNode } | null;
+  /** Spec 0088 (Q3 C) -- any report's acting player, by seat (the rows' smaller medallions). */
+  whoOf?: (seat: number | null, size?: number) => { name: string; face: ReactNode } | null;
   reveal: SnapshotReveal;
   geometry: Geometry;
   /** A question's window holds the bottom: the tray waits at the top. */
@@ -181,20 +234,91 @@ export function RevealTray({
 }) {
   // Amendment 18 -- Space or Peek fades this window too.
   const peek = usePeek(true);
+  // Spec 0088 (Q3 C) -- the older reports gathered with this one fold into
+  // rows at the top; the newest shows in full, unless a row was opened.
+  // A newer report coming in shows in full again.
+  const [opened, setOpened] = useState<{ at: string; key: string | null }>({ at: "", key: null });
+  const { full, rows } = layoutOf(reveal, opened.at === reveal.key ? opened.key : null);
+  const fullWho = full === reveal ? (who ?? null) : (whoOf?.(full.by ?? null) ?? null);
+  // A report folding into its row, and the newest coming in under it
+  // (the canvas's 0.3 s): once per new report, never on a redraw.
+  const rowsRef = useRef<HTMLDivElement>(null);
+  const fullRef = useRef<HTMLDivElement>(null);
+  const shownFull = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const was = shownFull.current;
+    shownFull.current = full.key;
+    if (was === null || was === full.key || reducedMotion()) return;
+    const body = fullRef.current;
+    if (body && typeof body.animate === "function")
+      body.animate(
+        [
+          { opacity: 0, transform: "translateY(20px)" },
+          { opacity: 1, transform: "none" },
+        ],
+        { duration: FOLD_MS, easing: "cubic-bezier(0, 0, 0.2, 1)" },
+      );
+    const row = rowsRef.current?.querySelector<HTMLElement>(`[data-report="${was}"]`);
+    if (row && typeof row.animate === "function")
+      row.animate([{ opacity: 0 }, { opacity: 1 }], {
+        duration: FOLD_MS,
+        easing: "cubic-bezier(0, 0, 0.2, 1)",
+      });
+  }, [full.key]);
   return (
     <div
       className={`gs-reveal${atTop ? " gs-reveal-top" : ""}${peek ? " gs-win-peek" : ""}`}
       role="region"
-      aria-label={reveal.said ?? reveal.title.replace(/:$/, "")}
-      data-by={reveal.by || undefined}
+      aria-label={full.said ?? full.title.replace(/:$/, "")}
+      data-by={full.by || undefined}
+      data-gathered={rows.length || undefined}
       style={{
         left: geometry.play.x + geometry.play.w * 0.45,
         maxWidth: geometry.play.w * 0.82,
+        // Spec 0088 (Q3 C) -- a window of gathered reports is the canvas's
+        // 600 at 1080 wide at least, so its rows read across it.
+        ...(rows.length > 0
+          ? { minWidth: Math.min(GATHERED_W * (geometry.height / 1080), geometry.play.w * 0.82) }
+          : {}),
         // Spec 0071, item 1 -- above your hand, not on it; at the top while
         // a question's window holds the bottom (.gs-reveal-top).
         ...(atTop ? {} : { bottom: reportBottom(geometry) }),
       }}
     >
+      {rows.length > 0 && (
+        <div ref={rowsRef} className="gs-report-rows" role="group" aria-label="Earlier reports">
+          {rows.map((r) => (
+            <ReportRow
+              key={r.key}
+              report={r}
+              who={whoOf?.(r.by ?? null, 32) ?? null}
+              artUrl={artUrl}
+              onOpen={() => setOpened({ at: reveal.key, key: r === reveal ? null : r.key })}
+            />
+          ))}
+        </div>
+      )}
+      <ReportBody report={full} who={fullWho} artUrl={artUrl} bodyRef={fullRef} onClose={onClose} />
+    </div>
+  );
+}
+
+/** One report in full: who, the sentence, the cards as pictures, then Peek and Close. */
+function ReportBody({
+  report: reveal,
+  who,
+  artUrl,
+  bodyRef,
+  onClose,
+}: {
+  report: SnapshotReveal;
+  who: { name: string; face: ReactNode } | null;
+  artUrl: (art: string) => string;
+  bodyRef: { current: HTMLDivElement | null };
+  onClose: () => void;
+}) {
+  return (
+    <div className="gs-report-full" ref={bodyRef} data-report={reveal.key}>
       <div className="gs-reveal-head">
         {reveal.said ? (
           // Amendment 12 -- who did it, with which card, and the whole action.
@@ -257,4 +381,10 @@ export function RevealTray({
       </PeekFoot>
     </div>
   );
+}
+
+function reducedMotion(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : true;
 }
