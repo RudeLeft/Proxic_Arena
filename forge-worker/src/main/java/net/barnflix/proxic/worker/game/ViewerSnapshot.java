@@ -232,6 +232,11 @@ final class ViewerSnapshot {
         }
 
         JsonArray battlefield = new JsonArray();
+        // Spec 0085 (4 A) -- the exiled cards each permanent holds, as the
+        // game links them (Marks.held): Banishing Light's, Fiend Hunter's,
+        // an imprint, a Hideaway card. Ids only: each is in `exile`, named
+        // there as this viewer may know it (a face-down one is a back).
+        java.util.Map<Integer, JsonArray> holds = Marks.held(game);
         for (Player player : game.getRegisteredPlayers()) {
             // Spec 0080 -- phased-out permanents too (Forge's plain
             // getCardsIn leaves them out, and the page drew them exiled),
@@ -260,6 +265,10 @@ final class ViewerSnapshot {
                 if (preparedSpell != null) {
                     Copies.of(game).notePrepared(card);
                     described.addProperty("prepared", "card:" + preparedSpell.getId());
+                }
+                JsonArray held = holds.get(card.getId());
+                if (held != null && held.size() > 0) {
+                    described.add("holds", held);
                 }
                 battlefield.add(described);
             }
@@ -1014,6 +1023,23 @@ final class ViewerSnapshot {
         }
         if (keywords.size() > 0) {
             entry.add("keywords", keywords);
+        }
+        // Spec 0085 (2 B) -- on the battlefield: the keywords it has that its
+        // face does not print (`gained`, Forge's titles, as above), a "can't
+        // be blocked" it was given (`unblockable`), and, on a creature, that it
+        // has lost all its abilities (`lostAbilities`: Humility). Public, as
+        // the permanent is; only for a card this viewer may identify.
+        if (card.isInPlay()) {
+            JsonArray gained = Marks.gained(card);
+            if (gained.size() > 0) {
+                entry.add("gained", gained);
+            }
+            if (Marks.unblockable(card)) {
+                entry.addProperty("unblockable", true);
+            }
+            if (state.isCreature() && Marks.lostAll(card)) {
+                entry.addProperty("lostAbilities", true);
+            }
         }
 
         JsonArray counters = new JsonArray();

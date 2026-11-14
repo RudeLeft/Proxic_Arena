@@ -177,6 +177,9 @@ const BOARDS: [number, number, number][] = [
 const TOLERANCE = 0.1; // px: sub-pixel rounding, nothing more
 /** F-0076-D: how many badges the sweep measured (it must reach some). */
 let badgesSeen = 0;
+/** F-0085-D, 4 A: how many gained-ability squares and held tabs the sweep measured. */
+let kwMarksSeen = 0;
+let heldTabsSeen = 0;
 
 /**
  * Everything wrong with what is on screen, against layout() for `board`.
@@ -353,6 +356,32 @@ async function differences(
     });
     wrong.push(...badges.out);
     badgesSeen += badges.seen;
+
+    // F-0085-D: the protection and gained-ability squares are measured with
+    // the badges above (never on the name, the P/T, the state word or each
+    // other); count them, and the held cards' picture tabs (4 A), which
+    // stand on their holder's edge and never on another card.
+    const held = await page.evaluate(() => {
+      const out: string[] = [];
+      const cards = [...document.querySelectorAll<HTMLElement>("button.bf-card")];
+      const tabs = [...document.querySelectorAll<HTMLElement>(".bf-tag-held")];
+      for (const tab of tabs) {
+        const t = tab.getBoundingClientRect();
+        const by = tab.dataset.heldBy;
+        for (const card of cards) {
+          if (card.dataset.objectId === by) continue;
+          const r = card.getBoundingClientRect();
+          const w = Math.min(t.right, r.right) - Math.max(t.left, r.left);
+          const h = Math.min(t.bottom, r.bottom) - Math.max(t.top, r.top);
+          if (w > 0.5 && h > 0.5)
+            out.push(`${by}'s held tab covers ${card.dataset.objectId} by ${w.toFixed(1)}px`);
+        }
+      }
+      return { out, tabs: tabs.length, marks: document.querySelectorAll(".bf-mark-kw").length };
+    });
+    wrong.push(...held.out);
+    heldTabsSeen += held.tabs;
+    kwMarksSeen += held.marks;
   }
   return { wrong, shrunk, seen };
 }
@@ -399,6 +428,11 @@ test("the drawn battlefield is exactly layout()'s, and keeps Amendment 4 and spe
   }
   expect(shrunk, "some board exercised the scale floor (§7.51)").toBeGreaterThan(0);
   expect(badgesSeen, "the sweep measured counter badges (F-0076-D)").toBeGreaterThan(0);
+  expect(
+    kwMarksSeen,
+    "the sweep measured protection and gained squares (F-0085-D)",
+  ).toBeGreaterThan(0);
+  expect(heldTabsSeen, "the sweep measured held cards' tabs (F-0085-E)").toBeGreaterThan(0);
   expect(problems, "browser reported errors").toEqual([]);
 });
 

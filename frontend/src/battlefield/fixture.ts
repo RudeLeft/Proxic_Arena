@@ -110,7 +110,20 @@ export function syntheticBoard(permanents: number, faces: number, seed: number):
     { indestructible: true, keywords: ["Indestructible"] },
     { shields: 1 },
     { phasedOut: true },
+    // Spec 0085: protection and gained-ability squares, lost abilities.
+    {
+      keywords: ["Hexproof", "Protection from red", "Trample", "Haste"],
+      gained: ["Trample", "Haste"],
+    },
+    { lostAbilities: true },
+    {
+      keywords: ["Ward {2}", "Flying", "Double Strike", "Menace"],
+      gained: ["Flying", "Double Strike", "Menace"],
+      unblockable: true,
+    },
   ];
+  /** Spec 0085 -- every third enchantment or artifact holds an exiled card (a picture tab). */
+  let othersNo = 0;
   const KINDS = [
     [{ name: "P1P1", count: 2 }],
     [
@@ -190,6 +203,20 @@ export function syntheticBoard(permanents: number, faces: number, seed: number):
     } else if (roll < 0.95) {
       const [name, types] = pick(OTHERS);
       card = { ...base(seat, name, "other", types), tapped: rnd() < 0.15 };
+      if (othersNo++ % 3 === 2)
+        card = {
+          ...card,
+          holding: [
+            {
+              id: `card:held${othersNo}`,
+              name: othersNo % 2 === 0 ? "Serra Angel" : "",
+              known: othersNo % 2 === 0,
+              art: null,
+              crop: null,
+              seat: seat === 1 ? 2 : 1,
+            },
+          ],
+        };
     } else {
       card = {
         ...base(seat, "Face-down", "creature", "Creature"),

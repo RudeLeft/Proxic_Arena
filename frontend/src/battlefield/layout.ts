@@ -166,6 +166,16 @@ export interface LayoutCard {
   /** Spec 0080 -- phased out, or holding regeneration shields: a stack compares these too. */
   phasedOut?: boolean | undefined;
   shields?: number | undefined;
+  /** Spec 0085 -- gained keywords, a given "can't be blocked", lost abilities: a stack compares these too. */
+  gained?: readonly string[] | undefined;
+  unblockable?: boolean | undefined;
+  lostAbilities?: boolean | undefined;
+  /**
+   * Spec 0085 (4 A) -- the exiled cards it holds: each a picture tab on its
+   * right edge, after any Aura and Equipment tabs, so its slot is wider by
+   * them (A-17's room) and it never stacks.
+   */
+  holding?: readonly { id: string }[] | undefined;
 }
 
 export interface LayoutInput {
@@ -375,6 +385,9 @@ function identity(card: LayoutCard): string {
     card.sprocket ?? null,
     card.phasedOut === true,
     card.shields ?? 0,
+    [...(card.gained ?? [])].sort(),
+    card.unblockable === true,
+    card.lostAbilities === true,
   ]);
 }
 
@@ -398,6 +411,7 @@ function pileKey(
 ): string | null {
   if (card.faceDown || !card.known) return null;
   if (card.paying || card.held) return null;
+  if ((card.holding?.length ?? 0) > 0) return null;
   if (card.attachedTo !== null || attachedHosts.has(card.id)) return null;
   if (card.blocking) return null;
   if (riders) {
@@ -818,6 +832,9 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
   }
   for (const list of attachmentsOf.values()) list.sort(arrival);
   const hosts = new Set(attachmentsOf.keys());
+  /** Its tabs: the Auras and Equipment on it, then (spec 0085) the cards it holds. */
+  const tabsOf = (card: LayoutCard): number =>
+    (attachmentsOf.get(card.id)?.length ?? 0) + (card.holding?.length ?? 0);
   const isAttachment = (card: LayoutCard): boolean =>
     card.attachedTo !== null && byId.has(card.attachedTo) && card.attachedTo !== card.id;
 
@@ -916,7 +933,7 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
       [...kinds].map(([kind, list]) => [
         kind,
         list.map((members) => {
-          const tabs = g.cardH * tabRoom(attachmentsOf.get(members[0]!.id)?.length ?? 0);
+          const tabs = g.cardH * tabRoom(tabsOf(members[0]!));
           return Math.max(tabs, facingRoom(kind, members));
         }),
       ]),
@@ -951,8 +968,7 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
       if (line.kind === "front" && facingOf.length > 0) {
         const slotsHere = line.slots.map((i) => kinds.get("front")![i]!);
         const widths = slotsHere.map(
-          (members) =>
-            w + g.cardH * tabRoom(attachmentsOf.get(members[0]!.id)?.length ?? 0) * plan.scale,
+          (members) => w + g.cardH * tabRoom(tabsOf(members[0]!)) * plan.scale,
         );
         const groupsHere: { centre: number; widths: number[]; at: number[] }[] = [];
         line.slots.forEach((slotIndex, i) => {

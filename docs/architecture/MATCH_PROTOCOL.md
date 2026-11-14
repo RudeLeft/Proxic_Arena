@@ -269,6 +269,11 @@ Spec 0084: a sacrifice that was a cost, its card's own ability or a Saga's
 end is a move marked `spent` (an edict never is); `shuffles` names the
 libraries shuffled, `crewed` each vehicle's crew, and a fight or bite
 spell's damage wave says `fight` with its `fights`.
+Spec 0085: a permanent says which keywords it `gained` (not printed), a
+given "can't be blocked" (`unblockable`), that a creature lost all its
+abilities (`lostAbilities`), and which exiled cards it `holds` (Banishing
+Light's, an imprint, a Hideaway card; ids only, each named in `exile` as
+the viewer may know it).
 Spec 0080: phased-out permanents
 are sent, flagged `phasedOut` (they were left out and drawn exiled), with
 the round's `phased` changes; a flicker is one move ("flickered", `via`

@@ -2838,3 +2838,100 @@ img.bf-makes-pip {
 .bf-fight-ptfloat.bf-fight-grey {
   color: #b9c2bd;
 }
+
+/* --- Spec 0085: protection and gained-ability marks; what a card holds ------ */
+
+/* 2 B -- a gained ability's (or protection's) square: 0076's gold-rimmed
+   square. Lost all its abilities: the same square, grey. */
+.bf-mark-lost {
+  border-color: #8d9a92;
+  background: radial-gradient(circle at 40% 35%, #2c3430, #121614);
+  box-shadow:
+    0 0 calc(var(--card-h) * 0.04) #8d9a9255,
+    0 1px 3px #000a;
+}
+/* The icon rising off the card, then dropping into its square (the canvas's riser). */
+.bf-fight-riser {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border-radius: 23%;
+  background: radial-gradient(circle at 40% 35%, #3a2c12, #16110a);
+  border: 1.5px solid #e9c46a;
+  box-shadow:
+    0 0 10px #e9c46a99,
+    0 2px 4px #000c;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+}
+.bf-fight-riser svg {
+  width: 80%;
+  height: 80%;
+}
+.bf-fight-riser.bf-fight-riser-lost {
+  border-color: #8d9a92;
+  background: radial-gradient(circle at 40% 35%, #2c3430, #121614);
+  box-shadow:
+    0 0 8px #8d9a9288,
+    0 2px 4px #000c;
+}
+/* 4 A -- a held card: a picture tab on the holder's edge, in A-17's tab look
+   (the canvas's), its picture in a small gold-rimmed square, then its name. */
+.bf-tag.bf-tag-held {
+  background: #152130;
+  color: #ccd8e4;
+  border-color: color-mix(in srgb, #ccd8e4 45%, transparent);
+  cursor: default;
+}
+.bf-tag-pic {
+  position: relative;
+  flex: none;
+  width: calc(var(--card-h) * 0.095);
+  height: calc(var(--card-h) * 0.095);
+  border-radius: 2px;
+  border: 1px solid #e9c46a;
+  background: linear-gradient(160deg, #55606a, #20282f);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.bf-tag-pic img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* A face-down held card the viewer may not see: a card back, no name. */
+.bf-tag-pic.bf-tag-pic-back {
+  background: repeating-linear-gradient(45deg, #3a2a18 0 3px, #2a1f14 3px 6px);
+  border-color: #8a6a3a;
+}
+/* The tab flying to the exile pile when its holder goes. */
+.bf-fight-heldtab {
+  position: absolute;
+  box-sizing: border-box;
+  writing-mode: vertical-rl;
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+  padding: 0.35em 0;
+  border: 1px solid color-mix(in srgb, #ccd8e4 45%, transparent);
+  border-left: none;
+  border-radius: 0 0.35em 0.35em 0;
+  background: #152130;
+  color: #ccd8e4;
+  font-family: var(--pa-card);
+  font-size: calc(var(--card-h) * 0.07);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  box-shadow: 0 0 12px 3px rgb(241 195 106 / 80%);
+}
+.bf-fight-heldtab .bf-tag-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

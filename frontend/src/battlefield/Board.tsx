@@ -28,6 +28,7 @@
 // B2-B4, B13, and the damage wave's fights); none of it is inferred here.
 
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -78,6 +79,7 @@ import {
   PULL_LEAN,
   PULL_MS,
   TETHER_MS,
+  BANISH_MS,
   SWEEP_MS,
   WIPE_AT,
   SPENT_BEAT_MS,
@@ -224,7 +226,41 @@ import type { Moments, Survive, TileMove, TileZone } from "./fromSnapshot";
 import { domeMarks, shieldBreakMarks, wardMarks, type SurviveMark } from "./survive";
 import { payWords, type PayMark } from "./payPicks";
 import { PaySign } from "./PaySign";
-import { BADGE_FLOOR, CardBadges, MARK_H, REGEN_SHIELD, SEAL, STOPWATCH, TWIN } from "./CardBadges";
+import {
+  BADGE_FLOOR,
+  CardBadges,
+  MARK_H,
+  REGEN_SHIELD,
+  SEAL,
+  STOPWATCH,
+  TWIN,
+  type GoneMark,
+} from "./CardBadges";
+import { cardMarks, HEX_MARK, MarkIcon, type CardMark } from "./marks";
+import {
+  FREED_WAIT_MS,
+  HELD_ARC,
+  HELD_IN_MS,
+  MARK_LAND_MS,
+  RISE_FROM,
+  RISE_UP,
+  RISE_UP_PX,
+  RISER_APART,
+  RISER_BEAT_MS,
+  RISER_MS,
+  RISER_START,
+  RISER_TOP,
+  TILE_GLOW_LEAD_MS,
+  TILE_GLOW_MS,
+  WHY_PULSE_MS,
+  freedGlowFrames,
+  heldFlyFrames,
+  heldInFrames,
+  markLandFrames,
+  riserFrames,
+  tileGlowFrames,
+  whyPulseFrames,
+} from "./markMotion";
 import { RoomFace } from "./RoomDoors";
 import {
   ALIVE_BACK_MS,
@@ -329,6 +365,24 @@ export interface BoardCard extends LayoutCard {
    */
   doors?: readonly [string, string] | undefined;
   lockedHalves?: readonly ("top" | "bottom")[] | undefined;
+  /**
+   * Spec 0085 (4 A) -- the exiled cards it holds (the game's link): each a
+   * picture tab on its edge, its picture and name as this viewer may know
+   * them -- a face-down one the other player may not see is a back with no
+   * name.
+   */
+  holding?: readonly HeldCard[] | undefined;
+}
+
+/** Spec 0085 -- a card a permanent holds in exile, as this viewer may know it. */
+export interface HeldCard {
+  id: string;
+  name: string;
+  known: boolean;
+  art: string | null;
+  crop: string | null;
+  /** Whose exile pile it is in: the tab flies there when its holder goes. */
+  seat: number;
 }
 
 /** Spec 0045 -- a counter's name as players say it ("P1P1" is "+1/+1"). */
@@ -1346,7 +1400,10 @@ interface FightMark {
     | "coin"
     | "alivering"
     | "mote"
-    | "ptfloat";
+    | "ptfloat"
+    // Spec 0085: a gained ability's icon rising and settling; a held card's tab flying to its pile.
+    | "riser"
+    | "heldtab";
   /** Spec 0083 (13 B) -- a crack drawn across a card's box (stretched), not a shield's. */
   card?: boolean;
   /** Spec 0083 -- what a spell's hit landed on, for the browser checks (as the burst's was). */
@@ -1365,6 +1422,10 @@ interface FightMark {
   poison?: boolean;
   /** Spec 0080 -- a number's or spark's colour: grey (nothing dealt), gold, green. */
   tone?: "grey" | "gold" | "green";
+  /** Spec 0085 -- a riser's mark (its picture). */
+  markOf?: CardMark;
+  /** Spec 0085 -- a flying held tab: its card as the viewer may know it, and its picture's address. */
+  heldTab?: { name: string; known: boolean; src: string | null };
 }
 
 /**
@@ -1712,6 +1773,22 @@ export function Board({
   const fightSurvivors = useRef(new Set<string>());
   /** Phase 10 A-13: the fights' marks, the clock they all run on, and the dead's part in them. */
   const [marks, setMarks] = useState<FightMark[]>([]);
+  /** Spec 0085 -- each card's marks just ended, shrinking away. */
+  const [goneMarks, setGoneMarks] = useState<ReadonlyMap<string, readonly GoneMark[]>>(
+    () => new Map(),
+  );
+  const dropGoneMark = useCallback((key: string) => {
+    setGoneMarks((now) => {
+      let changed = false;
+      const next = new Map<string, readonly GoneMark[]>();
+      for (const [card, list] of now) {
+        const kept = list.filter((g) => g.key !== key);
+        if (kept.length !== list.length) changed = true;
+        if (kept.length > 0) next.set(card, kept);
+      }
+      return changed ? next : now;
+    });
+  }, []);
   const fightClock = useRef<Animation | null>(null);
   /** Spec 0078 -- the clock a creature shrunk to death counts down on before it breaks. */
   const deathClock = useRef<Animation | null>(null);
@@ -2098,6 +2175,8 @@ export function Board({
       const side = slot.row.startsWith("viewer") ? "viewer" : sideOf(lead.seat);
       const pt = figure(lead);
       const attached = slot.attached.map((id) => byId.get(id)!);
+      // Spec 0085 (4 A) -- the cards it holds in exile, each a picture tab.
+      const holding = lead.holding ?? [];
       const aim = slot.ids.map((id) => aims.get(id)).find((t) => t !== undefined);
       const attacker = slot.ids.map((id) => attacks.get(id)).find((t) => t !== undefined);
       const glows = slot.ids.some((id) => attacked.has(id));
@@ -2246,6 +2325,8 @@ export function Board({
               <CardBadges
                 card={lead}
                 artUrl={artUrl}
+                gone={goneMarks.get(lead.id)}
+                onGone={dropGoneMark}
                 pile={count > 1}
                 room={{
                   pile: count > 1,
@@ -2318,13 +2399,13 @@ export function Board({
                 {count > 1 && <b>{leadAct.marks}</b>}
               </span>
             )}
-            {attached.length > 0 && (
+            {(attached.length > 0 || holding.length > 0) && (
               // Auras and Equipment as tabs on the host's right edge (Phase
               // 10 A-17, owner 2026-11-06; name tags across its picture
               // before, AMENDMENT 4), fanning past TAB_FAN. Each is its own
               // button, with its own id, so it can be targeted and inspected
               // like any permanent.
-              <div className="bf-tags" data-tabs={attached.length}>
+              <div className="bf-tags" data-tabs={attached.length + holding.length}>
                 {attached.map((card, index) => {
                   const tagLook = lookOf(card.kind, card.types);
                   const tagAct = act([card.id]);
@@ -2333,8 +2414,8 @@ export function Board({
                       key={card.id}
                       type="button"
                       style={{
-                        left: `calc(var(--card-h) * ${tabAt(index, attached.length)})`,
-                        zIndex: attached.length - index,
+                        left: `calc(var(--card-h) * ${tabAt(index, attached.length + holding.length)})`,
+                        zIndex: attached.length + holding.length - index,
                       }}
                       className={`bf-tag bf-look-${tagLook}${tagAct.className}`}
                       {...tagAct.data}
@@ -2364,6 +2445,31 @@ export function Board({
                     </button>
                   );
                 })}
+                {/* Spec 0085 (4 A) -- each card it holds in exile: a picture
+                    tab after its Aura and Equipment tabs, the held card's
+                    picture and name (a face-down one the viewer may not see:
+                    a back, no name). */}
+                {holding.map((held, j) => (
+                  <span
+                    key={held.id}
+                    className="bf-tag bf-tag-held"
+                    style={{
+                      left: `calc(var(--card-h) * ${tabAt(attached.length + j, attached.length + holding.length)})`,
+                      zIndex: holding.length - j,
+                    }}
+                    title={
+                      held.known
+                        ? `Holding ${held.name} in exile`
+                        : "Holding a face-down card in exile"
+                    }
+                    data-held-card={held.id}
+                    data-held-by={lead.id}
+                    data-face={held.known ? "up" : "down"}
+                  >
+                    <HeldPicture held={held} artUrl={artUrl} />
+                    {held.known && <span className="bf-tag-name">{held.name}</span>}
+                  </span>
+                ))}
               </div>
             )}
           </>
@@ -2537,6 +2643,8 @@ export function Board({
     combat,
     aimed,
     flyingOnto,
+    goneMarks,
+    dropGoneMark,
   ]);
   // A card selected to attack or block draws over its neighbours (Z_MARKED).
   const zOf = (item: Item) =>
@@ -3496,6 +3604,157 @@ export function Board({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per round
   }, [sizes0078, result]);
+
+  // Spec 0085 (owner 2026-11-13, canvas gaps-marks-1113) -- marks and held
+  // cards changing, once per board, on the board's clock (a click hurries
+  // them, A-00). 2 B: a mark a permanent did not have rises off it like a
+  // +N, holds, then drops into its square (which pops as it lands): all its
+  // new marks together, several cards a beat apart (Heroic Intervention's
+  // three at once). It starts with the round's number changes: when the
+  // resolving spell's beam lands (after any fights). A mark that ends shrinks
+  // away then. 4 A: a card it now holds shows its tab once that card has
+  // gone into exile, with a glow, and the holder glows. A card new to the
+  // table simply wears its marks. Reduce motion: they are simply there.
+  const marksThen = useRef<Map<string, { marks: CardMark[]; holding: string[] }> | null>(null);
+  /** Spec 0085 -- cards whose holder has gone, still in exile: they glow when they come out. */
+  const freed = useRef(new Set<string>());
+  useLayoutEffect(() => {
+    const was = marksThen.current;
+    const nowMarks = new Map(
+      battlefield.map((c) => [
+        c.id,
+        {
+          // 0080's hexagon rises and shrinks away as the others do.
+          marks: [...cardMarks(c), ...(c.indestructible ? [HEX_MARK] : [])],
+          holding: (c.holding ?? []).map((h) => h.id),
+        },
+      ]),
+    );
+    marksThen.current = nowMarks;
+    const root = ref.current;
+    if (!was || !result || !root || reducedMotion()) return;
+    const stackNow = new Set((stack ?? []).map((s) => s.id));
+    const onTable = new Set(battlefield.map((c) => c.id));
+    let lead = 0;
+    for (const { s } of previous.current?.stack ?? []) {
+      if (stackNow.has(s.id)) continue;
+      if (s.card && onTable.has(s.card)) lead = Math.max(lead, MOVE_MS);
+      else if (s.source && onTable.has(s.source)) lead = Math.max(lead, RESOLVE_MS + MOVE_MS);
+      else lead = Math.max(lead, RESOLVE_MS);
+    }
+    const start = holdLeft() + lead;
+    const rootBox = root.getBoundingClientRect();
+    const k = root.offsetWidth > 0 ? rootBox.width / root.offsetWidth || 1 : 1;
+    const risers: FightMark[] = [];
+    const gone = new Map<string, GoneMark[]>();
+    const drawnFor = new Set<string>();
+    let beat = 0;
+    for (const card of battlefield) {
+      const then = was.get(card.id);
+      const at = positions.get(card.id);
+      if (!then || !at || drawnFor.has(at.item)) continue;
+      drawnFor.add(at.item);
+      const marksNow = nowMarks.get(card.id)!.marks;
+      const added = marksNow.filter((m) => !then.marks.some((b) => b.key === m.key));
+      const ended = then.marks.filter((b) => !marksNow.some((m) => m.key === b.key));
+      if (ended.length > 0)
+        gone.set(
+          card.id,
+          ended.map((m) => ({
+            key: `${m.key}:${card.id}:${performance.now()}`,
+            mark: m,
+            delay: start,
+          })),
+        );
+      const element = elements.current.get(at.item);
+      if (added.length === 0 || !element) continue;
+      const box = at.box;
+      const h = box.h;
+      const itemBox = element.getBoundingClientRect();
+      const delay = start + beat * RISER_BEAT_MS;
+      beat++;
+      added.forEach((m, i) => {
+        // Folded (no room): it drops into the "··· N".
+        const square =
+          element.querySelector<HTMLElement>(`.bf-mark[data-mark="${m.key}"]`) ??
+          element.querySelector<HTMLElement>('.bf-badge[data-counter="more"]');
+        // Where its square is, on the table (measured in the card, which is
+        // where it is now; else 0076's first place at the lower left).
+        let to = {
+          x: box.x + h * (0.03 + MARK_H / 2),
+          y: box.y + h * (1 - BADGE_FLOOR - MARK_H / 2),
+        };
+        if (square) {
+          const r = square.getBoundingClientRect();
+          if (r.width > 0)
+            to = {
+              x: box.x + (r.left + r.width / 2 - itemBox.left) / k,
+              y: box.y + (r.top + r.height / 2 - itemBox.top) / k,
+            };
+          if (typeof square.animate === "function" && square.classList.contains("bf-mark"))
+            square.animate(markLandFrames(), {
+              duration: MARK_LAND_MS,
+              delay,
+              easing: "linear",
+              fill: "backwards",
+            });
+        }
+        const from = {
+          x: box.x + box.w / 2 + (i - (added.length - 1) / 2) * RISER_APART * h,
+          y: box.y + h / 2 - RISE_FROM * h,
+        };
+        const top = RISER_TOP * h;
+        risers.push({
+          key: `riser:${card.id}:${m.key}:${performance.now()}`,
+          kind: "riser",
+          style: { left: 0, top: 0, width: top, height: top },
+          frames: riserFrames(
+            from,
+            RISE_UP * h + RISE_UP_PX * (h / 92),
+            to,
+            RISER_START * h,
+            top,
+            MARK_H * h,
+          ),
+          duration: RISER_MS,
+          delay,
+          of: card.id,
+          markOf: m,
+        });
+      });
+    }
+    // 4 A -- a newly held card's tab, once the card is in exile.
+    const exiled = holdLeft() + lead + BANISH_MS + MOVE_MS;
+    for (const card of battlefield) {
+      const then = was.get(card.id);
+      const fresh = nowMarks.get(card.id)!.holding.filter((id) => !then?.holding.includes(id));
+      if (!then || fresh.length === 0) continue;
+      const at = positions.get(card.id);
+      const element = at ? elements.current.get(at.item) : undefined;
+      if (!element) continue;
+      for (const id of fresh) {
+        const tab = element.querySelector<HTMLElement>(`.bf-tag-held[data-held-card="${id}"]`);
+        if (tab && typeof tab.animate === "function")
+          tab.animate(heldInFrames(), {
+            duration: HELD_IN_MS,
+            delay: exiled,
+            easing: "linear",
+            fill: "backwards",
+          });
+      }
+      element
+        .querySelector<HTMLElement>(":scope > .bf-card")
+        ?.animate(glowFrames(), { duration: ORIGINAL_GLOW_MS, delay: exiled, easing: "linear" });
+    }
+    if (risers.length > 0) setMarks((list) => [...list, ...risers]);
+    if (gone.size > 0)
+      setGoneMarks((now) => {
+        const next = new Map(now);
+        for (const [card, list] of gone) next.set(card, [...(next.get(card) ?? []), ...list]);
+        return next;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per board
+  }, [battlefield]);
   useEffect(
     () => () => {
       sizeClock.current?.cancel();
@@ -4367,6 +4626,33 @@ export function Board({
         }
       }
 
+      // Spec 0085 (4 A) -- the cards held by a permanent that has left the
+      // table: its tab flies to their exile pile (below), and a card that
+      // comes out of exile now rises FREED_WAIT_MS later, once the tab has
+      // got there, the pile glowing, the card glowing gold. One that comes
+      // out later (Oblivion Ring's trigger) glows the same then.
+      const freedNow = new Set<string>();
+      for (const [id, card] of before.cards)
+        if (!now.has(id) && !battlefield.some((c) => c.id === id))
+          for (const h of card.holding ?? []) freedNow.add(h.id);
+      for (const id of freedNow) freed.current.add(id);
+      const freedGlow = (m: TileMove, start: number) => {
+        if (m.from.zone !== "exile" || !freed.current.has(m.card)) return;
+        freed.current.delete(m.card);
+        const tile = ref.current?.querySelector<HTMLElement>(
+          `[data-zone-tile="${m.from.side}:exile"]`,
+        );
+        if (tile && typeof tile.animate === "function")
+          tile.animate(tileGlowFrames(), {
+            duration: TILE_GLOW_MS,
+            delay: Math.max(0, start - TILE_GLOW_LEAD_MS),
+            easing: "linear",
+          });
+        freedRise.set(m.card, start);
+      };
+      /** Freed cards rising now: when each starts (its own element glows gold). */
+      const freedRise = new Map<string, number>();
+
       // H · Rise and show: out of a graveyard or exile -- risen, shown, then
       // where it goes. A whole graveyard exiled at once is swept as one.
       const outOf = tm.filter((m) => m.from.zone === "graveyard" || m.from.zone === "exile");
@@ -4403,7 +4689,11 @@ export function Board({
       const riseInto = new Map<string, { start: number; move: TileMove }>();
       const shows = outOf.filter((m) => !sweeps.get(m.from.side)?.includes(m));
       shows.forEach((m, i) => {
-        const start = T + i * SHOW_BEAT_MS;
+        const start =
+          T +
+          i * SHOW_BEAT_MS +
+          (m.from.zone === "exile" && freedNow.has(m.card) ? FREED_WAIT_MS : 0);
+        freedGlow(m, start);
         const fromPose = tileAt(m.from.side, m.from.zone);
         const show = showAt(g.rail.x, g.height, m.from.side === "opponent");
         const fromTile = tileBox(m.from.side, m.from.zone);
@@ -4629,6 +4919,16 @@ export function Board({
           const r = (rise ?? into)!;
           glide(element, risen(r, item.box, item.origin, into ? "after" : null), r.start, SHOW_MS);
           landAt.set(item.id, r.start + SHOW_MS);
+          // Spec 0085 -- freed from its holder: it glows gold as it rises.
+          const freedAt = freedRise.get(item.id);
+          const face = element.querySelector<HTMLElement>(":scope > .bf-card");
+          if (freedAt !== undefined && face && typeof face.animate === "function")
+            face.animate(freedGlowFrames(SHOW_MS), {
+              duration: SHOW_MS,
+              delay: freedAt,
+              easing: "linear",
+              fill: "backwards",
+            });
           if (rise && r.move.to.zone === "hand")
             markReturn(
               item.id,
@@ -5807,6 +6107,22 @@ export function Board({
           // Spec 0080 (Q5 A) -- its target is still on the table, no longer
           // allowed (protection from red): the pale shield flares in front of
           // it as the beam reaches it (no number: nothing was dealt).
+          // Spec 0085 -- and its protection marks pulse once: that is why.
+          if (spots.length === 0)
+            for (const t of s.targets) {
+              if (!("object" in t)) continue;
+              const item = positions.get(t.object)?.item;
+              const el = item ? elements.current.get(item) : undefined;
+              for (const square of el?.querySelectorAll<HTMLElement>(
+                ".bf-mark-kw:not([data-folds])",
+              ) ?? [])
+                if (typeof square.animate === "function")
+                  square.animate(whyPulseFrames(), {
+                    duration: WHY_PULSE_MS,
+                    delay: hold + FIZZLE_WARD_MS,
+                    easing: "ease-in-out",
+                  });
+            }
           if (spots.length === 0)
             for (const at of aims)
               fizzleWards.push(
@@ -6059,6 +6375,58 @@ export function Board({
           });
         }
       }
+      // Spec 0085 (4 A) -- a holder leaving: each held card's tab flies from
+      // its edge to that card's exile pile as the holder's fate starts; a
+      // card that stays in exile (an imprint, a Hideaway card) sinks there
+      // with its tab, and never rises.
+      const heldFlights: FightMark[] = [];
+      for (const ghost of leaving) {
+        const card = before.cards.get(ghost.id);
+        const holding = card?.holding ?? [];
+        if (holding.length === 0) continue;
+        const attachedN = before.cards.size
+          ? [...before.cards.values()].filter((c) => c.attachedTo === ghost.id).length
+          : 0;
+        const total = attachedN + holding.length;
+        const h = ghost.box.h;
+        holding.forEach((held, j) => {
+          const fromX = ghost.box.x + ghost.box.w + (tabAt(attachedN + j, total) + TAB_W / 2) * h;
+          const fromY = ghost.box.y + h / 2;
+          const side: Side = held.seat === viewerSeat ? "viewer" : "opponent";
+          const pile = where[`${side}:exile`];
+          const stays = !tm.some((m) => m.card === held.id && m.from.zone === "exile");
+          const tw = TAB_W * h;
+          const th = 0.97 * h;
+          const flight = heldFlyFrames(
+            pile.x - fromX,
+            pile.y - fromY,
+            HELD_ARC * h,
+            stays,
+            Math.max(0, ghost.delay - 50),
+          );
+          heldFlights.push({
+            key: `heldtab:${ghost.id}:${held.id}:${performance.now()}`,
+            kind: "heldtab",
+            style: {
+              left: fromX - tw / 2,
+              top: fromY - th / 2,
+              width: tw,
+              height: th,
+              ["--card-h" as string]: `${h}px`,
+            },
+            frames: flight.frames,
+            duration: flight.duration,
+            delay: 0,
+            of: held.id,
+            heldTab: {
+              name: held.name,
+              known: held.known,
+              src: held.known && (held.crop ?? held.art) ? artUrl((held.crop ?? held.art)!) : null,
+            },
+          });
+        });
+      }
+      if (heldFlights.length > 0) setMarks((list) => [...list, ...heldFlights]);
       if (graveGhosts.length > 0) setGhosts((list) => [...list, ...graveGhosts]);
       if (struck.length > 0) setStrikes((list) => [...list, ...struck]);
       if (fizzles.length > 0) setFizzles((list) => [...list, ...fizzles]);
@@ -7626,6 +7994,20 @@ function GhostCard({
  * slash mark, a number, the hurt. Its animation is on the board's clock
  * (a click hurries it); it is gone when its animation ends.
  */
+/**
+ * Spec 0085 (4 A) -- a held card's picture on its tab: its art crop (else the
+ * card), in a small gold-rimmed square; a back for a card the viewer may not
+ * see; a plain square with no picture (a token, a deck without art).
+ */
+function HeldPicture({ held, artUrl }: { held: HeldCard; artUrl: (art: string) => string }) {
+  const art = held.known ? (held.crop ?? held.art) : null;
+  return (
+    <span className={`bf-tag-pic${held.known ? "" : " bf-tag-pic-back"}`} aria-hidden="true">
+      {art && <img src={artUrl(art)} alt="" />}
+    </span>
+  );
+}
+
 function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -7651,7 +8033,7 @@ function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
   return (
     <div
       ref={ref}
-      className={`bf-fight-${mark.kind}${mark.deathtouch ? " bf-fight-deathtouch" : ""}${mark.poison ? " bf-fight-poisoned" : ""}${mark.tone ? ` bf-fight-${mark.tone}` : ""}`}
+      className={`bf-fight-${mark.kind}${mark.kind === "riser" && mark.markOf?.icon === "lost" ? " bf-fight-riser-lost" : ""}${mark.deathtouch ? " bf-fight-deathtouch" : ""}${mark.poison ? " bf-fight-poisoned" : ""}${mark.tone ? ` bf-fight-${mark.tone}` : ""}`}
       data-fight={mark.kind}
       data-of={mark.of}
       data-impact={mark.impact}
@@ -7672,6 +8054,18 @@ function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
         <>
           {POISON_DROP}
           <span>{mark.text}</span>
+        </>
+      ) : mark.kind === "riser" && mark.markOf ? (
+        <MarkIcon mark={mark.markOf} />
+      ) : mark.kind === "heldtab" && mark.heldTab ? (
+        <>
+          <span
+            className={`bf-tag-pic${mark.heldTab.known ? "" : " bf-tag-pic-back"}`}
+            aria-hidden="true"
+          >
+            {mark.heldTab.src && <img src={mark.heldTab.src} alt="" />}
+          </span>
+          {mark.heldTab.known && <span className="bf-tag-name">{mark.heldTab.name}</span>}
         </>
       ) : (
         mark.text

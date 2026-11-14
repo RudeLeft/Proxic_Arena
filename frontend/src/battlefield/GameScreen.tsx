@@ -117,6 +117,7 @@ import {
   targetsTitle,
 } from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
+import { useReportWait } from "./reportWait";
 import { StatusTray } from "./StatusTray";
 import { AwayWindow } from "./AwayWindow";
 import {
@@ -1539,8 +1540,13 @@ export function GameScreen({
     board?.action && (!board.reveal || (board.action.stamp ?? 0) >= (board.reveal.stamp ?? 0))
       ? board.action
       : (board?.reveal ?? null);
-  const reveal =
+  const latestReveal =
     latestTray && latestTray.key !== closedReveal && !trayShowsReveal ? latestTray : null;
+  // Spec 0085 -- it comes up once the board has shown what happened.
+  const revealReady = useReportWait(latestReveal?.key ?? null, () =>
+    document.querySelector(".bf-board"),
+  );
+  const reveal = latestReveal && latestReveal.key === revealReady ? latestReveal : null;
   const actingSeat = reveal?.by ?? null;
   const actingUser = match.participants.find((p) => p.seatNumber === actingSeat)?.userId ?? null;
   const acting = actingSeat

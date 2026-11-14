@@ -464,9 +464,58 @@ final class PlayLog {
         all.forEach(viewer -> seats.add(seat(viewer)));
         // Spec 0067 -- and the public log, for spectators.
         seats.add(PUBLIC_SEAT);
+        hideTurnedDown();
         out.putAll(lines(pending, seats, revision, numbered));
         pending.clear();
         return out;
+    }
+
+    /**
+     * A card named while it moved that Forge has since turned face down
+     * where it is (Hideaway's card: the Dig exiles it, then turns it face
+     * down) is no longer named to a seat that may not identify it -- the
+     * board shows that seat a back (HID-001; found by spec 0085's hideaway
+     * Lab scenario, check-hidden-log). Asked again at the round's end, both
+     * questions (STUB-004), per reader.
+     */
+    private void hideTurnedDown() {
+        for (Fact fact : pending) {
+            for (Map.Entry<Integer, List<JsonElement>> entry : fact.items.entrySet()) {
+                int readerSeat = entry.getKey();
+                Player reader = null;
+                for (Player p : players()) {
+                    if (seat(p) == readerSeat) {
+                        reader = p;
+                    }
+                }
+                List<JsonElement> items = entry.getValue();
+                for (int i = 0; i < items.size(); i++) {
+                    JsonElement item = items.get(i);
+                    if (item == null || !item.isJsonObject() || !item.getAsJsonObject().has("id")) {
+                        continue;
+                    }
+                    String id = item.getAsJsonObject().get("id").getAsString();
+                    if (!id.startsWith("card:")) {
+                        continue;
+                    }
+                    Card card;
+                    try {
+                        card = game.findById(Integer.parseInt(id.substring("card:".length())));
+                    } catch (NumberFormatException e) {
+                        continue;
+                    }
+                    if (card == null || !card.isFaceDown()) {
+                        continue;
+                    }
+                    boolean may = readerSeat == PUBLIC_SEAT
+                            ? isPublic(card, card.getView())
+                            : reader != null && maySee(card.getView(), reader.getView());
+                    if (!may) {
+                        items.set(i, null);
+                    }
+                }
+            }
+        }
     }
 
     /**

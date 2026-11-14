@@ -18,6 +18,7 @@ import type {
   BoardHandCard,
   CombatView,
   DamageWave,
+  HeldCard,
   Merge,
   OpponentHandCard,
   Return,
@@ -261,7 +262,34 @@ export function lockedHalves(
   );
 }
 
-function toBoardCard(card: SnapshotCard, prepared?: SnapshotCard): BoardCard {
+/**
+ * Spec 0085 (4 A) -- what a permanent holds: each id in its `holds` (the
+ * game's link, never a name) that is in exile, as this viewer may know it
+ * (a face-down card the viewer may not see is a back: no name, no picture).
+ */
+export function heldCards(card: SnapshotCard, exile: readonly SnapshotCard[]): HeldCard[] {
+  return (card.holds ?? []).flatMap((id) => {
+    const c = exile.find((e) => e.id === id);
+    if (!c) return [];
+    const known = c.known && c.name !== "Face-down";
+    return [
+      {
+        id: c.id,
+        name: known ? c.name : "",
+        known,
+        art: known ? c.art : null,
+        crop: known ? (c.crop ?? null) : null,
+        seat: c.seat,
+      },
+    ];
+  });
+}
+
+function toBoardCard(
+  card: SnapshotCard,
+  prepared?: SnapshotCard,
+  holding: readonly HeldCard[] = [],
+): BoardCard {
   return {
     id: card.id,
     seat: card.seat,
@@ -298,6 +326,12 @@ function toBoardCard(card: SnapshotCard, prepared?: SnapshotCard): BoardCard {
     ...(card.phasedOut ? { phasedOut: true } : {}),
     ...(card.shields ? { shields: card.shields } : {}),
     ...(card.indestructible ? { indestructible: true } : {}),
+    // Spec 0085 -- gained keywords, a given "can't be blocked", lost
+    // abilities, and the cards it holds in exile.
+    ...(card.gained?.length ? { gained: card.gained } : {}),
+    ...(card.unblockable ? { unblockable: true } : {}),
+    ...(card.lostAbilities ? { lostAbilities: true } : {}),
+    ...(holding.length > 0 ? { holding } : {}),
     // Spec 0082 -- prepared: the gold square with its spell's picture.
     ...(prepared
       ? {
@@ -673,7 +707,9 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
 
   const prepared = preparedSpells(snapshot);
   return {
-    battlefield: snapshot.battlefield.map((c) => toBoardCard(c, prepared.get(c.id))),
+    battlefield: snapshot.battlefield.map((c) =>
+      toBoardCard(c, prepared.get(c.id), heldCards(c, snapshot.exile)),
+    ),
     hand: snapshot.hand.map(toHandCard),
     opponentHand: opponentHandOf(snapshot),
     combat: snapshot.combat,

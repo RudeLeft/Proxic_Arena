@@ -529,6 +529,28 @@ card.shields              spec 0080: the regeneration shields waiting on a
 card.indestructible       spec 0080: true while the permanent has
                           indestructible (Forge's keyword, as it applies
                           now). Public
+card.gained               spec 0085: on the battlefield, the keywords it has
+                          that its face does not print (Forge's titles, as
+                          `keywords` sends them: Run Amok's "Trample", Heroic
+                          Intervention's "Hexproof", Mother of Runes'
+                          "Protection from red"); absent when none. Only for a
+                          card the viewer may identify. Public
+card.unblockable          spec 0085: true while a "can't be blocked" it was
+                          given applies to it (a CantBlockBy static naming no
+                          blocker, not the card's own printed ability:
+                          Distortion Strike, Rogue's Passage). Public
+card.lostAbilities        spec 0085: on a creature, true while Forge has
+                          removed all its abilities (Humility, Turn to Frog:
+                          a "remove all" keyword change). Public
+card.holds                spec 0085: the exiled cards this permanent holds,
+                          ["card:N"], each in `exile` (named there as the
+                          viewer may know it: a Hideaway card is face down to
+                          the other player), as the game links them: exiled
+                          until it leaves (Banishing Light), imprinted (Chrome
+                          Mox), or moved there by its own ability from
+                          anywhere but a graveyard (Oblivion Ring, Fiend
+                          Hunter, Hideaway). Bojuka Bog's graveyard and a
+                          spell's delve are not held. Public
 card.copy                 spec 0079: true on a permanent that is a copy (a
                           Clone, a token copy: Cackling Counterpart), for
                           every viewer who may identify it (copiable values

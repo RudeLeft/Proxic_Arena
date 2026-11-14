@@ -10,6 +10,7 @@
 
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { counterWords } from "./Board";
+import { cardMarks, MarkIcon, type CardMark, type Marked } from "./marks";
 import {
   BADGE_GROW_MS,
   BADGE_OUT_MS,
@@ -371,6 +372,21 @@ export function placeBadges(
 }
 
 /**
+ * Spec 0085 -- a mark that has just ended (the turn's end took the trample
+ * away): drawn where it stood until it has shrunk away (0078's leaving
+ * look), then gone. `key` is this leaving's own (one per round).
+ */
+export interface GoneMark {
+  key: string;
+  mark: CardMark;
+  /** ms from now until it starts to shrink (with the round's other changes). */
+  delay: number;
+}
+
+/** Spec 0085 -- a mark shrinks away over this long (the canvas's 0.35 s). */
+export const MARK_OUT_MS = 350;
+
+/**
  * A permanent's badges, or nothing. Loyalty is not one: it is the
  * planeswalker's number in the bottom bar (`figure`), unchanged.
  */
@@ -379,6 +395,8 @@ export function CardBadges({
   pile,
   room,
   artUrl,
+  gone,
+  onGone,
 }: {
   card: {
     /** Spec 0078 -- its id: a change to its counters plays on its badges. */
@@ -394,13 +412,17 @@ export function CardBadges({
     indestructible?: boolean | undefined;
     /** Spec 0082 -- prepared: a gold-rimmed square with the spell's picture. */
     prepared?: { id: string; name: string; art: string | null; crop: string | null } | undefined;
-  };
+  } & Marked;
   /** Spec 0082 -- a picture's address (the prepared spell's). */
   artUrl?: ((art: string) => string) | undefined;
   /** A pile: its cards are identical, counters included -- "on each". */
   pile: boolean;
   /** What else is on the card, which the badges keep clear of. */
   room: BadgeRoom;
+  /** Spec 0085 -- its marks that have just ended, shrinking away. */
+  gone?: readonly GoneMark[] | undefined;
+  /** Spec 0085 -- one of them has gone. */
+  onGone?: ((key: string) => void) | undefined;
 }) {
   // Spec 0078 (2 A, 8 B) -- a counter taken off for good: its badge stays,
   // with the number it had, until it has shrunk away.
@@ -412,9 +434,17 @@ export function CardBadges({
         leaving.push({ name: b.name, count: b.from });
   const ref = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
-    if (ref.current) playBadges(ref.current, card.id ? changes : []);
+    if (!ref.current) return;
+    playBadges(ref.current, card.id ? changes : []);
+    playGone(ref.current, gone ?? [], onGone);
   });
   const kinds = badgeOrder([...(card.counters ?? []), ...leaving]);
+  // Spec 0085 -- its protection and gained-ability marks, and those just ended.
+  const now = cardMarks(card);
+  const ending = (gone ?? []).filter((g) => !now.some((m) => m.key === g.mark.key));
+  const marks = [...now, ...ending.map((g) => g.mark)];
+  const keep = marks.filter((m) => !m.folds);
+  const foldable = marks.filter((m) => m.folds);
   const squares = [
     card.ringBearer,
     card.prepared,
@@ -423,25 +453,51 @@ export function CardBadges({
     (card.shields ?? 0) > 0,
     card.indestructible,
   ].filter(Boolean).length;
-  if (kinds.length === 0 && squares === 0) return null;
+  if (kinds.length === 0 && squares === 0 && marks.length === 0) return null;
   // Spec item 2: past three kinds, "··· N". With less room (a tapped pile
   // that came in this turn), fold sooner, so every badge still shows whole.
-  const ring = Array<number>(squares).fill(MARK_H);
+  // Spec 0085 (owner): gained keywords fold into the "··· N" first; the
+  // protection marks never fold before them.
+  const ring = Array<number>(squares + keep.length).fill(MARK_H);
   let shownN = Math.min(kinds.length, SHOWN_KINDS);
+  let shownKw = foldable.length;
   let placed: { column: number; y: number }[] | null = null;
-  for (; shownN >= 0; shownN--) {
-    const more = kinds.length > shownN ? 1 : 0;
-    placed = placeBadges([...Array<number>(shownN + more).fill(BADGE_H), ...ring], room);
+  const tryPlace = (n: number, kw: number) => {
+    const counterMore = kinds.length > n ? 1 : 0;
+    const more = counterMore || foldable.length > kw ? 1 : 0;
+    // The "··· N" stands after the counters when a counter folded, else last.
+    return placeBadges(
+      [
+        ...Array<number>(n + counterMore).fill(BADGE_H),
+        ...ring,
+        ...Array<number>(kw).fill(MARK_H),
+        ...(more && !counterMore ? [BADGE_H] : []),
+      ],
+      room,
+    );
+  };
+  for (; shownKw >= 0; shownKw--) {
+    placed = tryPlace(shownN, shownKw);
     if (placed) break;
   }
   if (!placed) {
+    shownKw = 0;
+    for (; shownN >= 0; shownN--) {
+      placed = tryPlace(shownN, 0);
+      if (placed) break;
+    }
+  }
+  if (!placed) {
     shownN = 0;
-    placed = placeBadges(kinds.length > 0 ? [BADGE_H] : ring, room) ?? [
+    shownKw = 0;
+    placed = placeBadges(kinds.length > 0 || foldable.length > 0 ? [BADGE_H] : ring, room) ?? [
       { column: 0, y: BADGE_FLOOR },
     ];
   }
   const shown = kinds.slice(0, Math.max(0, shownN));
-  const folded = kinds.length - shown.length;
+  const shownMarks = foldable.slice(0, Math.max(0, shownKw));
+  const counterFolded = kinds.length > shown.length;
+  const folded = kinds.length - shown.length + (foldable.length - shownMarks.length);
   const words = [
     ...counterWords(
       { counters: kinds.filter((k) => !leaving.includes(k)), counterFrom: card.counterFrom },
@@ -457,7 +513,36 @@ export function CardBadges({
       ? `Regeneration shield${(card.shields ?? 0) > 1 ? ` ×${card.shields}` : ""}: the next time it would be destroyed, it taps instead`
       : "",
     card.indestructible ? "Indestructible" : "",
+    ...now.map((m) => m.words),
   ].filter(Boolean);
+  const moreItem = {
+    key: "more",
+    h: BADGE_H,
+    node: (
+      <span className="bf-badge bf-badge-more" data-counter="more">
+        <span className="bf-badge-g">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            {GLYPH.more}
+          </svg>
+        </span>
+        <span className="bf-badge-n">{folded}</span>
+      </span>
+    ),
+  };
+  const markItem = (m: CardMark) => ({
+    key: m.key,
+    h: MARK_H,
+    node: (
+      <span
+        className={`bf-mark bf-mark-kw${m.icon === "lost" ? " bf-mark-lost" : ""}`}
+        data-mark={m.key}
+        data-folds={m.folds ? "true" : undefined}
+        data-leaving={ending.some((g) => g.mark.key === m.key) ? "true" : undefined}
+      >
+        <MarkIcon mark={m} />
+      </span>
+    ),
+  });
   const items: { key: string; h: number; node: ReactNode }[] = [
     ...shown.map((c) => ({
       key: c.name,
@@ -476,24 +561,7 @@ export function CardBadges({
         </span>
       ),
     })),
-    ...(folded > 0
-      ? [
-          {
-            key: "more",
-            h: BADGE_H,
-            node: (
-              <span className="bf-badge bf-badge-more" data-counter="more">
-                <span className="bf-badge-g">
-                  <svg viewBox="0 0 20 20" aria-hidden="true">
-                    {GLYPH.more}
-                  </svg>
-                </span>
-                <span className="bf-badge-n">{folded}</span>
-              </span>
-            ),
-          },
-        ]
-      : []),
+    ...(folded > 0 && counterFolded ? [moreItem] : []),
     ...(card.ringBearer
       ? [{ key: "ring", h: MARK_H, node: <span className="bf-mark bf-mark-ring">{RING}</span> }]
       : []),
@@ -572,6 +640,11 @@ export function CardBadges({
           },
         ]
       : []),
+    // Spec 0085 -- protection and lost abilities (never folded), then the
+    // gained keywords that fit; the rest are in the "··· N".
+    ...keep.map(markItem),
+    ...shownMarks.map(markItem),
+    ...(folded > 0 && !counterFolded ? [moreItem] : []),
   ];
   // A column is a flex column from the bottom; each item's margin below
   // puts it at its height (column-reverse: the first item is the lowest).
@@ -586,7 +659,8 @@ export function CardBadges({
       ref={ref}
       className="bf-badges"
       title={words.join("\n")}
-      data-badges={kinds.length + squares}
+      data-badges={kinds.length + squares + now.length}
+      data-folded={folded > 0 ? folded : undefined}
     >
       {columns.map((col, c) => (
         <span key={c} className="bf-badge-col">
@@ -603,6 +677,43 @@ export function CardBadges({
       ))}
     </span>
   );
+}
+
+/** Spec 0085 -- each mark's leaving plays once (its key is the round's). */
+const goneStarted = new Set<string>();
+
+/** Spec 0085 -- a mark just ended shrinks away (0078's leaving look), then it is gone. */
+function playGone(
+  root: HTMLElement,
+  gone: readonly GoneMark[],
+  onGone: ((key: string) => void) | undefined,
+) {
+  for (const g of gone) {
+    if (goneStarted.has(g.key)) continue;
+    const mark = root.querySelector<HTMLElement>(
+      `.bf-mark[data-mark="${g.mark.key}"][data-leaving]`,
+    );
+    if (!mark) continue;
+    goneStarted.add(g.key);
+    if (goneStarted.size > 400) {
+      const oldest = goneStarted.values().next();
+      if (!oldest.done) goneStarted.delete(oldest.value);
+    }
+    if (typeof mark.animate !== "function") {
+      onGone?.(g.key);
+      continue;
+    }
+    const shrink = mark.animate(
+      [
+        { offset: 0, transform: "scale(1)", opacity: 1 },
+        { offset: 1, transform: "scale(0)", opacity: 0 },
+      ],
+      { duration: MARK_OUT_MS, delay: Math.max(0, g.delay), easing: "ease-in", fill: "forwards" },
+    );
+    const done = () => onGone?.(g.key);
+    shrink.onfinish = done;
+    shrink.oncancel = done;
+  }
 }
 
 function lastTop(col: readonly { h: number; below: number }[]): number {

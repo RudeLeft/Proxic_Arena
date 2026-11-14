@@ -547,6 +547,21 @@ export interface SnapshotCard {
   phasedOut?: boolean | undefined;
   shields?: number | undefined;
   indestructible?: boolean | undefined;
+  /**
+   * Spec 0085 -- on the battlefield (public): the keywords it has that its
+   * face does not print (Forge's titles, as `keywords`), a "can't be
+   * blocked" it was given, and, on a creature, that it has lost all its
+   * abilities (Humility, Turn to Frog).
+   */
+  gained?: string[] | undefined;
+  unblockable?: boolean | undefined;
+  lostAbilities?: boolean | undefined;
+  /**
+   * Spec 0085 (4 A) -- the exiled cards this permanent holds ("card:N", each
+   * in `exile`), as the game links them: Banishing Light's, Fiend Hunter's,
+   * an imprint, a Hideaway card.
+   */
+  holds?: string[] | undefined;
   /** Spec 0079 -- in a report window: where a card the spell aimed at is now ("in Bob's hand"). */
   toSaid?: string | undefined;
 }
@@ -1603,6 +1618,13 @@ function asCards(value: unknown): SnapshotCard[] {
       phasedOut: row["phasedOut"] === true ? true : undefined,
       shields: (asNumber(row["shields"]) ?? 0) > 0 ? asNumber(row["shields"])! : undefined,
       indestructible: row["indestructible"] === true ? true : undefined,
+      // Spec 0085 -- gained keywords, given "can't be blocked", lost abilities, held cards.
+      gained: Array.isArray(row["gained"]) ? onlyStrings(row["gained"]) : undefined,
+      unblockable: row["unblockable"] === true ? true : undefined,
+      lostAbilities: row["lostAbilities"] === true ? true : undefined,
+      holds: Array.isArray(row["holds"])
+        ? onlyStrings(row["holds"]).filter((id) => /^card:\d+$/.test(id))
+        : undefined,
       // Spec 0083 (15 A) -- a Room: its faces, and its doors still locked.
       faces: Array.isArray(row["faces"]) ? onlyStrings(row["faces"]) : undefined,
       locked: Array.isArray(row["locked"]) ? onlyStrings(row["locked"]) : undefined,
