@@ -51,6 +51,18 @@ const WIPES: [name: string, mana: number][] = [
   ["Sweltering Suns", 3],
 ];
 const SEEN = "test-results/seen";
+// The batch the test is about. Other cards' triggers can die alongside it
+// with their own copies -- two Goblin Arsonists are their own "Yes to all
+// 2" (triggers.ts autoAnswer: only the same card's copies are answered).
+// CI 43517091646 threw "asked yes again" on exactly that: "Use Goblin
+// Arsonist?" after Boggart Shenanigans' "Yes to all 17".
+const BOGGART = "Boggart Shenanigans";
+
+/** The card a yes/no bubble asks about: its "from" line, "<name> · N on the stack". */
+async function bubbleCard(page: Page): Promise<string> {
+  const from = await page.locator(".gs-bubble .gs-win-from").first().textContent();
+  return (from ?? "").split("·")[0]!.trim();
+}
 
 /** The host's untapped Mountains, piles counted. */
 async function untappedMountains(page: Page): Promise<number> {
@@ -99,6 +111,8 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
     let died = false;
     let copies = 0;
     let yesToAll = 0;
+    // Every card whose copies were answered with "Yes to all": none may ask yes again.
+    const yesFor = new Set<string>();
     let lifeBefore = NaN;
     let actPage: Page | null = null;
     const deadline = Date.now() + 780_000;
@@ -152,6 +166,12 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
         // Spec 0055: "Boggart Shenanigans: Deal 1 damage, choose a target".
         const target = page.getByRole("dialog", { name: /choose a target$/ });
         if ((await target.count()) > 0) {
+          // Another card's target (a Goblin Arsonist's): the opponent, unrecorded.
+          const name = (await target.first().getAttribute("aria-label")) ?? "";
+          if (!name.startsWith(`${BOGGART}:`)) {
+            await clickNow(target.locator("button.gs-win-chip").filter({ hasNotText: "(you)" }));
+            continue;
+          }
           await page.screenshot({ path: `${SEEN}/copy-target.png` });
           const same = target.getByRole("checkbox", { name: /^Same target for all \d+$/ });
           await expect(same).toBeChecked();
@@ -165,7 +185,13 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
         // W-04: the yes -- "Yes to all N" when it is one of N copies.
         const all = page.getByRole("button", { name: /^Yes to all \d+$/ });
         if ((await all.count()) > 0) {
-          if (yesToAll > 0) throw new Error("asked yes again after Yes to all");
+          const card = await bubbleCard(page);
+          if (yesFor.has(card)) throw new Error(`asked yes again after Yes to all (${card})`);
+          yesFor.add(card);
+          if (card !== BOGGART) {
+            await clickNow(all);
+            continue;
+          }
           await page.screenshot({ path: `${SEEN}/yes-to-all.png` });
           yesToAll = Number((await all.textContent())?.match(/\d+/)?.[0] ?? 0);
           // Spec 0058, item 5 -- from here the page answers the copies: the
@@ -194,8 +220,10 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
         }
         const yes = page.locator(".gs-bubble button.gs-win-btn-main");
         if ((await yes.count()) > 0) {
+          const card = await bubbleCard(page);
+          if (yesFor.has(card)) throw new Error(`asked yes again after Yes to all (${card})`);
           // After a batch of copies, a plain "Yes" means the bubble missed them.
-          if (copies > 1 || yesToAll > 0) {
+          if (card === BOGGART && (copies > 1 || yesToAll > 0)) {
             await page.screenshot({ path: `${SEEN}/plain-yes.png` });
             throw new Error(`a yes for one of ${copies} copies offered no "Yes to all"`);
           }
