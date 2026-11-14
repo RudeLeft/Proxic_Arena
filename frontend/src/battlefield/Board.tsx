@@ -80,6 +80,8 @@ import {
   TETHER_MS,
   SWEEP_MS,
   WIPE_AT,
+  SPENT_BEAT_MS,
+  COIN_MS,
   type Fate,
   MERGE_COLOUR,
   MERGE_DIM,
@@ -218,12 +220,22 @@ import {
   type ShowTo,
   type TileChange,
 } from "./graves";
-import type { Survive, TileMove, TileZone } from "./fromSnapshot";
+import type { Moments, Survive, TileMove, TileZone } from "./fromSnapshot";
 import { domeMarks, shieldBreakMarks, wardMarks, type SurviveMark } from "./survive";
 import { payWords, type PayMark } from "./payPicks";
 import { PaySign } from "./PaySign";
 import { BADGE_FLOOR, CardBadges, MARK_H, REGEN_SHIELD, SEAL, STOPWATCH, TWIN } from "./CardBadges";
 import { RoomFace } from "./RoomDoors";
+import {
+  ALIVE_BACK_MS,
+  ALIVE_PULSE_MS,
+  aliveTimes,
+  breathFrames,
+  moteMarks,
+  numberInFrames,
+  ptFloat,
+  ringMark,
+} from "./alive";
 import {
   COPY_FLIP_AT,
   COPY_GHOST_MS,
@@ -392,6 +404,12 @@ export interface StackView {
   /** The permanent it came from, if one is on the battlefield (an
    * activated ability); null for a spell, whose line starts at the stack. */
   source: string | null;
+  /**
+   * Spec 0084 -- an ability's or trigger's card that is no longer on the
+   * battlefield (sacrificed to pay for it, Karn at 0 loyalty, a card cycled
+   * from your hand): it lifts off where that card was drawn last.
+   */
+  leftFrom?: string | null;
   targets: readonly TargetRef[];
   /** Spec 0028 — the seat that controls it: gold edge yours, red theirs. */
   seat?: number;
@@ -442,6 +460,8 @@ export interface DamageWave {
   }[];
   /** Phase 10 A-13 -- a combat damage step's: which step, who fought whom, life gained. */
   combat?: "first-strike" | "regular";
+  /** Spec 0084 -- a fight or bite spell's (Prey Upon, Ram Through): played as the combat fight. */
+  fight?: boolean;
   fights?: readonly { attacker: string; defender: TargetRef; blockers: readonly string[] }[];
   gains?: readonly { player: number; amount: number; source?: string }[];
 }
@@ -529,6 +549,8 @@ export interface BoardProps {
   fizzled?: ReadonlySet<string>;
   /** Spec 0080 -- this update's flickers, survivors and phase changes, as the game says. */
   survive?: Survive | null;
+  /** Spec 0084 -- this update's spent cards, library shuffles and crews, as the game says. */
+  moments?: Moments | null;
   /** Combat, while there is one (fire and shield lines, AMENDMENT 7). */
   combat?: CombatView | null;
   /** The stack, the object that resolves next FIRST. */
@@ -1285,6 +1307,13 @@ const SPLIT_LIFT_MS = 250;
 /** A card a spell killed leaves once its crack has landed. */
 const SPELL_HIT_MS = 150;
 
+/**
+ * Spec 0084 (5 A) -- a library shuffled after a card came out of it (Rampant
+ * Growth's Forest): the riffle starts this long after, once the card has
+ * landed (the canvas's 0.85 s from the card setting off).
+ */
+const SHUFFLE_AFTER_MS = 850;
+
 /** Phase 10 A-13: the fights' dimming, above the table; the fighters above it. */
 const Z_FIGHT_DIM = 4550;
 const Z_FIGHT = 4600;
@@ -1312,7 +1341,12 @@ interface FightMark {
     | "shieldbreak"
     // Spec 0083: a spell's hit's red flash; a split-second spell's ring lifting.
     | "hitflash"
-    | "splitring";
+    | "splitring"
+    // Spec 0084: a Treasure's coin spark; coming alive's ring, motes and rising P/T.
+    | "coin"
+    | "alivering"
+    | "mote"
+    | "ptfloat";
   /** Spec 0083 (13 B) -- a crack drawn across a card's box (stretched), not a shield's. */
   card?: boolean;
   /** Spec 0083 -- what a spell's hit landed on, for the browser checks (as the burst's was). */
@@ -1331,6 +1365,25 @@ interface FightMark {
   poison?: boolean;
   /** Spec 0080 -- a number's or spark's colour: grey (nothing dealt), gold, green. */
   tone?: "grey" | "gold" | "green";
+}
+
+/**
+ * Spec 0084 -- the coin of a spent Treasure (the canvas's coinSet): it fades
+ * in over the first 15%, rises a fifth of the card's height, flipping three
+ * times, and fades out by the end.
+ */
+function coinFrames(h: number): Keyframe[] {
+  const steps = 10;
+  return Array.from({ length: steps + 1 }, (_, k) => {
+    const q = k / steps;
+    const up = (1 - (1 - q) ** 3) * h * 0.2;
+    const flip = Math.abs(Math.cos(q * Math.PI * 3)) * 0.85 + 0.15;
+    return {
+      offset: q,
+      opacity: q < 0.15 ? q / 0.15 : 1 - (q - 0.15) / 0.85,
+      transform: `translateY(${-up}px) scaleX(${flip})`,
+    };
+  });
 }
 
 /** Spec 0080 -- survive.ts's marks, as the board draws its fights' marks. */
@@ -1587,6 +1640,7 @@ export function Board({
   countered,
   fizzled,
   survive = null,
+  moments = null,
   flyingOnto = null,
   handLeft = null,
   hiddenStack = null,
@@ -1664,6 +1718,10 @@ export function Board({
   // Spec 0067 -- a board that goes takes its fights' life steps with it.
   useEffect(() => () => endLifeSteps(), []);
   /** A spell's damage: what it hit waits for its burst before it leaves. */
+  /** Spec 0084 -- the update whose library shuffles have riffled. */
+  const shuffledKey = useRef<string | null>(null);
+  /** Spec 0084 -- the board whose comings alive have played (each once). */
+  const aliveSeen = useRef<unknown>(null);
   const spellHits = useRef<{
     ids: Set<string>;
     delay: number;
@@ -1675,6 +1733,14 @@ export function Board({
   );
   /** Spec 0073 -- when each drawn card's fight ends (its dead shatter), on the fights' clock. */
   const fightEnds = useRef(new Map<string, number>());
+  /**
+   * Spec 0084 -- a fight or bite spell's blows: when each card was struck, on
+   * the fight clock, so its power/toughness changes with its slashes and
+   * number (never at the fight's end).
+   */
+  const strikeAt = useRef(new Map<string, number>());
+  /** Spec 0084 -- the fight clock of a fight or bite spell (its spell need not wait for it). */
+  const spellFight = useRef<Animation | null>(null);
   const timers = useRef<number[]>([]);
   useLayoutEffect(
     () => () => {
@@ -1738,7 +1804,7 @@ export function Board({
   const pins = useRef<{ key: string; boxes: Map<string, Box> } | null>(null);
   const [released, setReleased] = useState<string | null>(null);
   if (
-    damage?.combat &&
+    (damage?.combat || damage?.fight) &&
     damage.fights?.length &&
     damage.key !== pins.current?.key &&
     damage.key !== wave.current?.key &&
@@ -2553,14 +2619,19 @@ export function Board({
     : null;
   const freshOnStack = (s: StackView) =>
     seenStack !== null && !seenStack.has(s.id) && s.id !== hiddenStack && !quietStack?.has(s.id);
+  // Spec 0084 -- an ability whose card left the table as it was played (a
+  // Treasure, a Clue, a fetch land sacrificed to pay for it; Karn going to
+  // 0 loyalty) lifts off where that card was, as it goes: never fades in at
+  // the stack spot.
+  const sourceBox = (id: string): Box | undefined =>
+    positions.get(id)?.box ?? previous.current?.at.get(id)?.box;
   for (const s of stack ?? []) {
     if (
       freshOnStack(s) &&
       !s.copy &&
       (s.kind === "trigger" || s.kind === "ability") &&
-      s.source &&
-      positions.has(s.source) &&
-      byId.has(s.source) &&
+      ((!!s.source && positions.has(s.source) && byId.has(s.source)) ||
+        (!!s.leftFrom && !!previous.current?.at.get(s.leftFrom))) &&
       !reducedMotion()
     )
       rose.current.add(s.id);
@@ -2867,7 +2938,7 @@ export function Board({
       const rises = rose.current.has(s.id);
       const ms = still ? 0 : rises ? RISE_MS : STACK_IN_MS;
       const el = stackEls.current.get(s.id);
-      const from = s.source ? positions.get(s.source)?.box : undefined;
+      const from = s.source ? sourceBox(s.source) : s.leftFrom ? sourceBox(s.leftFrom) : undefined;
       const to = spots[i]!;
       // Arrived when its own animation ends (a click's hurry, or the jump
       // tool's slow motion, move that end too); a timer in case none runs.
@@ -2973,7 +3044,7 @@ export function Board({
     };
     const lifeOf = (seat: number) => playerPoint(seat, viewerSeat, where);
     const plan =
-      still || !damage.combat
+      still || !(damage.combat || damage.fight)
         ? null
         : planFights({
             wave: damage,
@@ -2987,7 +3058,9 @@ export function Board({
             opponentName,
             viewerName,
           });
-    const hold = holdLeft();
+    // Spec 0084: a fight or bite spell's fight starts once the spell's
+    // spark has reached the fighters (it resolved on this board).
+    const hold = damage.fight ? Math.max(holdLeft(), RESOLVE_MS) : holdLeft();
     if (plan && ref.current && typeof ref.current.animate === "function") {
       // Spec 0080 (Q4b F1): the blow bounces off an indestructible card's
       // dome -- it is knocked, but never flashes red as if it were hurt.
@@ -2997,7 +3070,7 @@ export function Board({
             const poses = fight.moves.get(standOf(id)?.item ?? id);
             if (poses) for (const pose of poses) pose.red = 0;
           }
-      playFights(plan, hold, standOf, lifeOf, g);
+      playFights(plan, hold, standOf, lifeOf, g, !damage.fight);
       return;
     }
     // No fights to play after all: nothing is held.
@@ -3388,6 +3461,9 @@ export function Board({
     const hitAt = (card: string) => {
       const item = positions.get(card)?.item;
       const end = item !== undefined ? fightEnds.current.get(item) : undefined;
+      // Spec 0084: a fight or bite spell's blow -- as it lands.
+      const blow = item !== undefined ? strikeAt.current.get(item) : undefined;
+      if (blow !== undefined && hold > 0) return Math.max(0, blow - fightNow);
       if (end !== undefined && hold > 0) return Math.max(0, end - fightNow - 150);
       // Spec 0083 (13 B): a spell's damage shows on the card's number as its
       // crack and rising "−N" land (the spark arriving), not after.
@@ -3442,9 +3518,20 @@ export function Board({
     standOf: (id: string) => Stand | null,
     lifeOf: (seat: number) => Point,
     g: Geometry,
+    /**
+     * Spec 0084: false for a fight or bite spell -- no caption (nothing on
+     * the table is words; the canvas's), and each card's power/toughness
+     * changes as its blow lands.
+     */
+    combatStep = true,
   ) {
     const root = ref.current!;
     const total = hold + plan.total;
+    strikeAt.current.clear();
+    if (!combatStep)
+      for (const fight of plan.fights)
+        for (const strike of fight.strikes)
+          if (strike.box) strikeAt.current.set(strike.target, hold + strike.at);
     // Any dead from an older wave have long been handed to their ghosts.
     fightGhosts.current.clear();
     // Spec 0073 -- a pile's member that dies peels off it as its fight ends.
@@ -3461,6 +3548,7 @@ export function Board({
       id: "fight-clock",
     });
     fightClock.current = clock;
+    spellFight.current = combatStep ? null : clock;
     // Spec 0067, item 1 -- the plates step at each blow on this clock (a
     // hurry or a slowed clock keeps them with the slashes), and settle on
     // the board's life when it ends.
@@ -3541,25 +3629,26 @@ export function Board({
     const numberMs = SLASH_NUMBER_MS * k;
     plan.fights.forEach((fight, n) => {
       const length = Math.max(1, fight.end - fight.start);
-      added.push({
-        key: key(`caption:${n}`),
-        kind: "caption",
-        style: {
-          left: g.play.x + g.inset * 4,
-          top: g.height * 0.1 + g.inset,
-          fontSize: Math.max(13, g.cardH * 0.13),
-        },
-        frames: [
-          { offset: 0, opacity: 0 },
-          { offset: Math.min(0.15, 200 / length), opacity: 1 },
-          { offset: 0.88, opacity: 1 },
-          { offset: 1, opacity: 0 },
-        ],
-        duration: length,
-        delay: hold + fight.start,
-        text: fight.caption,
-        of: fight.attacker,
-      });
+      if (combatStep)
+        added.push({
+          key: key(`caption:${n}`),
+          kind: "caption",
+          style: {
+            left: g.play.x + g.inset * 4,
+            top: g.height * 0.1 + g.inset,
+            fontSize: Math.max(13, g.cardH * 0.13),
+          },
+          frames: [
+            { offset: 0, opacity: 0 },
+            { offset: Math.min(0.15, 200 / length), opacity: 1 },
+            { offset: 0.88, opacity: 1 },
+            { offset: 1, opacity: 0 },
+          ],
+          duration: length,
+          delay: hold + fight.start,
+          text: fight.caption,
+          of: fight.attacker,
+        });
       // Sparks where they meet.
       const spark = g.cardW * 0.8;
       added.push({
@@ -3882,7 +3971,7 @@ export function Board({
     const still = reducedMotion();
     // Phase 10 A-13: while fights play, everything else that moves waits for
     // them (held where it was), then goes -- the survivors home with the rest.
-    const hold = still ? 0 : holdLeft();
+    let hold = still ? 0 : holdLeft();
     // Phase 10 A-11/A-12: who attacks and who blocks, now.
     const roles = new Map<string, "attack" | "block">();
     for (const item of items) {
@@ -3894,7 +3983,65 @@ export function Board({
     // slower than a Glide, each a beat after the one before.
     let stepping = 0;
     let facing = 0;
+    // Spec 0084 (6 B, "Power flows in") -- a permanent that became a
+    // creature (a vehicle crewed, Mutavault animated), or stopped being one
+    // at the turn's end: the game's kind says so. Gold motes run from what
+    // made it alive (the creatures that crewed it, or its own ability's stack
+    // spot) into it, a gold ring breathes, and only then does it slide to the
+    // creature line, its power/toughness rising in; at the turn's end a grey
+    // ring closes in, a grey number rises off, and it slides back.
+    const living: {
+      id: string;
+      item: string;
+      up: boolean;
+      from: Point[];
+      times: ReturnType<typeof aliveTimes>;
+      pt: string;
+    }[] = [];
+    const slideAt = new Map<string, number>();
+    if (before && !still && !resized && aliveSeen.current !== before) {
+      const stackNow = new Set((stack ?? []).map((s) => s.id));
+      for (const card of battlefield) {
+        const was = before.cards.get(card.id);
+        const item = positions.get(card.id)?.item;
+        if (!was || !item || was.name !== card.name || was.faceDown !== card.faceDown) continue;
+        const up = was.kind !== "creature" && card.kind === "creature";
+        const down = was.kind === "creature" && card.kind !== "creature";
+        if (!up && !down) continue;
+        const from: Point[] = [];
+        if (up) {
+          for (const by of moments?.crewed.get(card.id) ?? []) {
+            const box = positions.get(by)?.box ?? before.at.get(by)?.box;
+            if (box) from.push(centre(box));
+          }
+          if (from.length === 0) {
+            const ability = before.stack.find(
+              (e) => e.s.source === card.id && !stackNow.has(e.s.id),
+            );
+            if (ability) from.push(centre(ability.box));
+          }
+        }
+        const times = up
+          ? aliveTimes(hold, from.length > 0, MOVE_MS)
+          : { motes: hold, pulse: hold, slide: hold + ALIVE_BACK_MS, number: hold };
+        const shown = up ? card : was;
+        living.push({
+          id: card.id,
+          item,
+          up,
+          from,
+          times,
+          pt:
+            shown.power !== null && shown.toughness !== null
+              ? `${shown.power}/${shown.toughness}`
+              : "",
+        });
+        slideAt.set(item, times.slide);
+      }
+    }
     const pace = (id: string): { delay: number; duration: number } => {
+      const sliding = slideAt.get(id);
+      if (sliding !== undefined) return { delay: sliding, duration: MOVE_MS };
       const role = roles.get(id);
       if (!role || before?.roles.get(id) === role) return { delay: hold, duration: MOVE_MS };
       return role === "attack"
@@ -5139,6 +5286,8 @@ export function Board({
       // (its ghost is the pile until then) and the rest peel off it.
       const peelOf = new Map<string, { dx: number; dy: number }>();
       const waitsOf = new Set<string>();
+      // Spec 0084 -- how many spent cards have been sent off so far this update.
+      let spentN = 0;
       for (const [lead, ids] of before.piles) {
         if (ids.length < 2) continue;
         const left = ids.filter((id) => !now.has(id) && !merged.has(id) && !returns?.has(id));
@@ -5165,7 +5314,9 @@ export function Board({
           if (!at) return;
           const dest = departures?.get(id) ?? `${look.side}:graveyard`;
           const fate: Fate | undefined = dest.endsWith(":graveyard")
-            ? "defeated"
+            ? moments?.spent.has(id)
+              ? "spent"
+              : "defeated"
             : dest.endsWith(":exile")
               ? "exiled"
               : undefined;
@@ -5173,10 +5324,12 @@ export function Board({
           const fighting = hold > 0 && end !== undefined;
           const elapsed = Number(fightClock.current?.currentTime ?? 0);
           const struck = spellHits.current?.ids.has(id) ? spellHits.current.delay : 0;
-          const [shown, delay] =
+          const [shown, delay0] =
             fate === "defeated" && !fighting
               ? shrinkFirst(id, look, Math.max(hold, struck))
               : [look, fighting ? Math.max(0, end - elapsed) : Math.max(hold, struck)];
+          // Spec 0084: spent ones go one after another (one per mana).
+          const delay = fate === "spent" ? delay0 + SPENT_BEAT_MS * spentN++ : delay0;
           const peel = peelOf.get(id);
           leaving.push({
             ...shown,
@@ -5274,11 +5427,15 @@ export function Board({
         }
         // Phase 10 A-04/A-05 (owner 2026-11-06): a permanent leaving the
         // table for a graveyard was defeated (Shatter); for exile, banished.
+        // Spec 0084 (1 A): spent -- sacrificed as a cost, by its own ability
+        // or a Saga's end -- folds and goes; never the defeated look.
         const fate: Fate | undefined =
           joined || !d.table
             ? undefined
             : dest.endsWith(":graveyard")
-              ? "defeated"
+              ? moments?.spent.has(id)
+                ? "spent"
+                : "defeated"
               : dest.endsWith(":exile")
                 ? "exiled"
                 : undefined;
@@ -5304,10 +5461,11 @@ export function Board({
           continue;
         }
         // Spec 0078, item 4: shrunk to death -- it shrinks, then breaks.
-        const [shown, breaks] =
+        const [shown, breaks0] =
           fate === "defeated" && !fought && fightEnd === undefined
             ? shrinkFirst(id, d, delay)
             : [d, delay];
+        const breaks = fate === "spent" ? breaks0 + SPENT_BEAT_MS * spentN++ : breaks0;
         // Spec 0073: into a pile, the number ticks as it lands; out of one,
         // as it lifts off (peeling, D, when it was defeated or exiled).
         if (joined) landAt.set(id, delay + MOVE_MS);
@@ -5382,7 +5540,9 @@ export function Board({
           fade: true,
           delay: 0,
           fate: dest.endsWith(":graveyard")
-            ? "defeated"
+            ? moments?.spent.has(id)
+              ? "spent"
+              : "defeated"
             : dest.endsWith(":exile")
               ? "exiled"
               : undefined,
@@ -5390,12 +5550,39 @@ export function Board({
       }
       // A-07: several leaving the table at once is a board wipe -- a pale
       // flash sweeps the table first, then they all go together.
+      // Spec 0084: spent cards never count toward a wipe, and never wait for its flash.
+      const killed = (ghost: Ghost) => !!ghost.fate && ghost.fate !== "spent";
       if (
-        leaving.filter((ghost) => ghost.fate && !ghost.fight && !ghost.inFight).length >= WIPE_AT
+        leaving.filter((ghost) => killed(ghost) && !ghost.fight && !ghost.inFight).length >= WIPE_AT
       ) {
         setSweep(performance.now());
-        for (const ghost of leaving) if (ghost.fate) ghost.delay = Math.max(ghost.delay, SWEEP_MS);
+        for (const ghost of leaving)
+          if (killed(ghost)) ghost.delay = Math.max(ghost.delay, SWEEP_MS);
       }
+      // Spec 0084 (1 A) -- a spent Treasure gives a small coin spark as its
+      // mana flies: a coin flips up off it, a spark swelling behind it.
+      const coins: FightMark[] = [];
+      for (const ghost of leaving) {
+        // A Treasure by its type line, as the game sent it (never its name).
+        const types = before.cards.get(ghost.id)?.types ?? "";
+        if (ghost.fate !== "spent" || !/\bTreasure\b/.test(types)) continue;
+        const size = ghost.box.h * 0.2;
+        coins.push({
+          key: `coin:${ghost.id}:${performance.now()}`,
+          kind: "coin",
+          style: {
+            left: ghost.box.x + ghost.box.w / 2 - size / 2,
+            top: ghost.box.y + ghost.box.h * 0.2 - size / 2,
+            width: size,
+            height: size,
+          },
+          frames: coinFrames(ghost.box.h),
+          duration: COIN_MS,
+          delay: ghost.delay + (ghost.peel ? PEEL_MS : 0),
+          of: ghost.id,
+        });
+      }
+      if (coins.length > 0) setMarks((list) => [...list, ...coins]);
       if (leaving.length + joins.length > 0) setGhosts((list) => [...list, ...joins, ...leaving]);
       // Spec 0078, item 4 -- the shrinking dead count down on a clock of
       // their own on the board (a click hurries it with their shatter).
@@ -5448,6 +5635,11 @@ export function Board({
       const fizzles: Fizzle[] = [];
       /** Spec 0080: the pale shield in front of a target that could no longer be chosen. */
       const fizzleWards: FightMark[] = [];
+      // Spec 0084: a fight or bite spell resolves and goes to its graveyard
+      // before its fight plays (the canvas's), never held on the stack
+      // through it; everything else still waits for the fights.
+      const fightsHold = hold;
+      if (spellFight.current && spellFight.current === fightClock.current) hold = 0;
       for (const { s, box } of before.stack) {
         if (stillThere.has(s.id) || (s.card && merged.has(s.card))) continue;
         // A-17: an Aura resolving onto its creature is chained into its tab.
@@ -5899,7 +6091,75 @@ export function Board({
         );
         if (n && changes.some((c) => c.at > 0)) tickTile(n, changes);
       }
+      hold = fightsHold;
       if (gone.length > 0) setGhosts((list) => [...list, ...gone]);
+      // Spec 0084 (6 B) -- coming alive, and back: the marks, the breath, the number.
+      if (living.length > 0) {
+        aliveSeen.current = before;
+        const marks: FightMark[] = [];
+        for (const l of living) {
+          const home = before.at.get(l.id)?.box;
+          const now = positions.get(l.id)?.box;
+          if (!home || !now) continue;
+          const key = `alive:${l.id}:${performance.now()}`;
+          const card = elements.current
+            .get(l.item)
+            ?.querySelector<HTMLElement>(":scope > .bf-card");
+          if (l.up) {
+            marks.push(...moteMarks(key, l.from, home, l.times.motes, l.id));
+            marks.push(ringMark(key, home, l.times.pulse, l.id, false));
+            if (l.pt) marks.push(ptFloat(key, now, l.pt, l.times.number, l.id, false));
+            if (card && typeof card.animate === "function") {
+              card.animate(breathFrames(), {
+                duration: ALIVE_PULSE_MS,
+                delay: l.times.pulse,
+                easing: "ease-in-out",
+                composite: "add",
+              });
+              const pt = card.querySelector<HTMLElement>(".bf-pt");
+              if (pt && typeof pt.animate === "function") {
+                const pop = numberInFrames(l.times.number);
+                pt.animate(pop.frames, { duration: pop.duration, easing: "linear", fill: "both" });
+              }
+            }
+          } else {
+            marks.push(ringMark(key, home, l.times.pulse, l.id, true));
+            if (l.pt) marks.push(ptFloat(key, home, l.pt, l.times.number, l.id, true));
+          }
+        }
+        if (marks.length > 0) setMarks((list) => [...list, ...marks]);
+      }
+      // Spec 0084 (5 A) -- a library shuffled on its own (a fetch land, a
+      // tutor, Rampant Growth): the same riffle on that player's library
+      // pile, for both seats; once the card that came out of it has landed.
+      // On the pile at the top of the screen the backs fan downward, so they
+      // stay on screen. A card shuffled in already riffles it (A-14, above).
+      if (moments && moments.shuffles.length > 0 && shuffledKey.current !== moments.key) {
+        shuffledKey.current = moments.key;
+        for (const side of moments.shuffles) {
+          const key = `library:${side}:shuffled`;
+          if (tagged.has(key)) continue;
+          tagged.add(key);
+          const fetched = battlefield.some(
+            (c) => !before.cards.has(c.id) && arrivals?.get(c.id) === `${side}:library`,
+          );
+          const pile = where[`${side}:library`];
+          const w = g.cardW * AT_ZONE_SCALE;
+          const h = g.cardH * AT_ZONE_SCALE;
+          const start = hold + (fetched ? SHUFFLE_AFTER_MS : 0);
+          for (let i = 0; i < RIFFLE_CARDS; i++) {
+            returning.push({
+              key: `riffle:shuffle:${moments.key}:${side}:${i}`,
+              kind: "riffle",
+              style: { left: pile.x, top: pile.y, width: w, height: h },
+              frames: riffleFrames(i, h / 56, side === "opponent"),
+              duration: RIFFLE_MS,
+              delay: start + i * RIFFLE_BEAT_MS,
+              of: `library:${side}`,
+            });
+          }
+        }
+      }
       if (returning.length > 0) setReturnMarks((list) => [...list, ...returning]);
       if (chains.length > 0) {
         setTethers((list) => [...list, ...chains]);
@@ -5967,6 +6227,7 @@ export function Board({
   }, [
     items,
     result,
+    positions,
     byId,
     arrivals,
     departures,
@@ -5977,6 +6238,7 @@ export function Board({
     countered,
     fizzled,
     survive,
+    moments,
     opponentName,
     viewerName,
     stack,

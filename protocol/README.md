@@ -270,7 +270,26 @@ moves                     Phase 10 A-00: the cards moved since the last
                           from "battlefield" to "battlefield", why
                           "flickered", via {zone: "exile", seat} (the exile
                           it went by); a return in a later round
-                          (Flickerwisp's end step) keeps its two moves
+                          (Flickerwisp's end step) keeps its two moves.
+                          Spec 0084: spent true on a card's move off the
+                          battlefield with why "sacrificed" when it was
+                          spent, not killed: sacrificed while Forge was
+                          paying a cost (Game#costPaymentStack not empty --
+                          a Treasure, a Clue, a fetch land, Village Rites'
+                          creature), by its own resolving ability (Ball
+                          Lightning), or by the rules ending a Saga. An
+                          edict (Diabolic Edict, Innocent Blood: another
+                          card's effect) is never spent. Only with `card`
+shuffles                  spec 0084: the seats whose library Forge shuffled
+                          this round (GameEventShuffle: a fetch land, a
+                          tutor, Rampant Growth, a card shuffled in); the
+                          game's own opening shuffles come with the first
+                          boards. Absent when none. Public
+crewed                    spec 0084: the vehicles crewed this round: [{card
+                          "card:N", by ["card:N", ...]}] -- the creatures
+                          tapped to pay the crew ability (Forge's paid list
+                          "Tapped", what Card#becomesCrewed records).
+                          Absent when none. Public
 phased                    spec 0080: this round's phase changes, as Forge
                           made them (GameEventCardPhased): [{card "card:N",
                           out}] -- out true when it phased out, false when
@@ -677,6 +696,14 @@ damage              B13 damage dealt since the last round, ONE combat
                         fight played). Read as Forge asks a controller
                         which damage replacement to apply (reflective:
                         Survivors.DAMAGE_LIST, VEND-004).
+                        Spec 0084 (2026-11-13): the damage of a fight or
+                        bite spell or ability (Prey Upon: Forge's Fight
+                        effect; Ram Through: a DealDamage whose damage
+                        source is another creature) adds `fight: true`
+                        and `fights` in the combat step's shape -- a
+                        fight {attacker, defender: {object}, blockers:
+                        [defender]} (both strike), a bite with blockers []
+                        (only the biter strikes). Never with `combat`.
 life                    spec 0077: every change to a player's life or
                         poison since the last round, in the order Forge
                         made them: {key: "life:REV", changes: [{player,

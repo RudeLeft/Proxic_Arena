@@ -62,6 +62,23 @@ export interface BoardData {
   fizzled: Set<string>;
   /** Spec 0080 -- flickers and survivors this update, as the game says; null for none. */
   survive: Survive | null;
+  /** Spec 0084 -- spent cards, library shuffles and crews this update; null for none. */
+  moments: Moments | null;
+}
+
+/**
+ * Spec 0084 -- what this update says that the board alone cannot: the
+ * permanents that were SPENT (sacrificed as a cost, by their own ability, a
+ * Saga's end -- fold and go, never the defeated look), the libraries
+ * shuffled (whose: the riffle plays on that pile), and each vehicle crewed
+ * and the creatures that crewed it (gold motes run from them). A new key is
+ * a new update (a board plays it once).
+ */
+export interface Moments {
+  key: string;
+  spent: Set<string>;
+  shuffles: ("viewer" | "opponent")[];
+  crewed: Map<string, string[]>;
 }
 
 /**
@@ -478,6 +495,10 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     kind: entry.kind,
     by: snapshot.players.find((p) => p.seat === entry.controller)?.name ?? null,
     source: entry.source && onBoard.has(entry.source) ? entry.source : null,
+    // Spec 0084 -- its card gone from the table as it was played: it lifts off where it was.
+    ...(entry.source && !onBoard.has(entry.source) && entry.kind !== "spell"
+      ? { leftFrom: entry.source }
+      : {}),
     targets: entry.targets,
     // Spec 0045 — what it does, for the label when pointed at.
     ...(entry.kind !== "spell" ? { does: stackWords(entry.description, entry.name) } : {}),
@@ -639,6 +660,17 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
         }
       : null;
 
+  // Spec 0084 -- spent, shuffled, crewed.
+  const spent = new Set(
+    moves.flatMap((m) => (m.card && m.spent && m.from.zone === "battlefield" ? [m.card] : [])),
+  );
+  const shuffles = [...new Set(snapshot.shuffles ?? [])].map((seat) => side(seat));
+  const crewed = new Map((snapshot.crewed ?? []).map((c) => [c.card, c.by]));
+  const moments: Moments | null =
+    spent.size > 0 || shuffles.length > 0 || crewed.size > 0
+      ? { key: `${snapshot.gameEpoch}:${snapshot.stateRevision}`, spent, shuffles, crewed }
+      : null;
+
   const prepared = preparedSpells(snapshot);
   return {
     battlefield: snapshot.battlefield.map((c) => toBoardCard(c, prepared.get(c.id))),
@@ -659,6 +691,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     countered,
     fizzled,
     survive,
+    moments,
   };
 }
 

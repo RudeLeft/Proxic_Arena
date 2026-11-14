@@ -48,7 +48,7 @@ final class HiddenIds {
             "copying");
 
     /** A move's fields that travel only with its card (Moves.forViewer). */
-    private static final List<String> WITH_CARD = List.of("why", "said", "into");
+    private static final List<String> WITH_CARD = List.of("why", "said", "into", "spent");
 
     /**
      * The ids of the cards in zones [viewer] (null: a spectator) cannot see:

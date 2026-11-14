@@ -265,6 +265,10 @@ spell) ends "nowhere". Spec 0083: a stack entry says `splitSecond` or
 revealed from an opening hand reaches the other player's report window
 (`reveal`, through turn 1), and identical replacement effects applied
 without a question send `pulse` (their permanents) instead of a notice.
+Spec 0084: a sacrifice that was a cost, its card's own ability or a Saga's
+end is a move marked `spent` (an edict never is); `shuffles` names the
+libraries shuffled, `crewed` each vehicle's crew, and a fight or bite
+spell's damage wave says `fight` with its `fights`.
 Spec 0080: phased-out permanents
 are sent, flagged `phasedOut` (they were left out and drawn exiled), with
 the round's `phased` changes; a flicker is one move ("flickered", `via`

@@ -697,6 +697,8 @@ export interface DamageState {
   }[];
   /** Phase 10 A-13 -- the damage a combat damage step dealt: which step. Absent for a spell's. */
   combat?: "first-strike" | "regular";
+  /** Spec 0084 -- a fight or bite spell's damage (Prey Upon, Ram Through): `fights` says who fought whom. */
+  fight?: boolean;
   /** Phase 10 A-13 -- who fought whom in that step (the dead included). */
   fights?: CombatFight[];
   /** Phase 10 A-13 -- life gained as it was dealt (lifelink), and from what when the game knows. */
@@ -805,6 +807,10 @@ export interface Snapshot {
   phased?: { card: string; out: boolean }[];
   /** Spec 0080 -- this round's survivors: a regeneration shield used, or a destroy an indestructible permanent shrugged off. */
   survived?: { card: string; how: "regenerated" | "indestructible" }[];
+  /** Spec 0084 -- the seats whose library was shuffled this round (a fetch land, a tutor). */
+  shuffles?: number[];
+  /** Spec 0084 -- the vehicles crewed this round, and the creatures that crewed each. */
+  crewed?: { card: string; by: string[] }[];
   /** Spec 0045 -- the cards Forge last showed this viewer, or null. */
   reveal?: SnapshotReveal | null;
   /** Phase 9 Amendment 12 -- who did what, in this reader's words. */
@@ -1339,6 +1345,8 @@ function asSnapshot(value: unknown): Snapshot | null {
     life: asLife(row["life"]),
     phased: asPhased(row["phased"]),
     survived: asSurvived(row["survived"]),
+    shuffles: asSeats(row["shuffles"]),
+    crewed: asCrewed(row["crewed"]),
     reveal: asReveal(row["reveal"]),
     action: asAction(row["action"]),
     pulse: asPulse(row["pulse"]),
@@ -1377,6 +1385,26 @@ function asSurvived(value: unknown): { card: string; how: "regenerated" | "indes
     const card = asString(e["card"]);
     const how = e["how"];
     return card && (how === "regenerated" || how === "indestructible") ? [{ card, how }] : [];
+  });
+}
+
+/** Spec 0084 -- seat numbers, keeping only numbers. */
+function asSeats(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((v) => (typeof v === "number" ? [v] : []));
+}
+
+/** Spec 0084 -- each vehicle crewed this round, and what crewed it. */
+function asCrewed(value: unknown): { card: string; by: string[] }[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const e = (typeof entry === "object" && entry !== null ? entry : {}) as Record<string, unknown>;
+    const card = asString(e["card"]);
+    const by = (Array.isArray(e["by"]) ? (e["by"] as unknown[]) : []).flatMap((b) => {
+      const id = asString(b);
+      return id ? [id] : [];
+    });
+    return card ? [{ card, by }] : [];
   });
 }
 
@@ -1707,7 +1735,8 @@ function asDamage(value: unknown): DamageState | null {
       });
   }
   const step = row["combat"];
-  if (step !== "first-strike" && step !== "regular") return { key, hits };
+  const spellFight = row["fight"] === true;
+  if (step !== "first-strike" && step !== "regular" && !spellFight) return { key, hits };
   const fights: CombatFight[] = [];
   for (const entry of Array.isArray(row["fights"]) ? (row["fights"] as unknown[]) : []) {
     if (typeof entry !== "object" || entry === null) continue;
@@ -1733,6 +1762,7 @@ function asDamage(value: unknown): DamageState | null {
     if (player !== null && amount !== null)
       gains.push({ player, amount, ...(source ? { source } : {}) });
   }
+  if (step !== "first-strike" && step !== "regular") return { key, hits, fight: true, fights };
   return { key, hits, combat: step, fights, gains };
 }
 
@@ -2103,6 +2133,12 @@ export interface SnapshotMove {
    * Only with a named card.
    */
   last?: { power: number; toughness: number } | null;
+  /**
+   * Spec 0084 -- sacrificed as a cost, by its own ability or a Saga's end
+   * (a Treasure, a fetch land, a Clue): used up, not killed. Only with a
+   * named card.
+   */
+  spent?: boolean;
 }
 
 const MOVE_WHYS = new Set([
@@ -2138,6 +2174,7 @@ function asMoves(value: unknown): SnapshotMove[] {
         where: where === "top" || where === "bottom" || where === "shuffled" ? where : null,
         last: asLast(e["last"]),
         via: e["via"] ? place(e["via"]) : null,
+        ...(e["spent"] === true ? { spent: true } : {}),
       },
     ];
   });

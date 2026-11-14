@@ -446,7 +446,7 @@ export const PULSE_MS = 420;
  * "exiled" -- A · Banished: pale light rises, it brightens and lifts, then
  * Glides to exile still glowing.
  */
-export type Fate = "defeated" | "exiled";
+export type Fate = "defeated" | "exiled" | "spent";
 /** Shatter: the shake, then the crack and darken. */
 export const SHAKE_MS = 220;
 export const CRACK_MS = 300;
@@ -454,18 +454,32 @@ export const CRACK_MS = 300;
 export const BANISH_MS = 520;
 /** A board wipe: the flash across the table before they all go. */
 export const SWEEP_MS = 220;
-/** This many leaving the table at once is a board wipe (the flash). */
+/** This many leaving the table at once is a board wipe (the flash). Spent cards never count (spec 0084). */
 export const WIPE_AT = 3;
+/**
+ * Spec 0084 (1 A, "Fold and go") -- a card used up, not killed (a Treasure,
+ * a fetch land, a Clue): it dims and folds flat over SPENT_FOLD_MS (to
+ * SPENT_FLAT of its height), then Glides to the graveyard still flat,
+ * fading as it arrives. Several spent at once go one after another, a
+ * SPENT_BEAT_MS apart (the canvas's Treasures, one per mana).
+ */
+export const SPENT_FOLD_MS = 320;
+export const SPENT_FLAT = 0.14;
+export const SPENT_BEAT_MS = 220;
+/** The Treasure's coin spark, as its mana flies (the canvas's 0.6 s). */
+export const COIN_MS = 600;
 
 /** How long the fate shows before the card sets off. */
 export function fateMs(fate: Fate): number {
-  return fate === "defeated" ? SHAKE_MS + CRACK_MS : BANISH_MS;
+  return fate === "defeated" ? SHAKE_MS + CRACK_MS : fate === "spent" ? SPENT_FOLD_MS : BANISH_MS;
 }
 
 const SHATTERED = "brightness(0.55) grayscale(0.6) drop-shadow(0px 0px 0px rgba(191, 224, 255, 0))";
 const WHOLE = "brightness(1) grayscale(0) drop-shadow(0px 0px 0px rgba(191, 224, 255, 0))";
 const BANISHED =
   "brightness(1.9) grayscale(0.5) drop-shadow(0px 0px 14px rgba(191, 224, 255, 0.85))";
+/** Spec 0084: dimmed and greyed as it folds (the canvas's 0.6 brightness, 0.55 grey). */
+const SPENT = "brightness(0.6) grayscale(0.55) drop-shadow(0px 0px 0px rgba(191, 224, 255, 0))";
 
 /**
  * One animation for the whole leaving -- the fate, then the Glide -- so a
@@ -494,6 +508,33 @@ export function fateFrames(
   const frames: Keyframe[] = [];
   let off: Placed;
   let filter: string;
+  if (fate === "spent") {
+    // Fold and go: it folds flat where it stands (no shake, no crack, no
+    // red), then Glides flat to the graveyard, fading into it.
+    const flat = (p: Placed, f: number) =>
+      `translate3d(${p.x}px, ${p.y}px, 0) rotate(${p.r}deg) scale(${p.s}) scaleY(${f})`;
+    const steps = 6;
+    for (let k = 0; k <= steps; k++) {
+      const t = k / steps;
+      const e = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+      frames.push({
+        offset: at(SPENT_FOLD_MS * t),
+        transform: flat(a, 1 - (1 - SPENT_FLAT) * e),
+        filter: k === 0 ? WHOLE : SPENT,
+        opacity: 1,
+      });
+    }
+    const trip = glideFrames(from, to, cardW, cardH, origin, toOrigin, { from: 1, to: 0 }, a);
+    for (const frame of trip.slice(1)) {
+      frames.push({
+        ...frame,
+        transform: `${String(frame["transform"])} scaleY(${SPENT_FLAT})`,
+        offset: at(lead + Number(frame["offset"]) * MOVE_MS),
+        filter: SPENT,
+      });
+    }
+    return { frames, duration };
+  }
   if (fate === "defeated") {
     // A shake: a few pixels each way, then still.
     [0, -5, 5, -4, 3, 0].forEach((dx, i, all) =>
@@ -653,10 +694,14 @@ export function returnBackFrames(): Keyframe[] {
   ];
 }
 
-/** One back of a riffling library (the canvas's `riffle()`), `k` its size against the canvas's 56-pixel pile. */
-export function riffleFrames(i: number, k: number): Keyframe[] {
+/**
+ * One back of a riffling library (the canvas's `riffle()`), `k` its size
+ * against the canvas's 56-pixel pile. Spec 0084: `down` -- a pile at the top
+ * of the screen fans downward, so the backs stay on screen.
+ */
+export function riffleFrames(i: number, k: number, down = false): Keyframe[] {
   const dx = (i % 2 ? 1 : -1) * (14 + i * 3) * k;
-  const dy = -(10 + i * 3) * k;
+  const dy = (down ? 1 : -1) * (10 + i * 3) * k;
   return [
     { offset: 0, opacity: 1, transform: "translate(-50%, -50%) translate(0px, 0px) rotate(0deg)" },
     {

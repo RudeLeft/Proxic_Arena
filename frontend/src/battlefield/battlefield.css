@@ -2783,3 +2783,58 @@ img.bf-makes-pip {
     transition: none;
   }
 }
+
+/* Spec 0084 (1 A) -- a spent Treasure's coin spark (the canvas's coin): a
+   gold coin with a spark swelling behind it, flipping as it rises. */
+.bf-fight-coin {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 1.5px solid #6b4a10;
+  background: radial-gradient(circle at 38% 35%, #fff6c8, #f2c95c 45%, #a8730f 100%);
+  box-shadow:
+    0 0 8px #f2c46a,
+    0 0 22px rgb(242 196 106 / 70%);
+}
+/* Spec 0084 (6 B) -- coming alive: the gold ring breathing out, the grey
+   ring closing in at the turn's end. */
+.bf-fight-alivering {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 2.5px solid rgb(242 196 106);
+  box-shadow:
+    0 0 12px rgb(242 196 106 / 80%),
+    inset 0 0 10px rgb(242 196 106 / 60%);
+}
+.bf-fight-alivering.bf-fight-grey {
+  border-color: rgb(170 180 176);
+  box-shadow:
+    0 0 12px rgb(170 180 176 / 80%),
+    inset 0 0 10px rgb(170 180 176 / 60%);
+}
+/* The gold motes running from what made it alive (the crew, its ability). */
+.bf-fight-mote {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 25%, #f2c46a 50%, transparent 72%);
+  box-shadow: 0 0 8px #f2c46a;
+}
+/* Its power/toughness rising in (green) or off (grey), 0078's float. */
+.bf-fight-ptfloat {
+  position: absolute;
+  font-family: var(--pa-card);
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  color: #7fe08a;
+  text-shadow:
+    0 2px 0 #000,
+    0 0 10px #000;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.bf-fight-ptfloat.bf-fight-grey {
+  color: #b9c2bd;
+}

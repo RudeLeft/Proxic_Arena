@@ -790,6 +790,15 @@ public final class GameHost {
                 if (hit.type() == forge.game.event.GameEventCardDamaged.DamageType.Deathtouch) {
                     entry.addProperty("deathtouch", true);
                 }
+                // Spec 0084, item 4 -- a fight or bite spell's hit, as the
+                // spell resolving says (never a combat step's).
+                String fight = damageStep == null ? Spent.fightKind(game, hit.source()) : null;
+                if (fight != null && hit.source() != null) {
+                    synchronized (spellFights) {
+                        Spent.addFight(spellFights, fight, "card:" + hit.source().getId(),
+                                "card:" + hit.card().getId());
+                    }
+                }
             } else if (event instanceof forge.game.event.GameEventPlayerLivesChanged lives) {
                 lifeChanged(lives);
             } else if (event instanceof forge.game.event.GameEventPlayerPoisoned poisoned) {
@@ -1001,12 +1010,31 @@ public final class GameHost {
     /** Sacrificed cards: Forge says so just BEFORE it moves them. */
     private final java.util.Set<Integer> sacrificing =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+    /** Spec 0084 -- of those, the ones spent (a cost, its own ability, a Saga): Spent.isSpent. */
+    private final java.util.Set<Integer> spending =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+    /** Spec 0084 -- this round's moves that were spent, by card id (told with the move). */
+    private final java.util.Set<Integer> spentNow =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+    /** Spec 0084, item 2 -- the seats whose library Forge shuffled this round. */
+    private final java.util.List<Integer> shuffledNow =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    /** Spec 0084, item 3 -- the vehicles crewed this round, and by what (Spent.crewed). */
+    private final java.util.List<com.google.gson.JsonObject> crewedNow =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    /** Spec 0084, item 4 -- this round's fight and bite spells' fights (Spent.addFight). */
+    private final com.google.gson.JsonArray spellFights = new com.google.gson.JsonArray();
 
     private final class MoveLog {
         @com.google.common.eventbus.Subscribe
         public void on(forge.game.event.GameEvent event) {
             if (event instanceof forge.game.event.GameEventCardSacrificed sacrificed && sacrificed.card() != null) {
                 sacrificing.add(sacrificed.card().getId());
+                // Spec 0084 -- spent (a cost, its own ability, a Saga), read
+                // as Forge fires it: inside the sacrifice, before the move.
+                if (Spent.isSpent(game, sacrificed.card().getId())) {
+                    spending.add(sacrificed.card().getId());
+                }
             } else if (event instanceof forge.game.event.GameEventSpellResolved resolved) {
                 spellResolved(resolved);
             } else if (event instanceof forge.game.event.GameEventCardPhased phased && phased.card() != null) {
@@ -1024,6 +1052,12 @@ public final class GameHost {
                 // Phase 10 A-14: Forge shuffled a library after cards went
                 // into it this round (Chaos Warp: moved, then shuffled).
                 Moves.shuffled(movesMade, seatOfPlayer(shuffle.player()));
+                // Spec 0084, item 2 -- and any shuffle at all is told (a
+                // fetch land, a tutor, Rampant Growth): the page riffles.
+                Integer shuffledSeat = seatOfPlayer(shuffle.player());
+                if (shuffledSeat != null && !shuffledNow.contains(shuffledSeat)) {
+                    shuffledNow.add(shuffledSeat);
+                }
             } else if (event instanceof forge.game.event.GameEventCardChangeZone moved && moved.card() != null) {
                 forge.game.card.CardView card = moved.card();
                 // Spec 0070, Amendment 1 -- moved: nobody has seen it where it is now.
@@ -1045,6 +1079,9 @@ public final class GameHost {
                     // moving it.
                     if (sacrificing.remove(card.getId())) {
                         why = "sacrificed";
+                        if (spending.remove(card.getId())) {
+                            spentNow.add(card.getId());
+                        }
                     } else if (card.wasDestroyed()) {
                         why = "destroyed";
                     }
@@ -1146,6 +1183,11 @@ public final class GameHost {
             } catch (RuntimeException e) {
                 System.err.println("proxic: indestructible survivors not read: " + e);
             }
+        }
+        // Spec 0084, item 3 -- a crew ability resolved: what crewed it.
+        com.google.gson.JsonObject crew = Spent.crewed(sa);
+        if (crew != null) {
+            crewedNow.add(crew);
         }
         forge.game.card.Card host = sa == null ? null : sa.getHostCard();
         if (host == null || !sa.isSpell()) {
@@ -1420,6 +1462,14 @@ public final class GameHost {
                 }
                 damage = CombatDamage.wave("damage:" + revision, damageDealt, step, stepFights, gains);
                 damageDealt.clear();
+                // Spec 0084, item 4 -- a fight or bite spell's damage: who
+                // fought whom, in a combat step's shape, marked `fight`.
+                synchronized (spellFights) {
+                    if (step == null && spellFights.size() > 0) {
+                        damage.addProperty("fight", true);
+                        damage.add("fights", spellFights.deepCopy());
+                    }
+                }
                 if (step != null) {
                     beginDamageStep(null);
                 }
@@ -1449,6 +1499,28 @@ public final class GameHost {
             survived.clear();
         }
         sacrificing.clear();
+        spending.clear();
+        synchronized (spellFights) {
+            while (spellFights.size() > 0) {
+                spellFights.remove(0);
+            }
+        }
+        // Spec 0084 -- spent moves, shuffles and crews, this round's.
+        java.util.Set<Integer> spentMoves;
+        synchronized (spentNow) {
+            spentMoves = java.util.Set.copyOf(spentNow);
+            spentNow.clear();
+        }
+        com.google.gson.JsonArray shuffles = new com.google.gson.JsonArray();
+        synchronized (shuffledNow) {
+            shuffledNow.forEach(shuffles::add);
+            shuffledNow.clear();
+        }
+        com.google.gson.JsonArray crews = new com.google.gson.JsonArray();
+        synchronized (crewedNow) {
+            crewedNow.forEach(crews::add);
+            crewedNow.clear();
+        }
         // Spec 0075 (owner 2026-11-12): no graveyard line is told any more --
         // the report window explains what the other player did (ActionReports).
         // Spec 0064 -- this round's play log lines, each seat its own, sent
@@ -1496,13 +1568,20 @@ public final class GameHost {
             snapshot.add("rolls", rollsSoFar());
             snapshot.add("payments", payments.forViewer(seat));
             if (!moved.isEmpty()) {
-                snapshot.add("moves", Moves.forViewer(moved, seat));
+                snapshot.add("moves", Moves.forViewer(moved, seat, spentMoves));
             }
             if (phasedNow.size() > 0) {
                 snapshot.add("phased", phasedNow.deepCopy());
             }
             if (survivedNow.size() > 0) {
                 snapshot.add("survived", survivedNow.deepCopy());
+            }
+            // Spec 0084 -- public: a shuffle and a crew are seen by everyone.
+            if (shuffles.size() > 0) {
+                snapshot.add("shuffles", shuffles.deepCopy());
+            }
+            if (crews.size() > 0) {
+                snapshot.add("crewed", crews.deepCopy());
             }
             com.google.gson.JsonArray lines = logLines.get(seat);
             if (lines != null && lines.size() > 0) {
@@ -1547,13 +1626,19 @@ public final class GameHost {
             everyone.add("rolls", rollsSoFar());
             everyone.add("payments", payments.forViewer(null));
             if (!moved.isEmpty()) {
-                everyone.add("moves", Moves.forViewer(moved, null));
+                everyone.add("moves", Moves.forViewer(moved, null, spentMoves));
             }
             if (phasedNow.size() > 0) {
                 everyone.add("phased", phasedNow.deepCopy());
             }
             if (survivedNow.size() > 0) {
                 everyone.add("survived", survivedNow.deepCopy());
+            }
+            if (shuffles.size() > 0) {
+                everyone.add("shuffles", shuffles.deepCopy());
+            }
+            if (crews.size() > 0) {
+                everyone.add("crewed", crews.deepCopy());
             }
             com.google.gson.JsonArray lines = new com.google.gson.JsonArray();
             synchronized (publicBacklog) {

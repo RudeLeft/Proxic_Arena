@@ -276,6 +276,17 @@ final class Moves {
 
     /** The moves as `viewer` may know them. */
     static JsonArray forViewer(List<Move> moves, Integer viewer) {
+        return forViewer(moves, viewer, java.util.Set.of());
+    }
+
+    /**
+     * The moves as `viewer` may know them. Spec 0084 -- `spent`: the cards
+     * sacrificed this round that were spent (Spent.isSpent: a cost, their
+     * own ability, a Saga's end): their move off the battlefield says
+     * `spent: true`, with the card only, so the page folds them away
+     * instead of showing them killed.
+     */
+    static JsonArray forViewer(List<Move> moves, Integer viewer, java.util.Set<Integer> spent) {
         JsonArray out = new JsonArray();
         for (Move move : moves) {
             JsonObject entry = new JsonObject();
@@ -288,6 +299,10 @@ final class Moves {
             entry.add("to", place(move.to(), move.toSeat()));
             if (named && move.why() != null) {
                 entry.addProperty("why", move.why());
+            }
+            if (named && "sacrificed".equals(move.why()) && "battlefield".equals(move.from())
+                    && spent.contains(move.card())) {
+                entry.addProperty("spent", true);
             }
             // Spec 0061, item 4 -- the tag the card carries to the graveyard.
             if (named && move.said() != null) {

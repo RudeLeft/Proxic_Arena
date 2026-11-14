@@ -37,6 +37,8 @@ export interface CombatWave {
     prevented?: number;
   }[];
   combat?: "first-strike" | "regular";
+  /** Spec 0084 -- a fight or bite spell's damage: `fights` in a combat step's shape. */
+  fight?: boolean;
   fights?: readonly { attacker: string; defender: FightRef; blockers: readonly string[] }[];
   gains?: readonly { player: number; amount: number; source?: string }[];
 }
@@ -268,7 +270,7 @@ const jolt = (at: number, from: { dx: number; dy: number }, h: number, side: num
  */
 export function planFights(input: FightInput): FightPlan | null {
   const { wave } = input;
-  if (!wave.combat || !wave.fights || wave.fights.length === 0) return null;
+  if (!(wave.combat || wave.fight) || !wave.fights || wave.fights.length === 0) return null;
   const itemOf = (id: string) => input.at(id)?.item ?? null;
 
   // Group the game's fights by the drawn card that attacks.

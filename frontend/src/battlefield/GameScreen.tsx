@@ -1839,6 +1839,7 @@ export function GameScreen({
             countered={data.countered}
             fizzled={data.fizzled}
             survive={data.survive}
+            moments={data.moments}
             flyingOnto={flyingOnto}
             handLeft={
               theirOrigin?.zone === "hand" && theirOrigin.side === "opponent"
