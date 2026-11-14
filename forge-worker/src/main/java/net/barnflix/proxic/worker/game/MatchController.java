@@ -570,7 +570,18 @@ public final class MatchController extends GeneratedControllerBase {
         // player may do; nothing here reorders it, and the only
         // filter is Forge's own (below).
         java.util.LinkedHashMap<String, SpellAbility> byId = new java.util.LinkedHashMap<>();
-        for (forge.game.card.Card card : player.getAllCards()) {
+        // Spec 0087, Amendment 1 (FMT-003) -- and the other players' cards
+        // this player may use where they lie (Gonti's, Hostage Taker's card
+        // in the other player's exile): Forge's own list of cards activatable
+        // outside the player's zones. getAllCards() is the player's own
+        // zones only, so such a card was never offered.
+        java.util.List<forge.game.card.Card> cards = new java.util.ArrayList<>(player.getAllCards());
+        for (forge.game.card.Card alien : player.getCardsActivatableInExternalZones(false)) {
+            if (alien.getOwner() != player && PileUses.inPile(alien) && !cards.contains(alien)) {
+                cards.add(alien);
+            }
+        }
+        for (forge.game.card.Card card : cards) {
             for (SpellAbility sa : card.getAllPossibleAbilities(player, true)) {
                 // Owner decision 2026-10-20: do not offer what the RULES
                 // forbid right now. These are the two checks Forge itself

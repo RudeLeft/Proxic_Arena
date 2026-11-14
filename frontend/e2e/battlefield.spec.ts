@@ -22,11 +22,14 @@ import {
   applyChanges,
   combatScript,
   syntheticBoard,
+  syntheticFans,
   type SyntheticBoard,
 } from "../src/battlefield/fixture";
+import { fanBoxes, fanReach } from "../src/battlefield/pileFan";
 import {
   HAND_ORIGIN,
   TAPPED_ORIGIN,
+  geometry,
   inCombat,
   layout,
   type Box,
@@ -123,7 +126,9 @@ function readBoard(page: Page): Promise<Seen> {
     // Not the stack's cards (owner 2026-10-21): those are drawn beside the
     // layout, at the play area's right edge, and checked with the lines.
     const drawn = [
-      ...board.querySelectorAll<HTMLElement>('button[data-object-id]:not([data-zone="stack"])'),
+      ...board.querySelectorAll<HTMLElement>(
+        'button[data-object-id]:not([data-zone="stack"]):not(.bf-fan-face)',
+      ),
     ].map((el) => {
       // A flyer's hover-sway (owner item 3) is decoration on top of its
       // place: measure the place, with the sway held still for the read.
@@ -191,12 +196,14 @@ async function differences(
   board: SyntheticBoard,
   viewport: { width: number; height: number },
   checkCorners: boolean,
+  /** Spec 0087 -- the fans' reach, when the board has them (the hand keeps clear). */
+  keepRight?: { viewer: number; opponent: number },
 ): Promise<{ wrong: string[]; shrunk: number; seen: Seen }> {
   const seen = await readBoard(page);
   const wrong: string[] = [];
   if (seen.width !== viewport.width || seen.height !== viewport.height)
     wrong.push(`the board is ${seen.width}x${seen.height}, not the window`);
-  const expected = layout(board, viewport);
+  const expected = layout({ ...board, keepRight }, viewport);
   const byId = new Map(seen.drawn.map((d) => [d.id, d]));
   if (byId.size !== seen.drawn.length) wrong.push("an id is drawn twice");
   for (const d of seen.drawn) if (d.label === "") wrong.push(`${d.id} has no name`);
@@ -433,6 +440,126 @@ test("the drawn battlefield is exactly layout()'s, and keeps Amendment 4 and spe
     "the sweep measured protection and gained squares (F-0085-D)",
   ).toBeGreaterThan(0);
   expect(heldTabsSeen, "the sweep measured held cards' tabs (F-0085-E)").toBeGreaterThan(0);
+  expect(problems, "browser reported errors").toEqual([]);
+});
+
+test("spec 0087: the fans stand where pileFan says, inside the table, covering no hand card", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const problems = watchErrors(page);
+  await signIn(page);
+  let fansSeen = 0;
+  // Amendment 2: the nearest a fan (its sign included) comes to a table card, vertically.
+  let nearest = Infinity;
+  // [permanents, faces, seed, viewer fan, opponent fan]: a light board, a
+  // busy one with a full hand, a fan long enough to close up, and full
+  // boards whose land lines reach the column (Amendment 2).
+  const FANNED: [number, number, number, number, number][] = [
+    [12, 10, 7, 3, 2],
+    [40, 30, 1, 5, 5],
+    [90, 30, 3, 12, 8],
+    [200, 30, 3, 6, 6],
+  ];
+  for (const viewport of VIEWPORTS) {
+    await page.setViewportSize(viewport);
+    for (const [permanents, faces, seed, mine, theirs] of FANNED) {
+      const where = `${permanents} permanents, fans ${mine}+${theirs}, ${viewport.width}x${viewport.height}`;
+      await page.goto(
+        `/dev/board?permanents=${permanents}&faces=${faces}&seed=${seed}&fans=${mine},${theirs}`,
+      );
+      await expect(page.getByRole("note")).toContainText("Not a game");
+      await page.locator("[data-fan-card]").first().waitFor();
+      const g = geometry(viewport);
+      const fans = syntheticFans(mine, theirs);
+      const keep = fanReach({ viewer: mine, opponent: theirs }, g);
+      const board = syntheticBoard(permanents, faces, seed);
+      // The table and the hand: still exactly layout()'s, the hand closed up for the fan.
+      const result = await differences(page, board, viewport, false, keep);
+      expect(result.wrong, where).toEqual([]);
+      const drawn = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>("[data-fan-card]")].map((el) => {
+          const r = el.querySelector("button")!.getBoundingClientRect();
+          const sign = el.querySelector("[data-sign]")?.getBoundingClientRect();
+          return {
+            id: el.dataset.fanCard!,
+            side: el.dataset.fanSide!,
+            rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom },
+            sign: !!sign,
+            // The whole fan card as drawn: the card and its corner sign.
+            all: {
+              left: Math.min(r.left, sign?.left ?? r.left),
+              top: Math.min(r.top, sign?.top ?? r.top),
+              right: Math.max(r.right, sign?.right ?? r.right),
+              bottom: Math.max(r.bottom, sign?.bottom ?? r.bottom),
+            },
+          };
+        }),
+      );
+      expect(drawn.length, where).toBe(fans.length);
+      fansSeen += drawn.length;
+      const want = fanBoxes(fans, g);
+      const wrong: string[] = [];
+      const hands = board.hand.map((c) =>
+        corners(layout({ ...board, keepRight: keep }, viewport).boxes.get(c.id)!, HAND_ORIGIN),
+      );
+      const slots = layout({ ...board, keepRight: keep }, viewport).slots;
+      const table = slots.map((slot) => corners(slot.box, TAPPED_ORIGIN));
+      const tableIds = slots.map((slot) => slot.ids[0]!);
+      for (const d of drawn) {
+        const box = want.get(d.id)!;
+        for (const [side, v] of [
+          ["left", box.x],
+          ["top", box.y],
+          ["right", box.x + box.w],
+          ["bottom", box.y + box.h],
+        ] as const)
+          if (Math.abs(d.rect[side] - v) >= TOLERANCE)
+            wrong.push(`${d.id}: ${side} is ${d.rect[side]}, pileFan says ${v}`);
+        if (!d.sign) wrong.push(`${d.id} has no corner sign`);
+        // Inside the table, sign included: never on the column (the plates, the act button).
+        if (d.all.right > g.rail.x + TOLERANCE) wrong.push(`${d.id} reaches the column`);
+        if (d.all.top < -TOLERANCE || d.all.bottom > viewport.height + TOLERANCE)
+          wrong.push(`${d.id} is off the screen`);
+        const poly: Point[] = [
+          [d.rect.left, d.rect.top],
+          [d.rect.right, d.rect.top],
+          [d.rect.right, d.rect.bottom],
+          [d.rect.left, d.rect.bottom],
+        ];
+        hands.forEach((h, i) => {
+          const depth = overlap(poly, h);
+          if (depth >= 0.5)
+            wrong.push(`${d.id} covers hand card ${board.hand[i]!.id} by ${depth}px`);
+        });
+        // Amendment 2 (owner, 2026-11-14): never over the land line or any table
+        // card, sign included -- 0 px allowed.
+        const whole: Point[] = [
+          [d.all.left, d.all.top],
+          [d.all.right, d.all.top],
+          [d.all.right, d.all.bottom],
+          [d.all.left, d.all.bottom],
+        ];
+        table.forEach((t, i) => {
+          const depth = overlap(whole, t);
+          if (depth > 0)
+            wrong.push(`${d.id} covers table card ${tableIds[i]} by ${depth.toFixed(2)}px`);
+          // The vertical gap, to cards under or over the fan (sharing its x-range).
+          const xs = t.map((pt) => pt[0]);
+          if (Math.max(...xs) <= d.all.left || Math.min(...xs) >= d.all.right) return;
+          const ys = t.map((pt) => pt[1]);
+          const gap =
+            d.side === "viewer" ? d.all.top - Math.max(...ys) : Math.min(...ys) - d.all.bottom;
+          nearest = Math.min(nearest, gap);
+        });
+      }
+      expect(wrong, where).toEqual([]);
+    }
+  }
+  expect(fansSeen, "the sweep measured fan cards").toBeGreaterThan(0);
+  console.log(
+    `spec 0087, Amendment 2: the nearest a fan comes to a table card: ${nearest.toFixed(1)}px clear`,
+  );
   expect(problems, "browser reported errors").toEqual([]);
 });
 

@@ -346,10 +346,17 @@ final class ViewerSnapshot {
         }
         snapshot.add("otherHands", otherHands);
 
+        // Spec 0087 -- which pile cards each player may still use (cast,
+        // an ability, or suspended), from the game's own list; told to each
+        // viewer as they may know it (PileUses: a card hidden from them is
+        // in a fan only for a public reason, whatever it is).
+        java.util.Map<Integer, java.util.List<PileUses.Use>> uses = PileUses.of(game, seatOf);
         JsonArray graveyard = new JsonArray();
         for (Player player : game.getRegisteredPlayers()) {
             for (Card card : player.getCardsIn(ZoneType.Graveyard)) {
-                graveyard.add(describe(card, viewing, seatOf));
+                JsonObject entry = describe(card, viewing, seatOf);
+                PileUses.mark(entry, card, uses.get(card.getId()));
+                graveyard.add(entry);
             }
         }
         snapshot.add("graveyard", graveyard);
@@ -376,6 +383,7 @@ final class ViewerSnapshot {
                 if (viewer != null && !card.mayPlay(viewer).isEmpty()) {
                     entry.addProperty("playable", true);
                 }
+                PileUses.mark(entry, card, uses.get(card.getId()));
                 exile.add(entry);
             }
         }

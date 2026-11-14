@@ -23,7 +23,7 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Board } from "./Board";
-import { applyChanges, combatScript, syntheticBoard } from "./fixture";
+import { applyChanges, combatScript, syntheticBoard, syntheticFans } from "./fixture";
 import { scenarioBoard, scenarioLabel } from "./scenarios";
 import { avatarUrl } from "../avatars";
 
@@ -121,6 +121,12 @@ export default function DevBoardPage() {
     : battlefield;
 
   const aim = params.get("aim");
+  // `&fans=V,O` (spec 0087): V cards in the fan by your plate, O by theirs.
+  const fanParam = params.get("fans") ?? "";
+  const fans = useMemo(() => {
+    const [v, o] = fanParam.split(",").map(Number);
+    return syntheticFans(Math.min(v || 0, 20), Math.min(o || 0, 20));
+  }, [fanParam]);
 
   const next = () => {
     const after = new URLSearchParams(params);
@@ -158,6 +164,7 @@ export default function DevBoardPage() {
         // `&clock=1`: the response window's ring round the front card (spec 0028).
         clock={params.get("clock") ? `dev:${change}` : null}
         damage={scene?.damage ?? null}
+        fans={fans}
       />
       <div className="bf-dev-note" role="note">
         <span>

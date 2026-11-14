@@ -42,6 +42,21 @@ import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
 import "./battlefield.css";
 import cardBack from "../assets/card-back.webp";
+import {
+  FAN_CLOSE_MS,
+  FAN_FLOAT_MS,
+  FAN_GLOW_MS,
+  FAN_RISE_MS,
+  FAN_SINK_MS,
+  FAN_TICK_MS,
+  FanCardView,
+  TILE_PULSE_MS,
+  closeFrames,
+  fanWords,
+  riseFrames,
+  sinkFrames,
+} from "./FanCards";
+import { fanBoxes, fanReach, type FanCard } from "./pileFan";
 import { ManaCost, ManaText, costChange, symbolUrl } from "./ManaCost";
 import { litShadow, owingWords, type PayPip } from "./manaBalls";
 import { SharpCard, closeUpOf } from "../closeUp";
@@ -50,6 +65,7 @@ import {
   HAND_ORIGIN,
   OPPONENT_HAND_ORIGIN,
   TAPPED_ORIGIN,
+  geometry,
   layout,
   tabAt,
   TAB_W,
@@ -688,6 +704,13 @@ export interface BoardProps {
   /** Forge is asking for a CHOICE (a target, an attacker...), not just
    * what to do with priority: choosable objects then say "choose". */
   asking?: boolean;
+  /**
+   * Spec 0087 -- the cards some player may still use from a graveyard or an
+   * exile (pileFan.ts): each stands in the fan beside its pile's plate.
+   */
+  fans?: readonly FanCard[];
+  /** Spec 0087 -- every card now in a graveyard or an exile (one leaving a fan but staying there sinks into its tile). */
+  pileCards?: ReadonlySet<string>;
   /** The right-hand column's contents, drawn inside the rail. */
   rail?: ReactNode;
   /** The top bar (turn and step), drawn over the play area. */
@@ -1640,6 +1663,241 @@ function lookId(key: string): string {
 
 const NO_CARDS: readonly OpponentHandCard[] = [];
 const NO_STACK: readonly StackView[] = [];
+const NO_FANS: readonly FanCard[] = [];
+
+/**
+ * Spec 0087 -- the fans as the board before drew them: the cards, where each
+ * stood, its look (a copy of its element), the pile cards then, and where
+ * each card that left a fan and no pile last stood (a card cast for free a
+ * board later -- a suspended one at 0 -- still rises from there).
+ */
+interface FanBefore {
+  fans: readonly FanCard[];
+  boxes: Map<string, Box>;
+  clones: Map<string, HTMLElement>;
+  piles: ReadonlySet<string>;
+  gone: Map<string, { box: Box; at: number }>;
+}
+/** How long a card gone from a fan is still risen from there. */
+const FAN_GONE_MS = 10_000;
+/** A card new to its pile waits for this after what the board brings there has landed. */
+const FAN_AFTER_LAND_MS = 150;
+
+/**
+ * Spec 0087 (the canvas's movements) -- once per board, on the board's clock
+ * (a click hurries every part, A-00):
+ *   - a card that may now be used rises out of its tile into its place in
+ *     the fan (0.45 s), once what the board brings to that tile has landed
+ *     (Stomp's card on its adventure, Think Twice into the graveyard), its
+ *     glow swelling as it lands and the tile pulsing as it leaves;
+ *   - one that no longer may, and is still in its pile, sinks back into its
+ *     tile (its look as it was, shrinking and fading there);
+ *   - the others glide to their new places: the fan closes the gap;
+ *   - a suspended card's time badge pops to its new number as its upkeep
+ *     trigger resolves, a rising -N above it.
+ * Under reduced motion none of this runs (the effect's caller skips it).
+ */
+function playFans({
+  fans,
+  was,
+  boxes,
+  piles,
+  cards,
+  rail,
+  where,
+  g,
+  hold,
+  resolved,
+  landed,
+}: {
+  fans: readonly FanCard[];
+  was: FanBefore;
+  boxes: ReadonlyMap<string, Box>;
+  piles: ReadonlySet<string> | undefined;
+  cards: HTMLElement | null;
+  rail: HTMLElement | null;
+  where: Record<AnchorId, Point>;
+  g: Geometry;
+  hold: number;
+  resolved: boolean;
+  landed: (tile: string) => number;
+}) {
+  if (!cards) return;
+  const k = g.height / 1080;
+  const wasCards = new Map(was.fans.map((c) => [c.id, c]));
+  const tileScale = (box: Box) => (g.cardH * AT_ZONE_SCALE) / Math.max(1, box.h);
+  const settle = hold + (resolved ? RESOLVE_MS : 0);
+  // Spec 0087 -- when each tile's first card rises out of it (its glow waits for that).
+  const firstRise = new Map<string, number>();
+  for (const card of fans) {
+    const el = cards.querySelector<HTMLElement>(`:scope > [data-fan-card="${card.id}"]`);
+    const box = boxes.get(card.id);
+    if (!el || !box || typeof el.animate !== "function") continue;
+    const tile = `${card.side}:${card.zone}` as AnchorId;
+    const old = was.boxes.get(card.id);
+    const prior = wasCards.get(card.id);
+    if (!old) {
+      // New to its pile this board: once it has landed there.
+      const fresh = !was.piles.has(card.id);
+      const delay = Math.max(
+        hold,
+        landed(tile) + (landed(tile) > 0 ? FAN_AFTER_LAND_MS : 0),
+        fresh ? settle + MOVE_MS + FAN_AFTER_LAND_MS : 0,
+      );
+      if (card.how !== "suspended")
+        firstRise.set(tile, Math.min(firstRise.get(tile) ?? Infinity, delay));
+      el.animate(riseFrames(where[tile], box, tileScale(box)), {
+        duration: FAN_RISE_MS,
+        delay,
+        easing: "ease-in-out",
+        fill: "backwards",
+      });
+      const face = el.querySelector<HTMLElement>(":scope > .bf-fan-face");
+      if (face && card.how !== "suspended" && typeof face.animate === "function")
+        face.animate(FAN_SWELL, {
+          duration: FAN_GLOW_MS,
+          delay: delay + FAN_RISE_MS * 0.6,
+          easing: "ease-in-out",
+        });
+      const plate = rail?.querySelector<HTMLElement>(`[data-zone-tile="${tile}"]`);
+      if (plate && card.how !== "suspended" && typeof plate.animate === "function")
+        plate.animate(TILE_PULSE, { duration: TILE_PULSE_MS, delay, easing: "ease-in-out" });
+    } else if (Math.abs(old.x - box.x) > 0.5 || Math.abs(old.y - box.y) > 0.5) {
+      el.animate(closeFrames(old, box), {
+        duration: FAN_CLOSE_MS,
+        delay: hold,
+        easing: "ease-in-out",
+        fill: "backwards",
+      });
+    }
+    // Spec 0087 (3) -- the time badge ticks as its upkeep trigger resolves.
+    if (prior && prior.time !== null && card.time !== null && card.time !== prior.time) {
+      const badge = el.querySelector<HTMLElement>(":scope > .bf-fan-time");
+      const n = badge?.querySelector<HTMLElement>(":scope > .bf-fan-time-n");
+      if (badge && n && typeof badge.animate === "function") {
+        const held = document.createElement("span");
+        held.className = "bf-fan-time-n bf-fan-time-was";
+        held.textContent = String(prior.time);
+        held.setAttribute("aria-hidden", "true");
+        held.dataset["timeWas"] = String(prior.time);
+        badge.appendChild(held);
+        const keep = held.animate([{ opacity: 1 }, { opacity: 1 }], {
+          duration: Math.max(1, settle),
+        });
+        const drop = () => held.remove();
+        keep.onfinish = drop;
+        keep.oncancel = drop;
+        n.animate([{ opacity: 0 }, { opacity: 0 }], { duration: Math.max(1, settle) });
+        badge.animate(TIME_POP, { duration: FAN_TICK_MS, delay: settle, easing: "ease-out" });
+        const by = card.time - prior.time;
+        const float = document.createElement("span");
+        float.className = `bf-fan-float ${by < 0 ? "bf-fan-float-down" : "bf-fan-float-up"}`;
+        float.textContent = by < 0 ? `\u2212${-by}` : `+${by}`;
+        float.setAttribute("aria-hidden", "true");
+        float.dataset["fanFloat"] = card.id;
+        const b = badge.getBoundingClientRect();
+        const root = cards.getBoundingClientRect();
+        const scale = cards.offsetWidth > 0 ? root.width / cards.offsetWidth || 1 : 1;
+        float.style.left = `${(b.left + b.width / 2 - root.left) / scale}px`;
+        float.style.top = `${(b.top - root.top) / scale}px`;
+        float.style.fontSize = `${Math.round(30 * k)}px`;
+        float.style.opacity = "0";
+        cards.appendChild(float);
+        const run = float.animate(floatFrames(34 * k), {
+          duration: FAN_FLOAT_MS,
+          delay: settle,
+          easing: "ease-out",
+        });
+        const gone = () => float.remove();
+        run.onfinish = gone;
+        run.oncancel = gone;
+      }
+    }
+  }
+  // The tiles' glow follows the cards: a tile that starts glowing stays dark
+  // until its first card rises out of it (not while the spell that did it
+  // is still on the stack); one that stops stays lit until its last card has
+  // sunk back in.
+  const lit = (list: readonly FanCard[]) =>
+    new Set(list.filter((c) => c.how !== "suspended").map((c) => `${c.side}:${c.zone}`));
+  const litNow = lit(fans);
+  const litWas = lit(was.fans);
+  for (const tile of new Set([...litNow, ...litWas])) {
+    if (litNow.has(tile) === litWas.has(tile)) continue;
+    const plate = rail?.querySelector<HTMLElement>(`[data-zone-tile="${tile}"]`);
+    if (!plate || typeof plate.animate !== "function") continue;
+    const until = litNow.has(tile) ? (firstRise.get(tile) ?? hold) : hold + FAN_SINK_MS;
+    if (until <= 0) continue;
+    const look = litNow.has(tile) ? TILE_DARK : TILE_LIT;
+    plate.animate([look, look], { duration: until });
+  }
+  // Back into its tile: no longer usable, still in its pile.
+  const nowIds = new Set(fans.map((c) => c.id));
+  for (const prior of was.fans) {
+    if (nowIds.has(prior.id) || !piles?.has(prior.id)) continue;
+    const box = was.boxes.get(prior.id);
+    const clone = was.clones.get(prior.id);
+    if (!box || !clone) continue;
+    const ghost = clone.cloneNode(true) as HTMLElement;
+    ghost.classList.add("bf-fan-leaving");
+    ghost.removeAttribute("data-fan-card");
+    ghost.removeAttribute("data-rise-from");
+    ghost.dataset["fanLeaving"] = prior.id;
+    for (const b of ghost.querySelectorAll<HTMLElement>("[data-object-id]")) {
+      b.dataset["ghostOf"] = b.dataset["objectId"] ?? "";
+      b.removeAttribute("data-object-id");
+      b.setAttribute("tabindex", "-1");
+    }
+    ghost.setAttribute("aria-hidden", "true");
+    cards.appendChild(ghost);
+    if (typeof ghost.animate !== "function") {
+      ghost.remove();
+      continue;
+    }
+    const run = ghost.animate(
+      sinkFrames(box, where[`${prior.side}:${prior.zone}` as AnchorId], tileScale(box)),
+      { duration: FAN_SINK_MS, delay: hold, easing: "ease-in", fill: "both" },
+    );
+    const gone = () => ghost.remove();
+    run.onfinish = gone;
+    run.oncancel = gone;
+  }
+}
+
+/** The glow swelling as a card lands in the fan (the canvas: 0.42, up to 0.92, back). */
+const FAN_SWELL: Keyframe[] = [
+  { boxShadow: "0 0 0 1px rgb(242 196 106 / 38%), 0 0 7px rgb(242 196 106 / 30%)" },
+  { boxShadow: "0 0 0 2px rgb(242 196 106 / 83%), 0 0 15px rgb(242 196 106 / 64%)" },
+  { boxShadow: "0 0 0 1px rgb(242 196 106 / 38%), 0 0 7px rgb(242 196 106 / 30%)" },
+];
+/** A tile's look while its glow waits for its card to rise (game.css .gs-zone), and while it waits for one to sink. */
+const TILE_DARK: Keyframe = { boxShadow: "none", borderColor: "#2a323c" };
+const TILE_LIT: Keyframe = {
+  boxShadow:
+    "0 0 0 1.75px #f2c46a, 0 0 16.8px rgb(242 196 106 / 56%), inset 0 0 11.2px rgb(240 190 90 / 25%)",
+  borderColor: "#e9c46a",
+};
+/** A tile pulsing as a card rises out of it. */
+const TILE_PULSE: Keyframe[] = [
+  { boxShadow: "0 0 0 2px #f2c46a, 0 0 18px rgb(242 196 106 / 60%)" },
+  { boxShadow: "0 0 0 3px #f2c46a, 0 0 34px rgb(242 196 106 / 95%)" },
+  { boxShadow: "0 0 0 2px #f2c46a, 0 0 18px rgb(242 196 106 / 60%)" },
+];
+/** The time badge's pop (the canvas: up to 1.45, 0.3 s). */
+const TIME_POP: Keyframe[] = [
+  { transform: "scale(1)" },
+  { transform: "scale(1.45)", offset: 0.4 },
+  { transform: "scale(1)" },
+];
+/** A rising -N: in, up, out. */
+function floatFrames(rise: number): Keyframe[] {
+  return [
+    { opacity: 0, transform: "translate(-50%, -50%) translateY(0)" },
+    { opacity: 1, transform: `translate(-50%, -50%) translateY(${-rise * 0.35}px)`, offset: 0.2 },
+    { opacity: 1, transform: `translate(-50%, -50%) translateY(${-rise * 0.8}px)`, offset: 0.7 },
+    { opacity: 0, transform: `translate(-50%, -50%) translateY(${-rise}px)` },
+  ];
+}
 
 /**
  * Spec 0066, item 1 -- a trigger or ability rises out of its card to the
@@ -1737,6 +1995,8 @@ export function Board({
   payPicks,
   lit,
   asking,
+  fans = NO_FANS,
+  pileCards,
   rail,
   top,
   overlay,
@@ -1977,16 +2237,49 @@ export function Board({
   // Spec 0040 — each side's card size last time, so a side grows back only
   // with room to spare. Kept in state, so layout() itself stays pure.
   const [sideSizes, setSideSizes] = useState<Partial<Record<Side, number>>>({});
+  // Spec 0087 -- each side's hand keeps clear of the fan beside its plate.
+  const fanViewer = fans.filter((card) => card.side === "viewer").length;
+  const fanOpponent = fans.length - fanViewer;
+  const keepRight = useMemo(
+    () =>
+      viewport
+        ? fanReach({ viewer: fanViewer, opponent: fanOpponent }, geometry(viewport))
+        : undefined,
+    [fanViewer, fanOpponent, viewport],
+  );
   const result = useMemo(
     () =>
       viewport
         ? layout(
-            { battlefield: laidOut, hand, opponentHand, viewerSeat, previousScale: sideSizes },
+            {
+              battlefield: laidOut,
+              hand,
+              opponentHand,
+              viewerSeat,
+              previousScale: sideSizes,
+              keepRight,
+            },
             viewport,
           )
         : null,
-    [laidOut, hand, opponentHand, viewerSeat, viewport, sideSizes],
+    [laidOut, hand, opponentHand, viewerSeat, viewport, sideSizes, keepRight],
   );
+  // Spec 0087 -- where each fan card stands now, and where each stood on the
+  // board before (kept until the next board: a card cast from the fan rises
+  // from there, a trigger or ability of it lifts off there).
+  const fanBoxesNow = useMemo(
+    () => (result ? fanBoxes(fans, result.geometry) : new Map<string, Box>()),
+    [fans, result],
+  );
+  const fanWas = useRef<FanBefore>({
+    fans: NO_FANS,
+    boxes: new Map(),
+    clones: new Map(),
+    piles: new Set(),
+    gone: new Map(),
+  });
+  const fanBox = (id: string): Box | undefined =>
+    fanBoxesNow.get(id) ?? fanWas.current.boxes.get(id) ?? fanWas.current.gone.get(id)?.box;
   const scales = result?.scales;
   useEffect(() => {
     if (scales && (scales.viewer !== sideSizes.viewer || scales.opponent !== sideSizes.opponent)) {
@@ -2741,7 +3034,14 @@ export function Board({
   // the crown, the initiative's venture from its token, a dungeon room's from
   // the map card, an emblem's from its tile (each marked data-rise-from).
   const railBox = (s: StackView): Box | undefined => {
-    if (s.kind !== "trigger" || !s.riseFrom || typeof document === "undefined") return undefined;
+    // Spec 0087 -- and an ability or trigger of a card in a pile: from the
+    // card in its fan, else from its pile's tile (riseFrom "pile:...").
+    if (
+      (s.kind !== "trigger" && s.kind !== "ability") ||
+      !s.riseFrom ||
+      typeof document === "undefined"
+    )
+      return undefined;
     const el = document.querySelector(`[data-rise-from="${s.riseFrom}"]`);
     const root = ref.current;
     if (!el || !root) return undefined;
@@ -2772,15 +3072,16 @@ export function Board({
       z: 0,
     };
   };
+  // Spec 0087 -- and a card standing in a fan (now, or on the board before).
   const sourceBox = (id: string): Box | undefined =>
-    positions.get(id)?.box ?? previous.current?.at.get(id)?.box;
+    positions.get(id)?.box ?? previous.current?.at.get(id)?.box ?? fanBox(id);
   for (const s of stack ?? []) {
     if (
       freshOnStack(s) &&
       !s.copy &&
       (s.kind === "trigger" || s.kind === "ability") &&
       ((!!s.source && positions.has(s.source) && byId.has(s.source)) ||
-        (!!s.leftFrom && !!previous.current?.at.get(s.leftFrom)) ||
+        (!!s.leftFrom && (!!previous.current?.at.get(s.leftFrom) || !!fanBox(s.leftFrom))) ||
         railBox(s) !== undefined) &&
       !reducedMotion()
     )
@@ -3313,7 +3614,7 @@ export function Board({
         !still &&
         !rose.current.has(s.id) &&
         !s.copy &&
-        s.kind === "trigger" &&
+        (s.kind === "trigger" || s.kind === "ability") &&
         !!s.riseFrom &&
         !reducedMotion() &&
         el &&
@@ -4762,6 +5063,13 @@ export function Board({
         tick(`${side}:exile`, T + SWEPT_MS, list.length);
       }
       /** A card risen out of a tile onto the table or into a hand: when it starts, from where. */
+      // Spec 0087 -- a card that stood in a fan leaves from there (Unearth's
+      // creature, a land Light Up the Stage let her play), not from its tile.
+      const fanStood = (m: TileMove) => (m.card ? fanWas.current.boxes.get(m.card) : undefined);
+      const outPose = (m: TileMove): Pose => {
+        const stood = fanStood(m);
+        return stood ? poseOf(stood, centred) : tileAt(m.from.side, m.from.zone);
+      };
       const riseOf = new Map<string, { start: number; move: TileMove }>();
       /** The other player's new back taking over a card risen into his hidden hand. */
       const riseInto = new Map<string, { start: number; move: TileMove }>();
@@ -4772,9 +5080,12 @@ export function Board({
           i * SHOW_BEAT_MS +
           (m.from.zone === "exile" && freedNow.has(m.card) ? FREED_WAIT_MS : 0);
         freedGlow(m, start);
-        const fromPose = tileAt(m.from.side, m.from.zone);
+        const fromPose = outPose(m);
         const show = showAt(g.rail.x, g.height, m.from.side === "opponent");
-        const fromTile = tileBox(m.from.side, m.from.zone);
+        const stood = fanStood(m);
+        const fromTile = stood
+          ? { box: stood, origin: centred }
+          : tileBox(m.from.side, m.from.zone);
         tick(`${m.from.side}:${m.from.zone}`, start, -1);
         // A hand makes room for it as it sets off from being shown.
         if (m.to.zone === "hand")
@@ -4865,7 +5176,7 @@ export function Board({
         half: "after" | null,
       ) =>
         showFrames(
-          tileAt(r.move.from.side, r.move.from.zone),
+          outPose(r.move),
           showAt(g.rail.x, g.height, r.move.from.side === "opponent"),
           poseOf(box, origin),
           g.cardW,
@@ -6537,6 +6848,22 @@ export function Board({
         );
         if (n && changes.some((c) => c.at > 0)) tickTile(n, changes);
       }
+      // Spec 0087 -- the fans, once per board: what this board brings
+      // (pileFan.ts says which cards, Board draws them at rest).
+      if (fanWas.current.fans !== fans)
+        playFans({
+          fans,
+          was: fanWas.current,
+          boxes: fanBoxesNow,
+          piles: pileCards,
+          cards: cardsRef.current,
+          rail: ref.current,
+          where,
+          g,
+          hold,
+          resolved: before.stack.some((e) => !(stack ?? []).some((s) => s.id === e.s.id)),
+          landed: (tile) => Math.max(0, ...(ticks.get(tile) ?? []).map((c) => c.at)),
+        });
       hold = fightsHold;
       if (gone.length > 0) setGhosts((list) => [...list, ...gone]);
       // Spec 0084 (6 B) -- coming alive, and back: the marks, the breath, the number.
@@ -6642,6 +6969,29 @@ export function Board({
       }
     }
 
+    if (fanWas.current.fans !== fans) {
+      // Spec 0087 -- what each fan card looked like and where it stood, for
+      // the next board: a card that leaves the fan into its tile is that
+      // look, sinking; one cast from it rises from that place.
+      const clones = new Map<string, HTMLElement>();
+      for (const el of cardsRef.current?.querySelectorAll<HTMLElement>(
+        ":scope > [data-fan-card]",
+      ) ?? [])
+        if (el.dataset.fanCard) clones.set(el.dataset.fanCard, el.cloneNode(true) as HTMLElement);
+      const gone = new Map(fanWas.current.gone);
+      const nowIds = new Set(fans.map((c) => c.id));
+      for (const [id, box] of fanWas.current.boxes)
+        if (!nowIds.has(id) && !pileCards?.has(id)) gone.set(id, { box, at: performance.now() });
+      for (const [id, was] of gone)
+        if (nowIds.has(id) || performance.now() - was.at > FAN_GONE_MS) gone.delete(id);
+      fanWas.current = {
+        fans,
+        boxes: fanBoxesNow,
+        clones,
+        piles: pileCards ?? new Set(),
+        gone,
+      };
+    }
     const spots = stackSpotBoxes(g, (stack ?? []).length, stackScale);
     playedMerges.current = merges;
     playedTiles.current = tileMoves;
@@ -6671,6 +7021,9 @@ export function Board({
       stack: (stack ?? []).slice(0, spots.length).map((s, i) => ({ s, box: spots[i]! })),
     };
   }, [
+    fans,
+    fanBoxesNow,
+    pileCards,
     items,
     result,
     positions,
@@ -7189,6 +7542,44 @@ export function Board({
             {item.content}
           </div>
         ))}
+        {/* Spec 0087 -- the cards you (or they) may still use from a pile, in
+            the fan beside that pile's plate. */}
+        {fans.map((card) => {
+          const box = fanBoxesNow.get(card.id);
+          if (!box) return null;
+          const a = act([card.id], true);
+          const whose =
+            card.side === "viewer"
+              ? viewerName
+                ? `${viewerName}'s`
+                : "your"
+              : `${opponentName}'s`;
+          return (
+            <FanCardView
+              key={`fan:${card.id}`}
+              card={card}
+              box={box}
+              className={a.className}
+              label={[fanWords(card, whose), ...a.words].filter(Boolean).join(", ")}
+              data={a.data}
+              handlers={a.handlers}
+              face={
+                <CardFace
+                  name={card.name}
+                  look={lookOf(card.kind, card.types)}
+                  type={shortType(card.types)}
+                  pt={card.known ? figure(card) : ""}
+                  art={card.art ? artUrl(card.art) : null}
+                  crop={card.crop ? artUrl(card.crop) : null}
+                  faceDown={card.faceDown}
+                  known={card.known}
+                  cost={card.manaCost}
+                  costFirst
+                />
+              }
+            />
+          );
+        })}
         {(stack ?? []).length === 0 &&
           stackPayLive &&
           stackPay &&
@@ -7622,7 +8013,8 @@ export function Board({
         </svg>
         {/* A stack object is "where" its spot is: a spell cast flies there (spec 0044). */}
         {overlay?.(
-          (id) => positions.get(id)?.box ?? spotBox.get(id) ?? waitingBox.get(id) ?? null,
+          (id) =>
+            positions.get(id)?.box ?? spotBox.get(id) ?? waitingBox.get(id) ?? fanBox(id) ?? null,
           g,
         )}
         {marks

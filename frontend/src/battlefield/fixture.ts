@@ -4,6 +4,7 @@
 // every time it is asked for; nothing here is a game, and nothing reaches
 // the server.
 
+import type { FanCard } from "./pileFan";
 import type { BoardCard, BoardHandCard } from "./Board";
 import type { AnchorId } from "./motion";
 import type { CombatView, DamageWave, StackView } from "./Board";
@@ -729,4 +730,72 @@ export function combatScript(n: number): SyntheticScene {
 
   scene.board = { battlefield, hand, viewerSeat: you };
   return scene;
+}
+
+/**
+ * Spec 0087 -- a fan of cards from the piles beside each plate, for the
+ * dev board's `&fans=V,O` (the battlefield sweep): [viewer] by your plate,
+ * [opponent] by theirs, one of each kind the fan draws (a graveyard cast, an
+ * exile cast, a foretold back, an ability, a suspended card).
+ */
+export function syntheticFans(viewer: number, opponent: number): FanCard[] {
+  const kinds: Omit<FanCard, "id" | "side">[] = [
+    { zone: "graveyard", how: "cast", name: "Think Twice", types: "Instant", square: null },
+    {
+      zone: "exile",
+      how: "cast",
+      name: "Bonecrusher Giant",
+      types: "Creature — Giant",
+      square: null,
+    },
+    {
+      zone: "exile",
+      how: "cast",
+      name: "",
+      types: "",
+      square: "foretold",
+      faceDown: true,
+      known: false,
+    },
+    {
+      zone: "graveyard",
+      how: "ability",
+      name: "Dregscape Zombie",
+      types: "Creature — Zombie",
+      square: null,
+    },
+    {
+      zone: "exile",
+      how: "suspended",
+      name: "Ancestral Vision",
+      types: "Sorcery",
+      square: null,
+      time: 3,
+    },
+  ].map((k) => ({
+    mine: false,
+    kind: "other",
+    power: null,
+    toughness: null,
+    manaCost: null,
+    art: null,
+    crop: null,
+    faceDown: false,
+    known: true,
+    time: null,
+    ...(k as Partial<FanCard>),
+  })) as Omit<FanCard, "id" | "side">[];
+  const out: FanCard[] = [];
+  for (const [side, n] of [
+    ["viewer", viewer],
+    ["opponent", opponent],
+  ] as const)
+    for (let i = 0; i < n; i++)
+      out.push({
+        ...kinds[i % kinds.length]!,
+        id: `card:fan-${side}-${i}`,
+        side,
+        mine: side === "viewer",
+      });
+  return out;
 }

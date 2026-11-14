@@ -587,6 +587,32 @@ card.exiledBy             in exile: the name of the card that exiled it, for
                           every viewer who may identify the card (W-18)
 card.playable             in exile: true when THIS viewer may play it from
                           there (Light Up the Stage); only in their snapshot
+card.uses                 spec 0087: in a graveyard or an exile, who may
+                          still use it from there and how: [{seat, how}],
+                          `how` "cast" (a spell or a land: flashback,
+                          escape, jump-start, an adventure, foretell, plot,
+                          any "you may play it" -- Light Up the Stage,
+                          Gonti's or Hostage Taker's card in the other
+                          player's pile), "ability" (only an ability from
+                          there: Unearth, Scavenge, Embalm, Encore)
+                          or "suspended" (counting down, not playable; also
+                          at 0 while its "cast it" trigger waits). From
+                          Forge's Player#getCardsActivatableInExternalZones,
+                          kept where Forge's zone check lets a spell or
+                          ability be used from there or an effect lets that
+                          player play it (a card that may only be looked at,
+                          a Hideaway card, has none), plus suspended and
+                          plotted cards. Timing and mana are not asked.
+                          Every viewer is told (public); for a card the
+                          viewer may NOT identify, only the public reasons
+                          count (an effect lets that player play it, it is
+                          foretold or plotted), whatever the card is, and
+                          `how` is always "cast" -- so whether it stands in
+                          a fan never says what it is. Absent: no one may
+card.foretold             spec 0087: in exile, foretold (public; Forge's
+                          CardView carries it to every client). The card is
+                          face down to the other player
+card.plotted              spec 0087: in exile, plotted (public)
 card.sector               Un-sets: a creature's sector (Alpha, Beta, Gamma), for
                           every viewer -- set while a "space sculptor" is out
 card.sprocket             Un-sets: the sprocket (1-3) a Contraption is on, for

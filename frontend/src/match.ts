@@ -429,6 +429,12 @@ export interface SnapshotCounter {
   count: number;
 }
 
+/** Spec 0087 -- one player's use of a pile card. */
+export interface PileUse {
+  seat: number;
+  how: "cast" | "ability" | "suspended";
+}
+
 export interface SnapshotCard {
   /** Typed (`card:51`), and the SAME id a decision uses (§6.47). */
   id: string;
@@ -512,6 +518,19 @@ export interface SnapshotCard {
   exiledBy?: string | undefined;
   /** Phase 9 W-18 -- in exile: this viewer may play it from there. */
   playable?: boolean | undefined;
+  /**
+   * Spec 0087 -- in a graveyard or an exile: who may still use it from
+   * there, and how ("cast": a spell or a land, by flashback, escape, an
+   * adventure, foretell, plot or any "you may play it"; "ability": only an
+   * ability, such as Unearth; "suspended": counting down, not playable).
+   * From the game's own list; a card hidden from this viewer is listed only
+   * for a public reason, and always as "cast".
+   */
+  uses?: PileUse[] | undefined;
+  /** Spec 0087 -- in exile: foretold (public; face down to the other player). */
+  foretold?: boolean | undefined;
+  /** Spec 0087 -- in exile: plotted (public). */
+  plotted?: boolean | undefined;
   /**
    * Spec 0058, item 2 -- in your own hand: what casting it costs right now,
    * when that is not its printed cost (Goblin Warchief's {1} less), and why
@@ -1680,6 +1699,9 @@ function asCards(value: unknown): SnapshotCard[] {
       baseToughness: asNumber(row["baseToughness"]) ?? undefined,
       exiledBy: asString(row["exiledBy"]) ?? undefined,
       playable: row["playable"] === true ? true : undefined,
+      uses: asUses(row["uses"]),
+      foretold: row["foretold"] === true ? true : undefined,
+      plotted: row["plotted"] === true ? true : undefined,
       costNow: asString(row["costNow"]) ?? undefined,
       costWhy: asString(row["costWhy"]) ?? undefined,
       merged: asMerged(row["merged"]),
@@ -1707,6 +1729,21 @@ function asCards(value: unknown): SnapshotCard[] {
 }
 
 /** Spec 0058, item 8 -- a mutated creature's cards; undefined for anything else. */
+/** Spec 0087 -- a pile card's uses: a seat and a known kind each, or nothing. */
+function asUses(value: unknown): PileUse[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: PileUse[] = [];
+  for (const one of value as unknown[]) {
+    if (!one || typeof one !== "object") continue;
+    const row = one as Record<string, unknown>;
+    const seat = asNumber(row["seat"]);
+    const how = row["how"];
+    if (seat === null || (how !== "cast" && how !== "ability" && how !== "suspended")) continue;
+    out.push({ seat, how });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
 function asMerged(value: unknown): MergedCard[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const parts = value.flatMap((entry) => {

@@ -5120,3 +5120,13 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .bf-rail:has(.gs-map-stepping) {
   z-index: 9000;
 }
+
+/* Spec 0087 -- a Graveyard or Exile tile holding a card someone may still
+   play from there glows gold (the canvas's tileGlow at 0.7). */
+.gs-zone.gs-zone-playable {
+  border-color: #e9c46a;
+  box-shadow:
+    0 0 0 1.75px #f2c46a,
+    0 0 16.8px rgb(242 196 106 / 56%),
+    inset 0 0 11.2px rgb(240 190 90 / 25%);
+}

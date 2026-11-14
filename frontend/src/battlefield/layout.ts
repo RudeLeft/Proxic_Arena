@@ -69,7 +69,7 @@ const HAND_BASELINE = 0.9167; // of board height: the top of a resting hand card
  */
 export const LAND_GAP = 4 / 1080;
 /** Where each side's band ends at the player's edge (the opponent's top). */
-const BAND_EDGE = 1 - (HAND_BASELINE - LAND_GAP);
+export const BAND_EDGE = 1 - (HAND_BASELINE - LAND_GAP);
 // From the canvas (a 1600x900 board), as fractions of its height:
 const HAND_DIP = 5 / 900; // per card from the middle of the hand
 const HAND_TILT = 2.4; // degrees per card from the middle of the hand
@@ -193,6 +193,12 @@ export interface LayoutInput {
    * going never makes it jump between sizes. Passed in, never stored here.
    */
   previousScale?: Partial<Record<Side, number>>;
+  /**
+   * Spec 0087 -- how far each side's fan of cards from the piles reaches
+   * into the table from the column (pileFan.ts fanReach): that side's hand
+   * closes up rather than reach under it. Absent: nothing to keep clear.
+   */
+  keepRight?: Partial<Record<Side, number>> | undefined;
 }
 
 export interface Viewport {
@@ -796,8 +802,10 @@ const Z_HAND = 10000; // above every battlefield z (under ~2000), the lines and 
 
 /** A hand of [n] cards fanned across the play area: where the first
  * card's left edge is, the step between cards, and the middle index. */
-function handFan(n: number, g: Geometry): { left: number; pitch: number; mid: number } {
-  const room = g.play.w - 2 * g.inset - g.cardW;
+function handFan(n: number, g: Geometry, keep = 0): { left: number; pitch: number; mid: number } {
+  // Spec 0087 -- centred as ever; a fan beside the plate narrows it on both
+  // sides alike, so the hand never moves over, it only closes up.
+  const room = g.play.w - 2 * Math.max(g.inset, keep) - g.cardW;
   const pitch = n > 1 ? Math.min(HAND_PITCH * g.cardW, room / (n - 1)) : 0;
   const groupW = Math.max(0, n - 1) * pitch + g.cardW;
   return { left: g.play.x + (g.play.w - groupW) / 2, pitch, mid: (n - 1) / 2 };
@@ -1040,7 +1048,7 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
 
   // The viewer's hand: a shallow arc along the baseline, centred in the
   // play area, partly below the edge (§7.52a, from the canvas).
-  const fan = handFan(input.hand.length, g);
+  const fan = handFan(input.hand.length, g, input.keepRight?.viewer ?? 0);
   input.hand.forEach((card, i) => {
     const off = i - fan.mid;
     boxes.set(card.id, {
@@ -1058,7 +1066,7 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
   // board's middle, fanning down from the top edge into the band above
   // the opponent's back row.
   const theirs = input.opponentHand ?? [];
-  const theirFan = handFan(theirs.length, g);
+  const theirFan = handFan(theirs.length, g, input.keepRight?.opponent ?? 0);
   theirs.forEach((card, i) => {
     const off = i - theirFan.mid;
     boxes.set(card.id, {

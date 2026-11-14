@@ -2935,3 +2935,141 @@ img.bf-makes-pip {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ---- Spec 0087: the fan of cards still usable from a pile, beside its plate ---- */
+/* Sized by its own --card-h (pileFan.ts: 96 px at 1080), so the card face,
+   its sign and its badge are drawn at the fan's size, as the canvas's. */
+.bf-fan-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 50% 50%;
+  pointer-events: auto;
+}
+.bf-fan-face {
+  box-shadow:
+    0 0 0 1px rgb(242 196 106 / 38%),
+    0 0 7px rgb(242 196 106 / 30%),
+    0 calc(var(--card-h) * 0.02) calc(var(--card-h) * 0.06) rgb(0 0 0 / 45%);
+}
+/* Suspended: not castable yet -- dimmed, and no glow (the canvas's dim 0.25). */
+.bf-fan-suspended .bf-fan-face {
+  filter: brightness(0.9) saturate(0.825);
+  box-shadow: 0 calc(var(--card-h) * 0.02) calc(var(--card-h) * 0.06) rgb(0 0 0 / 45%);
+}
+.bf-fan-leaving {
+  pointer-events: none;
+}
+/* Its pile's corner sign: the exile's star on blue, the graveyard's stone on grey. */
+.bf-fan-sign {
+  position: absolute;
+  right: calc(var(--card-h) * -0.094);
+  top: calc(var(--card-h) * -0.094);
+  width: calc(var(--card-h) * 0.271);
+  height: calc(var(--card-h) * 0.271);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  z-index: 4;
+  box-shadow:
+    0 0 0 calc(var(--card-h) * 0.026) #0e1512,
+    0 1px 3px #000a;
+  pointer-events: none;
+}
+.bf-fan-sign svg {
+  width: 65%;
+  height: 65%;
+}
+.bf-fan-sign-exile {
+  background: #3a6ea8;
+}
+.bf-fan-sign-graveyard {
+  background: #5d6863;
+}
+/* Amendment 1 -- the gold-rimmed square (0076's look): foretold, plotted, an ability. */
+.bf-fan-square {
+  position: absolute;
+  left: calc(var(--card-h) * 0.04);
+  bottom: calc(var(--card-h) * 0.2);
+  width: calc(var(--card-h) * 0.24);
+  height: calc(var(--card-h) * 0.24);
+  box-sizing: border-box;
+  border-radius: calc(var(--card-h) * 0.05);
+  border: 1.5px solid #e9c46a;
+  background: radial-gradient(circle at 40% 35%, #3a2c12, #16110a);
+  box-shadow:
+    0 0 calc(var(--card-h) * 0.07) #e9c46a66,
+    0 1px 3px #000a;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  pointer-events: none;
+}
+.bf-fan-square svg {
+  width: 78%;
+  height: 78%;
+}
+/* Spec 0087 (3) -- a suspended card's round time badge (the canvas's teal). */
+.bf-fan-time {
+  position: absolute;
+  left: calc(var(--card-h) * 0.031);
+  top: calc(var(--card-h) * 0.583);
+  display: flex;
+  align-items: center;
+  height: calc(var(--card-h) * 0.333);
+  padding-right: calc(var(--card-h) * 0.104);
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: rgb(10 14 12 / 92%);
+  border: 2px solid #2c9a99;
+  box-shadow: 0 1px 3px #000a;
+  z-index: 5;
+  pointer-events: none;
+  transform-origin: 30% 50%;
+}
+.bf-fan-time-g {
+  width: calc(var(--card-h) * 0.281);
+  height: calc(var(--card-h) * 0.281);
+  border-radius: 50%;
+  background: #2c9a99;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.bf-fan-time-g svg {
+  width: 66%;
+  height: 66%;
+}
+.bf-fan-time-n {
+  font:
+    700 calc(var(--card-h) * 0.198) / 1 Inter,
+    sans-serif;
+  color: #fff;
+  margin-left: calc(var(--card-h) * 0.052);
+  font-variant-numeric: tabular-nums;
+}
+.bf-fan-time-was {
+  position: absolute;
+  right: calc(var(--card-h) * 0.104);
+  margin: 0;
+}
+/* The rising -N off the time badge (0077's float, the canvas's red). */
+.bf-fan-float {
+  position: absolute;
+  z-index: 9800;
+  font-weight: 800;
+  font-family: var(--pa-card, inherit);
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow:
+    0 2px 0 #000,
+    0 0 10px #000;
+  font-variant-numeric: tabular-nums;
+  transform: translate(-50%, -50%);
+}
+.bf-fan-float-down {
+  color: #ff6b57;
+}
+.bf-fan-float-up {
+  color: #7fe08a;
+}

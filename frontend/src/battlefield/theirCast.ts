@@ -59,7 +59,18 @@ export function castOrigin(
   // Spec 0082 -- a prepared spell rises out of the gold square on its creature.
   const on = preparedOn(card, previous ?? now);
   if (on) return { zone: "prepared", side, faceUp: true, shown: null, back: null, on };
-  const move = (now.moves ?? []).find((m) => m.card === card.id && m.to.zone === "stack");
+  // Spec 0087 -- or the board before's, when the game moved it to the stack
+  // a board ahead of the spell (a suspended card cast at 0, on its way).
+  const moveNow = (now.moves ?? []).find((m) => m.card === card.id && m.to.zone === "stack");
+  const transit = moveNow
+    ? undefined
+    : (previous?.moves ?? []).find(
+        (m) =>
+          m.card === card.id &&
+          m.to.zone === "stack" &&
+          (m.from.zone === "graveyard" || m.from.zone === "exile"),
+      );
+  const move = moveNow ?? transit;
   const was = (list: readonly SnapshotCard[] | undefined) =>
     list?.find((other) => other.id === card.id) ?? null;
   let zone: CastZone;
@@ -83,7 +94,8 @@ export function castOrigin(
   if (zone === "graveyard") faceUp = true;
   else if (zone === "exile") {
     const there = was(previous?.exile);
-    faceUp = !!there && !there.faceDown && there.known !== false;
+    // On its way (in no list the board before): face up when it is now.
+    faceUp = there ? !there.faceDown && there.known !== false : !!transit;
   } else {
     // The top of a library, only when this viewer was shown it.
     faceUp = !!was(previous?.reveal?.cards) || !!was(now.reveal?.cards);
@@ -107,7 +119,18 @@ export function castOrigin(
 export function freeCast(now: Snapshot, previous: Snapshot | null): SnapshotCard | null {
   if (!previous || previous.gameEpoch !== now.gameEpoch || previous.seat !== now.seat) return null;
   if (now.casting.length > 0) return null;
-  for (const move of now.moves ?? []) {
+  // Spec 0087 -- a card the game moved to the stack a board before it put the
+  // spell there (a suspended card cast at 0: the board between has it in no
+  // list): that board's move, the card still on its way then.
+  const onItsWay = (previous.moves ?? []).filter(
+    (m) =>
+      !!m.card &&
+      m.to.zone === "stack" &&
+      (m.from.zone === "graveyard" || m.from.zone === "exile") &&
+      !previous.stack.some((e) => e.source === m.card && (e.kind ?? "spell") === "spell") &&
+      !previous.casting.some((c) => c.id === m.card),
+  );
+  for (const move of [...(now.moves ?? []), ...onItsWay]) {
     const id = move.card;
     if (!id || move.to.zone !== "stack" || !ZONES.includes(move.from.zone)) continue;
     const entry = now.stack.find((e) => e.source === id && (e.kind ?? "spell") === "spell");

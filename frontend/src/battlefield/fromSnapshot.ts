@@ -27,6 +27,7 @@ import type {
 import type { AnchorId } from "./motion";
 import { sameTrigger, stackWords } from "./triggers";
 import { copyKey, copyThing, joinsAimed, sameCopy } from "./copies";
+import { fanCards, onTheirWay, type FanCard } from "./pileFan";
 
 export interface BoardData {
   battlefield: BoardCard[];
@@ -65,6 +66,8 @@ export interface BoardData {
   survive: Survive | null;
   /** Spec 0084 -- spent cards, library shuffles and crews this update; null for none. */
   moments: Moments | null;
+  /** Spec 0087 -- the cards some player may still use from a graveyard or an exile: the fans. */
+  fans: FanCard[];
 }
 
 /**
@@ -506,6 +509,22 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
       return { ...g, key: n === 0 ? base : `${base}#${n}` };
     });
   };
+  // Spec 0087 -- a trigger or ability of a card in a graveyard or an exile
+  // (a suspended card's upkeep, rebound, Unearth): it rises from the
+  // card in its fan (data-rise-from is the card's id), else from the tile of
+  // the pile it is in -- never sliding in at the stack spot. A trigger of a
+  // card anywhere else keeps rising from its own picture (spec 0086).
+  const pileRise = (source: string, kind: string): { riseFrom?: string } => {
+    const found = (previous ? [snapshot, previous] : [snapshot]).flatMap((board) =>
+      (["graveyard", "exile"] as const).flatMap((zone) =>
+        board[zone].filter((c) => c.id === source).map((card) => ({ card, zone })),
+      ),
+    );
+    if (found.some((f) => f.card.uses?.length)) return { riseFrom: source };
+    const lies = found[0];
+    if (lies) return { riseFrom: `pile:${lies.card.seat}:${lies.zone}` };
+    return kind === "trigger" ? { riseFrom: source } : {};
+  };
   const view = (
     { entry, ids, things, key }: ReturnType<typeof grouped>[number],
     waiting: boolean,
@@ -536,8 +555,10 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     // Spec 0086, Amendment 1 -- a trigger from the rail's pictures rises from there.
     ...(entry.kind === "trigger" && entry.from && entry.controller
       ? { riseFrom: `${entry.from}:${entry.controller}` }
-      : entry.kind === "trigger" && entry.source && !onBoard.has(entry.source)
-        ? { riseFrom: entry.source }
+      : (entry.kind === "trigger" || entry.kind === "ability") &&
+          entry.source &&
+          !onBoard.has(entry.source)
+        ? pileRise(entry.source, entry.kind)
         : {}),
     targets: entry.targets,
     // Spec 0045 — what it does, for the label when pointed at.
@@ -734,6 +755,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     fizzled,
     survive,
     moments,
+    fans: [...fanCards(snapshot), ...onTheirWay(snapshot, previous)],
   };
 }
 

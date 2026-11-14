@@ -67,6 +67,7 @@ import {
 } from "../matchText";
 import { Board, CardFace, counterWords, figure, lookOf, shortType } from "./Board";
 import { boardFromSnapshot, exilePile } from "./fromSnapshot";
+import { fanCards, pileGlows } from "./pileFan";
 import { preparedMarkBox } from "./copies";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { DISCARD_KIND, discardCount, discardWords, togglePick } from "./discard";
@@ -371,6 +372,12 @@ export function GameScreen({
   }
   const data = useMemo(
     () => (board ? boardFromSnapshot(board, frames.current.previous) : null),
+    [board],
+  );
+  // Spec 0087 -- every card in a graveyard or an exile now (a card that
+  // leaves its fan but stays there sinks back into its tile).
+  const pileCards = useMemo(
+    () => new Set(board ? [...board.graveyard, ...board.exile].map((card) => card.id) : []),
     [board],
   );
   // Spec 0064 -- the play log only as far as the board on the table: a line
@@ -831,11 +838,13 @@ export function GameScreen({
   // chosen from the question's list: nothing on the table was clicked, so
   // it rose from nowhere. It rises out of the pile it was in, as the other
   // player's does (spec 0072), with its pips as your own casts have.
+  // Spec 0087 -- from its place in the fan, when it stood there (the replay,
+  // or a cast chosen from the question's list rather than clicked).
   const ownPileRise = (card: SnapshotCard, geometry: Geometry): Box | null => {
     if (!board || board.spectator || card.seat !== board.seat || theirCast) return null;
     const zone = castOrigin(card, board, frames.current.previous).zone;
     if (zone !== "graveyard" && zone !== "exile") return null;
-    return boxAt(anchors(geometry)[`viewer:${zone}`], geometry);
+    return atRef.current?.(card.id) ?? boxAt(anchors(geometry)[`viewer:${zone}`], geometry);
   };
   const castingHiddenBy =
     theirCast && board && !theirOrigin?.faceUp
@@ -1845,6 +1854,8 @@ export function GameScreen({
             fizzled={data.fizzled}
             survive={data.survive}
             moments={data.moments}
+            fans={data.fans}
+            pileCards={pileCards}
             flyingOnto={flyingOnto}
             handLeft={
               theirOrigin?.zone === "hand" && theirOrigin.side === "opponent"
@@ -1991,7 +2002,7 @@ export function GameScreen({
               if (theirCast && theirOrigin && riseFrom.current?.id !== theirCast.id) {
                 riseFrom.current = {
                   id: theirCast.id,
-                  glide: placeOf(theirOrigin, lastFan.current, geometry, at),
+                  glide: placeOf(theirOrigin, lastFan.current, geometry, at, theirCast.id),
                 };
               }
               lastFan.current = fan;
@@ -2687,6 +2698,9 @@ function SeatBlock({
   const visibleHand = board.otherHands.filter((card) => card.seat === player.seat);
   // Spec 0082 -- a spell prepared on a creature is drawn on it, not in the pile.
   const exiled = exilePile(board).filter((card) => card.seat === player.seat).length;
+  // Spec 0087 -- a tile glows gold while it holds a card someone may still
+  // use from there (a suspended card, not playable yet, does not light it).
+  const glows = pileGlows(fanCards(board), mine ? "viewer" : "opponent");
   // Spec 0067, item 1 -- the life steps down at each blow of the fights
   // playing (lifeTicks), and settles on the board's when they end.
   // Spec 0077 -- every other life change steps too, and poison on its badge.
@@ -2802,11 +2816,13 @@ function SeatBlock({
         </div>
         <button
           type="button"
-          className="gs-zone"
+          className={`gs-zone${glows.graveyard ? " gs-zone-playable" : ""}`}
           title="Graveyard"
-          aria-label={`${player.name}'s graveyard, ${player.graveyardCount} cards`}
+          aria-label={`${player.name}'s graveyard, ${player.graveyardCount} cards${glows.graveyard ? ", with cards that may be played from it" : ""}`}
           onClick={() => onView({ seat: player.seat, zone: "graveyard" })}
           data-zone-tile={`${mine ? "viewer" : "opponent"}:graveyard`}
+          data-playable={glows.graveyard ? "true" : undefined}
+          data-rise-from={`pile:${player.seat}:graveyard`}
         >
           <ZoneIcon zone="graveyard" />
           <span className="gs-zone-n">{player.graveyardCount}</span>
@@ -2814,11 +2830,13 @@ function SeatBlock({
         </button>
         <button
           type="button"
-          className="gs-zone"
+          className={`gs-zone${glows.exile ? " gs-zone-playable" : ""}`}
           title="Exile"
-          aria-label={`${player.name}'s exile, ${exiled} cards`}
+          aria-label={`${player.name}'s exile, ${exiled} cards${glows.exile ? ", with cards that may be played from it" : ""}`}
           onClick={() => onView({ seat: player.seat, zone: "exile" })}
           data-zone-tile={`${mine ? "viewer" : "opponent"}:exile`}
+          data-playable={glows.exile ? "true" : undefined}
+          data-rise-from={`pile:${player.seat}:exile`}
         >
           <ZoneIcon zone="exile" />
           <span className="gs-zone-n">{exiled}</span>
@@ -4882,8 +4900,16 @@ function placeOf(
   fan: { hidden: readonly Box[]; shown: ReadonlyMap<string, Box> },
   g: Geometry,
   at?: (objectId: string) => Box | null,
+  card?: string,
 ): TheirGlide {
   const where = anchors(g);
+  // Spec 0087 -- a card cast from a fan beside a plate (Light Up the
+  // Stage's, a foretold card, a suspended one at 0) rises from where it
+  // stood there, as one cast from the hand does.
+  if ((origin.zone === "graveyard" || origin.zone === "exile") && card && at) {
+    const stood = at(card);
+    if (stood) return { box: stood, origin: { x: 0, y: 0 } };
+  }
   // Spec 0082 -- out of the prepared mark on its creature.
   if (origin.zone === "prepared") {
     const creature = origin.on && at ? at(origin.on) : null;
