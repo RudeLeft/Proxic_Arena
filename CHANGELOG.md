@@ -3,6 +3,38 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.69.0 — 2026-11-14
+
+What a creature has gained or lost, and cards held in exile, are now shown on the card itself. Player counters, the monarch, dungeons, emblems, turn starts and mana are shown on the table too.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+- Problem reports can now be up to 5 MB (other requests keep the 1 MB limit). The board picture in a report is now a JPEG, about a quarter of the size, so reports from a busy table with card art are no longer refused.
+
+**Protection and gained abilities**
+- When a creature gains hexproof, protection, trample, flying and the like (Heroic Intervention, Run Amok, Mother of Runes), the ability's sign rises off the card as it happens and settles as a small gold square on it. It goes away at end of turn.
+- A protection square pulses when it stops something, for example when Mother of Runes makes a Lightning Bolt do nothing.
+- A creature that has lost all its abilities (Turn to Frog, Humility) gets a grey square, and its own signs drop away until it gets them back.
+- On a crowded small card, protection is never the first thing folded away.
+
+**Cards held in exile**
+- Banishing Light, Fiend Hunter, Chrome Mox and Hideaway lands show a tab with the card they hold. When the holder leaves, the card comes back out of exile glowing.
+- A card held face down (Hideaway) is a plain card back to the other player, and the game log no longer names it to them. Before, the log gave its name away.
+
+**Player counters, crown and dungeons**
+- Energy, experience, rad and tickets are picture badges by each player, with a rising +N or −N. Paying energy sends sparks to what it paid for. The city's blessing and the Ring's count are badges too.
+- The monarch's crown sits on the player's picture and flies to the new monarch. The initiative works the same way.
+- A dungeon is a small map card whose marker steps from room to room. The other player is told when a dungeon is completed.
+- An emblem flies into its owner's area and stays there as a small tile.
+
+**Turns and mana**
+- At the start of each turn the new player's plate lights up. When it becomes your turn, a band of light sweeps toward you. An extra turn (Time Warp) is told in the report window.
+- Each mana added flies into the pool from where it came, with a rising +N. Mana that empties away fades grey with −N.
+
+**Fixes**
+- Something that happens because of combat damage (taking the crown, a "whenever this deals combat damage" ability) now waits until the hit has landed. Before, it showed up first. The "Next: … on the stack" line also waits until its card arrives.
+- Report windows come up straight away again.
+
 ## 1.68.0 — 2026-11-13
 
 A round of polish on the table, plus four things that used to be invisible or looked wrong: cards used up to pay for something, library shuffles, vehicles coming alive, and fight spells.
