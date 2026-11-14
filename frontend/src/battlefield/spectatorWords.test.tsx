@@ -196,6 +196,12 @@ function playMoments(spectator: boolean) {
     spectator,
   );
   send({ type: "MATCH_ASKING", seat: 1 });
+  // Spec 0086, Amendment 3 -- the line under the stack waits for its card to
+  // land (its rise's own end; here the fall-back, a rise's 20 times over).
+  act(() => {
+    vi.advanceTimersByTime(11_000);
+  });
+  heard.push(words(document.body));
   // Combat: Alice's Grizzly Bears hits Bob; Bob's Hill Giant is unblocked at Alice later.
   board(
     {

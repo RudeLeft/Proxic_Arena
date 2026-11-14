@@ -56,6 +56,12 @@ Found while building 0086: a problem report's picture of the screen (a PNG of th
 - The page sends the screen picture as a JPEG at a quality that looks the same (0.92), not a PNG. It is kept as `screen.jpg` (a pasted PNG stays `screen.png`).
 - The server's body limit for the report route alone (`POST /api/reports`) is 5 MB, as a safety margin; every other route keeps 1 MB.
 
+### Amendment 3 — the stack's line waits for its card (owner, 2026-11-14: "Approve, fix the line")
+
+Seen in the 03 clip: while the monarch's trigger was held for the fights, the line under the stack already said "Next: your trigger · 2 on the stack" with no card there. The line now tells only the stack cards that have landed: a card held for the fights, still rising out of its card or sliding in, is left out of it (what it names and how many it counts) until it lands. A click hurries the card's arrival and so its words. It covers every held arrival, not only the monarch's.
+
+**As built:** `Board.tsx` builds the line from the stack cards the board already treats as arrived (the same test its arrows wait on: not held for the fights, not rising or sliding in, not the card still being cast); the line is not drawn while none has landed. Tests (`fixes0086.test.tsx`): with a two-Bears combat wave the monarch trigger's line is absent through the fights and appears only as the card lands; with Lightning Bolt already on the stack, the line keeps "Next: your Lightning Bolt" while the trigger rises on top and becomes "Next: Bob's trigger · 2 on the stack" when it lands. Both fail when the line reads the whole stack. `spectatorWords.test.tsx` now lets the trigger land before reading its line. Refilmed 03-monarch-stolen, both seats.
+
 ### As built (2026-11-14)
 
 Built as approved (7 B, 8 the recommended set, 10 C + B, 11 A) with Amendment 1; unreleased.

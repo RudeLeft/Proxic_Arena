@@ -7015,7 +7015,12 @@ export function Board({
     }
   }
   // Spec 0043: every object, a "×9" card counting nine.
-  const stackTotal = (stack ?? []).reduce((n, s) => n + (s.count ?? 1), 0);
+  // Spec 0086, Amendment 3 (owner 2026-11-14) -- the line under the stack
+  // tells only the cards that have landed there: one still held for the
+  // fights, rising out of its card or sliding in is not "next" yet. Its
+  // words come when it lands (a click hurries its arrival, and so them).
+  const landed = (stack ?? []).filter((s) => !stackWaiting(s));
+  const landedTotal = landed.reduce((n, s) => n + (s.count ?? 1), 0);
   const focus = stackFocus(stack, pointedOnStack ?? pointedStack);
   const shown = (stack ?? []).filter((s) => s.id === focus);
   // Spec 0066, item 1 -- the stack card whose arrows show, once it has arrived.
@@ -7398,32 +7403,30 @@ export function Board({
         })}
         {/* The stack's words, under its front card (owner 2026-10-22: the
             cards ARE the stack; the column's Stack box is gone). */}
-        {/* Spec 0066: not before its only card has landed. */}
-        {stack &&
-          stack.length > 0 &&
-          spot[0] &&
-          !(stack.length === 1 && stack[0]!.id === hiddenStack) && (
-            <div
-              className="bf-stack-caption"
-              aria-hidden="true"
-              style={{
-                // Wider than the card, its right edge on the card's: the
-                // words stay on one line without running off the table.
-                left: spot[0].x + spot[0].w - Math.max(spot[0].w, g.cardW * 2.6),
-                top: spot[0].y + spot[0].h + g.cardH * 0.05,
-                width: Math.max(spot[0].w, g.cardW * 2.6),
-                fontSize: Math.max(11, g.cardH * 0.085),
-                zIndex: Z_LINES - 99,
-              }}
-            >
-              {/* Amendment 13 (item 12) -- one line, one style: what resolves
+        {/* Spec 0066: not before its only card has landed. Spec 0086,
+            Amendment 3: not before ANY card it tells has landed. */}
+        {landed.length > 0 && spot[0] && (
+          <div
+            className="bf-stack-caption"
+            aria-hidden="true"
+            style={{
+              // Wider than the card, its right edge on the card's: the
+              // words stay on one line without running off the table.
+              left: spot[0].x + spot[0].w - Math.max(spot[0].w, g.cardW * 2.6),
+              top: spot[0].y + spot[0].h + g.cardH * 0.05,
+              width: Math.max(spot[0].w, g.cardW * 2.6),
+              fontSize: Math.max(11, g.cardH * 0.085),
+              zIndex: Z_LINES - 99,
+            }}
+          >
+            {/* Amendment 13 (item 12) -- one line, one style: what resolves
                 next, whose, and how many wait. The card's own plate says
                 what it does, so pointing adds nothing here. */}
-              <span className="bf-stack-next">
-                {stackCaption(stack, viewerSeat, stackTotal, spot.length, viewerName)}
-              </span>
-            </div>
-          )}
+            <span className="bf-stack-next">
+              {stackCaption(landed, viewerSeat, landedTotal, spot.length, viewerName)}
+            </span>
+          </div>
+        )}
         {/* Spec 0063 (R2): an attacked player's life circle glows, with
             how many attack it; brighter while one of them is pointed at. */}
         {underAttack.map((u) => (

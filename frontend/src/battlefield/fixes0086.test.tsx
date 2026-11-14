@@ -1084,6 +1084,51 @@ describe("a trigger the hit caused rises only once the hit has landed", () => {
     expect(rise.frames[0]!.opacity).toBe(0);
   });
 
+  it("Amendment 3: the line under the stack waits for its card -- held for the fights, then rising", () => {
+    vi.useFakeTimers();
+    const view = render(draw([], null, true));
+    view.rerender(draw([monarch], wave, true));
+    const caption = () => view.container.querySelector(".bf-stack-caption")?.textContent ?? null;
+    // Held for the Bears' blows: no words for a card not there yet.
+    expect(caption()).toBeNull();
+    const clock = calls.find((c) => c.options.id === "fight-clock")!;
+    act(() => {
+      vi.advanceTimersByTime(Number(clock.options.duration) - 10);
+    });
+    expect(caption()).toBeNull();
+    // It lands (its rise's end; here the fall-back timer): the words come with it.
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(caption()).toBe("Next: Bob's trigger");
+  });
+
+  it("Amendment 3: a card already there keeps its words while a new one arrives on top", () => {
+    vi.useFakeTimers();
+    const bolt: StackView = {
+      id: "stack:3",
+      name: "Lightning Bolt",
+      by: "Alice",
+      seat: 1,
+      kind: "spell",
+      source: null,
+      targets: [],
+    };
+    const view = render(draw([bolt], null, true));
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    const caption = () => view.container.querySelector(".bf-stack-caption")?.textContent ?? null;
+    expect(caption()).toBe("Next: your Lightning Bolt");
+    view.rerender(draw([monarch, bolt], null, true));
+    // The trigger still rising: the line tells only what has landed.
+    expect(caption()).toBe("Next: your Lightning Bolt");
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(caption()).toBe("Next: Bob's trigger · 2 on the stack");
+  });
+
   it("with no fights playing it rises at once", () => {
     const view = render(draw([], null, true));
     calls.length = 0;
