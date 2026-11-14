@@ -288,6 +288,7 @@ function ReportView({
   }
   if (!report) return <p className="pa-group-empty">Reading the report…</p>;
   const has = (name: string) => report.files.some((f) => f.name === name);
+  const shot = ["screen.jpg", "screen.png"].find(has) ?? null;
   const shownLines = lines ? lines.slice(-LOG_SHOWN) : null;
   return (
     <section className="pa-admin-panel pa-report-view" aria-labelledby="report-heading">
@@ -384,15 +385,12 @@ function ReportView({
             </dd>
           </div>
         </dl>
-        {has("screen.png") ? (
-          <a
-            href={`/api/admin/reports/${number}/files/screen.png`}
-            target="_blank"
-            rel="noreferrer"
-          >
+        {/* Spec 0086, Amendment 2 -- the screen now comes as a JPEG (screen.jpg). */}
+        {shot ? (
+          <a href={`/api/admin/reports/${number}/files/${shot}`} target="_blank" rel="noreferrer">
             <img
               className="pa-report-shot"
-              src={`/api/admin/reports/${number}/files/screen.png`}
+              src={`/api/admin/reports/${number}/files/${shot}`}
               alt="Their screen when they pressed Report"
             />
           </a>

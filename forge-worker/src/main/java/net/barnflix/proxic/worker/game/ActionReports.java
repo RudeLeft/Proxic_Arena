@@ -133,7 +133,11 @@ final class ActionReports {
         /** Spec 0079 -- a spell that did nothing: every target it had was gone (it fizzled). */
         FIZZLE,
         /** Spec 0080 -- permanents phased out (Teferi's Protection, Slip Out the Back). */
-        PHASE }
+        PHASE,
+        /** Spec 0086 (10 B) -- an extra turn began (Time Warp): told to both at its start. */
+        EXTRA_TURN,
+        /** Spec 0086 (8) -- a player completed a dungeon: told to the other player. */
+        DUNGEON }
 
     /**
      * Spec 0074, Amendment 1 -- the kinds told to both players unless the
@@ -217,7 +221,10 @@ final class ActionReports {
                 latest = null;
                 personal.clear();
                 reset();
+                // Spec 0086 (10 B) -- unless it is an extra turn: that is told now.
+                extraTurn();
             }
+            noteDungeons();
             if (event instanceof forge.game.event.GameEventSpellAbilityCast
                     || event instanceof forge.game.event.GameEventCardChangeZone) {
                 noteAims();
@@ -347,6 +354,7 @@ final class ActionReports {
             if (sa == null || sa.getHostCard() == null || sa.getActivatingPlayer() == null) {
                 return;
             }
+            noteExtraTurns(sa);
             Report report = build(sa);
             // Spec 0075 -- the choices and flips Forge told while it resolved
             // ride with its report, or are the report (Voice of All).
@@ -537,6 +545,96 @@ final class ActionReports {
             }
         }
         return false;
+    }
+
+    /**
+     * Spec 0086 (10 B) -- the cards that gave each player an extra turn, the
+     * newest last (Forge's extra turns are a stack too:
+     * PhaseHandler#addExtraTurn). Kept as each AddTurn effect resolves, for
+     * the players it names (Forge's own Defined, "You" when unsaid).
+     */
+    private final java.util.Map<Player, java.util.Deque<Card>> extraTurnsFrom = new java.util.HashMap<>();
+
+    private void noteExtraTurns(SpellAbility root) {
+        for (SpellAbility each = root; each != null; each = each.getSubAbility()) {
+            if (each.getApi() != ApiType.AddTurn) {
+                continue;
+            }
+            int turns = amount(each, "NumTurns", 1);
+            List<Player> who;
+            try {
+                who = new ArrayList<>(AbilityUtils.getDefinedPlayers(root.getHostCard(),
+                        each.getParamOrDefault("Defined", "You"), each));
+            } catch (RuntimeException e) {
+                who = List.of(root.getActivatingPlayer());
+            }
+            for (Player player : who) {
+                for (int i = 0; i < Math.max(1, turns); i++) {
+                    extraTurnsFrom.computeIfAbsent(player, p -> new java.util.ArrayDeque<>())
+                            .addLast(root.getHostCard());
+                }
+            }
+        }
+    }
+
+    /**
+     * Spec 0086 (10 B) -- the turn that just began is an extra one (Forge's
+     * Player#isExtraTurn, set as it began): "Extra turn: this is Alice's turn
+     * again.", to both players, with the card that gave it where it is now.
+     */
+    private void extraTurn() {
+        Player active = game.getPhaseHandler().getPlayerTurn();
+        if (active == null || !active.isExtraTurn()) {
+            return;
+        }
+        java.util.Deque<Card> from = extraTurnsFrom.get(active);
+        Card host = from == null || from.isEmpty() ? null : from.pollLast();
+        List<Move> shown = new ArrayList<>();
+        java.util.Map<Integer, String> where = new java.util.HashMap<>();
+        if (host != null) {
+            Card now = game.findById(host.getId());
+            Card card = now != null ? now : host;
+            ZoneType zone = card.getZone() == null ? ZoneType.Graveyard : card.getZone().getZoneType();
+            shown.add(new Move(card.getId(), card.getOwner(), ZoneType.Stack, zone, card.isFaceDown()));
+            where.put(card.getId(), whereIs(card.getId()));
+            host = card;
+        }
+        Report report = new Report(keys.incrementAndGet(), active, host == null ? "" : host.getName(),
+                Kind.EXTRA_TURN, active, shown.size(), shown, where, false, -1, 0);
+        report.chooser = active;
+        if (host != null) {
+            report.cards.put(host.getId(), host);
+        }
+        latest = report;
+    }
+
+    /** Spec 0086 (8) -- how many dungeons each player had completed, as last seen. */
+    private final java.util.Map<Player, Integer> dungeonsDone = new java.util.HashMap<>();
+
+    /**
+     * Spec 0086 (8) -- a player completed a dungeon (Forge's
+     * Player#getCompletedDungeons grew, GameAction#completeDungeon): a report
+     * to the other player, "Alice completed Tomb of Annihilation.", with the
+     * dungeon's map as its picture. Forge sends no event for it, so it is
+     * looked for as each event arrives (the game thread only).
+     */
+    private void noteDungeons() {
+        for (Player player : game.getRegisteredPlayers()) {
+            List<Card> done = player.getCompletedDungeons();
+            int was = dungeonsDone.getOrDefault(player, 0);
+            if (done.size() == was) {
+                continue;
+            }
+            dungeonsDone.put(player, done.size());
+            if (done.size() < was || done.isEmpty()) {
+                continue;
+            }
+            Card dungeon = done.get(done.size() - 1);
+            Report report = new Report(keys.incrementAndGet(), player, dungeon.getName(), Kind.DUNGEON, player, 0,
+                    List.of(), new java.util.HashMap<>(), false, -1, 0);
+            report.chooser = player;
+            latest = report;
+        }
     }
 
     /** Spec 0075 -- a report made of choices and flips alone, shown with the card that made them. */
@@ -938,6 +1036,13 @@ final class ActionReports {
         if (words.isEmpty()) {
             return null;
         }
+        // Spec 0086 (8) -- a completed dungeon's picture is its map.
+        if (main && report.kind == Kind.DUNGEON) {
+            JsonObject mark = new JsonObject();
+            mark.addProperty("kind", "dungeon");
+            mark.addProperty("dungeon", report.source);
+            marks.add(mark);
+        }
         if (!marks.isEmpty()) {
             out.add("marks", marks);
         }
@@ -1019,6 +1124,9 @@ final class ActionReports {
             case PHASE -> phasedWords(r, w, named, hidden) + (r.lifeHeld
                     ? " " + lifeWords(r.subject == w.reader ? null : r.subject.getName()) : "");
             case EMPTY_LOOK -> who + " looked at " + its + " " + r.zone + ". It has no cards.";
+            // Spec 0086 (10 B), the canvas's words.
+            case EXTRA_TURN -> extraTurnWords(r.actor == w.reader ? null : r.actor.getName());
+            case DUNGEON -> who + " completed " + r.source + ".";
         };
     }
 
@@ -1046,6 +1154,11 @@ final class ActionReports {
             return capital(whose) + " " + what + " phased out" + until;
         }
         return w.who(r.actor) + " phased out " + whose + " " + what + until;
+    }
+
+    /** Spec 0086 (10 B) -- "Extra turn: this is Alice's turn again." ([player] null: the reader's own). */
+    static String extraTurnWords(String player) {
+        return "Extra turn: this is " + (player == null ? "your" : player + "'s") + " turn again.";
     }
 
     /** Spec 0080 -- "Bob's life can't change." ("Your ..." to that player). */
@@ -1081,6 +1194,10 @@ final class ActionReports {
             case CHOICE, EMPTY_LOOK -> false;
             // Spec 0079 (owner, Q4 A): a fizzle is told to both players, its caster too.
             case FIZZLE -> true;
+            // Spec 0086 (10 B): an extra turn is told to both players.
+            case EXTRA_TURN -> true;
+            // Spec 0086 (8): a completed dungeon is told to the other player.
+            case DUNGEON -> reader != actor;
             default -> toBoth(kind) ? !(reader == actor && reader == subject) : reader != chooser;
         };
     }

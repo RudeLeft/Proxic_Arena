@@ -597,6 +597,34 @@ export interface SnapshotPlayer {
   dungeonsCompleted: string[];
   /** §7.61 B6 — floating mana by colour ({"R": 1}); empty when there is none. Public. */
   manaPool: Record<string, number>;
+  /**
+   * Spec 0086, Amendment 1 -- the floating mana by colour and the card that
+   * made it, in the pool's order (three black from Dark Ritual: one run of
+   * 3); `from` absent when the game did not say or the card is now hidden.
+   */
+  manaFrom?: ManaRun[] | undefined;
+  /** Spec 0086 -- each command-zone piece's id ("card:N"), one per `command` entry. */
+  commandIds?: string[] | undefined;
+}
+
+/** Spec 0086 -- [n] floating mana of [colour] made by [from]. */
+export interface ManaRun {
+  colour: string;
+  from?: string | undefined;
+  n: number;
+}
+
+/** Spec 0086 (8) -- an emblem, with the card that made it (its tile wears that card's picture). */
+export interface SnapshotEmblem {
+  /** The emblem's own id, as in its owner's `commandIds`. */
+  id: string;
+  seat: number;
+  /** The card that made it ("card:N"), absent when hidden or not known. */
+  from?: string | undefined;
+  /** Its maker's name (Sorin, Lord of Innistrad). */
+  name?: string | undefined;
+  art?: string | null | undefined;
+  crop?: string | null | undefined;
 }
 
 /** Phase 9 W-21 -- one command-zone piece, in the game's own words. */
@@ -639,7 +667,9 @@ export interface SnapshotReveal {
 /** Spec 0075 -- one picture in a report window that is not a card. */
 export type ReportMark =
   | { kind: "color"; color: "white" | "blue" | "black" | "red" | "green" }
-  | { kind: "coin"; won: boolean };
+  | { kind: "coin"; won: boolean }
+  /** Spec 0086 (8) -- a dungeon completed: its map. */
+  | { kind: "dungeon"; dungeon: string };
 
 /** One object on the stack — §7.61 B2, B3. */
 export interface StackEntry {
@@ -678,6 +708,8 @@ export interface StackEntry {
   splitSecond?: boolean | undefined;
   /** Spec 0083 (18 B) -- a spell that can't be countered (Abrupt Decay). */
   cantBeCountered?: boolean | undefined;
+  /** Spec 0086, Amendment 1 -- a trigger that is the monarch's or the initiative's own. */
+  from?: "monarch" | "initiative" | undefined;
 }
 
 /** Combat, while there is one — §7.61 B4. Forge's record. */
@@ -836,6 +868,8 @@ export interface Snapshot {
    * the page pulses them gold, once per key.
    */
   pulse?: { key: string; cards: string[] } | null;
+  /** Spec 0086 (8) -- every emblem, with the card that made it; empty when none. */
+  emblems?: SnapshotEmblem[];
   /**
    * Spec 0047 -- the PUBLIC view, sent to spectators: no hand, nothing
    * face down. `seat` is then the side it is drawn from, not the viewer's.
@@ -1365,6 +1399,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     reveal: asReveal(row["reveal"]),
     action: asAction(row["action"]),
     pulse: asPulse(row["pulse"]),
+    emblems: asEmblems(row["emblems"]),
   };
 }
 
@@ -1480,6 +1515,8 @@ function asMarks(value: unknown): ReportMark[] {
     if (row["kind"] === "coin") out.push({ kind: "coin", won: row["won"] === true });
     const color = COLOURS.find((c) => c === row["color"]);
     if (row["kind"] === "color" && color) out.push({ kind: "color", color });
+    const dungeon = asString(row["dungeon"]);
+    if (row["kind"] === "dungeon" && dungeon) out.push({ kind: "dungeon", dungeon });
   }
   return out;
 }
@@ -1521,9 +1558,45 @@ function asPlayers(value: unknown): SnapshotPlayer[] {
       ringTempted: asNumber(row["ringTempted"]) ?? 0,
       dungeonsCompleted: asNotices(row["dungeonsCompleted"]),
       manaPool: asManaPool(row["manaPool"]),
+      manaFrom: asManaFrom(row["manaFrom"]),
+      commandIds: Array.isArray(row["commandIds"]) ? onlyStrings(row["commandIds"]) : undefined,
     });
   }
   return players;
+}
+
+/** Spec 0086 -- the pool's runs, keeping only well-formed ones. */
+function asManaFrom(value: unknown): ManaRun[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.flatMap((entry) => {
+    const e = (typeof entry === "object" && entry !== null ? entry : {}) as Record<string, unknown>;
+    const colour = asString(e["colour"]);
+    const n = asNumber(e["n"]);
+    if (!colour || n === null || n <= 0) return [];
+    const from = asString(e["from"]);
+    return [{ colour, n, ...(from ? { from } : {}) }];
+  });
+}
+
+/** Spec 0086 -- the emblems, keeping only well-formed ones. */
+function asEmblems(value: unknown): SnapshotEmblem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const e = (typeof entry === "object" && entry !== null ? entry : {}) as Record<string, unknown>;
+    const id = asString(e["id"]);
+    const seat = asNumber(e["seat"]);
+    if (!id || seat === null) return [];
+    return [
+      {
+        id,
+        seat,
+        from: asString(e["from"]) ?? undefined,
+        name: asString(e["name"]) ?? undefined,
+        art: asHash(e["art"]),
+        crop: asHash(e["crop"]),
+      },
+    ];
+  });
 }
 
 /** A 64-character content hash, or nothing. */
@@ -1860,6 +1933,8 @@ function asStack(value: unknown): StackEntry[] {
       // Spec 0083 (18 B) -- what the spell is.
       splitSecond: row["splitSecond"] === true ? true : undefined,
       cantBeCountered: row["cantBeCountered"] === true ? true : undefined,
+      // Spec 0086, Amendment 1 -- the monarch's or the initiative's own trigger.
+      from: row["from"] === "monarch" || row["from"] === "initiative" ? row["from"] : undefined,
       targets: Array.isArray(row["targets"])
         ? (row["targets"] as unknown[]).map(asTarget).filter((t): t is TargetRef => t !== null)
         : [],

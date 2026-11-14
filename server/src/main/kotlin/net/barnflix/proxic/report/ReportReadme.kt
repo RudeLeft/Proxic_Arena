@@ -109,8 +109,8 @@ internal object ReportReadme {
             if (Reports.ENGINE_ERRORS in names) {
                 add("- `${Reports.ENGINE_ERRORS}`: the game engine's error output for this game.")
             }
-            if (Reports.PICTURE in names) {
-                add("- `${Reports.PICTURE}`: their screen when they pressed Report, or a picture they added.")
+            for (picture in listOf(Reports.PICTURE, Reports.PICTURE_JPEG).filter { it in names }) {
+                add("- `$picture`: their screen when they pressed Report, or a picture they added.")
             }
             add("- `report.json`: this report as data.")
         }

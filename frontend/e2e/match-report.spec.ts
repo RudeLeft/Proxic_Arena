@@ -102,7 +102,8 @@ test("a report from a real game reaches the administrator, with everything in it
     files: { name: string }[];
   };
   expect(Object.keys(idea.context).sort()).toEqual(["page", "version"]);
-  expect(idea.files.map((f) => f.name)).toEqual(["screen.png"]);
+  // Spec 0086, Amendment 2: the screen comes as a JPEG.
+  expect(idea.files.map((f) => f.name)).toEqual(["screen.jpg"]);
 
   // The administrator's Reports tab: counted, listed, opened.
   await host.goto("/admin?tab=reports");
@@ -124,7 +125,7 @@ test("a report from a real game reaches the administrator, with everything in it
   for (const name of [
     "README.md",
     "report.json",
-    "screen.png",
+    "screen.jpg",
     "browser-log.jsonl",
     "game-record.jsonl.gz",
     "server-log.txt",
@@ -139,12 +140,11 @@ test("a report from a real game reaches the administrator, with everything in it
   expect(report.kind).toBe("PROBLEM");
   expect(report.matchId).toBe(matchId);
   expect(report.answers["happened"]).toBe(`The ${stamp} did nothing`);
-  expect(
-    files
-      .get(root + "screen.png")!
-      .subarray(1, 4)
-      .toString(),
-  ).toBe("PNG");
+  // A JPEG (FF D8 FF), and small: a board full of card art was over 1 MB as a PNG.
+  const screen = files.get(root + "screen.jpg")!;
+  expect([...screen.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
+  console.log(`report picture: ${screen.length} bytes`);
+  expect(screen.length).toBeLessThan(1_000_000);
   expect(files.get(root + "browser-log.jsonl")!.toString()).toContain("Report pressed");
   expect(gunzipSync(files.get(root + "game-record.jsonl.gz")!).toString()).toContain(
     "DECISION_REQUEST",

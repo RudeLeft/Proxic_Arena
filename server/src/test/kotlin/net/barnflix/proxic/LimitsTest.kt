@@ -77,6 +77,15 @@ class LimitsTest {
         }
     }
 
+    /** Spec 0086, Amendment 2 -- a problem report may be 5 MB; its neighbours keep 1 MB. */
+    @Test
+    fun `the report limit is raised for the report route alone`() {
+        assertEquals(5L * 1024 * 1024, Limits.bodyLimitFor("/api/reports"))
+        for (path in listOf("/api/admin/reports", "/api/rooms", "/api/matches")) {
+            assertEquals(Limits.MAX_HTTP_BODY_BYTES, Limits.bodyLimitFor(path), "$path must keep the global limit")
+        }
+    }
+
     @Test
     fun `ordinary GET requests are unaffected`() =
         testApplication {

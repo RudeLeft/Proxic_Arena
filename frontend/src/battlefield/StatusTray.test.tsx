@@ -46,20 +46,27 @@ describe("the status tray (spec 0038)", () => {
     expect(mana[1]!.querySelector("img")!.getAttribute("src")).toMatch(/sym_R/);
   });
 
-  it("counters plain, markers gold, the command zone purple and listed on a click", () => {
+  it("counters are picture badges, the Ring's count a badge, other pieces chips, listed on a click", () => {
     const tray = (over: Partial<Player>) =>
       render(<StatusTray player={player(over)} side="opponent" />).container;
+    // Spec 0086 (7 B): a round badge with its number, not a word chip.
     const counted = tray({ counters: [{ name: "ENERGY", count: 3 }], designations: ["Monarch"] });
-    expect(counted.querySelector(".gs-chip:not(.gs-chip-marker)")!.textContent).toBe("3 energy");
-    // Spec 0077 (F-0077-E): poison is the badge by the life shield, never a tray chip.
+    const energy = counted.querySelector('[data-count-kind="energy"]')!;
+    expect(energy.textContent).toBe("3");
+    expect(energy.getAttribute("aria-label")).toBe("RudeLeft: 3 energy");
+    expect(counted.querySelector(".gs-chip")).toBeNull();
+    // Spec 0077 (F-0077-E): poison is the badge by the life shield, never in the tray.
     const poisoned = tray({ counters: [{ name: "POISON", count: 3 }] });
     expect(poisoned.textContent).not.toMatch(/poison/i);
-    expect(counted.querySelector(".gs-chip-marker")!.textContent).toBe("Monarch");
+    expect(poisoned.querySelector(".gs-count")).toBeNull();
+    // Spec 0086 (8): the monarch is on the face picture, not in the tray.
+    expect(counted.querySelector(".gs-chip-marker, [data-holder]")).toBeNull();
+    // Amendment 1: the Ring's count is a badge.
     const tempted = tray({ ringTempted: 2 });
-    expect(tempted.querySelector(".gs-chip-marker")!.textContent).toBe("Ring ×2");
+    expect(tempted.querySelector('[data-count-kind="ring"]')!.textContent).toBe("2");
     const zoned = tray({ command: ["Chandra emblem", "The Ring"] });
     const zones = [...zoned.querySelectorAll<HTMLButtonElement>(".gs-chip-zone")];
-    expect(zones.map((z) => z.textContent)).toEqual(["Chandra emblem", "The Ring"]);
+    expect(zones.map((z) => z.textContent)).toEqual(["Chandra emblem"]);
     fireEvent.click(zones[0]!);
     const list = zoned.querySelector(".gs-status-list")!;
     expect(list.textContent).toContain("Chandra emblem");
@@ -77,11 +84,13 @@ describe("the status tray (spec 0038)", () => {
     );
   });
 
-  it("capitalises a marker Forge names in lower case", () => {
+  it("lists a marker Forge names in lower case with a capital, though the tray shows none", () => {
     const c = render(
       <StatusTray player={player({ designations: ["monarch"] })} side="opponent" />,
     ).container;
-    expect(c.querySelector(".gs-chip-marker")!.textContent).toBe("Monarch");
+    // Spec 0086 (8): the crown is on the face; the tray holds nothing for it.
+    expect(c.querySelector(".gs-chip-marker")).toBeNull();
+    expect(c.querySelector(".pa-visually-hidden")!.textContent).toContain("monarch");
   });
 
   it("measures: the owner's screenshot's three chips fit, or the last goes behind +N", () => {
@@ -116,7 +125,7 @@ describe("the status tray (spec 0038)", () => {
       />,
     ).container;
     const more = c.querySelector<HTMLButtonElement>(".gs-chip-more")!;
-    const shown = c.querySelectorAll(".gs-mana, .gs-chip:not(.gs-chip-more)").length;
+    const shown = c.querySelectorAll(".gs-mana, .gs-count, .gs-chip:not(.gs-chip-more)").length;
     expect(more.textContent).toBe(`+${6 - shown}`);
     fireEvent.click(more);
     const list = c.querySelector(".gs-status-list")!;
@@ -178,11 +187,13 @@ describe("the status tray's list (W-21)", () => {
     expect(shortName(LILIANA)).toBe("Liliana emblem");
     expect(shortName("Undercity (room: Lost Well)")).toBe("Undercity · Lost Well");
     expect(shortName("The Ring")).toBe("The Ring");
-    // One emblem with a long name: it shows, it is not hidden behind "+1".
+    // Spec 0086 (8): an emblem is a tile, named in full when pointed at.
     const c = render(
       <StatusTray player={player({ command: [LILIANA] })} side="viewer" />,
     ).container;
-    expect(c.querySelector(".gs-chip-zone")!.textContent).toBe("Liliana emblem");
+    expect(c.querySelector(".gs-emblem")!.getAttribute("aria-label")).toBe(
+      "Liliana, Defiant Necromancer's emblem",
+    );
     expect(c.querySelector(".gs-chip-more")).toBeNull();
     // Nothing fits beside "+N": the first thing still shows (cut short).
     const many = render(
@@ -190,7 +201,7 @@ describe("the status tray's list (W-21)", () => {
         player={player({
           seat: 3,
           // Too long to fit even alone, and something else after it.
-          command: ["A Command Zone Piece With A Very Very Long Name Indeed", "The Ring"],
+          command: ["A Command Zone Piece With A Very Very Long Name Indeed", "Another Piece"],
         })}
         side="viewer"
       />,
@@ -199,17 +210,20 @@ describe("the status tray's list (W-21)", () => {
     expect(many.querySelectorAll(".gs-chip:not(.gs-chip-more)").length).toBeGreaterThan(0);
   });
 
-  it("the Ring shows once, with its count", () => {
+  it("the Ring shows once, as its badge with its count", () => {
     const c = render(
       <StatusTray player={player({ command: ["The Ring"], ringTempted: 2 })} side="viewer" />,
     ).container;
-    const texts = [...c.querySelectorAll(".gs-chip")].map((x) => x.textContent ?? "");
-    expect(texts.filter((t) => t.includes("Ring"))).toEqual(["The Ring ×2"]);
+    expect(c.querySelectorAll(".gs-chip")).toHaveLength(0);
+    const ring = c.querySelectorAll('[data-count-kind="ring"]');
+    expect(ring).toHaveLength(1);
+    expect(ring[0]!.textContent).toBe("2");
+    expect(ring[0]!.getAttribute("aria-label")).toBe("The Ring has tempted RudeLeft 2 times");
   });
 
   it("says names and what they do: held rules, the Ring's four with two lit, the room and where next, the emblem's words", () => {
     const c = render(<StatusTray player={busy()} side="viewer" />).container;
-    fireEvent.click(c.querySelector(".gs-chip-more")!);
+    fireEvent.click(c.querySelector(".gs-map")!);
     const list = c.querySelector(".gs-status-list")!;
     expect(list.getAttribute("aria-label")).toBe("Pat: everything in play for you");
     expect(list.textContent).toContain(HELD_WORDS["monarch"]);
@@ -244,8 +258,8 @@ describe("the status tray's list (W-21)", () => {
         <p className="elsewhere">the table</p>
       </div>,
     ).container;
-    const mine = c.querySelector<HTMLButtonElement>(".gs-status-viewer .gs-chip-more")!;
-    const theirs = c.querySelector<HTMLButtonElement>(".gs-status-opponent .gs-chip-more")!;
+    const mine = c.querySelector<HTMLButtonElement>(".gs-status-viewer .gs-map")!;
+    const theirs = c.querySelector<HTMLButtonElement>(".gs-status-opponent .gs-map")!;
     const lists = () =>
       [...c.querySelectorAll(".gs-status-list")].map((l) => l.getAttribute("aria-label"));
 
@@ -274,7 +288,7 @@ describe("the status tray's list (W-21)", () => {
 
   it("fades while Space or Peek is held, and comes back", () => {
     const c = render(<StatusTray player={busy()} side="viewer" />).container;
-    fireEvent.click(c.querySelector(".gs-chip-more")!);
+    fireEvent.click(c.querySelector(".gs-map")!);
     const list = () => c.querySelector(".gs-status-list")!;
     expect(list().classList.contains("gs-win-peek")).toBe(false);
     act(() => {

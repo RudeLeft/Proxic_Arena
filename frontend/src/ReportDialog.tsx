@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
-import { toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import { apiFetch } from "./auth";
 import { logLine, recentLog } from "./reportLog";
 import "./report.css";
@@ -60,6 +60,9 @@ const ABOUT = [
   "Something new",
 ];
 const MATTERS = ["Nice to have", "I’d use it every game", "I’d play more with it"];
+
+/** Spec 0086, Amendment 2 -- the screen picture's JPEG quality: no visible loss. */
+export const SCREEN_QUALITY = 0.92;
 
 /** The page a path is, in the form's words. */
 export function pageOf(path: string, inGame: boolean): string {
@@ -130,9 +133,15 @@ export function ReportButton({ place, game }: { place: "header" | "game"; game?:
     // The picture first, before the form covers the screen.
     let shot: string | null = null;
     try {
-      shot = await toPng(document.body, {
+      // Spec 0086, Amendment 2 (owner 2026-11-14) -- a JPEG, not a PNG: a
+      // board full of card art was over 1 MB as a PNG (the report was
+      // refused); at this quality it looks the same, a fraction of the size.
+      shot = await toJpeg(document.body, {
         pixelRatio: 1,
         cacheBust: false,
+        quality: SCREEN_QUALITY,
+        // A JPEG has no see-through: the page's own background behind it.
+        backgroundColor: getComputedStyle(document.body).backgroundColor || "#0b0f14",
         filter: (node) => !(node instanceof HTMLElement && node.dataset["reportSkip"] === "true"),
       });
     } catch {

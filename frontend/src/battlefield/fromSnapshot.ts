@@ -533,6 +533,12 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     ...(entry.source && !onBoard.has(entry.source) && entry.kind !== "spell"
       ? { leftFrom: entry.source }
       : {}),
+    // Spec 0086, Amendment 1 -- a trigger from the rail's pictures rises from there.
+    ...(entry.kind === "trigger" && entry.from && entry.controller
+      ? { riseFrom: `${entry.from}:${entry.controller}` }
+      : entry.kind === "trigger" && entry.source && !onBoard.has(entry.source)
+        ? { riseFrom: entry.source }
+        : {}),
     targets: entry.targets,
     // Spec 0045 — what it does, for the label when pointed at.
     ...(entry.kind !== "spell" ? { does: stackWords(entry.description, entry.name) } : {}),

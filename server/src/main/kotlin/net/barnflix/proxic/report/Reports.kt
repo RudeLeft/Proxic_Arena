@@ -148,7 +148,9 @@ class Reports(
             val dir = folderOf(number).apply { mkdirs() }
             val attached = mutableListOf<String>()
             valid.picture?.let {
-                File(dir, PICTURE).writeBytes(it)
+                // Spec 0086, Amendment 2 -- the screen is sent as a JPEG: kept
+                // under its own name, so a PNG-reader never gets a JPEG.
+                File(dir, pictureName(it)).writeBytes(it)
                 attached += "picture"
             }
             valid.log?.takeUnless { idea }?.let {
@@ -314,11 +316,19 @@ class Reports(
         val KINDS = setOf("PROBLEM", "IDEA")
         val STATUSES = setOf("NEW", "SEEN", "FIXED", "WONT_FIX", "PLANNED")
         const val PICTURE = "screen.png"
+
+        /** Spec 0086, Amendment 2 -- the screen as the page now sends it. */
+        const val PICTURE_JPEG = "screen.jpg"
+
+        /** The file a picture is kept as: a JPEG is screen.jpg, a PNG screen.png. */
+        fun pictureName(bytes: ByteArray): String =
+            if (bytes.size > 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte()) PICTURE_JPEG else PICTURE
+
         const val BROWSER_LOG = "browser-log.jsonl"
         const val GAME_RECORD = "game-record.jsonl.gz"
         const val SERVER_LOG = "server-log.txt"
         const val ENGINE_ERRORS = "engine-errors.txt"
-        val FILES = listOf(PICTURE, BROWSER_LOG, GAME_RECORD, SERVER_LOG, ENGINE_ERRORS)
+        val FILES = listOf(PICTURE, PICTURE_JPEG, BROWSER_LOG, GAME_RECORD, SERVER_LOG, ENGINE_ERRORS)
 
         /** What an idea keeps of the page's context (spec 0039, F-0039-C). */
         private val IDEA_CONTEXT = setOf("page", "version")

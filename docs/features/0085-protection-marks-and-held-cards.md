@@ -44,6 +44,10 @@ Approved looks only; no new canvas needed.
 - **Lost abilities:** under Humility, Turn to Frog or Kenrith's Transformation, a creature that has lost all its abilities wears a grey square ("lost its abilities"), using the same rise-and-settle. While it lasts, its printed marks (hexproof, protection, flying's hover) drop, and they come back when it ends.
 - **Held cards that stay in exile:** the tab plays only the move the game makes. Imprint (Chrome Mox, Isochron Scepter) and Hideaway hold a card that stays in exile when the holder leaves; that tab sinks with the card into the exile pile, and the card never comes back out. Banishing Light-style holders return the card as before. A face-down held card (Hideaway) is a back with no name to the other player.
 
+### Amendment 2 — report windows come up at once (owner, 2026-11-14)
+
+The owner reviewed the 0085 clips and chose "Approve, but no wait" by prompt: the marks and held tabs are kept as built, but the report window does not wait for the board. It comes up as soon as the report arrives, as before 0085. `reportWait.ts` and its test are removed; the "report window waits for the board" deviation in As built below is withdrawn.
+
 ### As built (2026-11-13)
 
 Built as approved (2 B, protection never folds first, 4 A) with Amendment 1; unreleased.

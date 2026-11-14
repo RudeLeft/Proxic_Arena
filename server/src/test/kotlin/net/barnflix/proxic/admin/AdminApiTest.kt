@@ -649,4 +649,46 @@ class AdminApiTest {
             assertEquals(HttpStatusCode.NoContent, call(admin, "DELETE", "/api/admin/reports/$number").status)
             assertEquals(HttpStatusCode.NotFound, call(admin, "GET", "/api/admin/reports/$number").status)
         }
+
+    /**
+     * Spec 0086, Amendment 2 (owner 2026-11-14) -- the screen comes as a JPEG
+     * and the report route takes up to 5 MB: a 3 MB report is kept (its
+     * picture as screen.jpg, served as a JPEG), one over 5 MB is refused
+     * before it is read.
+     */
+    @Test
+    fun `a 3 MB report with a JPEG screen is kept, one over 5 MB is refused`() =
+        testApplication {
+            application { module(config()) }
+            val pat = session("Pat")
+            val admin = session("RudeLeft")
+
+            fun jpeg(bytes: Int): String {
+                val body = ByteArray(bytes).also { java.util.Random(7).nextBytes(it) }
+                body[0] = 0xFF.toByte()
+                body[1] = 0xD8.toByte()
+                body[2] = 0xFF.toByte()
+                return java.util.Base64.getEncoder().encodeToString(body)
+            }
+
+            fun report(picture: String) =
+                """{"kind":"PROBLEM","answers":{"happened":"Big board."},"picture":"data:image/jpeg;base64,$picture"}"""
+
+            val three = report(jpeg(2_250_000))
+            assertTrue(three.length in 2_900_000..3_200_000, "about 3 MB: ${three.length}")
+            val sent = call(pat, "POST", "/api/reports", three)
+            assertEquals(HttpStatusCode.Created, sent.status, sent.bodyAsText().take(300))
+            val number = Regex("\"number\":(\\d+)").find(sent.bodyAsText())!!.groupValues[1]
+            val detail = call(admin, "GET", "/api/admin/reports/$number").bodyAsText()
+            assertTrue(detail.contains("screen.jpg") && !detail.contains("screen.png"), detail)
+            val picture = call(admin, "GET", "/api/admin/reports/$number/files/screen.jpg")
+            assertEquals(HttpStatusCode.OK, picture.status)
+            assertEquals("image/jpeg", picture.headers[HttpHeaders.ContentType]?.substringBefore(";"))
+
+            val tooBig = report(jpeg(4_000_000))
+            assertTrue(tooBig.length > 5 * 1024 * 1024)
+            val refused = call(pat, "POST", "/api/reports", tooBig)
+            assertEquals(HttpStatusCode.PayloadTooLarge, refused.status)
+            assertTrue(refused.bodyAsText().contains("5242880"))
+        }
 }

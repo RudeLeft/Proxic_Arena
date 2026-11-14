@@ -115,6 +115,10 @@ class MatchArt(
                         // no pictures, so a revealed hand, a graveyard
                         // card looked at, a Reanimate target were bare.
                         "battlefield", "hand", "casting", "otherHands", "graveyard", "exile" -> zone(key)
+                        // Spec 0086 -- an emblem's tile wears the picture of the
+                        // card that made it (its planeswalker), from that card's
+                        // owner's deck; the worker names it as it names any card.
+                        "emblems" -> zone(key)
                         // Spec 0082 -- a copy on its way onto the stack wears its picture as it will there.
                         "stack", "copying" ->
                             (value as? JsonArray)?.map { stackArt(it.jsonObject, allowed) }?.let(::JsonArray)

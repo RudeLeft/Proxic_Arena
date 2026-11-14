@@ -14,6 +14,7 @@ import type { Geometry } from "./layout";
 import { BigCard } from "./QuestionWindows";
 import { ManaText, symbolUrl } from "./ManaCost";
 import { PeekFoot, usePeek } from "./GameWindow";
+import { DungeonPicture } from "./playerMarks";
 
 /** Where a revealed card went, as the tray says it. */
 export function wentWords(to: string | null | undefined): string | null {
@@ -72,6 +73,18 @@ const COLOUR_WORDS = {
  * with a tick; lost: dull bronze with a cross).
  */
 export function ReportMarkPicture({ mark }: { mark: ReportMark }) {
+  // Spec 0086 (8) -- a dungeon completed: its map.
+  if (mark.kind === "dungeon") {
+    return (
+      <span
+        className="gs-reveal-mark gs-reveal-mark-dungeon"
+        role="img"
+        aria-label={`${mark.dungeon}, completed`}
+      >
+        <DungeonPicture />
+      </span>
+    );
+  }
   if (mark.kind === "color") {
     const [symbol, word] = COLOUR_WORDS[mark.color];
     const url = symbolUrl(symbol);
@@ -145,6 +158,7 @@ export function ReportMarkPicture({ mark }: { mark: ReportMark }) {
 /** Spec 0075 -- the words under a picture that is not a card. */
 function markWords(mark: ReportMark): [string, string] {
   if (mark.kind === "color") return [COLOUR_WORDS[mark.color][1], "Chosen"];
+  if (mark.kind === "dungeon") return [mark.dungeon, "Completed"];
   return ["Coin flip", mark.won ? "Won" : "Lost"];
 }
 

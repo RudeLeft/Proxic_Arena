@@ -132,6 +132,12 @@ final class ViewerSnapshot {
         JsonObject pool = manaPool(player);
         if (pool != null) {
             entry.add("manaPool", pool);
+            // Spec 0086, Amendment 1 -- which card made each floating mana
+            // (Forge's own record), so its ball flies from there.
+            JsonArray from = PlayerMarks.manaFrom(player);
+            if (from != null) {
+                entry.add("manaFrom", from);
+            }
         }
             // COUNTS, not contents. A library is hidden from
             // everyone including its owner, and a hand is hidden
@@ -176,6 +182,10 @@ final class ViewerSnapshot {
             }
             JsonArray command = new JsonArray();
             JsonArray commandWords = new JsonArray();
+            // Spec 0086 -- each command-zone piece's id, one per `command`
+            // entry, in order: a dungeon's room trigger and an emblem's
+            // trigger rise from its map card or tile (Amendment 1).
+            JsonArray commandIds = new JsonArray();
             for (Card card : player.getCardsIn(ZoneType.Command)) {
                 // Emblems, dungeons and real cards -- not Forge's own
                 // EFFECT pieces, which are how it keeps "Blight Mamba's
@@ -196,12 +206,14 @@ final class ViewerSnapshot {
                 String room = card.getType().isDungeon() ? card.getCurrentRoom() : null;
                 command.add(room == null || room.isBlank() ? card.getName() : card.getName() + " (room: " + room + ")");
                 commandWords.add(commandWords(card, room));
+                commandIds.add("card:" + card.getId());
             }
             if (command.size() > 0) {
                 entry.add("command", command);
                 // Phase 9 W-21 (Amendment 18): what each one does, in the
                 // game's own words, one entry per `command` entry, in order.
                 entry.add("commandWords", commandWords);
+                entry.add("commandIds", commandIds);
             }
             // The Ring: how many times it has tempted this player,
             // which decides what the Ring-bearer has (Call of the
@@ -219,6 +231,12 @@ final class ViewerSnapshot {
             players.add(entry);
         }
         snapshot.add("players", players);
+        // Spec 0086 (8) -- each emblem with the card that made it, so its
+        // tile wears that planeswalker's picture (MatchArt names it). Public.
+        JsonArray emblems = PlayerMarks.emblems(game, seatOf);
+        if (emblems.size() > 0) {
+            snapshot.add("emblems", emblems);
+        }
 
         // §6.96 — global state: day or night, once a daybound card has
         // made it one (Forge's null means neither yet).
@@ -384,6 +402,12 @@ final class ViewerSnapshot {
             if (source != null) {
                 entry.addProperty("source", "card:" + source.getId());
                 entry.addProperty("name", nameFor(source, viewing));
+                // Spec 0086, Amendment 1 -- the monarch's end-step draw and the
+                // initiative's venture rise from the crown and the token.
+                String designation = PlayerMarks.designation(source);
+                if (designation != null) {
+                    entry.addProperty("from", designation);
+                }
                 // The card's owner, whose deck its picture is in: a spell
                 // cast from an opponent's library is the caster's spell
                 // (`controller`) and still the opponent's card.

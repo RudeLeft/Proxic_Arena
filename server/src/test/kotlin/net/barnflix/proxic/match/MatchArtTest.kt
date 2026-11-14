@@ -559,6 +559,25 @@ class MatchArtTest {
         assertFalse(art.mayFetch(bob, secret), "only the seat it was shown to")
     }
 
+    /** Spec 0086 -- an emblem's tile wears its maker's picture, from that card's owner's deck. */
+    @Test
+    fun `an emblem carries the picture of the card that made it`() {
+        val art = art()
+        val state =
+            Json.parseToJsonElement(
+                """{"seat":2,"battlefield":[],"hand":[],"players":[],
+                "emblems":[{"id":"card:70","seat":1,"from":"card:5","name":"Lightning Bolt","owner":1,"known":true},
+                           {"id":"card:71","seat":1,"known":false}]}""",
+            ).jsonObject
+
+        val seen = art.annotate(state, bob)
+        val emblems = seen["emblems"]!!.jsonArray
+
+        assertEquals(bolt, emblems[0].jsonObject["art"]?.jsonPrimitive?.content)
+        assertNull(emblems[1].jsonObject["art"], "an emblem whose maker is unknown has no picture")
+        assertTrue(art.mayFetch(bob, bolt), "shown to the seat that sees the emblem")
+    }
+
     private val boltCrop = "1".repeat(64)
     private val delverCrop = "2".repeat(64)
     private val apeCrop = "3".repeat(64)

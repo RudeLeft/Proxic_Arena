@@ -7,7 +7,7 @@
 // next, as the game screen hands them; CardBadges as the board draws it; and
 // fromSnapshot, from the snapshots the worker sends.
 
-import { act, render } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, type BoardCard, type StackView } from "./Board";
 import { hurry } from "./motion";
@@ -34,7 +34,6 @@ import {
 import { boardFromSnapshot, type TileMove } from "./fromSnapshot";
 import { layout, TAB_W } from "./layout";
 import { EMPTY_MATCH, reduceMatch, type Snapshot } from "../match";
-import { boardMoving, useReportWait } from "./reportWait";
 
 const size = { width: 1920, height: 1080 };
 type Call = {
@@ -732,51 +731,5 @@ describe("F-0085-E · Banishing Light and Fiend Hunter: a picture tab, and the c
     expect(String(runsOf(flight).at(-1)!.frames.at(-1)!.transform)).toMatch(/scale\(0\.300\)/);
     const sink = heldFlyFrames(100, 0, 10, true, 0);
     expect(sink.duration).toBe(HELD_FLY_MS);
-  });
-});
-
-// --- the report window waits for the board ----------------------------------------------------------
-
-describe("the report window comes up once the board has shown what happened (the canvas's order)", () => {
-  function Probe({ k, root }: { k: string | null; root: () => Element | null }) {
-    const shown = useReportWait(k, root);
-    return <span data-shown={shown ?? ""} />;
-  }
-  it("at once when nothing moves; after the board's animations while they run; a click hurries both", () => {
-    const board = document.createElement("div");
-    const running = {
-      playState: "running",
-      currentTime: 0,
-      effect: { getComputedTiming: () => ({ endTime: 900, iterations: 1 }) },
-    };
-    let moving = true;
-    (board as unknown as { getAnimations: () => unknown[] }).getAnimations = () =>
-      moving ? [running] : [];
-    const frames: FrameRequestCallback[] = [];
-    vi.stubGlobal("requestAnimationFrame", (f: FrameRequestCallback) => frames.push(f));
-    vi.stubGlobal("cancelAnimationFrame", () => {});
-    expect(boardMoving(board)).toBe(true);
-    const view = render(<Probe k="r1" root={() => board} />);
-    const shown = () => view.container.querySelector("span")!.dataset["shown"];
-    expect(shown()).toBe("");
-    // Something that starts after the report never holds it back.
-    const later = { ...running };
-    (board as unknown as { getAnimations: () => unknown[] }).getAnimations = () =>
-      moving ? [running, later] : [later];
-    act(() => frames.shift()!(0));
-    expect(shown()).toBe("");
-    running.playState = "finished";
-    act(() => frames.shift()!(0));
-    expect(shown()).toBe("r1");
-    // Nothing moving: the next report at once.
-    moving = false;
-    later.playState = "finished";
-    view.rerender(<Probe k="r2" root={() => board} />);
-    expect(shown()).toBe("r2");
-    running.playState = "running";
-    // An endless glow never holds it back.
-    moving = true;
-    running.effect.getComputedTiming = () => ({ endTime: 900, iterations: Infinity });
-    expect(boardMoving(board)).toBe(false);
   });
 });

@@ -608,6 +608,16 @@ decision.arrange.sources  spec 0058, item 8, on orderSimultaneousAbilities
                           says (the ability's effect)}
 ```
 
+Spec 0086 adds two `action` reports. At the start of an extra turn (Forge's
+Player#isExtraTurn; the card that gave it is the one whose AddTurn effect
+resolved for that player, newest first), to both players: "Extra turn: this
+is Alice's turn again." ("... your turn again." to Alice), `source` the card
+(Time Warp) and the card in `cards` where it is now. When a player completes
+a dungeon (Player#getCompletedDungeons grew), to the other player only:
+"Alice completed Tomb of Annihilation.", `source` the dungeon, no cards, and
+`marks` [{kind: "dungeon", dungeon: "Tomb of Annihilation"}] (its map is the
+picture).
+
 Values Forge tells a player (its notifyOfValue) are no notice since spec
 0075: a die roll is `rolls` (its tumbling window, on both boards), a
 choice the other player's `action` report, a coin flip both players'
@@ -634,6 +644,28 @@ prioritySeat        B1  the seat holding priority now (Forge's priority
                         player); on your own turn often not activeSeat
 player.manaPool     B6  floating mana by colour, {"R": 1}; absent when
                         the pool is empty. Public.
+player.manaFrom         spec 0086 (Amendment 1): the same mana by colour
+                        AND the card that made it, in the pool's order,
+                        [{colour, from: "card:N", n}] -- Forge's own record
+                        (Mana#getSourceCard): a Swamp's black is one run of
+                        1, Dark Ritual's three one run of 3. `from` absent
+                        when Forge names no card, or stripped (HiddenIds)
+                        when that card is in a zone this viewer cannot see.
+                        Present only with manaPool. Public
+player.commandIds       spec 0086: one "card:N" per `command` entry, in
+                        order -- a dungeon's room trigger and an emblem's
+                        trigger name that id as their stack `source`, so
+                        each rises from its map card or tile. Public
+emblems                 spec 0086 (8): every emblem in a command zone, with
+                        the card that made it (Forge's
+                        Card#getEffectSource): [{id (the emblem, as in
+                        commandIds), seat, from "card:N", name, owner,
+                        printing?, known}] -- the maker's name, owner and
+                        printing so the server puts that card's picture
+                        (and art crop) on the entry, as on any card
+                        (MatchArt). `known: false` and no name when Forge
+                        does not know the maker or it is face down. Absent
+                        when there are none. Public
 stack[]             B2  per entry, besides id and description:
                         source      "card:N", the card it came from
                         name        as this viewer may know it ("Face-down"
@@ -661,6 +693,12 @@ stack[]             B2  per entry, besides id and description:
                         splitSecond spec 0083 (18 B): true on a spell with
                                     split second (the keyword Forge's
                                     isSplitSecondOnStack reads)
+                        from        spec 0086 (Amendment 1): "monarch" or
+                                    "initiative" on a trigger that is that
+                                    designation's own (the effect card Forge
+                                    keeps for it: the monarch's end-step
+                                    draw, the initiative's venture); the
+                                    page raises it from the crown or token
                         cantBeCountered spec 0083: true on a spell Forge's
                                     Spell#isCounterableBy says no counterspell
                                     can counter (Abrupt Decay). Both only for

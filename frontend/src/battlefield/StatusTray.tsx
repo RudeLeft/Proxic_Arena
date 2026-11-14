@@ -14,30 +14,58 @@
 //   - Esc, a click anywhere else or the chip again closes it; opening one
 //     player's list closes the other's; Space or Peek fades it.
 
-import { useEffect, useRef, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
-import type { CommandWords, Snapshot } from "../match";
+//
+// Spec 0086 (owner 2026-11-13, canvas gaps-players-1113) -- the row as
+// pictures: energy, experience, rad and tickets are round badges whose
+// numbers step with a rising +N/-N (7 B); the city's blessing and the Ring's
+// count are badges too (Amendment 1); a dungeon is a small map card whose
+// marker steps room to room; an emblem is a square tile with its
+// planeswalker's picture (8). The monarch and the initiative are on the face
+// picture now (playerMarks.tsx FaceMarks), and still in the list. A mana
+// chip's count steps up as each ball lands (11 A, poolHeld.ts).
+
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+import type { CommandWords, Snapshot, SnapshotEmblem } from "../match";
 import { PeekFoot, usePeek } from "./GameWindow";
 import { ManaText, symbolUrl } from "./ManaCost";
+import {
+  CountBadge,
+  COUNT_LOOK,
+  countKind,
+  DungeonMap,
+  EmblemTile,
+  reducedMotion,
+} from "./playerMarks";
+import { heldPool, poolKey, usePoolHeld } from "./poolHeld";
 
 type Player = Snapshot["players"][number];
 
 /** Spec 0038 — floating mana in WUBRG order, then colourless. */
 const MANA_ORDER = ["W", "U", "B", "R", "G", "C"] as const;
-/** Spec 0038 — a counter's dot, by Forge's name; any other counter is grey. */
-const COUNTER_DOT: Record<string, string> = {
-  poison: "#6fbf4a",
-  energy: "#e8c547",
-  experience: "#8fb3e8",
-  rad: "#9fe05a",
-  ticket: "#e0905a",
-  tickets: "#e0905a",
-};
 /** Spec 0038 — a tray's one row, in the rail's units: 216 less padding. */
 const TRAY_ROOM = 198;
 const TRAY_GAP = 6;
 /** About how wide an item is drawn, from its words: a chip's padding,
  * border and dot, then ~6.6 per letter at the chips' size. */
 const itemWidth = (text: string, dot: boolean) => 16 + (dot ? 12 : 0) + text.length * 6.6;
+/** Spec 0086 -- a badge, a map card and an emblem tile, as game.css draws them. */
+const BADGE_W = 26;
+const MAP_CARD_W = 53;
+const EMBLEM_W = 24;
+/** "3 energy", "1 experience counter", "2 tickets": a badge's words. */
+function countWords(name: string, count: number): string {
+  const kind = countKind(name);
+  const look = COUNT_LOOK[kind];
+  if (!look || kind === "other") return `${count} ${name.toLowerCase()}`;
+  return `${count} ${count === 1 ? look.one : look.many}`;
+}
 /** "monarch" → "Monarch": Forge names a designation in lower case. */
 const titled = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
@@ -101,11 +129,16 @@ export function StatusTray({
   player,
   side,
   spectating = false,
+  emblems = [],
+  artUrl,
 }: {
   player: Player;
   side: "opponent" | "viewer";
   /** Spec 0067 -- a spectator's tray: nobody's "you". */
   spectating?: boolean;
+  /** Spec 0086 -- the board's emblems, each with the card that made it (its picture). */
+  emblems?: readonly SnapshotEmblem[];
+  artUrl?: (art: string) => string;
 }) {
   const open =
     useSyncExternalStore(
@@ -141,7 +174,14 @@ export function StatusTray({
   // not a chip here; the tray keeps energy, experience and the rest.
   const kept = player.counters.filter((c) => c.name.toUpperCase() !== "POISON");
   const counters = kept.map((c) => `${c.count} ${c.name.toLowerCase()}`);
-  const ringHeld = player.command.some((thing) => thing === "The Ring");
+  // Spec 0086 (11 A) -- each chip less what is still flying in.
+  usePoolHeld();
+  const shownMana = (c: string) => (player.manaPool[c] ?? 0) - heldPool(poolKey(player.seat, c));
+  // Spec 0086 -- what is new in the tray since the last board grows in.
+  const seenKeys = useRef<Set<string> | null>(null);
+  const fresh = (key: string) => seenKeys.current !== null && !seenKeys.current.has(key);
+  const blessed = player.designations.some((d) => d.toLowerCase() === "city's blessing");
+  const words = player.commandWords ?? [];
   const chip = (key: string, className: string, text: string, label?: string) => (
     <button
       type="button"
@@ -159,48 +199,139 @@ export function StatusTray({
       key: `mana:${c}`,
       width: 26 + 9 * String(player.manaPool[c]).length,
       node: (
-        // Spec 0062 -- spent, a ball leaves from here (data-pool).
-        <span className="gs-mana" key={`mana:${c}`} data-pool={`${player.seat}:${c}`}>
+        // Spec 0062 -- spent, a ball leaves from here (data-pool). Spec 0086
+        // -- its mana flies in: the count steps up as each ball lands (the
+        // chip holds its place and shows from the first).
+        <span
+          className="gs-mana"
+          key={`mana:${c}`}
+          data-pool={`${player.seat}:${c}`}
+          data-shown={shownMana(c)}
+          style={shownMana(c) <= 0 ? { visibility: "hidden" } : undefined}
+        >
           <img src={symbolUrl(c)} alt={c} draggable={false} />
-          {player.manaPool[c]}
+          {Math.max(0, shownMana(c))}
         </span>
       ),
     })),
+    // Spec 0086 (7 B) -- round picture badges, not word chips.
     ...kept.map((c) => ({
       key: `counter:${c.name}`,
-      width: itemWidth(`${c.count} ${c.name}`, true),
+      width: BADGE_W,
       node: (
-        <span
-          className="gs-chip"
+        <CountBadge
           key={`counter:${c.name}`}
-          style={{ "--dot": COUNTER_DOT[c.name.toLowerCase()] } as CSSProperties}
-        >
-          <span className="gs-chip-dot" aria-hidden="true" />
-          {c.count} {c.name.toLowerCase()}
-        </span>
+          kind={countKind(c.name)}
+          count={c.count}
+          label={`${player.name}: ${countWords(c.name, c.count)}`}
+          side={side}
+          expanded={open}
+          onClick={toggle}
+          fresh={fresh(`counter:${c.name}`)}
+        />
       ),
     })),
-    ...[
-      ...player.designations,
-      // The Ring held shows once, as the command-zone chip with its count.
-      ...(player.ringTempted > 0 && !ringHeld ? [`Ring ×${player.ringTempted}`] : []),
-    ].map((d) => ({
-      key: `marker:${d}`,
-      width: itemWidth(d, false),
-      node: chip(`marker:${d}`, "gs-chip-marker", titled(d)),
-    })),
-    ...player.command.map((thing, i) => {
-      const text =
-        thing === "The Ring" && player.ringTempted > 0
-          ? `The Ring ×${player.ringTempted}`
-          : shortName(thing);
-      return {
-        key: `command:${i}`,
-        width: itemWidth(text, false),
-        node: chip(`command:${i}`, "gs-chip-zone", text),
-      };
+    // Amendment 1 -- the city's blessing: a badge, a gold pulse when gained.
+    ...(blessed
+      ? [
+          {
+            key: "blessing",
+            width: BADGE_W,
+            node: (
+              <CountBadge
+                key="blessing"
+                kind="blessing"
+                count={null}
+                label={`${player.name} has the city's blessing`}
+                side={side}
+                expanded={open}
+                onClick={toggle}
+                fresh={fresh("blessing")}
+              />
+            ),
+          },
+        ]
+      : []),
+    // Amendment 1 -- the Ring's count: a badge that ticks +1 at each temptation.
+    ...(player.ringTempted > 0
+      ? [
+          {
+            key: "ring",
+            width: BADGE_W,
+            node: (
+              <CountBadge
+                key="ring"
+                kind="ring"
+                count={player.ringTempted}
+                label={`The Ring has tempted ${player.name} ${player.ringTempted === 1 ? "once" : `${player.ringTempted} times`}`}
+                side={side}
+                expanded={open}
+                onClick={toggle}
+                fresh={fresh("ring")}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...player.command.flatMap((thing, i) => {
+      // Spec 0086 -- the Ring is its badge now.
+      if (thing === "The Ring") return [];
+      const said = words[i]?.name && thing.startsWith(words[i].name) ? words[i] : undefined;
+      const id = player.commandIds?.[i];
+      const key = `command:${id ?? `${i}:${thing}`}`;
+      // Spec 0086 (8) -- a dungeon is its map card.
+      if (said?.rooms && said.rooms.length > 0) {
+        return [
+          {
+            key,
+            width: MAP_CARD_W,
+            node: (
+              <DungeonMap
+                key={key}
+                id={id}
+                name={fullName(thing)}
+                rooms={said.rooms}
+                side={side}
+                expanded={open}
+                onClick={toggle}
+                fresh={fresh(key)}
+              />
+            ),
+          },
+        ];
+      }
+      // Spec 0086 (8) -- an emblem is a tile with its planeswalker's picture.
+      if (/^Emblem\s*[—–-]/.test(thing)) {
+        return [
+          {
+            key,
+            width: EMBLEM_W,
+            node: (
+              <EmblemTile
+                key={key}
+                id={id}
+                name={fullName(thing)}
+                emblem={emblems.find((e) => e.id === id)}
+                says={said?.says}
+                artUrl={artUrl}
+                expanded={open}
+                onClick={toggle}
+                fresh={fresh(key)}
+              />
+            ),
+          },
+        ];
+      }
+      const text = shortName(thing);
+      return [{ key, width: itemWidth(text, false), node: chip(key, "gs-chip-zone", text) }];
     }),
   ];
+  // Spec 0086 -- remembered after this board, for the next one's "new".
+  useLayoutEffect(() => {
+    seenKeys.current = new Set(items.map((item) => item.key));
+  });
+  // Spec 0086 (8) -- a completed dungeon's map card shrinks away (nothing jumps).
+  const leaving = useLeaving(items.filter((item) => item.width === MAP_CARD_W));
   // As many as fit in the row; the rest behind "+N" (room kept for it).
   // Never a lone "+N": the first thing always shows, cut short if it must be.
   const total = items.reduce((sum, item, i) => sum + item.width + (i ? TRAY_GAP : 0), 0);
@@ -234,6 +365,7 @@ export function StatusTray({
     >
       {said && <span className="pa-visually-hidden">{`${player.name}: ${said}`}</span>}
       {shown.map((item) => item.node)}
+      {leaving}
       {!fits && items.length > shown.length && (
         <button
           type="button"
@@ -256,6 +388,58 @@ export function StatusTray({
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Spec 0086 (8) -- items that left the tray (a dungeon completed) are drawn
+ * a moment longer, shrinking away where they were.
+ */
+function useLeaving(now: readonly { key: string; node: ReactNode }[]): ReactNode {
+  const last = useRef<Map<string, ReactNode>>(new Map());
+  const [gone, setGone] = useState<{ key: string; node: ReactNode }[]>([]);
+  const keys = now.map((item) => item.key).join("|");
+  useLayoutEffect(() => {
+    const was = last.current;
+    last.current = new Map(now.map((item) => [item.key, item.node]));
+    if (reducedMotion()) return;
+    const left = [...was].filter(([key]) => !last.current.has(key));
+    if (left.length > 0) setGone((g) => [...g, ...left.map(([key, node]) => ({ key, node }))]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- when the set changes
+  }, [keys]);
+  return gone.map((g) => (
+    <Leaving
+      key={`leaving:${g.key}`}
+      onGone={() => setGone((all) => all.filter((x) => x.key !== g.key))}
+    >
+      {g.node}
+    </Leaving>
+  ));
+}
+
+function Leaving({ children, onGone }: { children: ReactNode; onGone: () => void }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || typeof el.animate !== "function") {
+      onGone();
+      return;
+    }
+    const shrink = el.animate(
+      [
+        { transform: "scale(1)", opacity: 1, filter: "drop-shadow(0 0 8px #b9a2ff)" },
+        { transform: "scale(0)", opacity: 0 },
+      ],
+      { duration: 450, easing: "cubic-bezier(0.65, 0, 0.35, 1)", fill: "forwards" },
+    );
+    shrink.onfinish = onGone;
+    shrink.oncancel = onGone;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once
+  }, []);
+  return (
+    <span ref={ref} className="gs-leaving" aria-hidden="true" data-leaving="true">
+      {children}
+    </span>
   );
 }
 

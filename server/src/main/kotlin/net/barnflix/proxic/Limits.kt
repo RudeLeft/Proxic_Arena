@@ -61,6 +61,9 @@ object Limits {
     const val WS_PING_SECONDS: Long = 15
     const val WS_TIMEOUT_SECONDS: Long = 30
 
+    /** Spec 0086, Amendment 2 -- the report route's limit: 5 MB. */
+    const val REPORT_BODY_BYTES: Long = 5L * 1024 * 1024
+
     /**
      * Routes that accept more than [MAX_HTTP_BODY_BYTES], and how
      * much (PHASE_02 carry-forward C1).
@@ -79,6 +82,9 @@ object Limits {
             "/api/decks/import" to 150L * 1024 * 1024,
             // Spec 0022 -- the same package, sent by a linked computer.
             "/api/deck-builder/decks" to 150L * 1024 * 1024,
+            // Spec 0086, Amendment 2 (owner 2026-11-14) -- a problem report:
+            // its screen picture (now a JPEG) and its log, with room to spare.
+            "/api/reports" to REPORT_BODY_BYTES,
         )
 
     fun bodyLimitFor(path: String): Long =

@@ -269,6 +269,13 @@ Spec 0084: a sacrifice that was a cost, its card's own ability or a Saga's
 end is a move marked `spent` (an edict never is); `shuffles` names the
 libraries shuffled, `crewed` each vehicle's crew, and a fight or bite
 spell's damage wave says `fight` with its `fights`.
+Spec 0086: a player's floating mana names the card that made each run
+(`manaFrom`, Forge's own record), each command-zone piece has its id
+(`commandIds`), `emblems` lists every emblem with the card that made it (the
+server puts that card's picture on it), a trigger that is the monarch's or
+the initiative's own says so (`from`), and the `action` report tells an
+extra turn at its start (both players) and a completed dungeon (the other
+player, with a dungeon mark).
 Spec 0085: a permanent says which keywords it `gained` (not printed), a
 given "can't be blocked" (`unblockable`), that a creature lost all its
 abilities (`lostAbilities`), and which exiled cards it `holds` (Banishing

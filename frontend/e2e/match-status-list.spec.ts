@@ -142,7 +142,7 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
     const myTray = panel.locator(".gs-status-viewer");
     const theirTray = panel.locator(".gs-status-opponent");
 
-    // One emblem with a long name: its short name shows, not a lone "+1".
+    // One emblem with a long name: its tile shows (spec 0086), not a lone "+1".
     send(
       {
         command: [LILIANA],
@@ -155,7 +155,10 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
       },
       {},
     );
-    await expect(myTray.locator(".gs-chip-zone")).toHaveText("Liliana emblem");
+    await expect(myTray.locator(".gs-emblem")).toHaveAttribute(
+      "aria-label",
+      /^Liliana, Defiant Necromancer's emblem: Whenever a creature dies/,
+    );
     await expect(myTray.locator(".gs-chip-more")).toHaveCount(0);
 
     // A busy game for both players.
@@ -193,9 +196,11 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
     await expect(myTray.locator(".gs-chip-more")).toBeVisible();
     // Never a lone "+N": something shows beside it in each tray.
     for (const tray of [myTray, theirTray]) {
-      expect(await tray.locator(".gs-chip:not(.gs-chip-more), .gs-mana").count()).toBeGreaterThan(
-        0,
-      );
+      expect(
+        await tray
+          .locator(".gs-chip:not(.gs-chip-more), .gs-mana, .gs-count, .gs-map, .gs-emblem")
+          .count(),
+      ).toBeGreaterThan(0);
     }
 
     // Opened, beside the tray: left of the column, clear of the steps,
@@ -244,7 +249,7 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
     // One at a time: opening theirs closes yours.
     await myTray.locator(".gs-chip-more").click();
     await expect(list).toBeVisible();
-    await theirTray.locator(".gs-chip-more, .gs-chip-zone, .gs-chip-marker").first().click();
+    await theirTray.locator(".gs-chip-more, .gs-count, .gs-emblem").first().click();
     const theirs = panel.getByRole("dialog", { name: /everything in play for them/ });
     await expect(theirs).toBeVisible();
     await expect(list).toHaveCount(0);
@@ -259,7 +264,7 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
     }
     await guest.screenshot({ path: "test-results/seen/w21-list-theirs.png" });
     // The chip again closes it.
-    await theirTray.locator(".gs-chip-more, .gs-chip-zone, .gs-chip-marker").first().click();
+    await theirTray.locator(".gs-chip-more, .gs-count, .gs-emblem").first().click();
     await expect(theirs).toHaveCount(0);
 
     // The graveyard viewer fades too.

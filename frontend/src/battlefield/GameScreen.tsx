@@ -117,8 +117,10 @@ import {
   targetsTitle,
 } from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
-import { useReportWait } from "./reportWait";
 import { StatusTray } from "./StatusTray";
+import { PlayerFlights } from "./flights";
+import { FaceMarks } from "./playerMarks";
+import { Rolling, TurnSweep, usePlateLight } from "./turnStart";
 import { AwayWindow } from "./AwayWindow";
 import {
   CrankWindow,
@@ -1542,11 +1544,8 @@ export function GameScreen({
       : (board?.reveal ?? null);
   const latestReveal =
     latestTray && latestTray.key !== closedReveal && !trayShowsReveal ? latestTray : null;
-  // Spec 0085 -- it comes up once the board has shown what happened.
-  const revealReady = useReportWait(latestReveal?.key ?? null, () =>
-    document.querySelector(".bf-board"),
-  );
-  const reveal = latestReveal && latestReveal.key === revealReady ? latestReveal : null;
+  // Spec 0085 Amendment 1 (owner, 2026-11-14) -- the report comes up at once; no wait for the board.
+  const reveal = latestReveal;
   const actingSeat = reveal?.by ?? null;
   const actingUser = match.participants.find((p) => p.seatNumber === actingSeat)?.userId ?? null;
   const acting = actingSeat
@@ -2009,6 +2008,11 @@ export function GameScreen({
                       spot={stackSpotBoxes(geometry, 1)[0] ?? null}
                     />
                   )}
+                  {/* Spec 0086 -- the crown, the initiative, emblems, the Ring,
+                      energy's sparks and mana coming in, flying (flights.tsx);
+                      and, when the turn becomes yours, the band of light. */}
+                  {board && <PlayerFlights board={board} />}
+                  {board && <TurnSweep board={board} geometry={geometry} />}
                   {board && (
                     <ManaBalls
                       payments={board.payments ?? []}
@@ -2471,7 +2475,7 @@ function StepLadder({
           <span className="gs-turn">Before the game</span>
         ) : (
           <span className="gs-turn" aria-label={`Turn ${board.turn}`}>
-            Turn <span className="gs-turn-value">{board.turn}</span>
+            Turn <Rolling className="gs-turn-value" value={String(board.turn)} />
             {board.dayTime && (
               <span className="gs-day"> · {board.dayTime === "night" ? "Night" : "Day"}</span>
             )}
@@ -2486,7 +2490,10 @@ function StepLadder({
           </span>
         )}
         {board.turn > 0 && (
-          <span className={`gs-whose${mine ? " gs-whose-mine" : ""}`}>{whose}</span>
+          <span className={`gs-whose${mine ? " gs-whose-mine" : ""}`}>
+            {/* Spec 0086 (10 B) -- the words roll over with the number. */}
+            <Rolling value={whose} />
+          </span>
         )}
       </div>
       {/* Spec 0083 (14 C) -- the sun/moon medallion beside the ladder's steps
@@ -2686,6 +2693,10 @@ function SeatBlock({
   const shown = useShownPlate(player.seat, player.life, poisonOf(player));
   const life = shown.life;
   const lifeRef = useRef<HTMLButtonElement>(null);
+  // Spec 0086 (10 B) -- a turn begins for this player: the light runs along
+  // the plate's top edge and the shield glows.
+  const runRef = useRef<HTMLSpanElement>(null);
+  usePlateLight(board, player.seat, runRef, lifeRef);
   const hitsSeen = useRef(shown.hits);
   useEffect(() => {
     if (shown.hits === hitsSeen.current) return;
@@ -2702,6 +2713,7 @@ function SeatBlock({
       className={`gs-seat gs-seat-${mine ? "viewer" : "opponent"}${active ? " gs-seat-active" : ""}${deciding ? " gs-seat-deciding" : ""}`}
       data-seat={player.seat}
     >
+      <span ref={runRef} className="gs-seat-run" aria-hidden="true" />
       <span className="pa-visually-hidden">
         {player.name} ({role}): {life} life
         {shown.poison > 0 ? `, ${shown.poison} poison` : ""}, {player.handCount} in hand,{" "}
@@ -2715,6 +2727,8 @@ function SeatBlock({
             size={48}
             rank={seatedAs ? rankOf(lobby, seatedAs) : undefined}
           />
+          {/* Spec 0086 (8) -- the crown on the monarch's face, the initiative on its corner. */}
+          <FaceMarks seat={player.seat} designations={player.designations} stack={board.stack} />
         </span>
         <span className="gs-seat-who">
           {/* Spec 0041: 12 characters in full, smaller if need be. */}
@@ -3340,6 +3354,8 @@ function Rail({
           player={them}
           side="opponent"
           spectating={board.spectator === true}
+          emblems={board.emblems ?? []}
+          artUrl={pictureUrl}
         />
       )}
       {me && (
@@ -3348,6 +3364,8 @@ function Rail({
           player={me}
           side="viewer"
           spectating={board.spectator === true}
+          emblems={board.emblems ?? []}
+          artUrl={pictureUrl}
         />
       )}
       {them && (

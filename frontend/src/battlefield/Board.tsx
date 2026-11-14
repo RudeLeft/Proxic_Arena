@@ -464,6 +464,11 @@ export interface StackView {
    * from your hand): it lifts off where that card was drawn last.
    */
   leftFrom?: string | null;
+  /**
+   * Spec 0086, Amendment 1 -- a trigger from a picture in the rail: "monarch:1",
+   * "initiative:2", or a dungeon's or emblem's card id; it rises from there.
+   */
+  riseFrom?: string | null;
   targets: readonly TargetRef[];
   /** Spec 0028 — the seat that controls it: gold edge yours, red theirs. */
   seat?: number;
@@ -2731,6 +2736,42 @@ export function Board({
   // Treasure, a Clue, a fetch land sacrificed to pay for it; Karn going to
   // 0 loyalty) lifts off where that card was, as it goes: never fades in at
   // the stack spot.
+  // Spec 0086, Amendment 1 -- a trigger whose card is not on the table but
+  // drawn in the rail rises from its picture there: the monarch's draw from
+  // the crown, the initiative's venture from its token, a dungeon room's from
+  // the map card, an emblem's from its tile (each marked data-rise-from).
+  const railBox = (s: StackView): Box | undefined => {
+    if (s.kind !== "trigger" || !s.riseFrom || typeof document === "undefined") return undefined;
+    const el = document.querySelector(`[data-rise-from="${s.riseFrom}"]`);
+    const root = ref.current;
+    if (!el || !root) return undefined;
+    const drawn = el.getBoundingClientRect();
+    const rb = root.getBoundingClientRect();
+    const k = root.offsetWidth > 0 ? rb.width / root.offsetWidth || 1 : 1;
+    // Growing in from nothing as it arrives with this board (scale 0): its
+    // place on the screen is its centre, its size its layout's (in its
+    // parent's scale).
+    let r = { left: drawn.left, top: drawn.top, width: drawn.width, height: drawn.height };
+    if (r.width === 0 && r.height === 0) {
+      const own = el as HTMLElement;
+      const parent = own.parentElement;
+      const p = parent?.getBoundingClientRect();
+      const ps = parent && p && parent.offsetWidth > 0 ? p.width / parent.offsetWidth || k : k;
+      const w = (own.offsetWidth || 0) * ps;
+      const h = (own.offsetHeight || 0) * ps;
+      if (w === 0 && h === 0) return undefined;
+      r = { left: drawn.left - w / 2, top: drawn.top - h / 2, width: w, height: h };
+    }
+    return {
+      x: (r.left - rb.left) / k,
+      y: (r.top - rb.top) / k,
+      w: r.width / k,
+      h: r.height / k,
+      scale: 1,
+      rotation: 0,
+      z: 0,
+    };
+  };
   const sourceBox = (id: string): Box | undefined =>
     positions.get(id)?.box ?? previous.current?.at.get(id)?.box;
   for (const s of stack ?? []) {
@@ -2739,7 +2780,8 @@ export function Board({
       !s.copy &&
       (s.kind === "trigger" || s.kind === "ability") &&
       ((!!s.source && positions.has(s.source) && byId.has(s.source)) ||
-        (!!s.leftFrom && !!previous.current?.at.get(s.leftFrom))) &&
+        (!!s.leftFrom && !!previous.current?.at.get(s.leftFrom)) ||
+        railBox(s) !== undefined) &&
       !reducedMotion()
     )
       rose.current.add(s.id);
@@ -2770,6 +2812,225 @@ export function Board({
     timers.current.push(window.setTimeout(done, fading ? 160 * 20 : 176));
     if (fading) void fading.finished.then(done, done);
   }, [hiddenStack]);
+  // Damage, once per wave. Declared before the stack's and the movement
+  // effects, so what arrives in the same update waits for the fights (spec
+  // 0086: a trigger the hit caused -- the monarch's, a "deals combat damage"
+  // trigger -- rises only once that hit has landed).
+  // Phase 10 A-13 (owner
+  // 2026-11-06, Amendment 15): a combat damage step's damage plays one fight
+  // at a time (fights.ts) -- the game says who fought whom; anything else
+  // (a spell) cracks what it hit (spec 0083) and the amount rises there.
+  useLayoutEffect(() => {
+    if (!result || !damage || damage.key === wave.current?.key) return;
+    wave.current = { key: damage.key };
+    const g = result.geometry;
+    const where = anchors(g);
+    const still = reducedMotion();
+    const before = previous.current;
+    // Where an object stood: as drawn before this update (so the dead too),
+    // else as drawn now.
+    const standOf = (id: string): Stand | null => {
+      const was = before?.at.get(id);
+      const item = before?.itemOf.get(id) ?? positions.get(id)?.item;
+      const box = was?.box ?? positions.get(id)?.box;
+      const card = before?.cards.get(id) ?? byId.get(id);
+      if (!box || !item || !card) return null;
+      return {
+        box,
+        item,
+        name: card.faceDown && !card.known ? "face-down creature" : card.name,
+        seat: card.seat,
+        count: before?.members.get(item) ?? 1,
+      };
+    };
+    const lifeOf = (seat: number) => playerPoint(seat, viewerSeat, where);
+    const plan =
+      still || !(damage.combat || damage.fight)
+        ? null
+        : planFights({
+            wave: damage,
+            at: standOf,
+            life: lifeOf,
+            lifeR: LIFE_R * g.height,
+            // Spec 0077: an infect hit lands on the poison badge.
+            poison: (seat) => poisonPoint(lifeOf(seat), g),
+            poisonR: (POISON_R * g.height) / 900,
+            viewerSeat,
+            opponentName,
+            viewerName,
+          });
+    // Spec 0084: a fight or bite spell's fight starts once the spell's
+    // spark has reached the fighters (it resolved on this board).
+    const hold = damage.fight ? Math.max(holdLeft(), RESOLVE_MS) : holdLeft();
+    if (plan && ref.current && typeof ref.current.animate === "function") {
+      // Spec 0080 (Q4b F1): the blow bounces off an indestructible card's
+      // dome -- it is knocked, but never flashes red as if it were hurt.
+      for (const [id, how] of survive?.survived ?? [])
+        if (how === "indestructible")
+          for (const fight of plan.fights) {
+            const poses = fight.moves.get(standOf(id)?.item ?? id);
+            if (poses) for (const pose of poses) pose.red = 0;
+          }
+      playFights(plan, hold, standOf, lifeOf, g, !damage.fight);
+      return;
+    }
+    // No fights to play after all: nothing is held.
+    if (pins.current?.key === damage.key) setReleased(damage.key);
+    // A spell's damage (or an older worker's combat): a burst and the
+    // amount on everything hit, after any fights still playing.
+    const pointOf = (ref: TargetRef): Point | null => {
+      if ("player" in ref) return lifeOf(ref.player);
+      const p = positions.get(ref.object) ?? before?.at.get(ref.object);
+      return p ? centreOf(p.box, p.origin) : null;
+    };
+    // Spec 0077: a player's damage is shown on their shield by the life
+    // changes (the Impact look, on its own clock), not as a burst.
+    const told = new Set(
+      (life?.changes ?? [])
+        .filter((c) => !c.combat && (c.kind === "damage" || c.kind === "poison"))
+        .map((c) => c.player),
+    );
+    const totals = new Map<string, { ref: TargetRef; amount: number }>();
+    // Spec 0080 (Q5 A) -- damage a prevention stopped (Pyroclasm on a
+    // creature with protection from red): the pale shield, a grey "0".
+    const wards: FightMark[] = [];
+    for (const hit of damage.hits) {
+      if (!hit.prevented || hit.amount > 0) continue;
+      const k = refKey(hit.target);
+      const point = pointOf(hit.target);
+      if (!point || still) continue;
+      const box = "object" in hit.target ? positions.get(hit.target.object)?.box : undefined;
+      wards.push(
+        ...asMarks(
+          wardMarks(
+            `${damage.key}:${k}:prevented`,
+            point,
+            box ? box.h * 0.5 : LIFE_R * g.height * 1.9,
+            holdLeft(),
+            k,
+            true,
+            g.cardH * 0.3,
+            box
+              ? { x: point.x, y: box.y + box.h * 0.12 }
+              : { x: point.x - (52 * g.height) / 900, y: point.y - (4 * g.height) / 900 },
+          ),
+        ),
+      );
+    }
+    if (wards.length > 0) setMarks((list) => [...list, ...wards]);
+    for (const hit of damage.hits) {
+      if (hit.prevented && hit.amount === 0) continue;
+      if ("player" in hit.target && told.has(hit.target.player)) continue;
+      const k = refKey(hit.target);
+      totals.set(k, { ref: hit.target, amount: (totals.get(k)?.amount ?? 0) + hit.amount });
+    }
+    const added: Effect[] = [];
+    const cracks: FightMark[] = [];
+    // Spec 0083 (13 B) -- 0077's timing: a hit lands when the resolving
+    // spell's spark reaches it (RESOLVE_MS after it starts), as the life
+    // shield's crack does; at once with no spark, and after any fights.
+    const stackNow = new Set((stack ?? []).map((s) => s.id));
+    const sparked = new Set<string>();
+    for (const { s } of before?.stack ?? []) {
+      if (stackNow.has(s.id)) continue;
+      for (const t of s.targets) sparked.add(refKey(t));
+    }
+    const landsAt = (k: string) => Math.max(hold, sparked.has(k) ? RESOLVE_MS : 0);
+    let lastLanding = hold;
+    const landed = new Map<string, number>();
+    for (const [k, { ref, amount }] of totals) {
+      const point = pointOf(ref);
+      if (!point) continue;
+      const lands = landsAt(k);
+      lastLanding = Math.max(lastLanding, lands);
+      landed.set(k, lands);
+      // Spec 0083 (13 B, owner) -- one hit look: a spell or ability hitting
+      // anything cracks it -- on a creature exactly as on a life shield
+      // (0077's crack, its red flash and shake, its timing). Combat still
+      // slashes (A-13, above). The old orange starburst is gone.
+      if (!still) {
+        const box =
+          "object" in ref
+            ? (positions.get(ref.object)?.box ?? before?.at.get(ref.object)?.box)
+            : undefined;
+        const unit = g.height / 900;
+        cracks.push(
+          ...hitMarks(
+            `${damage.key}:${k}`,
+            point,
+            box ? box.w : 46 * unit,
+            box ? box.h : 54 * unit,
+            lands,
+            k,
+          ),
+        );
+        if (box && "object" in ref) {
+          const item = positions.get(ref.object)?.item;
+          const card = item
+            ? elements.current.get(item)?.querySelector<HTMLElement>(":scope > .bf-card")
+            : null;
+          if (card && typeof card.animate === "function")
+            card.animate(shakeFrames(box.h), {
+              duration: SHAKE_MS,
+              delay: lands,
+              easing: "linear",
+              composite: "add",
+            });
+        }
+        // The red "−N" rises off what was hit with the crack (the canvas's
+        // B: off the card's right, as 0077's rises off a shield's left), on
+        // the board's clock, so a slowed or hurried clock keeps it with the
+        // crack (a page timer cut it short on a slowed clock).
+        const w = box ? box.w : 46 * unit;
+        const h = box ? box.h : 54 * unit;
+        cracks.push({
+          key: `${damage.key}:${k}:number`,
+          kind: "number",
+          damageNumber: k,
+          style: {
+            left: box ? point.x + w * 0.34 : point.x - 52 * unit,
+            top: box ? point.y - h * 0.1 : point.y - 4 * unit,
+            fontSize: box ? h * 0.24 : 34 * unit,
+          },
+          frames: [
+            { offset: 0, opacity: 0, transform: "translate(-50%, -50%) translateY(-30%)" },
+            { offset: 0.12, opacity: 1 },
+            { offset: 0.7, opacity: 1 },
+            { offset: 1, opacity: 0, transform: "translate(-50%, -50%) translateY(-130%)" },
+          ],
+          duration: LIFE_MARK_MS,
+          delay: lands,
+          text: `−${amount}`,
+          of: k,
+        });
+        continue;
+      }
+      // Reduce motion: the number alone, still (bf-number-still).
+      added.push({
+        key: `${damage.key}:${k}:number`,
+        kind: "number",
+        target: k,
+        at: point,
+        amount,
+        delay: lands,
+      });
+    }
+    setEffects((list) => [...list.filter((e) => !e.key.startsWith(`${damage.key}:`)), ...added]);
+    if (cracks.length > 0) setMarks((list) => [...list, ...cracks]);
+    timers.current.push(
+      window.setTimeout(
+        () => setEffects((list) => list.filter((e) => !added.includes(e))),
+        lastLanding + NUMBER_MS + 50,
+      ),
+    );
+    spellHits.current = {
+      ids: new Set(totals.keys()),
+      delay: lastLanding + SPELL_HIT_MS,
+      landed,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [damage, result, positions, viewerSeat]);
+
   useLayoutEffect(() => {
     const before = previous.current;
     const then = copyCards.current;
@@ -3043,10 +3304,32 @@ export function Board({
         return;
       }
       if (seen.has(s.id) || s.id === hiddenStack || quietStack?.has(s.id)) return;
+      const el = stackEls.current.get(s.id);
+      // Spec 0086, Amendment 1 -- its picture in the rail came with this
+      // very board (the initiative taken and its venture at once, the
+      // dungeon entered with its first room): it is there now, so the
+      // trigger rises from it instead of sliding in.
+      if (
+        !still &&
+        !rose.current.has(s.id) &&
+        !s.copy &&
+        s.kind === "trigger" &&
+        !!s.riseFrom &&
+        !reducedMotion() &&
+        el &&
+        railBox(s) !== undefined
+      ) {
+        rose.current.add(s.id);
+        el.style.animation = "none";
+        if (typeof el.getAnimations === "function")
+          for (const a of el.getAnimations())
+            if (typeof CSSAnimation !== "undefined" && a instanceof CSSAnimation) a.cancel();
+      }
       const rises = rose.current.has(s.id);
       const ms = still ? 0 : rises ? RISE_MS : STACK_IN_MS;
-      const el = stackEls.current.get(s.id);
-      const from = s.source ? sourceBox(s.source) : s.leftFrom ? sourceBox(s.leftFrom) : undefined;
+      const from =
+        (s.source ? sourceBox(s.source) : s.leftFrom ? sourceBox(s.leftFrom) : undefined) ??
+        railBox(s);
       const to = spots[i]!;
       // Arrived when its own animation ends (a click's hurry, or the jump
       // tool's slow motion, move that end too); a timer in case none runs.
@@ -3059,9 +3342,15 @@ export function Board({
         !still && !rises && el && typeof el.getAnimations === "function"
           ? el.getAnimations().find((a) => a instanceof CSSAnimation)
           : undefined;
+      // Spec 0086 -- fights still to play (this update's own, started just
+      // above, or an older wave's): a card that arrives with them waits until
+      // their blows have landed. A trigger the hit caused (the monarch's, a
+      // "deals combat damage" trigger) never rises before the hit.
+      const hold = still ? 0 : holdLeft();
+      if (sliding && hold > 0) sliding.effect?.updateTiming({ delay: hold, fill: "backwards" });
       arriving.current.set(s.id, still ? 0 : Infinity);
       timers.current.push(
-        window.setTimeout(arrived, sliding || (rises && el?.animate) ? ms * 20 : ms + 16),
+        window.setTimeout(arrived, hold + (sliding || (rises && el?.animate) ? ms * 20 : ms + 16)),
       );
       if (sliding) void sliding.finished.then(arrived, arrived);
       if (!rises || !from || !el || typeof el.animate !== "function") return;
@@ -3079,7 +3368,12 @@ export function Board({
           transform: at(f),
           opacity: f === 0 ? 0 : 1,
         })),
-        { duration: RISE_MS, easing: "cubic-bezier(0.45, 0, 0.25, 1)" },
+        {
+          duration: RISE_MS,
+          delay: hold,
+          easing: "cubic-bezier(0.45, 0, 0.25, 1)",
+          fill: "backwards",
+        },
       );
       // (A test's stand-in animation may have no promise.)
       const done = rise.finished as Promise<Animation> | undefined;
@@ -3121,222 +3415,6 @@ export function Board({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per board
   }, [battlefield]);
-
-  // Damage, once per wave. Declared before the movement effect, so what
-  // moves in the same update waits for the fights. Phase 10 A-13 (owner
-  // 2026-11-06, Amendment 15): a combat damage step's damage plays one fight
-  // at a time (fights.ts) -- the game says who fought whom; anything else
-  // (a spell) cracks what it hit (spec 0083) and the amount rises there.
-  useLayoutEffect(() => {
-    if (!result || !damage || damage.key === wave.current?.key) return;
-    wave.current = { key: damage.key };
-    const g = result.geometry;
-    const where = anchors(g);
-    const still = reducedMotion();
-    const before = previous.current;
-    // Where an object stood: as drawn before this update (so the dead too),
-    // else as drawn now.
-    const standOf = (id: string): Stand | null => {
-      const was = before?.at.get(id);
-      const item = before?.itemOf.get(id) ?? positions.get(id)?.item;
-      const box = was?.box ?? positions.get(id)?.box;
-      const card = before?.cards.get(id) ?? byId.get(id);
-      if (!box || !item || !card) return null;
-      return {
-        box,
-        item,
-        name: card.faceDown && !card.known ? "face-down creature" : card.name,
-        seat: card.seat,
-        count: before?.members.get(item) ?? 1,
-      };
-    };
-    const lifeOf = (seat: number) => playerPoint(seat, viewerSeat, where);
-    const plan =
-      still || !(damage.combat || damage.fight)
-        ? null
-        : planFights({
-            wave: damage,
-            at: standOf,
-            life: lifeOf,
-            lifeR: LIFE_R * g.height,
-            // Spec 0077: an infect hit lands on the poison badge.
-            poison: (seat) => poisonPoint(lifeOf(seat), g),
-            poisonR: (POISON_R * g.height) / 900,
-            viewerSeat,
-            opponentName,
-            viewerName,
-          });
-    // Spec 0084: a fight or bite spell's fight starts once the spell's
-    // spark has reached the fighters (it resolved on this board).
-    const hold = damage.fight ? Math.max(holdLeft(), RESOLVE_MS) : holdLeft();
-    if (plan && ref.current && typeof ref.current.animate === "function") {
-      // Spec 0080 (Q4b F1): the blow bounces off an indestructible card's
-      // dome -- it is knocked, but never flashes red as if it were hurt.
-      for (const [id, how] of survive?.survived ?? [])
-        if (how === "indestructible")
-          for (const fight of plan.fights) {
-            const poses = fight.moves.get(standOf(id)?.item ?? id);
-            if (poses) for (const pose of poses) pose.red = 0;
-          }
-      playFights(plan, hold, standOf, lifeOf, g, !damage.fight);
-      return;
-    }
-    // No fights to play after all: nothing is held.
-    if (pins.current?.key === damage.key) setReleased(damage.key);
-    // A spell's damage (or an older worker's combat): a burst and the
-    // amount on everything hit, after any fights still playing.
-    const pointOf = (ref: TargetRef): Point | null => {
-      if ("player" in ref) return lifeOf(ref.player);
-      const p = positions.get(ref.object) ?? before?.at.get(ref.object);
-      return p ? centreOf(p.box, p.origin) : null;
-    };
-    // Spec 0077: a player's damage is shown on their shield by the life
-    // changes (the Impact look, on its own clock), not as a burst.
-    const told = new Set(
-      (life?.changes ?? [])
-        .filter((c) => !c.combat && (c.kind === "damage" || c.kind === "poison"))
-        .map((c) => c.player),
-    );
-    const totals = new Map<string, { ref: TargetRef; amount: number }>();
-    // Spec 0080 (Q5 A) -- damage a prevention stopped (Pyroclasm on a
-    // creature with protection from red): the pale shield, a grey "0".
-    const wards: FightMark[] = [];
-    for (const hit of damage.hits) {
-      if (!hit.prevented || hit.amount > 0) continue;
-      const k = refKey(hit.target);
-      const point = pointOf(hit.target);
-      if (!point || still) continue;
-      const box = "object" in hit.target ? positions.get(hit.target.object)?.box : undefined;
-      wards.push(
-        ...asMarks(
-          wardMarks(
-            `${damage.key}:${k}:prevented`,
-            point,
-            box ? box.h * 0.5 : LIFE_R * g.height * 1.9,
-            holdLeft(),
-            k,
-            true,
-            g.cardH * 0.3,
-            box
-              ? { x: point.x, y: box.y + box.h * 0.12 }
-              : { x: point.x - (52 * g.height) / 900, y: point.y - (4 * g.height) / 900 },
-          ),
-        ),
-      );
-    }
-    if (wards.length > 0) setMarks((list) => [...list, ...wards]);
-    for (const hit of damage.hits) {
-      if (hit.prevented && hit.amount === 0) continue;
-      if ("player" in hit.target && told.has(hit.target.player)) continue;
-      const k = refKey(hit.target);
-      totals.set(k, { ref: hit.target, amount: (totals.get(k)?.amount ?? 0) + hit.amount });
-    }
-    const added: Effect[] = [];
-    const cracks: FightMark[] = [];
-    // Spec 0083 (13 B) -- 0077's timing: a hit lands when the resolving
-    // spell's spark reaches it (RESOLVE_MS after it starts), as the life
-    // shield's crack does; at once with no spark, and after any fights.
-    const stackNow = new Set((stack ?? []).map((s) => s.id));
-    const sparked = new Set<string>();
-    for (const { s } of before?.stack ?? []) {
-      if (stackNow.has(s.id)) continue;
-      for (const t of s.targets) sparked.add(refKey(t));
-    }
-    const landsAt = (k: string) => Math.max(hold, sparked.has(k) ? RESOLVE_MS : 0);
-    let lastLanding = hold;
-    const landed = new Map<string, number>();
-    for (const [k, { ref, amount }] of totals) {
-      const point = pointOf(ref);
-      if (!point) continue;
-      const lands = landsAt(k);
-      lastLanding = Math.max(lastLanding, lands);
-      landed.set(k, lands);
-      // Spec 0083 (13 B, owner) -- one hit look: a spell or ability hitting
-      // anything cracks it -- on a creature exactly as on a life shield
-      // (0077's crack, its red flash and shake, its timing). Combat still
-      // slashes (A-13, above). The old orange starburst is gone.
-      if (!still) {
-        const box =
-          "object" in ref
-            ? (positions.get(ref.object)?.box ?? before?.at.get(ref.object)?.box)
-            : undefined;
-        const unit = g.height / 900;
-        cracks.push(
-          ...hitMarks(
-            `${damage.key}:${k}`,
-            point,
-            box ? box.w : 46 * unit,
-            box ? box.h : 54 * unit,
-            lands,
-            k,
-          ),
-        );
-        if (box && "object" in ref) {
-          const item = positions.get(ref.object)?.item;
-          const card = item
-            ? elements.current.get(item)?.querySelector<HTMLElement>(":scope > .bf-card")
-            : null;
-          if (card && typeof card.animate === "function")
-            card.animate(shakeFrames(box.h), {
-              duration: SHAKE_MS,
-              delay: lands,
-              easing: "linear",
-              composite: "add",
-            });
-        }
-        // The red "−N" rises off what was hit with the crack (the canvas's
-        // B: off the card's right, as 0077's rises off a shield's left), on
-        // the board's clock, so a slowed or hurried clock keeps it with the
-        // crack (a page timer cut it short on a slowed clock).
-        const w = box ? box.w : 46 * unit;
-        const h = box ? box.h : 54 * unit;
-        cracks.push({
-          key: `${damage.key}:${k}:number`,
-          kind: "number",
-          damageNumber: k,
-          style: {
-            left: box ? point.x + w * 0.34 : point.x - 52 * unit,
-            top: box ? point.y - h * 0.1 : point.y - 4 * unit,
-            fontSize: box ? h * 0.24 : 34 * unit,
-          },
-          frames: [
-            { offset: 0, opacity: 0, transform: "translate(-50%, -50%) translateY(-30%)" },
-            { offset: 0.12, opacity: 1 },
-            { offset: 0.7, opacity: 1 },
-            { offset: 1, opacity: 0, transform: "translate(-50%, -50%) translateY(-130%)" },
-          ],
-          duration: LIFE_MARK_MS,
-          delay: lands,
-          text: `−${amount}`,
-          of: k,
-        });
-        continue;
-      }
-      // Reduce motion: the number alone, still (bf-number-still).
-      added.push({
-        key: `${damage.key}:${k}:number`,
-        kind: "number",
-        target: k,
-        at: point,
-        amount,
-        delay: lands,
-      });
-    }
-    setEffects((list) => [...list.filter((e) => !e.key.startsWith(`${damage.key}:`)), ...added]);
-    if (cracks.length > 0) setMarks((list) => [...list, ...cracks]);
-    timers.current.push(
-      window.setTimeout(
-        () => setEffects((list) => list.filter((e) => !added.includes(e))),
-        lastLanding + NUMBER_MS + 50,
-      ),
-    );
-    spellHits.current = {
-      ids: new Set(totals.keys()),
-      delay: lastLanding + SPELL_HIT_MS,
-      landed,
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [damage, result, positions, viewerSeat]);
 
   // Spec 0077 (owner 2026-11-12, canvas life-1112) -- every life change
   // that is not combat's (combat's play with the fights above), once per

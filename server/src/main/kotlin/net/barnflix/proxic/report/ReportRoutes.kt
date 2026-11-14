@@ -97,6 +97,7 @@ private fun Route.adminReportDownloads(admin: AdminServices) {
         val type =
             when {
                 file.name.endsWith(".png") -> ContentType.Image.PNG
+                file.name.endsWith(".jpg") -> ContentType.Image.JPEG
                 file.name.endsWith(".gz") -> ContentType.Application.GZip
                 else -> ContentType.Text.Plain.withParameter("charset", "utf-8")
             }
