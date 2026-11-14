@@ -40,3 +40,12 @@ Phase 10 A-22, from the deep dive "Phase 10 graphical gaps.md" (2026-11-13), ite
 | F-0086-F | Swamp and Dark Ritual: balls in, count steps, +3; spending −N | page test; clip |
 
 ## Amendments
+
+### Amendment 1 — widened before building (owner, 2026-11-13, from "Phase 10 deep dive 2.md")
+
+Approved looks only; no new canvas needed.
+- **Triggers rise from their new pictures.** The monarch's end-step draw rises from the crown; the initiative's upkeep venture from the initiative token; a dungeon room's trigger from its room on the map card; an emblem's trigger from its tile. All use the trigger rise (A-00/0066).
+- **City's blessing** becomes a badge in the tray, in 0086's family, with a gold pulse when gained.
+- **The Ring.** The Ring's count becomes a tray badge that ticks with +1 on each temptation. When the Ring-bearer changes, the gold ring (0076's mark) flies from the old bearer to the new one instead of popping.
+- **Where mana came from.** The worker sends each mana's source with the pool (from the game's own record), so the balls fly from the right land or spell. Past about 6 mana from one source (Cabal Coffers for 12), one larger ball flies with "×N" and the count steps.
+- **The pool empties:** when floating mana is lost at the end of a step, its balls fade out of the chip with a grey rising −N.

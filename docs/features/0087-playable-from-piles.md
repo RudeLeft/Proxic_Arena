@@ -32,3 +32,11 @@ The exile and graveyard tiles show only a count (`GameScreen.tsx` ~2750-2763). "
 | F-0087-E | Both seats; nothing overlaps hand, plate or act button at 1920x1080 | page test; e2e sweep; screenshot |
 
 ## Amendments
+
+### Amendment 1 — widened before building (owner, 2026-11-13, from "Phase 10 deep dive 2.md")
+
+Approved looks only; no new canvas needed.
+- **Use the game's complete list.** Today the worker marks only exile cards under a "you may play it" effect. Cards in the graveyard (flashback, escape, Faithless Looting, Think Twice, Uro) and foretold, plotted and suspended cards are never marked, so this spec's own tests would have nothing to light. Build the glow and fan from the game's own complete list of cards a player can use outside their hand, never from card names.
+- **Abilities from the graveyard** (Unearth, Scavenge, Embalm, Encore, Agent of Kotis's Renew) stand in the fan too, with the ability's own small mark. Using one rises from the fan as a cast does.
+- **The other player's piles you may play from** (Gonti, Thief of Sanity; Hostage Taker) come from the same list, and their fan stands by the pile they sit in.
+- **Plotted and foretold cards** wear their gold-rimmed square in the fan (plotted: a clock-hand; foretold: an eye; face down to the other player as before).

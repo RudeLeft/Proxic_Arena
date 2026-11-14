@@ -36,3 +36,10 @@ Phase 10 A-22, from the deep dive "Phase 10 graphical gaps.md" (2026-11-13), ite
 | F-0085-E | Banishing Light and Fiend Hunter: picture tab; Disenchant / killing the Hunter: the card comes back out of exile; both seats | worker test (the link); page test; Lab; hidden check; clip |
 
 ## Amendments
+
+### Amendment 1 — widened before building (owner, 2026-11-13, from "Phase 10 deep dive 2.md")
+
+Approved looks only; no new canvas needed.
+- **More abilities marked:** double strike, "can't be blocked" and reach join the gained-ability squares (rise, then settle). They fold like the other gained keywords.
+- **Lost abilities:** under Humility, Turn to Frog or Kenrith's Transformation, a creature that has lost all its abilities wears a grey square ("lost its abilities"), using the same rise-and-settle. While it lasts, its printed marks (hexproof, protection, flying's hover) drop, and they come back when it ends.
+- **Held cards that stay in exile:** the tab plays only the move the game makes. Imprint (Chrome Mox, Isochron Scepter) and Hideaway hold a card that stays in exile when the holder leaves; that tab sinks with the card into the exile pile, and the card never comes back out. Banishing Light-style holders return the card as before. A face-down held card (Hideaway) is a back with no name to the other player.
