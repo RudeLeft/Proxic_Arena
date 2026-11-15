@@ -500,7 +500,7 @@ def fetch():
         return st["consider"] >= 3 and calm(g, 2) and calm(g, 1) and \
             sum("surveil" in (r.get("said") or "") for r in all_reports(g.state.get(1) or {})) >= 3
 
-    g = game("fetch", BEARS, [("Island", 10), ("Swamp", 10), ("Polluted Delta", 10), ("Flooded Strand", 10),
+    g = game("fetch", BEARS, [("Island", 19), ("Swamp", 19), ("Polluted Delta", 1), ("Flooded Strand", 1),
                               ("Consider", 20)],
              deal={1: BEARS_DEAL,
                    2: {"hand": ["Polluted Delta", "Flooded Strand", "Island", "Consider", "Consider", "Swamp", "Island"],
@@ -523,7 +523,7 @@ def fetch():
     searches = [r for r in rows if "searched" in (r.get("said") or "")]
     if "surveil" not in (a.get("said") or ""):
         problems.append(f"the newest report in full is not Consider's surveil: {a.get('said')}")
-    if len(searches) < 2:
+    if [r.get("source") for r in searches] != ["Polluted Delta", "Flooded Strand"]:
         problems.append(f"the two searches are not gathered under it: {found['window']}")
     stamps = [r.get("stamp") or 0 for r in rows] + [a.get("stamp") or 0]
     if stamps != sorted(stamps) or len(set(stamps)) != len(stamps):
