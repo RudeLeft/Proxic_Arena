@@ -1163,7 +1163,22 @@ public final class GameHost {
      */
     void replacementChosen(forge.game.replacement.ReplacementEffect chosen) {
         Game current = game;
-        if (current == null || !Survivors.isPrevention(chosen)) {
+        if (current == null) {
+            return;
+        }
+        // Spec 0089 (Q4 B) -- umbra armor: the Aura is destroyed instead of
+        // its creature. Told as a survivor (the page's shield), and to the
+        // other player as a report (ActionReports#umbraSaved).
+        forge.game.card.Card[] umbra = Survivors.umbraSave(chosen);
+        if (umbra != null) {
+            survived.add(new Survivors.Survived(umbra[1].getId(), "umbra", umbra[0].getId()));
+            ActionReports reports = actions();
+            if (reports != null) {
+                reports.umbraSaved(umbra[0], umbra[1]);
+            }
+            return;
+        }
+        if (!Survivors.isPrevention(chosen)) {
             return;
         }
         java.util.Map<Player, Integer> seats = seatsByPlayer(current);

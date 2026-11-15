@@ -227,15 +227,96 @@
     0 0 6px rgb(0 0 0 / 60%);
   cursor: default;
 }
-.gs-life::before {
-  content: "";
+/* The shield's picture (an element since spec 0089, so it can dim, glow
+   and break apart at the end of the game). */
+.gs-life-shield {
   position: absolute;
   inset: 0;
   z-index: -1;
   background: url("../assets/life-banner.svg") center / 100% 100% no-repeat;
+  pointer-events: none;
 }
-.gs-life-active::before {
+.gs-life-active .gs-life-shield {
   filter: drop-shadow(0 0 4px rgb(240 190 90 / 95%));
+}
+
+/* ---- Spec 0089 (Q1 A): the end of the game, on the plates ---- */
+/* The loser's plate and shield dim; broken, the shield is its three pieces
+   (each the shield's picture, cut), apart, with the crack across them. */
+.gs-seat-lost {
+  filter: brightness(0.58) saturate(0.35);
+}
+.gs-seat-lost .gs-life-shield {
+  filter: grayscale(0.85) brightness(0.55);
+}
+.gs-life-broken .gs-life-shield {
+  background: none;
+}
+.gs-life-shard {
+  position: absolute;
+  inset: 0;
+  background: url("../assets/life-banner.svg") center / 100% 100% no-repeat;
+  transform-origin: 50% 50%;
+}
+.gs-life-shard:nth-child(1) {
+  transform: translate(-7px, -5px) rotate(-10deg);
+}
+.gs-life-shard:nth-child(2) {
+  transform: translate(7px, -4px) rotate(9deg);
+}
+.gs-life-shard:nth-child(3) {
+  transform: translate(1px, 8px) rotate(4deg);
+}
+.gs-life-crack {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+/* The winner's plate glows gold, its shield too; a light runs along its top. */
+.gs-seat-won {
+  border-color: #c9a35a;
+  border-top-color: #ffd27a;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 6%),
+    0 0 0 1.6px rgb(240 196 106 / 68%),
+    0 0 27px rgb(240 196 106 / 44%);
+}
+.gs-seat-won .gs-life-shield {
+  filter: drop-shadow(0 0 10px rgb(255 214 120 / 100%));
+}
+.gs-seat-flare {
+  position: absolute;
+  left: 0;
+  top: -3px;
+  width: 150px;
+  height: 5px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    rgb(255 226 160 / 0%),
+    #ffe8b0,
+    #f0c46a,
+    rgb(255 226 160 / 0%)
+  );
+  box-shadow: 0 0 14px 4px rgb(240 190 90 / 70%);
+  opacity: 0;
+  pointer-events: none;
+}
+/* Poison: the ring closes and glows (the tenth notch lit is the badge's own). */
+.gs-poison-closed {
+  filter: drop-shadow(0 0 14px rgb(110 230 120 / 90%));
+}
+/* The banner, held until the plates have played the end, then faded in. */
+.gs-over-enter {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.gs-over-entering .gs-over,
+.gs-over-entering .gs-spectator-over {
+  pointer-events: none;
 }
 .gs-life-n {
   position: relative;
@@ -4517,6 +4598,31 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-opening-plain span {
   color: #9aa7b2;
   font-size: var(--pa-size-sm);
+}
+/* Spec 0089 (Q2 A) -- a card's back, laid over it while it travels face
+   down (dealt from the library, swept back, put back). */
+.gs-opening-cardback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  object-fit: cover;
+  opacity: 0;
+  pointer-events: none;
+}
+.gs-opening-card img.gs-opening-cardback {
+  position: absolute;
+}
+/* A card of the window on its way out, drawn where it stood. */
+.gs-opening-leaving {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  transition: none;
+}
+.gs-opening-dropped {
+  filter: grayscale(0.6) brightness(0.55);
 }
 /* Put back: the card drops and greys; begun in play: a gold edge. */
 .gs-opening-back {

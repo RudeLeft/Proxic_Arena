@@ -30,9 +30,25 @@ export function FitName({
   as?: "span" | "b";
 }) {
   const ref = useRef<HTMLElement>(null);
+  useFit(ref, name);
+  return (
+    <Tag ref={ref} className={className} title={name}>
+      {name}
+    </Tag>
+  );
+}
+
+/**
+ * Spec 0089 (Q6 A) -- the same rule for any element that shows a name on one
+ * line (a stack card's top bar, the casting card's name): smaller in 5% steps
+ * until it fits, never below MIN, and only then cut by its own CSS ("…").
+ * [ref]'s element keeps its CSS; this sets only its font-size, again when its
+ * place changes size, its words change, or the display face loads.
+ */
+export function useFit(ref: { current: HTMLElement | null }, words: string, on = true): void {
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el) return undefined;
+    if (!el || !on) return undefined;
     const fit = () => {
       el.style.fontSize = "";
       const base = parseFloat(getComputedStyle(el).fontSize);
@@ -54,10 +70,5 @@ export function FitName({
       resized?.disconnect();
       changed?.disconnect();
     };
-  }, [name]);
-  return (
-    <Tag ref={ref} className={className} title={name}>
-      {name}
-    </Tag>
-  );
+  }, [ref, words, on]);
 }

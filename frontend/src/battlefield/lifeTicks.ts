@@ -239,6 +239,43 @@ export function endLifeSteps(clock?: LifeClock): void {
   notify();
 }
 
+/**
+ * Spec 0089 (Q1 A) -- every change still to come on any plate has landed: the
+ * last hit of the game is in, and each count reads the board's number. (A
+ * clock may still be running its rising "−N"; that is not a hit to wait for.)
+ */
+export function lifeLanded(): boolean {
+  for (const run of runs.values()) {
+    const t = run.now();
+    if (run.steps.some((step) => step.at > t)) return false;
+  }
+  return true;
+}
+
+/** Spec 0089 (Q1 A) -- lifeLanded(), redrawn as the clocks run and end. */
+export function useLifeLanded(watch: boolean): boolean {
+  const [, redraw] = useState(0);
+  useLayoutEffect(() => {
+    const listener = () => redraw((n) => n + 1);
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
+  const landed = lifeLanded();
+  useEffect(() => {
+    if (!watch || landed) return undefined;
+    let frame = 0;
+    const tick = () => {
+      redraw((n) => n + 1);
+      frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [watch, landed]);
+  return landed;
+}
+
 /** The plate now: its life and poison, and a count of the blows landed on each. */
 export function useShownPlate(
   seat: number,

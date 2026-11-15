@@ -83,7 +83,16 @@ function reducedMotion(): boolean {
 }
 
 /** The badge, or nothing at no poison. [pulses] counts the counters' arrivals: each new one pulses. */
-export function PoisonBadge({ count, pulses }: { count: number; pulses: number }) {
+export function PoisonBadge({
+  count,
+  pulses,
+  closed = false,
+}: {
+  count: number;
+  pulses: number;
+  /** Spec 0089 (Q1 A) -- the tenth counter ended the game: the ring closes and glows. */
+  closed?: boolean;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
   const seen = useRef(pulses);
   // The count the badge showed before this pulse: none means it appears now.
@@ -173,7 +182,7 @@ export function PoisonBadge({ count, pulses }: { count: number; pulses: number }
   return (
     <span
       ref={ref}
-      className={`gs-poison${count >= POISON_NOTCHES ? " gs-poison-full" : ""}`}
+      className={`gs-poison${count >= POISON_NOTCHES ? " gs-poison-full" : ""}${closed ? " gs-poison-closed" : ""}`}
       data-poison={count}
       data-blows={pulses}
       data-unpoison={removed ? removed.from - removed.to : undefined}

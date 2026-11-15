@@ -878,7 +878,8 @@ export interface Snapshot {
   /** Spec 0080 -- this round's phase changes (out: phased out; else phased in). */
   phased?: { card: string; out: boolean }[];
   /** Spec 0080 -- this round's survivors: a regeneration shield used, or a destroy an indestructible permanent shrugged off. */
-  survived?: { card: string; how: "regenerated" | "indestructible" }[];
+  /** Spec 0089 (Q4 B) -- "umbra": an Aura's umbra armor (`by`) was destroyed instead. */
+  survived?: { card: string; how: "regenerated" | "indestructible" | "umbra"; by?: string }[];
   /** Spec 0084 -- the seats whose library was shuffled this round (a fetch land, a tutor). */
   shuffles?: number[];
   /** Spec 0084 -- the vehicles crewed this round, and the creatures that crewed each. */
@@ -1460,12 +1461,18 @@ function asPhased(value: unknown): { card: string; out: boolean }[] {
 }
 
 /** Spec 0080 -- the round's survivors, keeping only well-formed ones. */
-function asSurvived(value: unknown): { card: string; how: "regenerated" | "indestructible" }[] {
+type Survivor = { card: string; how: "regenerated" | "indestructible" | "umbra"; by?: string };
+
+function asSurvived(value: unknown): Survivor[] {
   if (!Array.isArray(value)) return [];
-  return value.flatMap((entry) => {
+  return value.flatMap((entry): Survivor[] => {
     const e = (typeof entry === "object" && entry !== null ? entry : {}) as Record<string, unknown>;
     const card = asString(e["card"]);
     const how = e["how"];
+    if (card && how === "umbra") {
+      const by = asString(e["by"]);
+      return [{ card, how, ...(by ? { by } : {}) }];
+    }
     return card && (how === "regenerated" || how === "indestructible") ? [{ card, how }] : [];
   });
 }

@@ -108,6 +108,52 @@ export const SPARK_MS = 400;
 /** It starts this small (of the card) and Glides from its full size. */
 export const TOKEN_FROM = 0.3;
 
+// --- Spec 0089 (Q5 B) -- many at once: waves of 8 -----------------------------
+
+/** Up to this many tokens at once come one by one, as before; more come in waves of this many. */
+export const WAVE = 8;
+/** One wave to the next (the canvas's 0.33 s), and one token to the next inside a wave (8 ms). */
+export const WAVE_MS = 330;
+export const WAVE_STEP_MS = 8;
+/** A wave's spark is this much bigger than one token's (the canvas's 1.7). */
+export const WAVE_SPARK = 1.7;
+/** The wave's "+8" rises this long after its first token lands (the canvas's 50 ms). */
+export const WAVE_NUMBER_AT = 50;
+
+/**
+ * When the [i]th of [n] tokens made at once sets off, from the first: one
+ * after another [beat] apart up to WAVE of them (spec 0073, unchanged), else
+ * in waves of WAVE, WAVE_MS apart.
+ */
+export function tokenStart(i: number, n: number, beat: number): number {
+  if (n <= WAVE) return i * beat;
+  return Math.floor(i / WAVE) * WAVE_MS + (i % WAVE) * WAVE_STEP_MS;
+}
+
+/** Whether the [i]th of [n] sparks: every token up to WAVE at once, else each wave's first. */
+export function sparks(i: number, n: number): boolean {
+  return n <= WAVE || i % WAVE === 0;
+}
+
+/** Each wave's size, in order: 8, 8, ..., the rest (20 makes 8, 8, 4); none up to WAVE. */
+export function waves(n: number): number[] {
+  if (n <= WAVE) return [];
+  return Array.from({ length: Math.ceil(n / WAVE) }, (_, w) => Math.min(WAVE, n - w * WAVE));
+}
+
+/**
+ * Where the [i]th token of a wave bows out to on its way (the canvas's
+ * spread: a golden-angle fan above the line, so a wave of 8 never flies as
+ * one card), in pixels for a card [cardH] high; none up to WAVE at once.
+ */
+export function waveSpread(i: number, n: number, cardH: number): { x: number; y: number } {
+  if (n <= WAVE) return { x: 0, y: 0 };
+  const k = cardH / 135;
+  const a = i * 2.399;
+  const r = 40 + (i % 9) * 16;
+  return { x: Math.cos(a) * r * 1.2 * k, y: (-Math.abs(Math.sin(a)) * r - 30) * k };
+}
+
 /** The box of a card the size of `to`, centred on `at`, upright. */
 export function boxOn(at: { x: number; y: number }, to: Box): Box {
   return { ...to, x: at.x - to.w / 2, y: at.y - to.h / 2, rotation: 0 };
@@ -124,6 +170,8 @@ export function tokenFrames(
   cardW: number,
   cardH: number,
   toOrigin: { x: number; y: number },
+  /** Spec 0089 (Q5 B) -- a wave's token bows out this far mid-flight (waveSpread), back by landing. */
+  spread: { x: number; y: number } = { x: 0, y: 0 },
 ): Keyframe[] {
   const ox = toOrigin.x * cardW;
   const oy = toOrigin.y * cardH;
@@ -148,18 +196,29 @@ export function tokenFrames(
     from: 1,
     to: 1,
   })) {
-    frames.push({ ...frame, offset: share(TOKEN_GROW_MS + Number(frame.offset) * MOVE_MS) });
+    const t = Number(frame.offset);
+    const bow = Math.sin(Math.PI * t);
+    const transform =
+      (spread.x || spread.y) && t > 0 && t < 1
+        ? String(frame["transform"]).replace(
+            /translate3d\(([-\d.e]+)px, ([-\d.e]+)px, 0\)/,
+            (_, x: string, y: string) =>
+              `translate3d(${(Number(x) + spread.x * bow).toFixed(2)}px, ${(Number(y) + spread.y * bow).toFixed(2)}px, 0)`,
+          )
+        : frame["transform"];
+    frames.push({ ...frame, transform, offset: share(TOKEN_GROW_MS + t * MOVE_MS) });
   }
   return frames;
 }
 
 /** The spark on a token's source: it flares and grows, then fades (the canvas's). */
-export function sparkFrames(): Keyframe[] {
+export function sparkFrames(big = 1): Keyframe[] {
+  const at = (s: number) => `translate(-50%, -50%) scale(${+(s * big).toFixed(3)})`;
   return [
-    { offset: 0, opacity: 0, transform: "translate(-50%, -50%) scale(0.3)" },
-    { offset: 0.2, opacity: 1, transform: "translate(-50%, -50%) scale(0.54)" },
-    { offset: 0.67, opacity: 1, transform: "translate(-50%, -50%) scale(1.2)" },
-    { offset: 1, opacity: 0, transform: "translate(-50%, -50%) scale(1.5)" },
+    { offset: 0, opacity: 0, transform: at(0.3) },
+    { offset: 0.2, opacity: 1, transform: at(0.54) },
+    { offset: 0.67, opacity: 1, transform: at(1.2) },
+    { offset: 1, opacity: 0, transform: at(1.5) },
   ];
 }
 

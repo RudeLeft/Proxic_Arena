@@ -306,7 +306,7 @@ jobs:
               attachments printings face-down costs results \
               tracked-state text-effects coin-flip board-data concede mana-cost \
               library-order mana-pool mulligan unreachable dice unset \
-              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere \
+              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
               'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions) limit=900;; esac;
@@ -335,6 +335,9 @@ jobs:
           # seat the game lets see it (its id nowhere else), and every gathered
           # report's cards carry the report's own ids, hidden ones nameless.
           python3 -I scripts/check-hidden-tops.py "$traces"/*.jsonl || [ $? = 2 ]
+          # Spec 0089, over the same games: before the first turn the other
+          # player's deal, mulligan and put-back are told as backs only.
+          python3 -I scripts/check-hidden-mulligans.py "$traces"/*.jsonl
           # PHASE_08: every question these games asked, for the job below,
           # which reads both halves of the Lab together.
           python3 -I scripts/check-questions-asked.py --summarise "$traces"/*.jsonl             > "$RUNNER_TEMP/questions-asked-$shard.txt"

@@ -33,7 +33,8 @@ and whose turn it is -- never inferred:
               Alice's command zone, both seats (F-0086-D)
   extra-turn  Time Warp: the next turn is Alice's again, and its report
               ("Extra turn: this is Alice's turn again.", Time Warp's card)
-              reaches both seats at its start, once (spec 0088: it then stays
+              reaches Bob at its start, once, and Alice (who cast it) never
+              (spec 0086 Amendment 4, owner 2026-11-15; spec 0088: it then stays
               until closed, through the next turn line); ordinary turns
               change hands with no such report (F-0086-E)
   mana        A Swamp's black floated, Dark Ritual paid from it and its
@@ -532,10 +533,19 @@ def extra_turn():
         found[f"turns, seat {seat}"] = turns
         if (st["cast_turn"], 1) not in turns or (extra, 1) not in turns:
             problems.append(f"seat {seat}: turn {extra} should be Alice's again: {turns}")
-        said = "Extra turn: this is your turn again." if seat == 1 else "Extra turn: this is Alice's turn again."
+        said = "Extra turn: this is Alice's turn again."
         reports = [b["action"] for b in boards if (b.get("action") or {}).get("said", "").startswith("Extra turn")]
         at = [b.get("turn") for b in boards if (b.get("action") or {}).get("said", "").startswith("Extra turn")]
         found[f"extra-turn reports, seat {seat}"] = sorted(set(at))
+        # Spec 0086, Amendment 4 (owner 2026-11-15): whoever played the card
+        # is not told -- Alice cast Time Warp, so only Bob gets the window
+        # (anywhere in it: the newest or gathered).
+        everywhere = [a for b in boards for a in [b.get("action") or {}, *((b.get("action") or {}).get("gathered") or [])]
+                      if (a.get("said") or "").startswith("Extra turn")]
+        if seat == 1:
+            if everywhere:
+                problems.append(f"seat 1 cast Time Warp and is told of its extra turn: {everywhere[:1]}")
+            continue
         if not reports or reports[0].get("said") != said:
             problems.append(f"seat {seat}: the extra turn's report should say {said!r}: {reports[:1]}")
         # Spec 0088 (Q2 A): a report is no longer cleared at the turn line --
@@ -546,7 +556,8 @@ def extra_turn():
                             f"reports {sorted({r.get('key') for r in reports})}")
         elif [c.get("name") for c in reports[0].get("cards") or []] != ["Time Warp"]:
             problems.append(f"seat {seat}: the report shows Time Warp: {reports[0].get('cards')}")
-    return result(problems, "Time Warp's extra turn is Alice's again, told to both seats at its start", found)
+    return result(problems, "Time Warp's extra turn is Alice's again, told at its start to Bob only (Amendment 4)",
+                  found)
 
 
 # --- mana -------------------------------------------------------------------------------------

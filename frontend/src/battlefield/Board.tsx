@@ -37,6 +37,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { useFit } from "../FitName";
 import "@fontsource/barlow-condensed/500.css";
 import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
@@ -197,7 +198,13 @@ import {
   TOKEN_BEAT_MS,
   TOKEN_MS,
   tokenFrames,
+  tokenStart,
   turnUp,
+  WAVE_NUMBER_AT,
+  WAVE_SPARK,
+  waveSpread,
+  waves,
+  sparks as sparksFor,
   type BadgeChange,
 } from "./piles";
 import {
@@ -240,8 +247,18 @@ import {
   type ShowTo,
   type TileChange,
 } from "./graves";
-import type { Moments, ShowFrom, Survive, TileMove, TileZone } from "./fromSnapshot";
+import type { Moments, Opening, ShowFrom, Survive, TileMove, TileZone } from "./fromSnapshot";
+import {
+  DEAL_MS,
+  DEAL_NUMBER_AT,
+  PUT_BACK_MS,
+  RIFFLE_AT as OPENING_RIFFLE_AT,
+  dealAt,
+  sweepAt,
+  sweptAt as sweptInAt,
+} from "./opening";
 import { domeMarks, shieldBreakMarks, wardMarks, type SurviveMark } from "./survive";
+import { GHOST_AT as UMBRA_GHOST_AT, umbraGhostBox, umbraMarks, umbraTimes } from "./umbra";
 import { payWords, type PayMark } from "./payPicks";
 import { PaySign } from "./PaySign";
 import {
@@ -635,6 +652,12 @@ export interface BoardProps {
   fizzled?: ReadonlySet<string>;
   /** Spec 0080 -- this update's flickers, survivors and phase changes, as the game says. */
   survive?: Survive | null;
+  /** Spec 0089 (Q2 A) -- before the first turn: each hand's deal, mulligan and put-back. */
+  opening?: Opening | null;
+  /** Spec 0089 (Q2 A) -- your hand is in the opening-hand window: the table's is not drawn. */
+  veilHand?: boolean;
+  /** Spec 0089 (Q2 A) -- the opening's movements wait this long (the loading screen still up). */
+  openingDelay?: number;
   /** Spec 0084 -- this update's spent cards, library shuffles and crews, as the game says. */
   moments?: Moments | null;
   /** Combat, while there is one (fire and shield lines, AMENDMENT 7). */
@@ -830,6 +853,7 @@ export function CardFace({
   costChange,
   costFirst,
   figure,
+  fit = false,
 }: {
   name: string;
   look: Look;
@@ -845,6 +869,8 @@ export function CardFace({
   cost?: string | null;
   costChange?: "down" | "up" | null;
   costFirst?: boolean;
+  /** Spec 0089 (Q6 A) -- a stack card's name: smaller until it fits its bar (FitName's rule), then cut. */
+  fit?: boolean;
 }) {
   if (faceDown) {
     // §7.18: the back, to both players; what the rules make public (a
@@ -869,7 +895,7 @@ export function CardFace({
     <>
       <span className={`bf-bar bf-bar-top${cost && costFirst ? " bf-cost-first" : ""}`}>
         {cost && costFirst && <ManaCost cost={cost} change={costChange ?? null} />}
-        <span className="bf-name">{name}</span>
+        {fit ? <BarName name={name} /> : <span className="bf-name">{name}</span>}
         {cost && !costFirst && <ManaCost cost={cost} change={costChange ?? null} />}
       </span>
       <span className="bf-window" aria-hidden="true">
@@ -893,6 +919,21 @@ export function CardFace({
         <span className="bf-type">{type}</span>
       </span>
     </>
+  );
+}
+
+/**
+ * Spec 0089 (Q6 A) -- a stack card's name in its top bar: 5% smaller at a time
+ * until it fits, never below 60% (spec 0041's FitName rule), and only then
+ * cut with "…" by the bar's own CSS.
+ */
+function BarName({ name }: { name: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useFit(ref, name);
+  return (
+    <span ref={ref} className="bf-name" data-fit="true">
+      {name}
+    </span>
   );
 }
 
@@ -941,6 +982,8 @@ interface Drawn {
   costChange?: "down" | "up" | null;
   /** The cost before the name: a hand card's right side is under the next card. */
   costFirst?: boolean;
+  /** Spec 0089 (Q6 A) -- a stack card's look: its name fits its bar (CardFace's `fit`). */
+  fit?: boolean;
   side: "viewer" | "opponent";
   /** A permanent on the table (not a hand card): it can be defeated or exiled. */
   table?: boolean;
@@ -1136,6 +1179,8 @@ interface Ghost extends Drawn {
   inFight?: boolean;
   /** Spec 0073: a token made -- it grows out of its source (`box`), then Glides to its pile. */
   token?: boolean;
+  /** Spec 0089 (Q5 B) -- a wave's token: how far it bows out mid-flight (piles.ts waveSpread). */
+  spread?: { x: number; y: number };
   /** Spec 0073: joining from a zone tile (graveyard, exile...): it starts faint. */
   faint?: boolean;
   /**
@@ -1442,7 +1487,11 @@ interface FightMark {
     | "ptfloat"
     // Spec 0085: a gained ability's icon rising and settling; a held card's tab flying to its pile.
     | "riser"
-    | "heldtab";
+    | "heldtab"
+    // Spec 0089 (Q4 B): an umbra's tab swinging out, its shield, the shield's pieces.
+    | "umbratab"
+    | "umbrashield"
+    | "shard";
   /** Spec 0083 (13 B) -- a crack drawn across a card's box (stretched), not a shield's. */
   card?: boolean;
   /** Spec 0083 -- what a spell's hit landed on, for the browser checks (as the burst's was). */
@@ -1465,6 +1514,10 @@ interface FightMark {
   markOf?: CardMark;
   /** Spec 0085 -- a flying held tab: its card as the viewer may know it, and its picture's address. */
   heldTab?: { name: string; known: boolean; src: string | null };
+  /** Spec 0089 -- an umbra's shield: the umbra's picture inside it. */
+  src?: string | null;
+  /** Spec 0089 -- the card this mark draws on its way (the jump check follows it). */
+  ghostOf?: string;
 }
 
 /**
@@ -1513,6 +1566,60 @@ function HexDome({ id }: { id: string }) {
       <ellipse rx="58" ry="68" fill={`url(#${grid}-g)`} />
       <ellipse rx="58" ry="68" fill={`url(#${grid})`} opacity=".8" />
       <ellipse rx="58" ry="68" fill="none" stroke="#fff3c4" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+/**
+ * Spec 0089 (Q4 B, variant b) -- the umbra's gold heater shield, the
+ * canvas's shape (100 x 122), with the umbra's own picture inside (a gold
+ * gradient when it has none), an inner rim, and the crack drawn across it at
+ * the blow (CSS, delayed to --crack-at on the board's clock).
+ */
+function UmbraShield({ id, src }: { id: string; src: string | null }) {
+  const clip = `bf-umbra-${id.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+  const heater = "M6 6 H94 V50 C94 84 72 104 50 116 C28 104 6 84 6 50 Z";
+  return (
+    <svg viewBox="0 0 100 122" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <clipPath id={clip}>
+          <path d={heater} />
+        </clipPath>
+        <linearGradient id={`${clip}-g`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#f2e6b0" />
+          <stop offset="1" stopColor="#8a6a2a" />
+        </linearGradient>
+      </defs>
+      <path d={heater} fill={`url(#${clip}-g)`} fillOpacity=".82" />
+      {src && (
+        <image
+          href={src}
+          x="6"
+          y="6"
+          width="88"
+          height="110"
+          preserveAspectRatio="xMidYMid slice"
+          clipPath={`url(#${clip})`}
+          opacity=".9"
+        />
+      )}
+      <path d={heater} fill="none" stroke="#f2c46a" strokeWidth="4" />
+      <path
+        d="M14 14 H86 V50 C86 78 68 95 50 105 C32 95 14 78 14 50 Z"
+        fill="none"
+        stroke="#fff3c8"
+        strokeWidth="1.6"
+        opacity=".8"
+      />
+      <g
+        className="bf-umbra-crack"
+        fill="none"
+        stroke="#fffaf0"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      >
+        <path d="M50 50 L36 30 L30 14 M50 50 L66 34 L74 18 M50 50 L44 74 L50 100 M50 50 L72 62 M50 50 L24 60" />
+      </g>
     </svg>
   );
 }
@@ -1985,6 +2092,9 @@ export function Board({
   countered,
   fizzled,
   survive = null,
+  opening = null,
+  veilHand = false,
+  openingDelay = 0,
   moments = null,
   flyingOnto = null,
   handLeft = null,
@@ -2040,6 +2150,8 @@ export function Board({
   const [ghosts, setGhosts] = useState<Ghost[]>([]);
   /** Phase 10 A-07: the board wipe's flash, keyed by when it began. */
   const [sweep, setSweep] = useState<number | null>(null);
+  /** Spec 0089 (Q2 A) -- the opening update last played. */
+  const playedOpening = useRef<string | null>(null);
   /** Phase 10 A-08: the gold lines pulling stolen creatures across. */
   const [tethers, setTethers] = useState<{ key: string; from: Point; to: Point }[]>([]);
   /** Phase 10 A-10: the merges' bursts. */
@@ -3488,6 +3600,7 @@ export function Board({
             name: s.name,
             look: "artifact",
             type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+            fit: true,
             pt: "",
             art: s.art ? artUrl(s.art) : null,
             crop: s.crop ? artUrl(s.crop) : null,
@@ -3718,6 +3831,7 @@ export function Board({
             name: s.name,
             look: "artifact",
             type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+            fit: true,
             pt: "",
             art: s.art ? artUrl(s.art) : null,
             crop: s.crop ? artUrl(s.crop) : null,
@@ -4697,7 +4811,8 @@ export function Board({
     const blow = holdLeft() + (resolved ? RESOLVE_MS : 0) + (leaving >= WIPE_AT ? SWEEP_MS : 0);
     const added: FightMark[] = [];
     for (const [id, how] of survive.survived) {
-      if (handled.has(id)) continue;
+      // Spec 0089 -- an umbra's save is its shield (the movement effect).
+      if (handled.has(id) || how === "umbra") continue;
       const item = positions.get(id)?.item ?? id;
       const box = positions.get(id)?.box ?? before?.at.get(id)?.box;
       if (!box) continue;
@@ -5380,9 +5495,11 @@ export function Board({
         .map((c) => c.id)
         .sort((a, b) => Number(a.replace(/\D/g, "")) - Number(b.replace(/\D/g, "")));
       const tokenIndex = new Map(made.map((id, i) => [id, i]));
+      // Spec 0089 (Q5 B) -- more than 8 at once (Krenko, Avenger): waves of 8.
       const madeAt = (i: number) =>
         (maker ? hold + TOKEN_AFTER_MS : hold) +
-        i * (makerCard ? TOKEN_BEAT_ABILITY_MS : TOKEN_BEAT_MS);
+        tokenStart(i, made.length, makerCard ? TOKEN_BEAT_ABILITY_MS : TOKEN_BEAT_MS);
+      const spreadOf = (id: string) => waveSpread(tokenIndex.get(id) ?? 0, made.length, g.cardH);
       // Spec 0079 (Q1 A) -- a token copy sparks out of the creature it
       // copies (the game names it, while this viewer may see it), which glows.
       const copySource = (id: string): Point | null => {
@@ -5417,12 +5534,15 @@ export function Board({
           });
       };
       const spark = (id: string, delay: number) => {
+        // Spec 0089 (Q5 B) -- in waves, one bigger spark a wave.
+        const nth = tokenIndex.get(id) ?? 0;
+        if (!sparksFor(nth, made.length)) return;
         const at = copySource(id) ?? sparkAt;
         returning.push({
           key: `spark:${id}:${performance.now()}`,
           kind: "spark",
           style: { left: at.x, top: at.y },
-          frames: sparkFrames(),
+          frames: sparkFrames(made.length > 8 ? WAVE_SPARK : 1),
           duration: SPARK_MS,
           delay: Math.max(0, delay - SPARK_LEAD_MS),
           of: id,
@@ -5460,6 +5580,7 @@ export function Board({
               g.cardW,
               g.cardH,
               item.origin,
+              spreadOf(item.id),
             ),
             delay,
             TOKEN_MS,
@@ -5544,6 +5665,7 @@ export function Board({
             name: s.name,
             look: "artifact",
             type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+            fit: true,
             pt: "",
             art: s.art ? artUrl(s.art) : null,
             crop: s.crop ? artUrl(s.crop) : null,
@@ -5694,6 +5816,7 @@ export function Board({
               fade: false,
               delay,
               token: true,
+              spread: spreadOf(id),
             });
             spark(id, delay);
             landAt.set(id, delay + TOKEN_MS);
@@ -5889,6 +6012,7 @@ export function Board({
                 name: s.name,
                 look: "artifact",
                 type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+                fit: true,
                 pt: "",
                 art: s.art ? artUrl(s.art) : null,
                 crop: s.crop ? artUrl(s.crop) : null,
@@ -6369,6 +6493,7 @@ export function Board({
       // A-17: a tab that moved to another host (Equipment re-equipped) is
       // chained across; one whose card left the table (an Aura with its
       // creature) goes as any permanent leaving does, from its tab.
+      const umbrasGoing: { id: string; was: Tab; host: string }[] = [];
       for (const [id, was] of before.tabs) {
         const nowTab = tabs.get(id);
         if (nowTab && nowTab.host !== was.host) {
@@ -6392,6 +6517,14 @@ export function Board({
           continue;
         }
         if (nowTab || now.has(id)) continue;
+        // Spec 0089 (Q4 B, b) -- an umbra destroyed instead of its creature:
+        // its tab unfolds into a shield over the creature, which the blow
+        // shatters (below, once the wipe's flash is known).
+        const saved = survive?.umbras?.get(id);
+        if (saved && now.has(saved)) {
+          umbrasGoing.push({ id, was, host: saved });
+          continue;
+        }
         const dest = departures?.get(id) ?? `${was.drawn.side}:graveyard`;
         leaving.push({
           ...was.drawn,
@@ -6415,12 +6548,86 @@ export function Board({
       // flash sweeps the table first, then they all go together.
       // Spec 0084: spent cards never count toward a wipe, and never wait for its flash.
       const killed = (ghost: Ghost) => !!ghost.fate && ghost.fate !== "spent";
-      if (
-        leaving.filter((ghost) => killed(ghost) && !ghost.fight && !ghost.inFight).length >= WIPE_AT
-      ) {
+      // Spec 0089: an umbra destroyed instead is destroyed too (it counts).
+      const wiped =
+        leaving.filter((ghost) => killed(ghost) && !ghost.fight && !ghost.inFight).length +
+          umbrasGoing.length >=
+        WIPE_AT;
+      if (wiped) {
         setSweep(performance.now());
         for (const ghost of leaving)
           if (killed(ghost)) ghost.delay = Math.max(ghost.delay, SWEEP_MS);
+      }
+      // Spec 0089 (Q4 B, variant b) -- when the blow lands (the survivors'
+      // moment, spec 0080: after any fights, the resolving spell's beam, a
+      // wipe's flash), the umbra's shield takes it: the tab swings out and
+      // unfolds into the shield before it, the shield cracks and shatters, and
+      // a small ghost of the umbra goes to its owner's graveyard (the pile's
+      // number ticks as it lands). The creature stays, glowing softly.
+      if (umbrasGoing.length > 0) {
+        const resolvedNow = before.stack.some((e) => !(stack ?? []).some((x) => x.id === e.s.id));
+        const times = umbraTimes(hold + (resolvedNow ? RESOLVE_MS : 0) + (wiped ? SWEEP_MS : 0));
+        const added: FightMark[] = [];
+        for (const { id, was, host } of umbrasGoing) {
+          const at = now.get(host);
+          const hostBefore = before.at.get(host)?.box ?? at?.box;
+          if (!at || !hostBefore) continue;
+          const tw = TAB_W * hostBefore.h;
+          const tab: Box = {
+            ...was.box,
+            x: was.box.x + was.box.w / 2 - tw / 2,
+            y: hostBefore.y + hostBefore.h * 0.015,
+            w: tw,
+            h: hostBefore.h * 0.97,
+          };
+          const toMiddle = was.drawn.side === "viewer" ? -1 : 1;
+          for (const mark of umbraMarks(
+            `umbra:${id}:${performance.now()}`,
+            id,
+            at.box,
+            tab,
+            times.start,
+            times.blow,
+            toMiddle,
+          ))
+            added.push({
+              ...mark,
+              ...(mark.kind === "umbratab"
+                ? { heldTab: { name: was.drawn.name, known: true, src: null } }
+                : mark.kind === "umbrashield"
+                  ? { src: was.drawn.crop ?? was.drawn.art ?? null }
+                  : {}),
+              style: { ...mark.style, zIndex: Z_LINES + 4 },
+            });
+          const dest = departures?.get(id) ?? `${was.drawn.side}:graveyard`;
+          leaving.push({
+            ...was.drawn,
+            id,
+            box: umbraGhostBox(at.box, g.cardW, g.cardH),
+            origin: { x: 0.5, y: 0.5 },
+            to: boxAt(where[dest], g),
+            toOrigin: { x: 0.5, y: 0.5 },
+            fade: true,
+            delay: times.blow + UMBRA_GHOST_AT,
+            waits: true,
+          });
+          // The creature it saved: a soft pale-gold glow as the blow meets the shield.
+          elements.current
+            .get(result.slots.find((x) => x.ids.includes(host))?.ids[0] ?? host)
+            ?.querySelector<HTMLElement>(":scope > .bf-card")
+            ?.animate(
+              [
+                { offset: 0, boxShadow: "0 0 0 0 rgb(255 236 180 / 0%)" },
+                {
+                  offset: 0.5,
+                  boxShadow: "0 0 0 2px rgb(255 236 180 / 70%), 0 0 18px rgb(255 236 180 / 55%)",
+                },
+                { offset: 1, boxShadow: "0 0 0 0 rgb(255 236 180 / 0%)" },
+              ],
+              { duration: 500, delay: times.blow, easing: "ease-in-out" },
+            );
+        }
+        if (added.length > 0) setMarks((list) => [...list, ...added]);
       }
       // Spec 0084 (1 A) -- a spent Treasure gives a small coin spark as its
       // mana flies: a coin flips up off it, a spark swelling behind it.
@@ -6485,6 +6692,38 @@ export function Board({
         const element = elements.current.get(lead);
         if (element && changes.some((c) => c.at > 0)) tickBadge(element, then.length, changes);
       }
+      // Spec 0089 (Q5 B) -- each wave of tokens lands with its own rising
+      // "+8" (or the rest) beside the pile it joins.
+      const waveNumbers: FightMark[] = [];
+      waves(made.length).forEach((size, w) => {
+        const first = made[w * 8]!;
+        const slot = result.slots.find((x) => x.ids.includes(first));
+        const at = slot ? now.get(slot.ids[0]!) : undefined;
+        if (!at) return;
+        const k = g.cardH / 135;
+        waveNumbers.push({
+          key: `wave:${first}:${performance.now()}`,
+          kind: "number",
+          tone: "green",
+          style: {
+            left: at.box.x + at.box.w + 30 * k,
+            top: at.box.y + 10 * k,
+            fontSize: 32 * k,
+            zIndex: Z_LINES + 5,
+          },
+          frames: [
+            { offset: 0, opacity: 0, transform: "translate(-50%, -50%)" },
+            { offset: 0.12, opacity: 1, transform: `translate(-50%, calc(-50% - ${4 * k}px))` },
+            { offset: 0.7, opacity: 1, transform: `translate(-50%, calc(-50% - ${21 * k}px))` },
+            { offset: 1, opacity: 0, transform: `translate(-50%, calc(-50% - ${30 * k}px))` },
+          ],
+          duration: 1100,
+          delay: madeAt(w * 8) + TOKEN_MS + WAVE_NUMBER_AT,
+          text: `+${size}`,
+          of: first,
+        });
+      });
+      if (waveNumbers.length > 0) setMarks((list) => [...list, ...waveNumbers]);
 
       // Spec 0028 — a stack object that resolved (or was countered) glows,
       // its spark runs to what it targeted, then it leaves: a spell to its
@@ -6576,6 +6815,7 @@ export function Board({
                 name: s.name,
                 look: "artifact",
                 type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+                fit: true,
                 pt: "",
                 art: s.art ? artUrl(s.art) : null,
                 crop: s.crop ? artUrl(s.crop) : null,
@@ -6639,6 +6879,7 @@ export function Board({
           name: s.name,
           look: "artifact",
           type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+          fit: true,
           pt: "",
           art: s.art ? artUrl(s.art) : null,
           crop: s.crop ? artUrl(s.crop) : null,
@@ -6843,6 +7084,7 @@ export function Board({
           name: s.name,
           look: "artifact",
           type: STACK_KIND[s.kind ?? "spell"] ?? "Spell",
+          fit: true,
           pt: "",
           art: s.art ? artUrl(s.art) : null,
           crop: s.crop ? artUrl(s.crop) : null,
@@ -7001,6 +7243,103 @@ export function Board({
       // Spec 0074 -- each tile's number as its cards leave and land: the
       // number it showed, then each change at its moment (popping), on the
       // board's animation clock (a click hurries it with the cards).
+      // Spec 0089 (Q2 A) -- before the first turn: the libraries count the
+      // deal down and a mulligan's seven (or a put-back) up, card by card, with
+      // a rising "−7" / "+7" / "+1" by the tile; the other player's backs go
+      // into their library and come back (by place: which back is which is
+      // never known); the riffle waits for the seven (below).
+      if (opening && opening.key !== playedOpening.current) {
+        playedOpening.current = opening.key;
+        const numbers: FightMark[] = [];
+        const say = (side: Side, n: number, at: number) => {
+          const pile = where[`${side}:library`];
+          const k = g.height / 1080;
+          numbers.push({
+            key: `opening:${opening.key}:${side}:${n}:${at}`,
+            kind: "number",
+            ...(n > 0 ? { tone: "green" as const } : {}),
+            // The canvas's: just right of the tile's count, rising.
+            style: {
+              left: pile.x - 38 * k,
+              top: pile.y,
+              fontSize: 36 * k,
+              zIndex: Z_LINES + 6,
+            },
+            frames: [
+              { offset: 0, opacity: 0, transform: "translate(-50%, -50%)" },
+              { offset: 0.12, opacity: 1, transform: `translate(-50%, calc(-50% - ${4 * k}px))` },
+              { offset: 0.7, opacity: 1, transform: `translate(-50%, calc(-50% - ${21 * k}px))` },
+              { offset: 1, opacity: 0, transform: `translate(-50%, calc(-50% - ${30 * k}px))` },
+            ],
+            duration: 1100,
+            delay: at + openingDelay,
+            text: `${n > 0 ? "+" : "−"}${Math.abs(n)}`,
+            of: `library:${side}`,
+          });
+        };
+        for (const [side, o] of opening.sides) {
+          const tile = `${side}:library`;
+          const swept = o.out > 0 && o.where === "shuffled";
+          for (let j = 0; j < o.out; j++)
+            tick(tile, openingDelay + (swept ? sweptInAt(j) : PUT_BACK_MS + j * 60), 1);
+          if (o.out > 0) say(side, o.out, swept ? sweptInAt(o.out - 1) : PUT_BACK_MS);
+          for (let i = 0; i < o.dealt; i++) tick(tile, openingDelay + dealAt(i, swept) + 1, -1);
+          if (o.dealt > 0) say(side, -o.dealt, dealAt(0, swept) + DEAL_NUMBER_AT);
+          if (side !== "opponent") continue;
+          // Their backs: those that go leave their fan -- all of them for a
+          // mulligan, the middle ones for a put-back -- for their library.
+          const backs = [...before.at.keys()]
+            .filter((k) => k.startsWith("hidden-hand:"))
+            .sort((a, b) => Number(a.split(":")[2]) - Number(b.split(":")[2]));
+          const from =
+            o.out >= backs.length
+              ? 0
+              : Math.max(0, Math.floor((backs.length - 1) / 2) - Math.floor((o.out - 1) / 2));
+          backs.slice(from, from + o.out).forEach((key, j) => {
+            const at = before.at.get(key);
+            if (!at) return;
+            gone.push({
+              ...backLook,
+              id: `${key}:opening:${opening.key}`,
+              box: at.box,
+              origin: at.origin,
+              to: boxAt(where["opponent:library"], g),
+              toOrigin: { x: 0.5, y: 0.5 },
+              fade: true,
+              delay: openingDelay + (swept ? sweepAt(j) : j * 60),
+              waits: true,
+            });
+          });
+          // Dealt again after a mulligan: the fan's backs are the same places,
+          // so each flies in from the library on its own (hidden until it goes).
+          if (swept && o.dealt > 0) {
+            const lib = boxAt(where["opponent:library"], g);
+            items
+              .filter((item) => item.id.startsWith("hidden-hand:"))
+              .slice(-o.dealt)
+              .forEach((item, i) => {
+                const element = elements.current.get(item.id);
+                if (!element || typeof element.animate !== "function") return;
+                const frames = glideFrames(
+                  {
+                    ...lib,
+                    x: lib.x + lib.w / 2 - item.box.w / 2,
+                    y: lib.y + lib.h / 2 - item.box.h / 2,
+                  },
+                  item.box,
+                  g.cardW,
+                  g.cardH,
+                  item.origin,
+                  item.origin,
+                );
+                frames[0] = { ...frames[0], opacity: 0 };
+                for (let f = 1; f < frames.length; f++) frames[f] = { ...frames[f], opacity: 1 };
+                glide(element, frames, openingDelay + dealAt(i, true), DEAL_MS);
+              });
+          }
+        }
+        if (numbers.length > 0) setMarks((list) => [...list, ...numbers]);
+      }
       // A tile already ticking counts the other cards landing in it this
       // update too (the spell that did it, a creature that died), as each
       // lands -- never one number early.
@@ -7093,7 +7432,11 @@ export function Board({
           const pile = where[`${side}:library`];
           const w = g.cardW * AT_ZONE_SCALE;
           const h = g.cardH * AT_ZONE_SCALE;
-          const start = hold + (fetched ? SHUFFLE_AFTER_MS : 0);
+          // Spec 0089 (Q2 A) -- a mulligan's riffle waits for its seven to be in.
+          const start =
+            hold +
+            (fetched ? SHUFFLE_AFTER_MS : 0) +
+            (opening?.sides.get(side)?.where === "shuffled" ? openingDelay + OPENING_RIFFLE_AT : 0);
           for (let i = 0; i < RIFFLE_CARDS; i++) {
             returning.push({
               key: `riffle:shuffle:${moments.key}:${side}:${i}`,
@@ -7195,6 +7538,8 @@ export function Board({
       stack: (stack ?? []).slice(0, spots.length).map((s, i) => ({ s, box: spots[i]! })),
     };
   }, [
+    opening,
+    openingDelay,
     fans,
     fanBoxesNow,
     pileCards,
@@ -7635,7 +7980,7 @@ export function Board({
   return (
     <div
       ref={ref}
-      className="bf-board"
+      className={`bf-board${veilHand ? " bf-veil-hand" : ""}`}
       data-testid="battlefield"
       // Spec 0083 (18 B) -- a split-second spell on the stack: the other
       // player's hand dims (battlefield.css) until it resolves.
@@ -7915,6 +8260,7 @@ export function Board({
                     faceDown={s.name === "Face-down"}
                     known={false}
                     cost={s.manaCost ?? null}
+                    fit
                   />
                 )}
                 {s.copy && <CopyMark />}
@@ -8475,7 +8821,7 @@ function GhostCard({
     // Spec 0073: a token grows out of its source, then Glides to its pile;
     // a card out of the other player's hidden hand turns face up on the way.
     const made = ghost.token
-      ? tokenFrames(ghost.box, ghost.to, cardW, cardH, ghost.toOrigin)
+      ? tokenFrames(ghost.box, ghost.to, cardW, cardH, ghost.toOrigin, ghost.spread)
       : null;
     const turned = ghost.turn
       ? turnUp(
@@ -8687,6 +9033,7 @@ function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
       className={`bf-fight-${mark.kind}${mark.kind === "riser" && mark.markOf?.icon === "lost" ? " bf-fight-riser-lost" : ""}${mark.deathtouch ? " bf-fight-deathtouch" : ""}${mark.poison ? " bf-fight-poisoned" : ""}${mark.tone ? ` bf-fight-${mark.tone}` : ""}`}
       data-fight={mark.kind}
       data-of={mark.of}
+      data-ghost-of={mark.ghostOf}
       data-impact={mark.impact}
       data-damage-number={mark.damageNumber}
       style={{ ...mark.style, opacity: 0 }}
@@ -8708,6 +9055,13 @@ function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
         </>
       ) : mark.kind === "riser" && mark.markOf ? (
         <MarkIcon mark={mark.markOf} />
+      ) : mark.kind === "umbrashield" ? (
+        <UmbraShield id={mark.key} src={mark.src ?? null} />
+      ) : mark.kind === "umbratab" && mark.heldTab ? (
+        <>
+          <span className="bf-tag-glyph" aria-hidden="true" />
+          <span className="bf-tag-name">{mark.heldTab.name}</span>
+        </>
       ) : mark.kind === "heldtab" && mark.heldTab ? (
         <>
           <span

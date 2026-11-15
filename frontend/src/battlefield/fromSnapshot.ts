@@ -68,6 +68,56 @@ export interface BoardData {
   moments: Moments | null;
   /** Spec 0087 -- the cards some player may still use from a graveyard or an exile: the fans. */
   fans: FanCard[];
+  /** Spec 0089 (Q2 A) -- before the first turn: each hand's deal, mulligan and put-back; null for none. */
+  opening?: Opening | null;
+}
+
+/**
+ * Spec 0089 (Q2 A) -- before the first turn, what moved between each
+ * player's library and hand this update, from the game's own record: `out`
+ * cards back into the library (a mulligan's seven, "shuffled"; a put-back,
+ * "bottom"), `dealt` cards from it into the hand (by id where this viewer may
+ * know them: its own; the other player's are backs, counted). A new key is a
+ * new update (a board plays it once).
+ */
+export interface Opening {
+  key: string;
+  sides: Map<"viewer" | "opponent", OpeningSide>;
+}
+
+export interface OpeningSide {
+  out: number;
+  where: "shuffled" | "bottom" | "top" | null;
+  dealt: number;
+  /** Its own dealt cards' ids (the viewer's side only). */
+  ids: string[];
+}
+
+/** Spec 0089 (Q2 A) -- the update's opening moves (null after the first turn, or none). */
+export function openingOf(snapshot: Snapshot, previous: Snapshot | null): Opening | null {
+  if (snapshot.turn !== 0 || !previous || previous.gameEpoch !== snapshot.gameEpoch) return null;
+  const viewer = snapshot.seat;
+  const sides = new Map<"viewer" | "opponent", OpeningSide>();
+  const of = (seat: number) => {
+    const key = seat === viewer ? "viewer" : "opponent";
+    const now = sides.get(key) ?? { out: 0, where: null, dealt: 0, ids: [] };
+    sides.set(key, now);
+    return now;
+  };
+  for (const move of snapshot.moves ?? []) {
+    const { from, to } = move;
+    if (from.seat === null || to.seat === null || from.seat !== to.seat) continue;
+    if (from.zone === "hand" && to.zone === "library") {
+      const side = of(from.seat);
+      side.out += 1;
+      side.where = move.where ?? side.where;
+    } else if (from.zone === "library" && to.zone === "hand") {
+      const side = of(to.seat);
+      side.dealt += 1;
+      if (move.card && to.seat === viewer) side.ids.push(move.card);
+    }
+  }
+  return sides.size > 0 ? { key: `${snapshot.gameEpoch}:${snapshot.stateRevision}`, sides } : null;
 }
 
 /**
@@ -94,7 +144,9 @@ export interface Moments {
 export interface Survive {
   key: string;
   flickers: Map<string, "viewer" | "opponent">;
-  survived: Map<string, "regenerated" | "indestructible">;
+  survived: Map<string, "regenerated" | "indestructible" | "umbra">;
+  /** Spec 0089 (Q4 B) -- each Aura destroyed instead of its creature (umbra armor): Aura -> creature. */
+  umbras?: Map<string, string>;
   /** Each permanent that phased in (false) or out (true). */
   phased: Map<string, boolean>;
 }
@@ -772,8 +824,12 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   for (const move of snapshot.moves ?? [])
     if (move.card && move.why === "flickered" && onBoard.has(move.card))
       flickers.set(move.card, side(move.via?.seat ?? move.to.seat ?? viewer));
-  const survivedNow = new Map<string, "regenerated" | "indestructible">();
-  for (const s of snapshot.survived ?? []) survivedNow.set(s.card, s.how);
+  const survivedNow = new Map<string, "regenerated" | "indestructible" | "umbra">();
+  const umbras = new Map<string, string>();
+  for (const s of snapshot.survived ?? []) {
+    survivedNow.set(s.card, s.how);
+    if (s.how === "umbra" && s.by) umbras.set(s.by, s.card);
+  }
   const phased = new Map<string, boolean>();
   for (const p of snapshot.phased ?? []) if (onBoard.has(p.card)) phased.set(p.card, p.out);
   const survive: Survive | null =
@@ -782,6 +838,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
           key: `${snapshot.gameEpoch}:${snapshot.stateRevision}`,
           flickers,
           survived: survivedNow,
+          umbras,
           phased,
         }
       : null;
@@ -821,6 +878,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     survive,
     moments,
     fans: [...fanCards(snapshot), ...onTheirWay(snapshot, previous)],
+    opening: openingOf(snapshot, previous),
   };
 }
 

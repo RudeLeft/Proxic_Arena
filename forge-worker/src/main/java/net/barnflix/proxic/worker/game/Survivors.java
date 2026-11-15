@@ -31,8 +31,10 @@ import java.util.Map;
  *             itself stays in `battlefield`, flagged `phasedOut`.
  *   survived  [{card, how}] -- how "regenerated" (Forge's
  *             GameEventCardRegenerated: a shield was used instead of the
- *             card being destroyed) or "indestructible" (something tried to
- *             destroy an indestructible permanent: see below).
+ *             card being destroyed), "indestructible" (something tried to
+ *             destroy an indestructible permanent: see below) or, spec 0089,
+ *             "umbra" with by "card:N": an Aura's umbra armor was destroyed
+ *             instead (the replacement Forge chose, Survivors#umbraSave).
  *
  * and a damage wave's hits gain prevented hits, {source, target, amount: 0,
  * prevented: N}: what a prevention effect (Fog, Holy Day, protection from a
@@ -58,8 +60,15 @@ final class Survivors {
     /** One phase change. */
     record Phase(int card, boolean out) {}
 
-    /** One survivor: how it survived. */
-    record Survived(int card, String how) {}
+    /**
+     * One survivor: how it survived. Spec 0089 (Q4 B) -- [by] the card that
+     * was destroyed instead (an umbra), or 0 when nothing was.
+     */
+    record Survived(int card, String how, int by) {
+        Survived(int card, String how) {
+            this(card, how, 0);
+        }
+    }
 
     /**
      * One damage event a prevention effect was chosen for, as it stood then:
@@ -90,6 +99,9 @@ final class Survivors {
             JsonObject entry = new JsonObject();
             entry.addProperty("card", "card:" + each.card());
             entry.addProperty("how", each.how());
+            if (each.by() != 0) {
+                entry.addProperty("by", "card:" + each.by());
+            }
             out.add(entry);
         }
         return out;
@@ -142,6 +154,26 @@ final class Survivors {
             return !hit.has("source");
         }
         return hit.has("source") && source.equals(hit.get("source").getAsString());
+    }
+
+    /**
+     * Spec 0089 (Q4 B) -- the replacement Forge chose is umbra armor ("if
+     * enchanted creature would be destroyed, instead remove all damage from
+     * it and destroy this Aura"): Forge's own keyword record on the effect
+     * (CardTraitBase#isKeyword, set by CardFactoryUtil for the keyword), a
+     * Destroy event, never a card's name. Returns {aura, creature} -- the
+     * effect's host and what it enchants as it is chosen -- or null.
+     */
+    static Card[] umbraSave(ReplacementEffect re) {
+        if (re == null || re.getMode() != ReplacementType.Destroy || !re.isKeyword(Keyword.UMBRA_ARMOR)) {
+            return null;
+        }
+        Card aura = re.getHostCard();
+        Card creature = aura == null ? null : aura.getEnchantingCard();
+        if (aura == null || creature == null) {
+            return null;
+        }
+        return new Card[] {aura, creature};
     }
 
     /** Whether this replacement effect prevents damage (Fog, protection, "prevent the next N"). */

@@ -50,6 +50,14 @@ test("the opening hand: play or draw, a mulligan put back by clicking, a Leyline
         for (const page of [host, guest]) {
           const window = page.locator(".gs-opening");
           if ((await window.count()) === 0) continue;
+          // Spec 0089 (Q2 A) -- the one window stays between the opening's
+          // questions (waiting for the next) and while Keep closes it: nothing
+          // to answer there.
+          if (
+            (await window.getAttribute("data-waiting")) === "true" ||
+            ((await window.getAttribute("class")) ?? "").includes("gs-opening-closing")
+          )
+            continue;
           const title = (await page.locator(".gs-opening-title").textContent()) ?? "";
           const line = (await page.locator(".gs-opening-line").textContent()) ?? "";
           const buttons = page.locator(".gs-opening-button");

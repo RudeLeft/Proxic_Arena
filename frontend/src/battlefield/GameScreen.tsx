@@ -73,7 +73,7 @@ import { preparedMarkBox } from "./copies";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { DISCARD_KIND, discardCount, discardWords, togglePick } from "./discard";
 import { PAY_HOLD_MS, payMarks, withPick, withoutPick, type PayMark } from "./payPicks";
-import { LoadingRing, useVortexHandover } from "./LoadingRing";
+import { BURST_MS, LoadingRing, useVortexHandover } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import { OPPONENT_HAND_ORIGIN, type Box, type Geometry } from "./layout";
 import { anchors, boxAt } from "./motion";
@@ -123,8 +123,29 @@ import { openReports } from "./reports";
 import { LibraryTop, libraryTopBox } from "./LibraryTop";
 import { StatusTray } from "./StatusTray";
 import { PlayerFlights } from "./flights";
-import { FaceMarks } from "./playerMarks";
+import { FaceMarks, reducedMotion as motionOff, useHurry } from "./playerMarks";
 import { Rolling, TurnSweep, usePlateLight } from "./turnStart";
+import {
+  BANNER_AT,
+  BANNER_MS,
+  BREAK_AT,
+  BREAK_MS,
+  CRACK_IN_MS,
+  DIM_MS,
+  END_WAIT_MAX_MS,
+  FLARE_AT,
+  FLARE_MS,
+  GLOW_MS,
+  SHARD_CLIPS,
+  dimAt,
+  endReady,
+  endingOf,
+  flareFrames,
+  shardFrames,
+  type EndHow,
+  type Ending,
+} from "./gameEnd";
+import { lifeLanded, useLifeLanded } from "./lifeTicks";
 import { AwayWindow } from "./AwayWindow";
 import {
   CrankWindow,
@@ -179,6 +200,7 @@ import {
 } from "./stops";
 import { groupCopies, printedPt, zoneNotes, type ZoneName } from "./zoneTray";
 import { OpeningHand, OPENING_KINDS, optionFor } from "./OpeningHand";
+import { KEEP_MS } from "./opening";
 import { abilityParts } from "./abilities";
 import {
   DECLARE_KINDS,
@@ -422,6 +444,41 @@ export function GameScreen({
       }
     : null;
 
+  // Spec 0089 (Q1 A) -- the end of the game: the banner waits until the last
+  // hit has landed and the count reads what the game says; then the loser's
+  // shield breaks (or the poison ring closes, or a conceding plate dims), the
+  // winner's plate flares, and the banner fades in. `endStart`: when the end
+  // began (ms, the page's clock), -1 when it shows at once (a game over
+  // before its table was drawn, reduce motion, no winner), null while held.
+  const ending = finished && !updated ? endingOf(result.outcome, board) : null;
+  const landed = useLifeLanded(ending !== null);
+  const [endStart, setEndStart] = useState<number | null>(null);
+  useEffect(() => {
+    if (!finished) {
+      if (endStart !== null) setEndStart(null);
+      return undefined;
+    }
+    if (endStart !== null) return undefined;
+    if (!ending || motionOff()) {
+      setEndStart(-1);
+      return undefined;
+    }
+    // Asked now, not as drawn: the board's clocks start in its layout
+    // effects, after this screen was drawn with the new board.
+    if (board && endReady(ending, board, landed && lifeLanded())) {
+      setEndStart(performance.now());
+      return undefined;
+    }
+    // Never held for a board that does not come.
+    const late = window.setTimeout(
+      () => setEndStart((s) => s ?? performance.now()),
+      END_WAIT_MAX_MS,
+    );
+    return () => window.clearTimeout(late);
+  }, [finished, ending?.loser, ending?.how, landed, board, endStart]); // eslint-disable-line react-hooks/exhaustive-deps
+  const end = ending && endStart !== null ? { ending, start: endStart } : null;
+  const bannerDue = !finished || endStart !== null;
+
   // Everything the board draws that an option may name.
   const visible = useMemo(() => {
     const ids = new Set<string>();
@@ -619,6 +676,38 @@ export function GameScreen({
   const [modeQueue, setModeQueue] = useState<string[] | null>(null);
   // Phase 9 W-15 -- the cards still to put back, or to begin in play
   // (then no more), clicked at once and asked one at a time.
+  // Spec 0089 (Q2 A) -- the opening window held after its question was
+  // answered: waiting for the next one (a mulligan, a put-back), or closing
+  // after Keep (KEEP_MS). Gone with the next question of another kind, or
+  // once the game has begun.
+  const [openingHeld, setOpeningHeld] = useState<{
+    decision: Decision;
+    mode: "waiting" | "closing";
+  } | null>(null);
+  useEffect(() => {
+    if (!openingHeld) return undefined;
+    // Closing plays out whatever comes next (Keep is often the game's start).
+    if (openingHeld.mode === "waiting" && game.board && game.board.turn > 0) {
+      setOpeningHeld(null);
+      return undefined;
+    }
+    if (openingHeld.mode === "waiting" && game.decision && !OPENING_KINDS.has(game.decision.kind)) {
+      setOpeningHeld(null);
+      return undefined;
+    }
+    return undefined;
+  }, [openingHeld, game.board, game.decision]);
+  // Kept: the window goes once the hand has glided down (KEEP_MS), boards or not.
+  // (From when the window is closing: the question it answered gone.)
+  const closingSince =
+    openingHeld?.mode === "closing" && !(game.decision && OPENING_KINDS.has(game.decision.kind))
+      ? openingHeld
+      : null;
+  useEffect(() => {
+    if (!closingSince) return undefined;
+    const done = window.setTimeout(() => setOpeningHeld(null), KEEP_MS);
+    return () => window.clearTimeout(done);
+  }, [closingSince]);
   const [openingQueue, setOpeningQueue] = useState<{
     kind:
       | "tuckCardsViaMulligan"
@@ -1657,7 +1746,87 @@ export function GameScreen({
           (question.context === "priority" && question.listed.length === 0))));
   const windowed = !!decision && (answeredForYou || !barOnly);
   const artUrl = pictureUrl;
-  const gameWindow = (geometry: Geometry) => {
+  // Phase 9 W-15 -- the start of the game, the opening hand laid out.
+  // Spec 0089 (Q2 A) -- its own slot beside the other windows, so the one
+  // window lasts the whole opening (and its Keep can close while the game's
+  // first question is already up).
+  const openingWindow = (geometry: Geometry) => {
+    // Spec 0089 (Q2 A) -- between the opening's questions (the new seven
+    // being dealt, the put-back), and closing after Keep: the same window.
+    if (
+      openingHeld &&
+      board &&
+      (board.turn === 0 || openingHeld.mode === "closing") &&
+      (!decision || !OPENING_KINDS.has(decision.kind) || answeredForYou)
+    ) {
+      return (
+        <OpeningHand
+          key="opening"
+          area={{ x: geometry.play.x, w: geometry.play.w, h: geometry.height }}
+          delay={vortex.show ? BURST_MS : 0}
+          decision={openingHeld.decision}
+          board={board}
+          busy
+          artUrl={pictureUrl}
+          onAnswer={() => undefined}
+          onPutBack={() => undefined}
+          onBegin={() => undefined}
+          waiting={openingHeld.mode === "waiting"}
+          closing={openingHeld.mode === "closing"}
+        />
+      );
+    }
+    if (!decision || !question || !board || answeredForYou || !OPENING_KINDS.has(decision.kind))
+      return null;
+    // Spec 0089 (Q2 A) -- one window for the whole opening (its key), so
+    // the cards it deals, sweeps back and puts back are its own; after a
+    // mulligan or a put-back it stays for the next question, after Keep it
+    // closes with the hand gliding down (openingHeld).
+    const hold = (mode: "waiting" | "closing") => setOpeningHeld({ decision, mode });
+    return (
+      <OpeningHand
+        key="opening"
+        area={{ x: geometry.play.x, w: geometry.play.w, h: geometry.height }}
+        delay={vortex.show ? BURST_MS : 0}
+        decision={decision}
+        board={board}
+        busy={busy}
+        artUrl={artUrl}
+        onAnswer={(actionId) => {
+          if (decision.kind === "mulliganKeepHand")
+            hold(actionId === "mulligan:again" ? "waiting" : "closing");
+          answer(actionId);
+        }}
+        onPutBack={(cards) => {
+          const [first, ...rest] = cards;
+          const now = first ? optionFor(decision, { id: first } as SnapshotCard) : undefined;
+          if (!now) return;
+          if (rest.length > 0) setOpeningQueue({ kind: "tuckCardsViaMulligan", cards: rest });
+          hold("waiting");
+          answer(now.actionId);
+        }}
+        onBegin={(cards) => {
+          const [first, ...rest] = cards;
+          const now = first ? optionFor(decision, { id: first } as SnapshotCard) : undefined;
+          hold("closing");
+          if (!now) {
+            answer(null);
+            return;
+          }
+          // The rest as asked, then "no more" (an empty queue).
+          setOpeningQueue({ kind: "chooseSaToActivateFromOpeningHand", cards: rest });
+          answer(now.actionId);
+        }}
+      />
+    );
+  };
+  const gameWindow = (geometry: Geometry) => (
+    <>
+      {openingWindow(geometry)}
+      {questionWindow(geometry)}
+    </>
+  );
+  const questionWindow = (geometry: Geometry) => {
     if (!decision || !question || !board || answeredForYou) return null;
     // Spec 0042: beside the card being cast, when one is.
     // Spec 0057, item 6: else by the card asking, in the hand (above it) or
@@ -1711,37 +1880,8 @@ export function GameScreen({
     // Spec 0061, item 3 -- the discard is the act button and the hand.
     if (decision.kind === DISCARD_KIND) return null;
     // Phase 9 W-15 -- the start of the game, the opening hand laid out.
-    if (OPENING_KINDS.has(decision.kind)) {
-      return (
-        <OpeningHand
-          key={decision.decisionId}
-          area={{ x: geometry.play.x, w: geometry.play.w, h: geometry.height }}
-          decision={decision}
-          board={board}
-          busy={busy}
-          artUrl={artUrl}
-          onAnswer={answer}
-          onPutBack={(cards) => {
-            const [first, ...rest] = cards;
-            const now = first ? optionFor(decision, { id: first } as SnapshotCard) : undefined;
-            if (!now) return;
-            if (rest.length > 0) setOpeningQueue({ kind: "tuckCardsViaMulligan", cards: rest });
-            answer(now.actionId);
-          }}
-          onBegin={(cards) => {
-            const [first, ...rest] = cards;
-            const now = first ? optionFor(decision, { id: first } as SnapshotCard) : undefined;
-            if (!now) {
-              answer(null);
-              return;
-            }
-            // The rest as asked, then "no more" (an empty queue).
-            setOpeningQueue({ kind: "chooseSaToActivateFromOpeningHand", cards: rest });
-            answer(now.actionId);
-          }}
-        />
-      );
-    }
+    // Phase 9 W-15 -- the opening is its own window (openingWindow, below).
+    if (OPENING_KINDS.has(decision.kind)) return null;
     // W-17 (Amendment 19) -- dice, sectors, sprockets, cranking.
     if (DICE_KINDS.has(decision.kind) && decision.arrange?.dice) {
       return <DiceWindow key={decision.decisionId} {...common} />;
@@ -1914,6 +2054,16 @@ export function GameScreen({
             countered={data.countered}
             fizzled={data.fizzled}
             survive={data.survive}
+            opening={data.opening ?? null}
+            openingDelay={vortex.show ? BURST_MS : 0}
+            veilHand={
+              !!board &&
+              ((board.turn === 0 &&
+                !!decision &&
+                OPENING_KINDS.has(decision.kind) &&
+                decision.kind !== "chooseStartingPlayer") ||
+                (!!openingHeld && (board.turn === 0 || openingHeld.mode === "closing")))
+            }
             moments={data.moments}
             fans={data.fans}
             pileCards={pileCards}
@@ -1951,16 +2101,19 @@ export function GameScreen({
             asking={question?.context === "choose"}
             top={
               <>
-                {over && !over.aside && watching && (
-                  <SpectatorOver over={over} onLeave={onLeave} onAnother={onSpectateAnother} />
-                )}
-                {over && !over.aside && !watching && (
-                  <ResultBanner
-                    over={over}
-                    sentence={sentence}
-                    onLeave={onLeave}
-                    onAside={() => setResultAside(true)}
-                  />
+                {over && !over.aside && bannerDue && (
+                  <EndEnter start={end?.start ?? -1}>
+                    {watching ? (
+                      <SpectatorOver over={over} onLeave={onLeave} onAnother={onSpectateAnother} />
+                    ) : (
+                      <ResultBanner
+                        over={over}
+                        sentence={sentence}
+                        onLeave={onLeave}
+                        onAside={() => setResultAside(true)}
+                      />
+                    )}
+                  </EndEnter>
                 )}
                 {turning > 0 && <div key={turning} className="gs-turning" aria-hidden="true" />}
                 <NoticeStack notices={tableNotices} place="table" />
@@ -1990,6 +2143,7 @@ export function GameScreen({
             rail={
               <Rail
                 theirAway={theirAway}
+                end={end}
                 board={board}
                 question={question}
                 aim={aimAt}
@@ -2485,7 +2639,7 @@ function StepLadder({
   // passed gems filling as it goes. It only shows; the game is never held
   // for it. `from`: where this sweep started; `still`: placed, not swept.
   const [shown, setShown] = useState({ index: target, from: target, still: true, dim: false });
-  const was = useRef({ turn: board.turn, index: target });
+  const was = useRef({ turn: board.turn, index: target, epoch: board.gameEpoch });
   // A hand-off under way: the step it sweeps to when it is done. A new
   // turn comes as several boards in quick succession (Untap, then Main 1),
   // and the later ones only move where the hand-off ends.
@@ -2493,7 +2647,7 @@ function StepLadder({
   useEffect(() => () => handoff.current?.timers.forEach((t) => window.clearTimeout(t)), []);
   useEffect(() => {
     const before = was.current;
-    was.current = { turn: board.turn, index: target };
+    was.current = { turn: board.turn, index: target, epoch: board.gameEpoch };
     if (target < 0) return;
     if (handoff.current && board.turn >= before.turn) {
       handoff.current.target = target;
@@ -2519,11 +2673,18 @@ function StepLadder({
       );
       return;
     }
-    // Backwards in the same turn, or an earlier turn (a restart): placed.
+    // Spec 0089 (Q3 A) -- back up the same turn: an extra combat after the
+    // second main phase (Relentless Assault). The gem glides back up to
+    // Combat (its sweep), never jumps.
+    if (board.turn === before.turn && board.gameEpoch === before.epoch && target < before.index) {
+      setShown((s) => ({ index: target, from: s.index, still: false, dim: false }));
+      return;
+    }
+    // An earlier turn (a restart): placed.
     handoff.current?.timers.forEach((t) => window.clearTimeout(t));
     handoff.current = null;
     setShown({ index: target, from: target, still: true, dim: false });
-  }, [board.turn, target]);
+  }, [board.turn, board.gameEpoch, target]);
   const now = shown.index;
   const mine = board.activeSeat === mySeat;
   // Owner 2026-10-29: "Your turn" and "Opponent's turn", not a name --
@@ -2712,11 +2873,167 @@ export function libraryWords(count: number, whose: string | null): string | null
   return null;
 }
 
+/** Spec 0089 (Q1 A) -- what one plate plays at the end of the game, or null. */
+interface PlateEnd {
+  role: "lost" | "won";
+  how: EndHow;
+  /** When the end began (performance.now()), or -1: shown at once. */
+  start: number;
+}
+
+function plateEnd(end: { ending: Ending; start: number } | null, seat: number): PlateEnd | null {
+  if (!end) return null;
+  const role = end.ending.loser === seat ? "lost" : end.ending.winner === seat ? "won" : null;
+  return role ? { role, how: end.ending.how, start: end.start } : null;
+}
+
+/**
+ * Spec 0089 (Q1 A) -- the result banner fades in once the plates have
+ * played the end (BANNER_AT after it began); not clickable until it is in.
+ * A click hurries it with everything else (A-00). `start` -1: at once.
+ */
+function EndEnter({ start, children }: { start: number; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [entering, setEntering] = useState(start >= 0);
+  useHurry(ref, entering);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (start < 0 || !el || typeof el.animate !== "function") {
+      setEntering(false);
+      return undefined;
+    }
+    const wait = Math.max(0, BANNER_AT - (performance.now() - start));
+    const animation = el.animate([{ opacity: 0 }, { opacity: 1 }], {
+      duration: BANNER_MS,
+      delay: wait,
+      easing: "cubic-bezier(0.33, 1, 0.68, 1)",
+      fill: "backwards",
+    });
+    animation.onfinish = () => setEntering(false);
+    animation.oncancel = () => setEntering(false);
+    return () => {
+      animation.onfinish = null;
+      animation.oncancel = null;
+    };
+  }, [start]);
+  return (
+    <div
+      ref={ref}
+      className={`gs-over-enter${entering ? " gs-over-entering" : ""}`}
+      data-entering={entering ? "true" : undefined}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Spec 0089 (Q1 A) -- the plate's part in the end of the game, each a Web
+ * Animation from the end's start (a click hurries it): the loser's shield
+ * cracks apart and dims (poison: the ring closes and glows, the shield only
+ * dims; a concession: it dims, nothing breaks), the loser's plate dims; the
+ * winner's plate flares along its top edge, glows gold, its shield glows.
+ * The end states are classes, so they stay (and simply show with reduce
+ * motion); each animation holds the plate as it was until it starts.
+ */
+function usePlateEnd(
+  end: PlateEnd | null,
+  plate: { current: HTMLElement | null },
+  shield: { current: HTMLElement | null },
+  flare: { current: HTMLElement | null },
+): void {
+  useHurry(plate, end !== null && end.start >= 0);
+  useLayoutEffect(() => {
+    if (!end || end.start < 0) return;
+    const el = plate.current;
+    if (!el || typeof el.animate !== "function") return;
+    const since = performance.now() - end.start;
+    const at = (ms: number) => Math.max(0, ms - since);
+    const life = shield.current;
+    const play = (
+      target: Element | null | undefined,
+      frames: Keyframe[],
+      delay: number,
+      duration: number,
+      easing = "linear",
+    ) => target?.animate?.(frames, { duration, delay: at(delay), easing, fill: "backwards" });
+    if (end.role === "lost") {
+      const dim = dimAt(end.how);
+      play(
+        el,
+        [{ filter: "brightness(1) saturate(1)" }, { filter: "brightness(0.58) saturate(0.35)" }],
+        dim.plate,
+        DIM_MS,
+        "cubic-bezier(0.33, 1, 0.68, 1)",
+      );
+      play(
+        life?.querySelector(".gs-life-shield"),
+        [{ filter: "grayscale(0) brightness(1)" }, { filter: "grayscale(0.85) brightness(0.55)" }],
+        dim.shield,
+        DIM_MS,
+        "cubic-bezier(0.33, 1, 0.68, 1)",
+      );
+      if (end.how === "life") {
+        play(
+          life?.querySelector(".gs-life-crack"),
+          [{ opacity: 0 }, { opacity: 1 }],
+          0,
+          CRACK_IN_MS,
+        );
+        life
+          ?.querySelectorAll(".gs-life-shard")
+          .forEach((shard, i) => play(shard, shardFrames(i), BREAK_AT, BREAK_MS));
+      }
+      if (end.how === "poison")
+        play(
+          el.querySelector(".gs-poison"),
+          [
+            { filter: "drop-shadow(0 0 0 rgb(110 230 120 / 0%))" },
+            { filter: "drop-shadow(0 0 14px rgb(110 230 120 / 90%))" },
+          ],
+          BREAK_AT,
+          400,
+          "cubic-bezier(0.33, 1, 0.68, 1)",
+        );
+      return;
+    }
+    // The winner: the light along the top edge, the plate's glow, the shield's.
+    const width = el.offsetWidth || 216;
+    play(flare.current, flareFrames(width), FLARE_AT, FLARE_MS);
+    play(
+      el,
+      [
+        { boxShadow: "inset 0 1px 0 rgb(255 255 255 / 6%), 0 0 0 0 rgb(240 196 106 / 0%)" },
+        {
+          boxShadow:
+            "inset 0 1px 0 rgb(255 255 255 / 6%), 0 0 0 1.6px rgb(240 196 106 / 68%), 0 0 27px rgb(240 196 106 / 44%)",
+        },
+      ],
+      FLARE_AT,
+      GLOW_MS,
+      "cubic-bezier(0.33, 1, 0.68, 1)",
+    );
+    play(
+      life?.querySelector(".gs-life-shield"),
+      [
+        { filter: "drop-shadow(0 0 0 rgb(255 214 120 / 0%))" },
+        { filter: "drop-shadow(0 0 10px rgb(255 214 120 / 100%))" },
+      ],
+      FLARE_AT,
+      GLOW_MS,
+      "cubic-bezier(0.33, 1, 0.68, 1)",
+    );
+    // Once per end: the plate plays it as it begins.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [end?.start, end?.role]);
+}
+
 function SeatBlock({
   player,
   board,
   mine,
   deciding = false,
+  end = null,
   away = null,
   question,
   aim = null,
@@ -2727,6 +3044,8 @@ function SeatBlock({
   player: SnapshotPlayer;
   board: Snapshot;
   mine: boolean;
+  /** Spec 0089 (Q1 A) -- this plate's part in the end of the game. */
+  end?: PlateEnd | null;
   /** W-26 -- minutes this player has been gone, or null. */
   away?: number | null;
   /** W-25 — it is this player's move and you are waiting: the plate glows. */
@@ -2780,6 +3099,11 @@ function SeatBlock({
   // the plate's top edge and the shield glows.
   const runRef = useRef<HTMLSpanElement>(null);
   usePlateLight(board, player.seat, runRef, lifeRef);
+  // Spec 0089 (Q1 A) -- the end of the game, on this plate.
+  const plateRef = useRef<HTMLDivElement>(null);
+  const flareRef = useRef<HTMLSpanElement>(null);
+  usePlateEnd(end, plateRef, lifeRef, flareRef);
+  const broken = end?.role === "lost" && end.how === "life";
   const hitsSeen = useRef(shown.hits);
   useEffect(() => {
     if (shown.hits === hitsSeen.current) return;
@@ -2793,10 +3117,13 @@ function SeatBlock({
     // Spec 0029 — a raised plate: picture, name and Belt, life in a banner,
     // and a grid of tiles for the zones. Whose turn: the plate's top edge.
     <div
-      className={`gs-seat gs-seat-${mine ? "viewer" : "opponent"}${active ? " gs-seat-active" : ""}${deciding ? " gs-seat-deciding" : ""}`}
+      ref={plateRef}
+      className={`gs-seat gs-seat-${mine ? "viewer" : "opponent"}${active ? " gs-seat-active" : ""}${deciding ? " gs-seat-deciding" : ""}${end ? ` gs-seat-${end.role}` : ""}`}
       data-seat={player.seat}
+      data-end={end ? `${end.role}:${end.how}` : undefined}
     >
       <span ref={runRef} className="gs-seat-run" aria-hidden="true" />
+      {end?.role === "won" && <span ref={flareRef} className="gs-seat-flare" aria-hidden="true" />}
       <span className="pa-visually-hidden">
         {player.name} ({role}): {life} life
         {shown.poison > 0 ? `, ${shown.poison} poison` : ""}, {player.handCount} in hand,{" "}
@@ -2836,7 +3163,7 @@ function SeatBlock({
         <button
           type="button"
           ref={lifeRef}
-          className={`gs-life${active ? " gs-life-active" : ""}${choosable ? " gs-choosable" : ""}${targeted ? " gs-targeted" : ""}${chosenTarget ? " gs-chosen-target" : ""}${lifeIsLong(life) ? " gs-life-long" : ""}`}
+          className={`gs-life${active ? " gs-life-active" : ""}${choosable ? " gs-choosable" : ""}${targeted ? " gs-targeted" : ""}${chosenTarget ? " gs-chosen-target" : ""}${lifeIsLong(life) ? " gs-life-long" : ""}${broken ? " gs-life-broken" : ""}`}
           aria-label={`${player.name}, ${life} life${chosenTarget ? ", chosen as a target" : ""}${choosable ? ", can be chosen" : ""}`}
           data-life={life}
           data-object-id={id}
@@ -2845,6 +3172,32 @@ function SeatBlock({
           disabled={busy && choosable}
           onClick={() => onPick(id)}
         >
+          {/* Spec 0089 (Q1 A) -- the shield itself (its picture), and, broken,
+              its three pieces and the crack across them. */}
+          <span className="gs-life-shield" aria-hidden="true">
+            {broken &&
+              SHARD_CLIPS.map((clip) => (
+                <span key={clip} className="gs-life-shard" style={{ clipPath: clip }} />
+              ))}
+            {broken && (
+              <svg className="gs-life-crack" viewBox="0 0 55 65" preserveAspectRatio="none">
+                <g
+                  fill="none"
+                  stroke="#fff3df"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M14 30 L22 27 L27 31 L33 25 L41 27" />
+                  <path d="M27 31 L25 41 L29 50 L27 60" />
+                  <path d="M22 27 L18 16 L20 8" />
+                  <path d="M33 25 L38 14" />
+                  <path d="M25 41 L16 47" />
+                  <path d="M29 50 L37 54" />
+                </g>
+              </svg>
+            )}
+          </span>
           <span className="gs-life-n">{life}</span>
           {chosenTarget && (
             <span className="gs-life-target" aria-hidden="true">
@@ -2854,7 +3207,11 @@ function SeatBlock({
         </button>
       </div>
       {/* Spec 0077 (A) -- poison: a round badge touching the shield's lower left. */}
-      <PoisonBadge count={shown.poison} pulses={shown.poisonHits} />
+      <PoisonBadge
+        count={shown.poison}
+        pulses={shown.poisonHits}
+        closed={end?.role === "lost" && end.how === "poison"}
+      />
       {/* Spec 0031 — the opponent's hand is drawn on the board, fanned down
           from the top edge; its count stays here for screen readers. */}
       {!mine && (
@@ -3135,6 +3492,7 @@ function useLastAsked(asking: { seat: number | null } | null): number | null {
 
 function Rail({
   theirAway = null,
+  end = null,
   board,
   question,
   aim = null,
@@ -3194,6 +3552,8 @@ function Rail({
    * once the banner is put away, when the button here leaves instead.
    */
   over: GameOver | null;
+  /** Spec 0089 (Q1 A) -- the end of the game as the plates play it, once it may begin. */
+  end?: { ending: Ending; start: number } | null;
   onLeave: () => void;
   /** Spec 0047 — how many people are watching. */
   watching?: number;
@@ -3470,6 +3830,7 @@ function Rail({
           board={board}
           mine={false}
           away={theirAway ?? null}
+          end={plateEnd(end, them.seat)}
           deciding={waiting?.seat === them.seat || actingSeat === them.seat}
           question={question}
           aim={aim}
@@ -3492,6 +3853,7 @@ function Rail({
           player={me}
           board={board}
           mine
+          end={plateEnd(end, me.seat)}
           deciding={actingSeat === me.seat}
           question={question}
           busy={busy}

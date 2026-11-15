@@ -100,6 +100,9 @@ final class ActionReports {
          * (Teferi's Protection), as Forge has it.
          */
         boolean lifeHeld;
+        /** Spec 0089 (Q4 B) -- the creature an umbra saved, and who controlled it then. */
+        String savedName;
+        Player savedBy;
 
         Report(long key, Player actor, String source, Kind kind, Player subject, int count, List<Move> moves,
                 java.util.Map<Integer, String> where, boolean shuffled, int top, int bottom) {
@@ -134,10 +137,21 @@ final class ActionReports {
         FIZZLE,
         /** Spec 0080 -- permanents phased out (Teferi's Protection, Slip Out the Back). */
         PHASE,
-        /** Spec 0086 (10 B) -- an extra turn began (Time Warp): told to both at its start. */
+        /**
+         * Spec 0086 (10 B) -- an extra turn began (Time Warp): told at its
+         * start to all but whoever played the card (0086 Amendment 4).
+         */
         EXTRA_TURN,
         /** Spec 0086 (8) -- a player completed a dungeon: told to the other player. */
-        DUNGEON }
+        DUNGEON,
+        /**
+         * Spec 0089 (Q3 A) -- an extra combat began (Aurelia, Relentless
+         * Assault): told at its start to all but whoever played the card
+         * (0089 Amendment 1).
+         */
+        EXTRA_COMBAT,
+        /** Spec 0089 (Q4 B) -- an Aura's umbra armor was destroyed instead of its creature: told to the other player. */
+        UMBRA }
 
     /**
      * Spec 0074, Amendment 1 -- the kinds told to both players unless the
@@ -203,6 +217,10 @@ final class ActionReports {
         public void on(forge.game.event.GameEvent event) {
             if (event instanceof forge.game.event.GameEventCardChangeZone moved) {
                 noteResolving();
+                // Spec 0089 (Q4 B) -- the umbra destroyed instead has gone.
+                if (moved.card() != null) {
+                    umbraGone(moved.card().getId());
+                }
                 if (resolving != null && moved.from() != null && moved.to() != null) {
                     Card card = game.findById(moved.card().getId());
                     if (card != null) {
@@ -238,6 +256,11 @@ final class ActionReports {
                     finish();
                 }
                 return;
+            } else if (event instanceof forge.game.event.GameEventTurnPhase phase
+                    && phase.phase() == forge.game.phase.PhaseType.COMBAT_BEGIN) {
+                // Spec 0089 (Q3 A) -- a combat beginning after one already
+                // this turn is an extra one: told now.
+                extraCombat();
             } else if (event instanceof forge.game.event.GameEventTurnBegan) {
                 // Spec 0088 (Q2 A) -- a report is no longer cleared at the
                 // turn line: Bob's Opt in Alice's end step stays until she
@@ -378,6 +401,7 @@ final class ActionReports {
                 return;
             }
             noteExtraTurns(sa);
+            noteExtraCombats(sa);
             Report report = build(sa);
             // Spec 0075 -- the choices and flips Forge told while it resolved
             // ride with its report, or are the report (Voice of All).
@@ -576,7 +600,17 @@ final class ActionReports {
      * PhaseHandler#addExtraTurn). Kept as each AddTurn effect resolves, for
      * the players it names (Forge's own Defined, "You" when unsaid).
      */
-    private final java.util.Map<Player, java.util.Deque<Card>> extraTurnsFrom = new java.util.HashMap<>();
+    private final java.util.Map<Player, java.util.Deque<Gift>> extraTurnsFrom = new java.util.HashMap<>();
+
+    /**
+     * Spec 0089, Amendment 1 / spec 0086, Amendment 4 (owner 2026-11-15) -- a
+     * card that gave an extra turn or combat, and who played it: Forge's own
+     * record of who activated the spell or ability that resolved
+     * (SpellAbility#getActivatingPlayer), never a name. That player is not
+     * told; everyone else is -- also when it is an opponent's turn or combat
+     * they gave.
+     */
+    record Gift(Card card, Player by) {}
 
     private void noteExtraTurns(SpellAbility root) {
         for (SpellAbility each = root; each != null; each = each.getSubAbility()) {
@@ -594,7 +628,7 @@ final class ActionReports {
             for (Player player : who) {
                 for (int i = 0; i < Math.max(1, turns); i++) {
                     extraTurnsFrom.computeIfAbsent(player, p -> new java.util.ArrayDeque<>())
-                            .addLast(root.getHostCard());
+                            .addLast(new Gift(root.getHostCard(), root.getActivatingPlayer()));
                 }
             }
         }
@@ -603,15 +637,16 @@ final class ActionReports {
     /**
      * Spec 0086 (10 B) -- the turn that just began is an extra one (Forge's
      * Player#isExtraTurn, set as it began): "Extra turn: this is Alice's turn
-     * again.", to both players, with the card that gave it where it is now.
+     * again.", to every player but whoever played the card (Amendment 4), with the card that gave it where it is now.
      */
     private void extraTurn() {
         Player active = game.getPhaseHandler().getPlayerTurn();
         if (active == null || !active.isExtraTurn()) {
             return;
         }
-        java.util.Deque<Card> from = extraTurnsFrom.get(active);
-        Card host = from == null || from.isEmpty() ? null : from.pollLast();
+        java.util.Deque<Gift> from = extraTurnsFrom.get(active);
+        Gift gift = from == null || from.isEmpty() ? null : from.pollLast();
+        Card host = gift == null ? null : gift.card();
         List<Move> shown = new ArrayList<>();
         java.util.Map<Integer, String> where = new java.util.HashMap<>();
         if (host != null) {
@@ -624,10 +659,108 @@ final class ActionReports {
         }
         Report report = new Report(keys.incrementAndGet(), active, host == null ? "" : host.getName(),
                 Kind.EXTRA_TURN, active, shown.size(), shown, where, false, -1, 0);
-        report.chooser = active;
+        // Amendment 4 (0086): whoever played the card is not told.
+        report.chooser = gift != null && gift.by() != null ? gift.by() : active;
         if (host != null) {
             report.cards.put(host.getId(), host);
         }
+        tell(report);
+    }
+
+    /**
+     * Spec 0089 (Q3 A) -- the cards that gave each player an extra combat,
+     * the newest last: kept as each AddPhase effect that adds a combat phase
+     * resolves (Forge's own "ExtraPhase$ Combat" on the ability: Aurelia's
+     * trigger, Relentless Assault), for the player who made it.
+     */
+    private final java.util.Map<Player, java.util.Deque<Gift>> extraCombatsFrom = new java.util.HashMap<>();
+
+    private void noteExtraCombats(SpellAbility root) {
+        for (SpellAbility each = root; each != null; each = each.getSubAbility()) {
+            if (each.getApi() != ApiType.AddPhase || !"Combat".equals(each.getParam("ExtraPhase"))) {
+                continue;
+            }
+            // The combat is added to the turn now being played (AddPhaseEffect),
+            // whoever played the card; that player is kept to leave out.
+            Player turn = game.getPhaseHandler().getPlayerTurn();
+            Player by = root.getActivatingPlayer();
+            if (turn != null && root.getHostCard() != null) {
+                extraCombatsFrom.computeIfAbsent(turn, p -> new java.util.ArrayDeque<>())
+                        .addLast(new Gift(root.getHostCard(), by));
+            }
+        }
+    }
+
+    /**
+     * Spec 0089 (Q3 A) -- a combat phase begins and the turn has had one
+     * already (Forge's PhaseHandler#getNumCombat: Forge counts a combat as it
+     * begins, after this event): an extra combat. "Extra combat: Alice
+     * attacks again.", to every player but whoever played the card (0089 Amendment 1), with the card that gave it where it is now.
+     */
+    private void extraCombat() {
+        forge.game.phase.PhaseHandler phases = game.getPhaseHandler();
+        Player active = phases.getPlayerTurn();
+        if (active == null || phases.getNumCombat() < 1) {
+            return;
+        }
+        java.util.Deque<Gift> from = extraCombatsFrom.get(active);
+        Gift gift = from == null || from.isEmpty() ? null : from.pollLast();
+        Card host = gift == null ? null : gift.card();
+        List<Move> shown = new ArrayList<>();
+        java.util.Map<Integer, String> where = new java.util.HashMap<>();
+        if (host != null) {
+            Card now = game.findById(host.getId());
+            Card card = now != null ? now : host;
+            ZoneType zone = card.getZone() == null ? ZoneType.Graveyard : card.getZone().getZoneType();
+            shown.add(new Move(card.getId(), card.getOwner(), ZoneType.Stack, zone, card.isFaceDown()));
+            where.put(card.getId(), whereIs(card.getId()));
+            host = card;
+        }
+        Report report = new Report(keys.incrementAndGet(), active, host == null ? "" : host.getName(),
+                Kind.EXTRA_COMBAT, active, shown.size(), shown, where, false, -1, 0);
+        // Amendment 1 (0089): whoever played the card is not told.
+        report.chooser = gift != null && gift.by() != null ? gift.by() : active;
+        if (host != null) {
+            report.cards.put(host.getId(), host);
+        }
+        tell(report);
+    }
+
+    /** Spec 0089 (Q4 B) -- umbras chosen to be destroyed instead, not yet gone: aura id -> {aura, creature}. */
+    private final java.util.Map<Integer, Card[]> umbras = new java.util.LinkedHashMap<>();
+
+    /**
+     * Spec 0089 (Q4 B) -- Forge chose [aura]'s umbra armor to replace
+     * [creature] being destroyed (GameHost#replacementChosen): told once the
+     * Aura has gone ("Hyena Umbra was destroyed instead of Alice's Grizzly
+     * Bears.", to the other player), with the Aura's picture where it went.
+     */
+    void umbraSaved(Card aura, Card creature) {
+        if (aura != null && creature != null) {
+            umbras.put(aura.getId(), new Card[] {aura, creature});
+        }
+    }
+
+    private void umbraGone(int id) {
+        Card[] saved = umbras.remove(id);
+        if (saved == null) {
+            return;
+        }
+        Card was = saved[0];
+        Card aura = game.findById(id);
+        Card card = aura != null ? aura : was;
+        Player actor = was.getController();
+        ZoneType zone = card.getZone() == null ? ZoneType.Graveyard : card.getZone().getZoneType();
+        List<Move> shown = new ArrayList<>();
+        shown.add(new Move(card.getId(), card.getOwner(), ZoneType.Battlefield, zone, false));
+        java.util.Map<Integer, String> where = new java.util.HashMap<>();
+        where.put(card.getId(), whereIs(card.getId()));
+        Report report = new Report(keys.incrementAndGet(), actor, was.getName(), Kind.UMBRA, actor, 1, shown, where,
+                false, -1, 0);
+        report.chooser = actor;
+        report.savedName = saved[1].getName();
+        report.savedBy = saved[1].getController();
+        report.cards.put(card.getId(), card);
         tell(report);
     }
 
@@ -1169,6 +1302,10 @@ final class ActionReports {
             // Spec 0086 (10 B), the canvas's words.
             case EXTRA_TURN -> extraTurnWords(r.actor == w.reader ? null : r.actor.getName());
             case DUNGEON -> who + " completed " + r.source + ".";
+            // Spec 0089 (Q3 A, Q4 B), the canvas's words.
+            case EXTRA_COMBAT -> extraCombatWords(r.actor == w.reader ? null : r.actor.getName());
+            case UMBRA -> umbraWords(r.source,
+                    r.savedBy == w.reader ? null : (r.savedBy == null ? r.actor : r.savedBy).getName(), r.savedName);
         };
     }
 
@@ -1201,6 +1338,20 @@ final class ActionReports {
     /** Spec 0086 (10 B) -- "Extra turn: this is Alice's turn again." ([player] null: the reader's own). */
     static String extraTurnWords(String player) {
         return "Extra turn: this is " + (player == null ? "your" : player + "'s") + " turn again.";
+    }
+
+    /** Spec 0089 (Q3 A) -- "Extra combat: Alice attacks again." ([player] null: the reader's own). */
+    static String extraCombatWords(String player) {
+        return "Extra combat: " + (player == null ? "you attack" : player + " attacks") + " again.";
+    }
+
+    /**
+     * Spec 0089 (Q4 B) -- "Hyena Umbra was destroyed instead of Alice's
+     * Grizzly Bears." ([controller] null: the reader's own creature).
+     */
+    static String umbraWords(String umbra, String controller, String creature) {
+        return umbra + " was destroyed instead of " + (controller == null ? "your" : controller + "'s") + " "
+                + creature + ".";
     }
 
     /** Spec 0080 -- "Bob's life can't change." ("Your ..." to that player). */
@@ -1236,10 +1387,14 @@ final class ActionReports {
             case CHOICE, EMPTY_LOOK -> false;
             // Spec 0079 (owner, Q4 A): a fizzle is told to both players, its caster too.
             case FIZZLE -> true;
-            // Spec 0086 (10 B): an extra turn is told to both players.
-            case EXTRA_TURN -> true;
+            // Spec 0086 (10 B), Amendment 4 (owner 2026-11-15): all but whoever played the card.
+            case EXTRA_TURN -> reader != chooser;
             // Spec 0086 (8): a completed dungeon is told to the other player.
             case DUNGEON -> reader != actor;
+            // Spec 0089 (Q3 A), Amendment 1 (owner 2026-11-15): all but whoever played the card.
+            case EXTRA_COMBAT -> reader != chooser;
+            // Spec 0089 (Q4 B): an umbra destroyed instead is told to the other player.
+            case UMBRA -> reader != actor;
             default -> toBoth(kind) ? !(reader == actor && reader == subject) : reader != chooser;
         };
     }

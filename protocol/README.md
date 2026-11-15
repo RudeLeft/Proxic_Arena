@@ -301,8 +301,11 @@ survived                  spec 0080: this round's survivors: [{card
                           (a Destroy or DestroyAll that resolved aimed at
                           it, or it holds lethal damage, and Forge left it
                           on the battlefield; Forge itself says nothing,
-                          the worker asks its state after the effect);
-                          absent when none. Public
+                          the worker asks its state after the effect),
+                          or, spec 0089, "umbra" with `by` "card:N": the
+                          Aura whose umbra armor was destroyed instead (the
+                          replacement Forge chose: its keyword record,
+                          never a name); absent when none. Public
 action (PHASE)            spec 0080: the other player's permanents phased out
                           (or yours, by them): "Bob's permanents phased out
                           until Bob's next turn." (named cards when not all);
@@ -664,13 +667,27 @@ decision.arrange.sources  spec 0058, item 8, on orderSimultaneousAbilities
 
 Spec 0086 adds two `action` reports. At the start of an extra turn (Forge's
 Player#isExtraTurn; the card that gave it is the one whose AddTurn effect
-resolved for that player, newest first), to both players: "Extra turn: this
-is Alice's turn again." ("... your turn again." to Alice), `source` the card
+resolved for that player, newest first), to every player but the one who
+played that card (its activating player; 0086 Amendment 4): "Extra turn: this
+is Alice's turn again." to Bob, `source` the card
 (Time Warp) and the card in `cards` where it is now. When a player completes
 a dungeon (Player#getCompletedDungeons grew), to the other player only:
 "Alice completed Tomb of Annihilation.", `source` the dungeon, no cards, and
 `marks` [{kind: "dungeon", dungeon: "Tomb of Annihilation"}] (its map is the
 picture).
+
+Spec 0089 adds two more. When a combat phase begins and the turn has had one
+already (Forge's PhaseHandler#getNumCombat), to every player but the one who
+played the card that gave it (0089 Amendment 1): "Extra combat: Alice attacks
+again." to Bob (a player given a combat or turn by someone else reads "you
+attack again." / "your turn again."), `source`
+the card whose AddPhase effect adding a combat resolved for that player,
+newest first (Aurelia, the Warleader; Relentless Assault), that card in
+`cards` where it is now. When an Aura's umbra armor is destroyed instead of
+its creature (the replacement Forge chose, its own keyword record), to every
+player but the Aura's controller: "Hyena Umbra was destroyed instead of
+Alice's Grizzly Bears." ("... of your Grizzly Bears." to the creature's
+controller), `source` the Aura, the Aura in `cards` with `to` "graveyard".
 
 Values Forge tells a player (its notifyOfValue) are no notice since spec
 0075: a die roll is `rolls` (its tumbling window, on both boards), a
