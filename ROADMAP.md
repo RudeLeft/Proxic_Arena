@@ -144,6 +144,19 @@ but the runtime is designed so they stay reachable without rework.
 AGENTS FMT-001 and FMT-005 draw that line — a seat model that can hold
 four is in scope; a game that seats four is not.
 
+## Flakes (AGENTS TEST-013)
+
+A test that fails at random is a defect. Each stays here, with its
+failing line, until it is fixed or quarantined with a reason.
+
+| Test | Failing line | Seen | Status |
+|---|---|---|---|
+| `e2e/match-what-happened.spec.ts` | `toContainText` on the report | CI b621cd8, 1e08c7d; local 0088 | Open |
+| `e2e/match-loyalty.spec.ts` (planeswalker + modal) | "never asked in 1081 answered decisions" after 11 min | CI 630948c; 2026-11-02 | Open — the random game never reaches the question |
+| Lab `shapes` | HUNG after 300 s | CI 1e08c7d | Open |
+| `layout.test` "A-11 front line…" | 5 s timeout on CI (5054 ms) | CI b621cd8 | Open |
+| Lab `anywhere` fetch | second Polluted Delta drawn | CI de7af5e | Fixed 7ab3f1b (one copy of each fetch land) |
+
 ## Built: the main build, 2026-10-15 → 2026-10-24
 
 Each phase's specification, amendments, audit, exit gate and research

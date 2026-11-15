@@ -411,9 +411,18 @@ Release-blocking. Treat every rule here as security, not presentation.
   processes, real sockets, real UI events — over mocks. _REVIEW._
 - **TEST-003 — MUST:** Drive the real event path. Calling a handler
   directly is not a click; the old project's headless tests passed while
-  real clicks were being swallowed by an overlay. _AUTO._
+  real clicks were being swallowed by an overlay. A test that claims a
+  click works may not hand the board its clickable state (`choosable`,
+  `act`) as props; it renders the real game screen from a real board, or
+  it is not evidence for the click. *(amended 2026-11-15, owner: spec
+  0087's fan click was dead on main while its test passed `choosable`
+  by hand.)* _AUTO._
 - **TEST-004 — MUST:** Prove a regression test fails against the
-  un-fixed code before trusting it. _REVIEW._
+  un-fixed code before trusting it. Scope *(amended 2026-11-15, owner)*:
+  one bite test per acceptance test or new rule — not one per line —
+  and always one for every hidden-information guard (HID-004). About a
+  dozen page and half a dozen worker mutations per spec is the norm, not
+  forty to sixty. _REVIEW._
 - **TEST-005 — MUST:** Automate UI verification. **This supersedes the old
   project's rule that UI checking was manual-only** — that rule existed
   because nothing here could drive a native Tk window. A browser can be
@@ -494,6 +503,32 @@ Release-blocking. Treat every rule here as security, not presentation.
   And when something genuinely cannot be verified here — a real
   opponent's judgement, a device not available — say so explicitly in
   the handover rather than letting "done" imply it was checked.
+  _REVIEW._
+- **TEST-012 — MUST:** Every feature spec that changes something a
+  player clicks or answers gets one real-game browser test (`match-*`
+  on the local stack) where the player really does it — clicks the new
+  thing, sees the effect. Lab replays and clips prove the look, not the
+  interaction. *(added 2026-11-15, owner: the expensive per-spec checks
+  caught almost none of the owner-found faults; real clicks in real
+  games would have.)* _AUTO._
+- **TEST-013 — MUST:** Run checks in proportion, and treat a random
+  failure as a defect. *(added 2026-11-15, owner.)*
+  1. **Per spec, locally:** the new Lab script three times, the hidden
+     checks over its own traces, the Lab and browser specs whose code was
+     touched, TEST-012's game, tsc/eslint/prettier/vitest, and the
+     worker or server gates if touched. Re-run tsc/eslint/vitest after
+     every amendment edit, before pushing.
+  2. **Full Lab and full browser suite:** CI runs them on every pushed
+     commit, and CI's run of that commit is the current RUN for them
+     (EVID-004). Locally, run them in full once per release, not per
+     spec.
+  3. **Clips** (Phase 10): one normal-speed clip per new moment from the
+     seat that sees the change; the other seat only where what it may
+     see differs; quarter speed and stills only for the part being
+     inspected.
+  4. **Flakes:** a test that fails at random is a defect. Record it in
+     ROADMAP's flake list with its failing line, and fix it or quarantine
+     it with a reason — never just rerun it and move on.
   _REVIEW._
 
 ---
