@@ -150,6 +150,9 @@ test("a card you may cast from your graveyard: no window, and a click on it cast
         pick = 0;
       } else if (/Put a card back/.test(asked)) {
         pick = find(/^Island/);
+        // A second put-back after two mulligans may have no Island left
+        // (CI a03a3db stalled 120 s): any card but Think Twice.
+        if (pick < 0) pick = labels.findIndex((label) => !/^Think Twice/.test(label));
       } else if (/Pay the mana|^\s*Pay \{/.test(asked)) {
         pick = 0;
       } else if (/Your move/.test(asked)) {

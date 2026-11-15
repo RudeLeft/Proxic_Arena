@@ -193,7 +193,10 @@ test("paying with an Elf under the casting card: it steps aside, the Elf taps in
           const any = page.locator(
             '.bf-cards button[data-choosable="true"]:not([data-zone="viewer:hand"])',
           );
-          await clickNow(any);
+          // Nothing on the board to tap: answer the window's own option
+          // ("Use {G} you already made", CI a03a3db stalled 120 s here).
+          if ((await any.count()) > 0) await clickNow(any);
+          else await clickNow(panel.locator(".gs-win li button, .gs-question li button"));
           continue;
         }
         const priority =

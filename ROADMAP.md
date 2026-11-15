@@ -154,8 +154,12 @@ failing line, until it is fixed or quarantined with a reason.
 | `e2e/match-what-happened.spec.ts` | `toContainText` on the report | CI b621cd8, 1e08c7d; local 0088 | Open |
 | `e2e/match-loyalty.spec.ts` (planeswalker + modal) | "never asked in 1081 answered decisions" after 11 min | CI 630948c; 2026-11-02 | Open — the random game never reaches the question |
 | Lab `shapes` | HUNG after 300 s | CI 1e08c7d | Open |
-| `layout.test` "A-11 front line…" | 5 s timeout on CI (5054 ms) | CI b621cd8 | Open |
+| `layout.test` "A-11 front line…" | 5 s timeout on CI (5054 ms) | CI b621cd8, a03a3db | Fixed (one expect) 2026-11-15 — overlaps collected, one `expect` for the sweep (108 ms locally) |
 | Lab `anywhere` fetch | second Polluted Delta drawn | CI de7af5e | Fixed 7ab3f1b (one copy of each fetch land) |
+| `scripts/check-hidden-mulligans.py` over Lab `leyline` | "seat 2 was told which card of seat 1's hand moved" (hand → battlefield) | CI a03a3db; local 2 of 4 | Fixed 2026-11-15 — not a leak: when seat 1 plays first its Leylines land face up in a turn-0 board; a hand move shown in a public zone of the same board now counts as "revealed" |
+| `e2e/match-cast-from-pile.spec.ts` | "the game has not moved for 120 s … Put a card back" (line 90) | CI a03a3db | Fixed 2026-11-15 — a second put-back after two mulligans had no Island; any card but Think Twice now |
+| `e2e/match-cast-step-aside.spec.ts` | "the game has not moved for 120 s … Pay the mana" (line 119) | CI a03a3db | Fixed 2026-11-15 — only mana already made could pay and the script clicked board cards only; it now answers the window's option |
+| `e2e/match-session.spec.ts` | `locator.click: Test ended` on the second tab's choice (line 190), 15 min | CI a03a3db | Fixed 2026-11-15 — the second tab's click waited for "stable" while the first tab's answer removed its button; both now clicked at once, no wait |
 
 ## Built: the main build, 2026-10-15 → 2026-10-24
 

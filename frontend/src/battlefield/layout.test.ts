@@ -862,6 +862,9 @@ describe("combat and tapped", () => {
   });
 
   it("A-11: the front line never makes a side's lines cover each other (90 permanents, seed 3, 1920x947)", () => {
+    // One expect for the whole sweep: tens of thousands of expect calls made
+    // this test hit vitest's 5 s timeout on CI (ROADMAP Flakes).
+    const bad: string[] = [];
     const check = (input: LayoutInput, viewport: Viewport, what: string) => {
       const out = layout(input, viewport);
       for (const side of ["viewer", "opponent"] as const) {
@@ -873,12 +876,12 @@ describe("combat and tapped", () => {
             const y = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
             // Spec 0059: two kinds sharing a line keep to their own ends of it.
             const x = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
-            expect(Math.min(x, y), `${what}: ${side} lines ${i} and ${j}`).toBeLessThanOrEqual(EPS);
+            if (Math.min(x, y) > EPS) bad.push(`${what}: ${side} lines ${i} and ${j}`);
           }
         const band = out.geometry.halves[side];
         for (const r of rects) {
-          expect(r.y, what).toBeGreaterThanOrEqual(band.y - EPS);
-          expect(r.y + r.h, what).toBeLessThanOrEqual(band.y + band.h + EPS);
+          if (r.y < band.y - EPS || r.y + r.h > band.y + band.h + EPS)
+            bad.push(`${what}: ${side} line leaves its band`);
         }
       }
       // And card by card, tilt included: no card covers a card of another
@@ -891,8 +894,8 @@ describe("combat and tapped", () => {
       const lines = linesOf(out);
       for (const d of drawn) {
         const rect = lines.get(d.row)!.rect;
-        expect(d.l, `${what}: ${d.row} leaves its line`).toBeGreaterThanOrEqual(rect.x - EPS);
-        expect(d.r, `${what}: ${d.row} leaves its line`).toBeLessThanOrEqual(rect.x + rect.w + EPS);
+        if (d.l < rect.x - EPS || d.r > rect.x + rect.w + EPS)
+          bad.push(`${what}: ${d.row} leaves its line`);
       }
       for (let i = 0; i < drawn.length; i++)
         for (let j = i + 1; j < drawn.length; j++) {
@@ -901,7 +904,7 @@ describe("combat and tapped", () => {
           if (a.row === b.row) continue; // a squeezed line overlaps by design
           const x = Math.min(a.r, b.r) - Math.max(a.l, b.l);
           const y = Math.min(a.b, b.b) - Math.max(a.t, b.t);
-          expect(Math.min(x, y), `${what}: ${a.row} covers ${b.row}`).toBeLessThanOrEqual(EPS);
+          if (Math.min(x, y) > EPS) bad.push(`${what}: ${a.row} covers ${b.row}`);
         }
       return out;
     };
@@ -941,6 +944,7 @@ describe("combat and tapped", () => {
         }
       }
     }
+    expect(bad.slice(0, 20), `${bad.length} overlaps`).toEqual([]);
     // The sweep reached both sharings and boards that share nothing (TEST-001).
     expect(shared.get("land") ?? 0).toBeGreaterThan(0);
     expect(shared.get("none") ?? 0).toBeGreaterThan(0);

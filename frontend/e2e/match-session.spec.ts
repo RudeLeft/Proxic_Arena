@@ -185,10 +185,15 @@ test("refresh, disconnect, a second tab and a closed browser change nothing", as
       .find((entry) => entry.dir === "in" && entry.frame.type === "DECISION_REQUEST");
     const decisionId = pending!.frame.decisionId!;
 
-    await Promise.all([
-      (await choices(asked)).first().click(),
-      (await choices(second)).first().click(),
+    // Both buttons found first, then both clicked at once with no
+    // actionability wait: a locator click in the second tab waited for
+    // "stable" (263 ms on CI a03a3db), the first tab's accepted answer
+    // removed its button meanwhile, and the click retried for 15 min.
+    const buttons = await Promise.all([
+      (await choices(asked)).first().elementHandle({ timeout: 10_000 }),
+      (await choices(second)).first().elementHandle({ timeout: 10_000 }),
     ]);
+    await Promise.all(buttons.map((b) => b.evaluate((e) => (e as HTMLElement).click())));
     await asked.waitForTimeout(3_000);
 
     const about = (dir: "in" | "out", type: string) =>

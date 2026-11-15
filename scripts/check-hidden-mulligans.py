@@ -11,7 +11,9 @@ check-*.py script writes one) and holds, for every board sent before the
 first turn, from BOTH seats (HID-003):
 
   backs       every move into or out of another seat's hand that this seat
-              is told carries no card and no name -- a back going or coming
+              is told carries no card and no name -- a back going or coming --
+              unless it lands face up in a public zone of that same board
+              (a Leyline begun on the battlefield): counted as "revealed"
   no ids      no id of a card in another seat's hand (read from that seat's
               own board of the same round) appears anywhere in this seat's
               board, under any key (otherHands, Forge's own permission, is
@@ -30,6 +32,9 @@ import re
 import sys
 
 CARD = re.compile(r'"(card:\d+)"')
+# Zones every seat sees. A hand card moving into one of them, and shown
+# there in the same board, is revealed: naming it is not a leak.
+PUBLIC = ("battlefield", "graveyard", "exile", "stack", "casting")
 
 
 def boards(path):
@@ -57,7 +62,7 @@ def hand_moves(board, owner):
 
 
 def main(paths):
-    problems, checked, own_named, traces = [], 0, 0, 0
+    problems, checked, own_named, traces, revealed = [], 0, 0, 0, 0
     for path in paths:
         seats = boards(path)
         if len(seats) < 2:
@@ -73,17 +78,23 @@ def main(paths):
                         continue
                     moves = hand_moves(b, other)
                     told[(viewer, other)] = told.get((viewer, other), 0) + len(moves)
+                    public = set()
+                    for key in PUBLIC:
+                        public.update(c.get("id") for c in b.get(key) or [])
                     for m in moves:
                         checked += 1
-                        if m.get("card") or m.get("name"):
-                            problems.append(f"{path}: seat {viewer} was told which card of seat {other}'s hand "
-                                            f"moved: {m}")
+                        if not (m.get("card") or m.get("name")):
+                            continue
+                        if m["to"]["zone"] in PUBLIC and m.get("card") in public:
+                            # Revealed: it lands face up in this same board
+                            # (a Leyline begun on the battlefield, CI a03a3db).
+                            revealed += 1
+                            continue
+                        problems.append(f"{path}: seat {viewer} was told which card of seat {other}'s hand "
+                                        f"moved: {m}")
                     theirs = by_rev.get(other, {}).get(rev)
                     if theirs:
                         hidden = {c["id"] for c in theirs.get("hand") or []}
-                        public = set()
-                        for key in ("battlefield", "graveyard", "exile", "stack", "casting"):
-                            public.update(c.get("id") for c in b.get(key) or [])
                         leaked = (hidden - public) & set(CARD.findall(json.dumps(b)))
                         if leaked:
                             problems.append(f"{path}: seat {viewer}'s board (revision {rev}) names cards of seat "
@@ -102,7 +113,8 @@ def main(paths):
             if n != own:
                 problems.append(f"{path}: seat {viewer} was told {n} of seat {other}'s hand moves, seat {other} "
                                 f"was told {own}")
-    print(json.dumps({"traces": traces, "moves checked": checked, "own cards named": own_named}))
+    print(json.dumps({"traces": traces, "moves checked": checked, "own cards named": own_named,
+                      "revealed": revealed}))
     if problems:
         for p in problems[:20]:
             print("WRONG:", p)
@@ -111,7 +123,7 @@ def main(paths):
         print("INCONCLUSIVE: no opening hand moves to check")
         return 2
     print(f"OK: {checked} opening moves of the other player's hand over {traces} games, every one a back; "
-          f"{own_named} of a seat's own deal named to it")
+          f"{own_named} of a seat's own deal named to it; {revealed} revealed face up in the same board")
     return 0
 
 
