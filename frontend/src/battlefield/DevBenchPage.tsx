@@ -19,11 +19,21 @@
 //   New face        a never-seen picture enters play: until it is decoded
 //                   and painted (budget 100 ms)
 //
+// Spec 0090 (F-0090-A) -- `?scene=<name>` instead plays one of Phase 10's
+// busiest moments (benchScenes.ts: wipe, tokens, combat, flyers, wash, army,
+// storm, reports): "Show board" draws its first board, "Play" sends the
+// moment's boards at their times and records every frame interval for the
+// moment's length (`window.__bench.scene`), for e2e/bench-scenes.spec.ts.
+//
 // Not linked from anywhere, signed-in only, and labelled: not a game.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Board, type BoardCard } from "./Board";
+// The game screen's own marks (the "you can pick this" glow) and windows.
+import "./game.css";
+import { benchScene, SCENE_FACES, type BenchScene, type SceneBoard } from "./benchScenes";
+import { RevealTray } from "./RevealTray";
 import { syntheticBoard } from "./fixture";
 import { geometry } from "./layout";
 
@@ -100,6 +110,10 @@ export interface BenchResults {
   /** Decoded size of every distinct picture on the board, at its own
    * resolution (what a browser holds for an undownscaled PNG). */
   decodedBytes?: number;
+  /** Spec 0090 -- a scene played: its frame intervals from Play, over its length. */
+  scene?: { name: string; frames: number[]; longTasks: number; ms: number };
+  /** Spec 0090 -- how long a scene records from Play. */
+  sceneMs?: number;
 }
 
 declare global {
@@ -115,6 +129,128 @@ const nextFrame = () => new Promise<number>((done) => requestAnimationFrame(done
 
 export default function DevBenchPage() {
   const [params] = useSearchParams();
+  const scene = params.get("scene");
+  return scene ? <SceneBench name={scene} /> : <RowBench params={params} />;
+}
+
+/** Spec 0090 -- one Phase 10 moment, played and timed. */
+function SceneBench({ name }: { name: string }) {
+  const scene = useMemo<BenchScene | null>(() => benchScene(name), [name]);
+  const [art, setArt] = useState<Map<string, string> | null>(null);
+  const [now, setNow] = useState<SceneBoard | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [results, setResults] = useState<BenchResults>({
+    ready: false,
+    faces: 0,
+    res: "served",
+    scale: SERVED_WIDTH / 745,
+  });
+  useEffect(() => {
+    window.__bench = results;
+  }, [results]);
+  // The server's 384-wide display copies, as the table is sent in a game.
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const made = new Map<string, string>();
+      for (let k = 0; k < SCENE_FACES; k++)
+        made.set(`face:${k}`, await rasterScan(`Face ${k + 1}`, 1, SERVED_WIDTH / 745));
+      if (!live) return;
+      setArt(made);
+      setResults((r) => ({ ...r, ready: true, faces: made.size, sceneMs: scene?.ms ?? 0 }));
+    })();
+    return () => {
+      live = false;
+    };
+  }, [scene]);
+  const artUrl = useCallback((ref: string) => art?.get(ref) ?? ref, [art]);
+  if (!scene) return <p className="bf-dev-note">No such scene: {name}.</p>;
+
+  const play = async () => {
+    setPlaying(true);
+    const frames: number[] = [];
+    let longTasks = 0;
+    const observer =
+      typeof PerformanceObserver !== "undefined" &&
+      PerformanceObserver.supportedEntryTypes?.includes("longtask")
+        ? new PerformanceObserver((list) => (longTasks += list.getEntries().length))
+        : null;
+    observer?.observe({ type: "longtask" });
+    const timers = scene.steps.map((step) => window.setTimeout(() => setNow(step.board), step.at));
+    let last = await nextFrame();
+    const end = last + scene.ms;
+    while (last < end) {
+      const at = await nextFrame();
+      frames.push(at - last);
+      last = at;
+    }
+    timers.forEach((t) => window.clearTimeout(t));
+    observer?.disconnect();
+    setResults((r) => ({ ...r, scene: { name: scene.name, frames, longTasks, ms: scene.ms } }));
+  };
+
+  const board = now;
+  return (
+    <div className="bf-page">
+      {board && (
+        <Board
+          battlefield={board.battlefield}
+          hand={board.hand ?? []}
+          opponentHand={board.opponentHand ?? []}
+          opponentName="Bob"
+          viewerSeat={1}
+          artUrl={artUrl}
+          arrivals={board.arrivals ?? new Map()}
+          departures={board.departures ?? new Map()}
+          stack={board.stack ?? []}
+          copying={board.copying ?? []}
+          combat={board.combat ?? null}
+          damage={board.damage ?? null}
+          dayTime={board.dayTime ?? null}
+          choosable={board.choosable ?? new Set()}
+          asking={board.asking ?? false}
+          overlay={(_, g) =>
+            board.reports ? (
+              <RevealTray
+                reveal={board.reports}
+                geometry={g}
+                atTop={false}
+                artUrl={artUrl}
+                onClose={() => {}}
+              />
+            ) : null
+          }
+        />
+      )}
+      <div className="bf-dev-note" role="note">
+        <span>
+          Benchmark scene: {scene.label}. Not a game.{" "}
+          {results.scene &&
+            `Worst frame ${Math.max(...results.scene.frames).toFixed(1)} ms over ${results.scene.frames.length} frames.`}
+        </span>
+        <button
+          type="button"
+          className="bf-dev-next"
+          disabled={!art || !!board}
+          onClick={() => setNow(scene.start)}
+        >
+          Show board
+        </button>
+        <button
+          type="button"
+          className="bf-dev-next"
+          disabled={!board || playing}
+          onClick={() => void play()}
+        >
+          Play
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** The original speed test: a row re-centring, first paint, a new face. */
+function RowBench({ params }: { params: URLSearchParams }) {
   const permanents = number(params, "permanents", 80, 200);
   const faces = number(params, "faces", 60, 120);
   const seed = number(params, "seed", 1, 1_000_000);

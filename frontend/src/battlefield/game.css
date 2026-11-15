@@ -914,7 +914,6 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
    Amendment 13 (item 5) -- the same breathing glow as the board. */
 .gs-choosable {
   cursor: pointer;
-  animation: gs-breathe 1.8s ease-in-out infinite;
 }
 .gs-selected {
   outline: 3px solid #9ccbff;
@@ -1487,37 +1486,132 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
    breathes: a soft gold glow that slowly brightens and fades, in place of
    the dashed outline and the CHOOSE tag. A screen reader still hears "can
    be chosen" (Board.tsx). */
+/* Spec 0090 (2) -- the same breath, cheaper. It was the card's own
+   box-shadow, animated, so every marked card was repainted on every frame.
+   Now the card keeps the breath's still part (its drop shadow; the breath
+   stood in for any other shadow and CSS animation the card had, and still
+   does), and a soft layer right after it in its slot (Breath.tsx,
+   `.bf-breath`: the card's box, outside which alone a shadow is drawn, so
+   over the drop shadow as the glow was) carries the glow in two halves --
+   the dim one and the bright one -- of which only the OPACITY animates, one
+   fading out as the other fades in: the same two looks at the same moments,
+   composited, never repainted. A card clips what it holds, so the layer is
+   beside it; the life banner and a zone tray's card hold it in their own
+   ::before and ::after. */
 .bf-card.bf-choosable,
 .bf-tag.bf-choosable {
   cursor: pointer;
-  animation: gs-breathe 1.8s ease-in-out infinite;
+  animation: none;
 }
-/* A flyer you can choose hovers AND breathes: one animation list, or the
-   glow would stop the hover (CI 2026-11-03, match-board-motion). */
+/* A flyer you can choose hovers too (CI 2026-11-03, match-board-motion). */
 .bf-card.bf-fly.bf-choosable {
-  animation:
-    bf-fly 5s ease-in-out infinite,
-    gs-breathe 1.8s ease-in-out infinite;
+  animation: bf-fly 5s ease-in-out infinite;
 }
 .bf-card.bf-fly.bf-fly-bob.bf-choosable {
-  animation-name: bf-fly-bob, gs-breathe;
+  animation-name: bf-fly-bob;
 }
-@keyframes gs-breathe {
+@media (prefers-reduced-motion: no-preference) {
+  .bf-card.bf-choosable.bf-breathes,
+  .bf-tag.bf-choosable.bf-breathes,
+  .gs-libtop.gs-breathes,
+  .gs-life.gs-choosable:not(.gs-targeted),
+  .gs-ztray-card.gs-nameable {
+    box-shadow: 0 4px 10px rgb(0 0 0 / 45%);
+  }
+}
+.bf-breath {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--card-h) * 0.045);
+  pointer-events: none;
+}
+/* A tab's: its place and shape (the left and z-index are the tab's own). */
+.bf-breath.bf-breath-tag {
+  inset: auto;
+  top: 1.5%;
+  height: 97%;
+  width: calc(var(--card-h) * 0.12);
+  font-size: calc(var(--card-h) * 0.07);
+  border-radius: 0 0.35em 0.35em 0;
+}
+/* The library's top card's (LibraryTop.tsx). */
+.bf-breath.bf-breath-libtop {
+  inset: auto;
+  right: 7px;
+  top: -9px;
+  z-index: 3;
+  width: 42px;
+  height: 58px;
+  border-radius: 4px;
+}
+/* A flyer's glow hovers with it: its classes, its clock. */
+.bf-breath.bf-fly {
+  animation: bf-fly 5s ease-in-out infinite;
+}
+.bf-breath.bf-fly.bf-fly-bob {
+  animation-name: bf-fly-bob;
+}
+.bf-breath::before,
+.bf-breath::after,
+.gs-life.gs-choosable:not(.gs-targeted)::before,
+.gs-life.gs-choosable:not(.gs-targeted)::after,
+.gs-ztray-card.gs-nameable::before,
+.gs-ztray-card.gs-nameable::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: 1.8s ease-in-out var(--breath-delay, 0s) infinite;
+}
+/* Under the banner's own picture, as its box-shadow was. */
+.gs-life.gs-choosable:not(.gs-targeted)::before,
+.gs-life.gs-choosable:not(.gs-targeted)::after {
+  z-index: -2;
+}
+.bf-breath::before,
+.gs-life.gs-choosable:not(.gs-targeted)::before,
+.gs-ztray-card.gs-nameable::before {
+  box-shadow:
+    0 0 0 1.5px rgb(233 194 122 / 85%),
+    0 0 6px 1px rgb(255 205 110 / 35%);
+  animation-name: gs-breathe-dim;
+}
+.bf-breath::after,
+.gs-life.gs-choosable:not(.gs-targeted)::after,
+.gs-ztray-card.gs-nameable::after {
+  box-shadow:
+    0 0 0 1.5px #ffd98a,
+    0 0 18px 5px rgb(255 205 110 / 75%);
+  opacity: 0;
+  animation-name: gs-breathe-bright;
+}
+@keyframes gs-breathe-dim {
   0%,
   100% {
-    box-shadow:
-      0 0 0 1.5px rgb(233 194 122 / 85%),
-      0 0 6px 1px rgb(255 205 110 / 35%),
-      0 4px 10px rgb(0 0 0 / 45%);
+    opacity: 1;
   }
   50% {
-    box-shadow:
-      0 0 0 1.5px #ffd98a,
-      0 0 18px 5px rgb(255 205 110 / 75%),
-      0 4px 10px rgb(0 0 0 / 45%);
+    opacity: 0;
+  }
+}
+@keyframes gs-breathe-bright {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .bf-breath,
+  .gs-life.gs-choosable::before,
+  .gs-life.gs-choosable::after,
+  .gs-ztray-card.gs-nameable::before,
+  .gs-ztray-card.gs-nameable::after {
+    display: none;
+  }
   .bf-card.bf-choosable,
   .bf-card.bf-fly.bf-choosable,
   .bf-card.bf-fly.bf-fly-bob.bf-choosable,
@@ -3824,8 +3918,9 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-size: var(--pa-size-xs);
   color: #95a39b;
 }
+/* Spec 0090 (2): its breath is its ::before and ::after (above). */
 .gs-ztray-card.gs-nameable {
-  animation: gs-breathe 1.8s ease-in-out infinite;
+  cursor: pointer;
 }
 @media (prefers-reduced-motion: reduce) {
   .gs-ztray-card.gs-nameable {

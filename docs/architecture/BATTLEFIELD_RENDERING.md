@@ -342,6 +342,20 @@ ran (15 of 24 re-centres against 1 of 24 idle windows), which measured
 the test browser; headed, none of 24 did. The page is never polled
 while something moves.
 
+### Phase 10's moments (spec 0090, 2026-11-15)
+
+`/dev/bench?scene=<name>` plays the busiest Phase 10 moments
+(`benchScenes.ts`): a 31-card board wipe, a 64-token wave, a 10-creature
+combat with first strike, 20 flyers, the day/night wash, a whole army
+breathing "you can pick this", storm x10, a report window gathering five
+reports. `frontend/e2e/bench-scenes.spec.ts` is in the browser suite (so
+CI runs it, headless) and holds each scene, three runs at 1920x1080, to a
+budget in `benchBudgets.ts`: the 95th-percentile frame interval <= 50 ms
+and the slowest frame <= 250 ms. The same spec checks that a key hurries
+every moment (A-00) and that reduce motion plays nothing that moves for
+longer than 300 ms or loops. Numbers, the machine and the browser: spec
+0090's As built and `docs/testing/evidence/0090-bench-scenes.json`.
+
 **Only a missed budget opens the PixiJS door**, and then only for the
 card layer. Because positions come from `layout()` and the tests assert
 rendered geometry, a swap is contained to one module and the tests

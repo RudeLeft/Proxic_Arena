@@ -10,6 +10,7 @@
 // click becomes an answer only through interaction.ts's rules over the
 // options Forge sent; what a viewer may not see was never sent (§7.45).
 
+import { Breath } from "./Breath";
 import { AimPointer } from "./AimPointer";
 import { ReportButton, type ReportGame } from "../ReportDialog";
 import {
@@ -3958,7 +3959,7 @@ function QuestionBar({
               <li key={card.id} className="gs-looking-slot">
                 <button
                   type="button"
-                  className={`bf-card bf-look-${look}${pick ? " bf-choosable" : ""}${chosen ? " bf-dim" : ""}`}
+                  className={`bf-card bf-look-${look}${pick ? " bf-choosable bf-breathes" : ""}${chosen ? " bf-dim" : ""}`}
                   disabled={busy || !pick}
                   data-object-id={card.id}
                   data-choosable={pick ? "true" : undefined}
@@ -3976,6 +3977,7 @@ function QuestionBar({
                   />
                   {chosen && <span className="bf-state">CHOSEN</span>}
                 </button>
+                {pick && <Breath />}
               </li>
             );
           })}

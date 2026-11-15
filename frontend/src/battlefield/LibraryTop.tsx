@@ -15,6 +15,7 @@
 // the plate's show spot at 1.2 of a table card (0.3 s, turning face up),
 // holds (to 0.9 s), and settles onto the tile (0.4 s, its glow fading).
 
+import { Breath } from "./Breath";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { SnapshotCard } from "../match";
 import type { Box, Geometry } from "./layout";
@@ -204,7 +205,7 @@ export function LibraryTop({
         <button
           type="button"
           ref={ref}
-          className={`gs-libtop${playable ? " gs-libtop-playable" : ""}${choosable ? " gs-choosable" : ""}`}
+          className={`gs-libtop${playable ? " gs-libtop-playable" : ""}${choosable ? " gs-choosable gs-breathes" : ""}`}
           data-object-id={card.id}
           data-zone="library"
           data-library-top={card.id}
@@ -222,6 +223,8 @@ export function LibraryTop({
           <span ref={backRef} className="gs-libtop-back" aria-hidden="true" />
         </button>
       )}
+      {/* Spec 0090 (2) -- its "you can pick this" glow, a soft layer over its edge. */}
+      {card && choosable && <Breath className=" bf-breath-libtop" />}
     </>
   );
 }

@@ -1,0 +1,1104 @@
+{
+ "spec": "0090",
+ "note": "Frame intervals (ms) and main-thread work (ms per second of the moment) for each /dev/bench scene, 3 runs at 1920x1080, before (HEAD 630948c's board with the new bench page) and after (0090). Every frame interval is in the source runs; here the summary.",
+ "runs": {
+  "before-headless": {
+   "measured": "2026-11-15T17:25:18.873Z",
+   "machine": {
+    "cpu": "13th Gen Intel(R) Core(TM) i5-13600KF",
+    "cores": 20,
+    "memoryGB": 34
+   },
+   "browser": "chromium (msedge), headless",
+   "cpuSlowedBy": 1,
+   "results": [
+    {
+     "scene": "wipe",
+     "frames": 324,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.3,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      69,
+      63,
+      66
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "tokens",
+     "frames": 680,
+     "p50": 16.7,
+     "p95": 16.9,
+     "worst": 34.6,
+     "over25ms": 6,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      69,
+      122,
+      127
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "combat",
+     "frames": 3127,
+     "p50": 16.7,
+     "p95": 16.9,
+     "worst": 50.9,
+     "over25ms": 35,
+     "over50ms": 3,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      67,
+      81,
+      74
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "flyers",
+     "frames": 533,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 50.5,
+     "over25ms": 9,
+     "over50ms": 1,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      48,
+      73,
+      79
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "wash",
+     "frames": 332,
+     "p50": 16.7,
+     "p95": 16.9,
+     "worst": 33.3,
+     "over25ms": 1,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      17,
+      17,
+      41
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "army",
+     "frames": 537,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 34,
+     "over25ms": 4,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      85,
+      131,
+      176
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "storm",
+     "frames": 899,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 35.1,
+     "over25ms": 5,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      89,
+      115,
+      121
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "reports",
+     "frames": 684,
+     "p50": 16.7,
+     "p95": 16.9,
+     "worst": 33.1,
+     "over25ms": 5,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      19,
+      48,
+      39
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    }
+   ]
+  },
+  "before-headed": {
+   "measured": "2026-11-15T17:29:06.551Z",
+   "machine": {
+    "cpu": "13th Gen Intel(R) Core(TM) i5-13600KF",
+    "cores": 20,
+    "memoryGB": 34
+   },
+   "browser": "chromium (msedge), headed",
+   "cpuSlowedBy": 1,
+   "results": [
+    {
+     "scene": "wipe",
+     "frames": 324,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 16.9,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      64,
+      62,
+      59
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "tokens",
+     "frames": 684,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      64,
+      63,
+      64
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "combat",
+     "frames": 3150,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.3,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      38,
+      38,
+      39
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "flyers",
+     "frames": 540,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.1,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      52,
+      59,
+      52
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "wash",
+     "frames": 334,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 16.9,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      20,
+      18,
+      18
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "army",
+     "frames": 541,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      93,
+      101,
+      97
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "storm",
+     "frames": 900,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.1,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      80,
+      74,
+      78
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "reports",
+     "frames": 684,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.1,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      18,
+      19,
+      18
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    }
+   ]
+  },
+  "before-cpu4": {
+   "measured": "2026-11-15T17:32:30.759Z",
+   "machine": {
+    "cpu": "13th Gen Intel(R) Core(TM) i5-13600KF",
+    "cores": 20,
+    "memoryGB": 34
+   },
+   "browser": "chromium (msedge), headless",
+   "cpuSlowedBy": 4,
+   "results": [
+    {
+     "scene": "wipe",
+     "frames": 311,
+     "p50": 16.7,
+     "p95": 16.9,
+     "worst": 83.4,
+     "over25ms": 8,
+     "over50ms": 3,
+     "longTasks": 2,
+     "mainThreadMsPerS": [
+      276,
+      427,
+      437
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "tokens",
+     "frames": 645,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 133.3,
+     "over25ms": 19,
+     "over50ms": 4,
+     "longTasks": 3,
+     "mainThreadMsPerS": [
+      306,
+      490,
+      487
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "combat",
+     "frames": 3128,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 100,
+     "over25ms": 10,
+     "over50ms": 4,
+     "longTasks": 2,
+     "mainThreadMsPerS": [
+      268,
+      287,
+      280
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "flyers",
+     "frames": 542,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.6,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      211,
+      359,
+      343
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "wash",
+     "frames": 334,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.3,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      70,
+      117,
+      106
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "army",
+     "frames": 538,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 33.4,
+     "over25ms": 3,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      374,
+      665,
+      676
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "storm",
+     "frames": 896,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 33.5,
+     "over25ms": 6,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      351,
+      514,
+      509
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "reports",
+     "frames": 685,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.6,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      85,
+      107,
+      122
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    }
+   ]
+  },
+  "after-headless": {
+   "measured": "2026-11-15T18:35:14.807Z",
+   "machine": {
+    "cpu": "13th Gen Intel(R) Core(TM) i5-13600KF",
+    "cores": 20,
+    "memoryGB": 34
+   },
+   "browser": "chromium (msedge), headless",
+   "cpuSlowedBy": 1,
+   "results": [
+    {
+     "scene": "wipe",
+     "frames": 324,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 19.3,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      67,
+      60,
+      60
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "tokens",
+     "frames": 663,
+     "p50": 16.7,
+     "p95": 20.3,
+     "worst": 51.3,
+     "over25ms": 30,
+     "over50ms": 3,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      64,
+      138,
+      136
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "combat",
+     "frames": 3113,
+     "p50": 16.7,
+     "p95": 17.3,
+     "worst": 51.1,
+     "over25ms": 66,
+     "over50ms": 2,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      73,
+      94,
+      91
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "flyers",
+     "frames": 533,
+     "p50": 16.7,
+     "p95": 18.1,
+     "worst": 39.1,
+     "over25ms": 17,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      44,
+      86,
+      117
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "wash",
+     "frames": 332,
+     "p50": 16.7,
+     "p95": 19,
+     "worst": 34.8,
+     "over25ms": 11,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      19,
+      19,
+      70
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "army",
+     "frames": 529,
+     "p50": 16.7,
+     "p95": 17.2,
+     "worst": 50.6,
+     "over25ms": 12,
+     "over50ms": 1,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      63,
+      115,
+      137
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "storm",
+     "frames": 901,
+     "p50": 16.7,
+     "p95": 16.9,
+     "worst": 32.1,
+     "over25ms": 3,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      73,
+      121,
+      118
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "reports",
+     "frames": 681,
+     "p50": 16.7,
+     "p95": 19.7,
+     "worst": 32.7,
+     "over25ms": 11,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      17,
+      40,
+      45
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "hurried": {
+      "wipe": {
+       "moving": 218,
+       "stillRunningAfter160ms": 0
+      },
+      "tokens": {
+       "moving": 139,
+       "stillRunningAfter160ms": 0
+      },
+      "combat": {
+       "moving": 102,
+       "stillRunningAfter160ms": 0
+      },
+      "wash": {
+       "moving": 2,
+       "stillRunningAfter160ms": 0
+      },
+      "storm": {
+       "moving": 9,
+       "stillRunningAfter160ms": 0
+      },
+      "reports": {
+       "moving": 2,
+       "stillRunningAfter160ms": 0
+      }
+     },
+     "reduceMotion": {
+      "wipe": {
+       "loops": 0,
+       "longestMs": 0,
+       "slow": []
+      },
+      "tokens": {
+       "loops": 0,
+       "longestMs": 0,
+       "slow": []
+      },
+      "combat": {
+       "loops": 0,
+       "longestMs": 0,
+       "slow": []
+      },
+      "flyers": {
+       "loops": 0,
+       "longestMs": 0,
+       "slow": []
+      },
+      "wash": {
+       "loops": 0,
+       "longestMs": 0,
+       "slow": []
+      },
+      "army": {
+       "loops": 0,
+       "longestMs": 0,
+       "slow": []
+      },
+      "storm": {
+       "loops": 0,
+       "longestMs": 250,
+       "slow": []
+      },
+      "reports": {
+       "loops": 0,
+       "longestMs": 0,
+       "slow": []
+      }
+     }
+    },
+    {
+     "glowCompare": [
+      {
+       "glow": {
+        "mean": 0.17470172420241611,
+        "worst": 6
+       },
+       "ring": {
+        "mean": 16.725898389095416,
+        "worst": 49
+       }
+      },
+      {
+       "glow": {
+        "mean": 2.2895238807644835,
+        "worst": 18
+       },
+       "ring": {
+        "mean": 23.03816604708798,
+        "worst": 71
+       }
+      },
+      {
+       "glow": {
+        "mean": 0.7594344915285933,
+        "worst": 9
+       },
+       "ring": {
+        "mean": 13.443370508054523,
+        "worst": 56
+       }
+      },
+      {
+       "glow": {
+        "mean": 2.2895238807644835,
+        "worst": 18
+       },
+       "ring": {
+        "mean": 23.03816604708798,
+        "worst": 71
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "after-headed": {
+   "measured": "2026-11-15T18:38:11.493Z",
+   "machine": {
+    "cpu": "13th Gen Intel(R) Core(TM) i5-13600KF",
+    "cores": 20,
+    "memoryGB": 34
+   },
+   "browser": "chromium (msedge), headed",
+   "cpuSlowedBy": 1,
+   "results": [
+    {
+     "scene": "wipe",
+     "frames": 324,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 16.9,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      60,
+      59,
+      57
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "tokens",
+     "frames": 684,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.2,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      61,
+      62,
+      62
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "combat",
+     "frames": 3150,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 18,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      38,
+      41,
+      43
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "flyers",
+     "frames": 541,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.4,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      56,
+      47,
+      49
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "wash",
+     "frames": 335,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.4,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      19,
+      19,
+      20
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "army",
+     "frames": 541,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 16.9,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      96,
+      72,
+      72
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "storm",
+     "frames": 901,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.2,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      83,
+      81,
+      79
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "reports",
+     "frames": 685,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.2,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      21,
+      22,
+      22
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    }
+   ]
+  },
+  "after-cpu4": {
+   "measured": "2026-11-15T18:41:37.192Z",
+   "machine": {
+    "cpu": "13th Gen Intel(R) Core(TM) i5-13600KF",
+    "cores": 20,
+    "memoryGB": 34
+   },
+   "browser": "chromium (msedge), headless",
+   "cpuSlowedBy": 4,
+   "results": [
+    {
+     "scene": "wipe",
+     "frames": 302,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 133.4,
+     "over25ms": 10,
+     "over50ms": 3,
+     "longTasks": 2,
+     "mainThreadMsPerS": [
+      290,
+      422,
+      457
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "tokens",
+     "frames": 648,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 116.7,
+     "over25ms": 20,
+     "over50ms": 4,
+     "longTasks": 3,
+     "mainThreadMsPerS": [
+      302,
+      485,
+      473
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "combat",
+     "frames": 3133,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 66.7,
+     "over25ms": 9,
+     "over50ms": 3,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      253,
+      292,
+      304
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "flyers",
+     "frames": 541,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.2,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      216,
+      383,
+      360
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "wash",
+     "frames": 336,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 17.5,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      80,
+      135,
+      128
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "army",
+     "frames": 532,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 49.9,
+     "over25ms": 7,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      300,
+      492,
+      481
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "storm",
+     "frames": 892,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 33.8,
+     "over25ms": 8,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      362,
+      529,
+      527
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    },
+    {
+     "scene": "reports",
+     "frames": 686,
+     "p50": 16.7,
+     "p95": 16.8,
+     "worst": 16.9,
+     "over25ms": 0,
+     "over50ms": 0,
+     "longTasks": 0,
+     "mainThreadMsPerS": [
+      88,
+      143,
+      144
+     ],
+     "budget": {
+      "p95": 50,
+      "worst": 250
+     }
+    }
+   ]
+  }
+ }
+}

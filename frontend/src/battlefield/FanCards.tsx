@@ -7,6 +7,7 @@
 // puts it; Board.tsx moves it (rising out of its tile, back into it, closing
 // the gap) on the board's clock, so a click hurries it (A-00).
 
+import { Breath } from "./Breath";
 import type { CSSProperties, ReactNode } from "react";
 import type { Box } from "./layout";
 import type { FanCard, FanZone } from "./pileFan";
@@ -72,6 +73,7 @@ export function FanCardView({
   box,
   face,
   className,
+  breathes = false,
   label,
   data,
   handlers,
@@ -82,6 +84,8 @@ export function FanCardView({
   face: ReactNode;
   /** What the board's act() says of it (choosable, selected, unpayable...). */
   className: string;
+  /** Spec 0090 (2) -- it breathes "you can pick this": its soft glow layer (Breath). */
+  breathes?: boolean;
   label: string;
   data: Record<string, string | undefined>;
   handlers: {
@@ -110,7 +114,7 @@ export function FanCardView({
     >
       <button
         type="button"
-        className={`bf-card bf-fan-face${className}`}
+        className={`bf-card bf-fan-face${className}${breathes ? " bf-breathes" : ""}`}
         aria-label={label}
         {...data}
         {...handlers}
@@ -121,6 +125,7 @@ export function FanCardView({
       >
         {face}
       </button>
+      {breathes && <Breath />}
       <span
         className={`bf-fan-sign bf-fan-sign-${card.zone}`}
         data-sign={card.zone}

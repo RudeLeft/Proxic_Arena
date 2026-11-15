@@ -28,6 +28,7 @@
 // B2-B4, B13, and the damage wave's fights); none of it is inferred here.
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -297,6 +298,8 @@ import {
   whyPulseFrames,
 } from "./markMotion";
 import { RoomFace } from "./RoomDoors";
+import { Breath } from "./Breath";
+import { FLY_SYNC_AT, bobInStep, followCards, pauseFlyers } from "./breathMotion";
 import { Sight } from "./Sight";
 import {
   ALIVE_BACK_MS,
@@ -960,9 +963,30 @@ function sick(card: BoardCard): boolean {
 
 /** Each card out of step with the next, so a row does not move in unison. */
 function motionDelay(id: string): CSSProperties {
+  return { animationDelay: `-${hoverOffset(id)}ms` };
+}
+function hoverOffset(id: string): number {
   let h = 0;
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 5000;
-  return { animationDelay: `-${h}ms` };
+  return h;
+}
+/**
+ * Spec 0090 (3) -- a flyer's hover: each its own point in the bob, or, with
+ * more than FLY_SYNC_AT flyers on the table, all in step on one clock
+ * (breathMotion.ts bobInStep), none offset.
+ */
+function hoverDelay(id: string, inStep: boolean): CSSProperties {
+  return inStep ? { animationDelay: "0ms" } : motionDelay(id);
+}
+/**
+ * Spec 0090 (2) -- a card's glow layer: a flyer's hovers with it (the same
+ * classes and clock), and breathes as the flyer's glow always did (offset
+ * by its own point in the bob, as the card's one animation list had it).
+ */
+function breathStyle(id: string, flyer: boolean, inStep: boolean): CSSProperties | undefined {
+  return flyer
+    ? { ...hoverDelay(id, inStep), ["--breath-delay" as string]: `-${hoverOffset(id)}ms` }
+    : undefined;
 }
 
 /** Enough of a card to draw it on its way out, after it has left. */
@@ -2477,6 +2501,12 @@ export function Board({
         // Spec 0088 (Q5 C) -- the sight corners go on it.
         targeted: isTargeted,
         pay,
+        // Spec 0090 (2) -- it breathes "you can pick this" (the soft layer,
+        // Breath): choosable and not dimmed (a tab, always then). A card
+        // picked to pay holds still, and one picked or marked -- except a
+        // flyer, whose hover and breath went on: as the CSS before 0090 had it.
+        breathing: canChoose && !dim,
+        still: marks > 0 || isPicked,
         data: {
           "data-choosable": canChoose ? "true" : undefined,
           "data-selected": isSelected ? "true" : undefined,
@@ -2512,6 +2542,13 @@ export function Board({
     onPick,
     onInspect,
   ]);
+
+  // Spec 0090 (3) -- more than FLY_SYNC_AT flyers on the table bob in step,
+  // and stay in step until none is left (going out of step would jump them).
+  const flyingNow = battlefield.filter(flies).length;
+  const inStepRef = useRef(false);
+  const inStep = flyingNow > FLY_SYNC_AT || (inStepRef.current && flyingNow > 0);
+  inStepRef.current = inStep;
 
   const items = useMemo<Item[]>(() => {
     if (!result) return [];
@@ -2648,6 +2685,13 @@ export function Board({
         .filter(Boolean)
         .join(", ");
       const leadAct = act(slot.ids);
+      // Spec 0090 (2): its glow, and (3) a flyer's hover classes, which the glow wears too.
+      const breathes = leadAct.breathing && !leadAct.pay && (flies(lead) || !leadAct.still);
+      const flyClass = flies(lead)
+        ? crowded.has(slot.row)
+          ? " bf-fly bf-fly-bob"
+          : " bf-fly"
+        : "";
       const drawn: Drawn = {
         name: lead.name,
         look,
@@ -2682,13 +2726,13 @@ export function Board({
               <span
                 className={`bf-fly-shadow${crowded.has(slot.row) ? " bf-fly-bob" : ""}`}
                 aria-hidden="true"
-                style={motionDelay(lead.id)}
+                style={hoverDelay(lead.id, inStep)}
               />
             )}
             <button
               type="button"
-              className={`bf-card bf-look-${look}${lead.tapped ? " bf-dim" : ""}${lead.attacking ? " bf-attacking" : ""}${lead.blocking ? " bf-blocking" : ""}${leadAct.className}${flies(lead) ? (crowded.has(slot.row) ? " bf-fly bf-fly-bob" : " bf-fly") : ""}`}
-              style={flies(lead) ? motionDelay(lead.id) : undefined}
+              className={`bf-card bf-look-${look}${lead.tapped ? " bf-dim" : ""}${lead.attacking ? " bf-attacking" : ""}${lead.blocking ? " bf-blocking" : ""}${leadAct.className}${breathes ? " bf-breathes" : ""}${flyClass}`}
+              style={flies(lead) ? hoverDelay(lead.id, inStep) : undefined}
               aria-label={label}
               {...leadAct.data}
               {...leadAct.handlers}
@@ -2812,6 +2856,10 @@ export function Board({
               {lead.sector && <span className="bf-zone">{lead.sector}</span>}
               {lead.sprocket && <span className="bf-zone">Sprocket {lead.sprocket}</span>}
             </button>
+            {/* Spec 0090 (2): its glow, over its edge, as its shadow was. */}
+            {breathes && (
+              <Breath className={flyClass} style={breathStyle(lead.id, flies(lead), inStep)} />
+            )}
             {leadAct.pay && (
               // Spec 0070, Amendment 1: picked to pay -- the cost's sign on the
               // card's corner (beside the card, which clips its edge); no words.
@@ -2844,40 +2892,45 @@ export function Board({
                 {attached.map((card, index) => {
                   const tagLook = lookOf(card.kind, card.types);
                   const tagAct = act([card.id]);
+                  // Spec 0090 (2): a tab's glow is its own soft layer, beside it.
+                  const tagPlace = {
+                    left: `calc(var(--card-h) * ${tabAt(index, attached.length + holding.length)})`,
+                    zIndex: attached.length + holding.length - index,
+                  };
+                  const tagBreathes = tagAct.breathing;
                   return (
-                    <button
-                      key={card.id}
-                      type="button"
-                      style={{
-                        left: `calc(var(--card-h) * ${tabAt(index, attached.length + holding.length)})`,
-                        zIndex: attached.length + holding.length - index,
-                      }}
-                      className={`bf-tag bf-look-${tagLook}${tagAct.className}`}
-                      {...tagAct.data}
-                      {...tagAct.handlers}
-                      aria-label={[
-                        `${card.name}, attached to ${lead.faceDown && !lead.known ? "a face-down card" : lead.name}`,
-                        sideOf(card.seat) === "viewer"
-                          ? viewerName
-                            ? `${viewerName}'s`
-                            : "yours"
-                          : viewerName
-                            ? `${opponentName}'s`
-                            : "opponent's",
-                        ...tagAct.words,
-                      ]
-                        .filter(Boolean)
-                        .join(", ")}
-                      data-object-id={card.id}
-                      data-zone={slot.row}
-                      data-controller={sideOf(card.seat)}
-                      data-attached-to={lead.id}
-                      data-tapped={String(card.tapped)}
-                      data-face="up"
-                    >
-                      <Glyph look={tagLook} className="bf-tag-glyph" />
-                      <span className="bf-tag-name">{card.name}</span>
-                    </button>
+                    <Fragment key={card.id}>
+                      <button
+                        type="button"
+                        style={tagPlace}
+                        className={`bf-tag bf-look-${tagLook}${tagAct.className}${tagBreathes ? " bf-breathes" : ""}`}
+                        {...tagAct.data}
+                        {...tagAct.handlers}
+                        aria-label={[
+                          `${card.name}, attached to ${lead.faceDown && !lead.known ? "a face-down card" : lead.name}`,
+                          sideOf(card.seat) === "viewer"
+                            ? viewerName
+                              ? `${viewerName}'s`
+                              : "yours"
+                            : viewerName
+                              ? `${opponentName}'s`
+                              : "opponent's",
+                          ...tagAct.words,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
+                        data-object-id={card.id}
+                        data-zone={slot.row}
+                        data-controller={sideOf(card.seat)}
+                        data-attached-to={lead.id}
+                        data-tapped={String(card.tapped)}
+                        data-face="up"
+                      >
+                        <Glyph look={tagLook} className="bf-tag-glyph" />
+                        <span className="bf-tag-name">{card.name}</span>
+                      </button>
+                      {tagBreathes && <Breath className=" bf-breath-tag" style={tagPlace} />}
+                    </Fragment>
                   );
                 })}
                 {/* Spec 0085 (4 A) -- each card it holds in exile: a picture
@@ -2936,6 +2989,7 @@ export function Board({
       const zoomed = pointed === card.id;
       const box = zoomed ? handZoomBox(rest, g) : rest;
       const handAct = act([card.id], true);
+      const handBreathes = handAct.breathing && !handAct.pay && !handAct.still;
       const show = () => setPointed(card.id);
       const hide = () => setPointed((now) => (now === card.id ? null : now));
       out.push({
@@ -2948,7 +3002,7 @@ export function Board({
           <>
             <button
               type="button"
-              className={`bf-card bf-hand bf-look-${look}${handAct.className}`}
+              className={`bf-card bf-hand bf-look-${look}${handAct.className}${handBreathes ? " bf-breathes" : ""}`}
               aria-label={[
                 `${card.name}, in your hand`,
                 pt,
@@ -2972,6 +3026,7 @@ export function Board({
             >
               <CardFace {...drawn} />
             </button>
+            {handBreathes && <Breath />}
             {handAct.pay ? (
               <PaySign tone={handAct.pay.tone} corner="top-left" />
             ) : (
@@ -3080,6 +3135,7 @@ export function Board({
     flyingOnto,
     goneMarks,
     dropGoneMark,
+    inStep,
   ]);
   // A card selected to attack or block draws over its neighbours (Z_MARKED).
   const zOf = (item: Item) =>
@@ -7619,6 +7675,28 @@ export function Board({
     lastLines.current = now;
   });
 
+  // Spec 0090 (2, 3) -- after every drawing, and after every other effect has
+  // started its animations: each glow layer plays its card's movements; the
+  // flyers bob in step (more than FLY_SYNC_AT), or not at all while the tab
+  // is hidden. Once more on the next frame, for anything started late.
+  useLayoutEffect(() => {
+    const root = ref.current;
+    followCards(root);
+    if (typeof document !== "undefined" && document.hidden) pauseFlyers(root, true);
+    else if (inStep) bobInStep(root);
+    if (typeof requestAnimationFrame !== "function") return undefined;
+    const frame = requestAnimationFrame(() => followCards(ref.current));
+    return () => cancelAnimationFrame(frame);
+  });
+  useEffect(() => {
+    const seen = () => {
+      pauseFlyers(ref.current, document.hidden);
+      if (!document.hidden && inStepRef.current) bobInStep(ref.current);
+    };
+    document.addEventListener("visibilitychange", seen);
+    return () => document.removeEventListener("visibilitychange", seen);
+  }, []);
+
   if (!result) return <div ref={ref} className="bf-board" data-testid="battlefield" />;
   const g = result.geometry;
   // Spec 0083 (18 B) -- whose hand a split-second spell locks: the side that
@@ -8079,6 +8157,7 @@ export function Board({
               card={card}
               box={box}
               className={a.className}
+              breathes={a.breathing && !a.pay && !a.still}
               label={[fanWords(card, whose), ...a.words].filter(Boolean).join(", ")}
               data={a.data}
               handlers={a.handlers}
@@ -8191,7 +8270,7 @@ export function Board({
               {a.targeted && <Sight />}
               <button
                 type="button"
-                className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${whose}${a.className}`}
+                className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${whose}${a.className}${a.breathing && !a.pay && !a.still ? " bf-breathes" : ""}`}
                 aria-label={[
                   `${s.copy ? "a copy of " : ""}${s.name}${s.count ? ` ×${s.count}` : ""}, ${waiting ? "on its way to the stack" : "on the stack"}`,
                   s.splitSecond ? "split second" : "",
@@ -8270,6 +8349,7 @@ export function Board({
                   <SpellMark splitSecond={!!s.splitSecond} above={!!s.copy} />
                 )}
               </button>
+              {a.breathing && !a.pay && !a.still && <Breath />}
               {/* Spec 0083 (18 B) -- split second: a gold ring closes round
                   the card while it is on the stack (nobody may answer). */}
               {s.splitSecond && !waiting && (
