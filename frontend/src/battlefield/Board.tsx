@@ -61,6 +61,7 @@ import {
 import { fanBoxes, fanReach, type FanCard } from "./pileFan";
 import { ManaCost, ManaText, costChange, symbolUrl } from "./ManaCost";
 import { litShadow, owingWords, type PayPip } from "./manaBalls";
+import { ASIDE_MS, castCoverBox, covers } from "./stepAside";
 import { SharpCard, closeUpOf } from "../closeUp";
 import {
   inCombat,
@@ -663,6 +664,17 @@ export interface BoardProps {
   openingDelay?: number;
   /** Spec 0084 -- this update's spent cards, library shuffles and crews, as the game says. */
   moments?: Moments | null;
+  /**
+   * Spec 0091 -- the casting card is up in the middle: a spent card under it
+   * waits ASIDE_MS, while it steps aside, before it folds and goes.
+   */
+  castCover?: boolean;
+  /**
+   * Spec 0091 Amendment 1 -- the card just cast, held aside, flies to this
+   * stack entry's spot as its spell leaves the stack: the stack card waits,
+   * unseen, this long (until it has landed) before it plays its leaving.
+   */
+  landingOnStack?: { id: string; ms: number } | null;
   /** Combat, while there is one (fire and shield lines, AMENDMENT 7). */
   combat?: CombatView | null;
   /** The stack, the object that resolves next FIRST. */
@@ -1170,6 +1182,11 @@ interface Ghost extends Drawn {
     | { low: string; high: string; kind: string; does: string | null; whose: string }
     | undefined;
   zIndex?: number;
+  /**
+   * Spec 0091 Amendment 1 -- not drawn at all for this long: a stack card
+   * leaving while the casting card is still flying onto its spot.
+   */
+  unseen?: number;
   /** Phase 10 A-04/A-05: defeated (to a graveyard) or exiled, shown first. */
   fate?: Fate | undefined;
   /** Phase 10 A-17: pulled on a gold chain into (or out of) a tab. */
@@ -2155,6 +2172,8 @@ export function Board({
   rail,
   top,
   overlay,
+  castCover = false,
+  landingOnStack = null,
 }: BoardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
@@ -4910,6 +4929,11 @@ export function Board({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per update
   }, [survive, result]);
 
+  // Spec 0091 -- read as each update's movements start.
+  const castCoverRef = useRef(castCover);
+  castCoverRef.current = castCover;
+  const landingRef = useRef(landingOnStack);
+  landingRef.current = landingOnStack;
   // After each commit, before paint: start what should move.
   useLayoutEffect(() => {
     if (!result) return;
@@ -6331,6 +6355,9 @@ export function Board({
       const waitsOf = new Set<string>();
       // Spec 0084 -- how many spent cards have been sent off so far this update.
       let spentN = 0;
+      // Spec 0091 -- the casting card covers it: it waits for the step aside.
+      const cover = castCoverRef.current && !reducedMotion() ? castCoverBox(g) : null;
+      const asideWait = (box: Box) => (cover && covers(cover, box) ? ASIDE_MS : 0);
       for (const [lead, ids] of before.piles) {
         if (ids.length < 2) continue;
         const left = ids.filter((id) => !now.has(id) && !merged.has(id) && !returns?.has(id));
@@ -6372,7 +6399,9 @@ export function Board({
               ? shrinkFirst(id, look, Math.max(hold, struck))
               : [look, fighting ? Math.max(0, end - elapsed) : Math.max(hold, struck)];
           // Spec 0084: spent ones go one after another (one per mana).
-          const delay = fate === "spent" ? delay0 + SPENT_BEAT_MS * spentN++ : delay0;
+          // Spec 0091: under the casting card, after it has stepped aside.
+          const delay =
+            fate === "spent" ? delay0 + SPENT_BEAT_MS * spentN++ + asideWait(at.box) : delay0;
           const peel = peelOf.get(id);
           leaving.push({
             ...shown,
@@ -6508,7 +6537,8 @@ export function Board({
           fate === "defeated" && !fought && fightEnd === undefined
             ? shrinkFirst(id, d, delay)
             : [d, delay];
-        const breaks = fate === "spent" ? breaks0 + SPENT_BEAT_MS * spentN++ : breaks0;
+        const breaks =
+          fate === "spent" ? breaks0 + SPENT_BEAT_MS * spentN++ + asideWait(at.box) : breaks0;
         // Spec 0073: into a pile, the number ticks as it lands; out of one,
         // as it lifts off (peeling, D, when it was defeated or exiled).
         if (joined) landAt.set(id, delay + MOVE_MS);
@@ -6798,6 +6828,11 @@ export function Board({
       // through it; everything else still waits for the fights.
       const fightsHold = hold;
       if (spellFight.current && spellFight.current === fightClock.current) hold = 0;
+      // Spec 0091 Amendment 1 -- the held casting card is flying onto it.
+      const landing = landingRef.current;
+      if (landing && before.stack.some((e) => e.s.id === landing.id)) {
+        hold = Math.max(hold, landing.ms);
+      }
       for (const { s, box } of before.stack) {
         if (stillThere.has(s.id) || (s.card && merged.has(s.card))) continue;
         // A-17: an Aura resolving onto its creature is chained into its tab.
@@ -7434,6 +7469,9 @@ export function Board({
           landed: (tile) => Math.max(0, ...(ticks.get(tile) ?? []).map((c) => c.at)),
         });
       hold = fightsHold;
+      if (landing) {
+        for (const ghost of gone) if (ghost.id === landing.id) ghost.unseen = landing.ms;
+      }
       if (gone.length > 0) setGhosts((list) => [...list, ...gone]);
       // Spec 0084 (6 B) -- coming alive, and back: the marks, the breath, the number.
       if (living.length > 0) {
@@ -8983,6 +9021,18 @@ function GhostCard({
     };
     // Runs once: a ghost goes where it was sent when it appeared.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Spec 0091 Amendment 1 -- unseen until the casting card flying onto its
+  // spot has landed (made after its own movement, so it wins until then).
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!ghost.unseen || !element || typeof element.animate !== "function") return undefined;
+    const unseen = element.animate([{ opacity: 0 }, { opacity: 0 }], {
+      duration: ghost.unseen,
+      id: "unseen-landing",
+    });
+    return () => unseen.cancel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once
   }, []);
   return (
     <div

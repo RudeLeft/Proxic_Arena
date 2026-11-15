@@ -88,10 +88,22 @@ import {
 } from "./theirCast";
 import type { TheirGlide } from "./CastingCard";
 import {
+  actingMs,
+  asideOffset,
+  nextRun,
+  offsetAt,
+  type Acting,
+  type AsideRun,
+  type Offset,
+} from "./stepAside";
+import {
   CastingCard,
   CastingFlight,
   castingBox,
   stillMotion,
+  FLIP_MS,
+  FLY_MS,
+  HOLD_MS as REVEAL_HOLD_MS,
   owingSymbols,
   keepPaying,
   costPips,
@@ -799,11 +811,99 @@ export function GameScreen({
     battlefield: Set<string>;
   } | null>(null);
   const lingerSince = useRef<{ id: string; at: number } | null>(null);
+  // Spec 0091 -- the casting card's step aside, while a card under it is
+  // spent or tapped to pay: one run at a time (stepAside.ts), planned once
+  // per board in the overlay (where the board says where each card was).
+  const asideRun = useRef<AsideRun | null>(null);
+  // The board's latest "where is it" and its size (set as it draws).
+  const atRef = useRef<((objectId: string) => Box | null) | null>(null);
+  const geometryRef = useRef<Geometry | null>(null);
+  const asideSeen = useRef<Snapshot | null>(null);
+  // Amendment 1 -- a step cut short: where the card was and where it flies.
+  const asideCut = useRef<{
+    card: string;
+    from: Offset;
+    spot: Box | null;
+    stackId: string;
+    ms: number;
+    board: Snapshot;
+  } | null>(null);
+  const [, setAsideOver] = useState(0);
+  const asideDone = useCallback((key: string) => {
+    if (asideRun.current?.key !== key || asideRun.current.done) return;
+    asideRun.current.done = true;
+    setAsideOver((n) => n + 1);
+  }, []);
   const wasCasting = lastCasting.current;
+  // Once per board: the cards under the casting card spent (folding and
+  // going) or tapped (its ball flying) to pay, where the board drew them
+  // just before. The card being cast, or the one just cast (Village Rites'
+  // creature is sacrificed as it goes on the stack): any of them under it,
+  // it steps aside, and is held until it is back in the middle.
+  if (board && data && board !== asideSeen.current) {
+    asideSeen.current = board;
+    const before = frames.current.previous;
+    const atBefore = atRef.current;
+    // Amendment 1 (owner, 2026-11-15) -- the card just cast, held aside for
+    // its step, whose spell leaves the stack now (it resolved first): the
+    // step is cut short and the card flies from where it is to the spell's
+    // spot there, whose stack card waits unseen until it has landed. Never
+    // two of it on screen, never a fade in the middle.
+    const held = asideRun.current;
+    if (!castingNow && wasCasting && held && !held.done && held.card === wasCasting.card.id) {
+      const was = before?.stack.find((entry) => spellOf(entry, held.card));
+      if (was && !board.stack.some((entry) => spellOf(entry, held.card))) {
+        asideCut.current = {
+          card: held.card,
+          from: offsetAt(held, performance.now()),
+          spot: atBefore?.(was.id) ?? null,
+          stackId: was.id,
+          ms: (wasCasting.hidden ? FLIP_MS + REVEAL_HOLD_MS : 0) + FLY_MS,
+          board,
+        };
+        held.done = true;
+      }
+    }
+    const shown = castingNow ?? wasCasting?.card ?? null;
+    const g = geometryRef.current;
+    if (shown && before && atBefore && g) {
+      const acting: Acting[] = [];
+      for (const id of data.moments?.spent ?? []) {
+        const box = atBefore(id);
+        if (box) acting.push({ id, box, kind: "spent" });
+      }
+      const untapped = new Set(before.battlefield.filter((c) => !c.tapped).map((c) => c.id));
+      for (const card of board.battlefield) {
+        if (!card.tapped || !untapped.has(card.id)) continue;
+        const box = atBefore(card.id);
+        if (box) acting.push({ id: card.id, box, kind: "tapped" });
+      }
+      const to = asideOffset(g, acting);
+      if (to) {
+        const lastN = Math.max(0, ...(before.payments ?? []).map((p) => p.n));
+        const mana = (board.payments ?? [])
+          .filter((p) => p.n > lastN)
+          .reduce((n, p) => n + p.mana.length, 0);
+        asideRun.current = nextRun(
+          asideRun.current,
+          `${board.gameEpoch}:${board.stateRevision}`,
+          shown.id,
+          to,
+          actingMs(data.moments?.spent.size ?? 0, mana),
+          performance.now(),
+          stillMotion(),
+        );
+      }
+    }
+  }
   const lingerFor =
     !castingNow &&
     wasCasting &&
-    (payments ?? []).some((p) => p.for === wasCasting.card.id && pending(balls.current, p.n))
+    ((payments ?? []).some((p) => p.for === wasCasting.card.id && pending(balls.current, p.n)) ||
+      // Spec 0091 -- and back in the middle before it flies (it sets off
+      // from there): until its step's animation says so, on the animation
+      // clock (a slowed clock slows it too), within BALLS_LONGEST_MS.
+      (asideRun.current?.card === wasCasting.card.id && !asideRun.current.done))
       ? wasCasting.card
       : null;
   if (lingerFor && lingerSince.current?.id !== lingerFor.id) {
@@ -820,6 +920,14 @@ export function GameScreen({
     return () => window.clearTimeout(timer);
   }, [lingering, ballsLanded]);
   const casting = castingNow ?? lingering;
+  // Spec 0091 -- in case the step's animation never reports (nothing drew
+  // it): the card goes on, as it does for balls that never land.
+  useEffect(() => {
+    const run = asideRun.current;
+    if (!lingering || !run || run.done || run.card !== lingering.id) return undefined;
+    const timer = window.setTimeout(() => asideDone(run.key), BALLS_LONGEST_MS);
+    return () => window.clearTimeout(timer);
+  }, [lingering, asideDone]);
   // Spec 0062 -- this cast's payment: its steps since the card appeared (an
   // earlier cast of the same card, cancelled, is not this one).
   const castSince = useRef<{ id: string; n: number } | null>(null);
@@ -1004,7 +1112,6 @@ export function GameScreen({
       };
     }
   }
-  const atRef = useRef<((objectId: string) => Box | null) | null>(null);
   // W-17 -- the cards lit while a sector or sprocket choice is pointed at.
   const [lit, setLit] = useState<ReadonlySet<string>>(() => new Set());
   const lightCards = useCallback((ids: readonly string[]) => setLit(new Set(ids)), []);
@@ -1047,6 +1154,9 @@ export function GameScreen({
     hidden: boolean;
     key: number;
     battlefield: Set<string>;
+    /** Spec 0091 Amendment 1 -- it sets off from its step aside, to this spot when nothing else holds the spell. */
+    from?: Offset | null;
+    spot?: Box | null;
   } | null>(null);
   // Owner 2026-11-01 (item 2) -- the spell being flown already resolved
   // onto the battlefield (nothing answered it): the flight lands on its
@@ -1101,12 +1211,15 @@ export function GameScreen({
       // back to their hand (one more card there); otherwise it was cast --
       // it may be on the stack, or already resolved, before this frame.
       const cancelled = handCountOf(before.card.seat) > before.handCount;
+      const cut = asideCut.current?.card === before.card.id ? asideCut.current : null;
       setFlight({
         card: before.card,
         reveal: before.hidden && !cancelled,
         hidden: before.hidden && cancelled,
         key: Date.now(),
         battlefield: before.battlefield,
+        from: cut?.from ?? null,
+        spot: cut?.spot ?? null,
       });
     }
     // Lingering for its balls: what it was while cast is kept (a cancel is
@@ -2071,6 +2184,12 @@ export function GameScreen({
                 (!!openingHeld && (board.turn === 0 || openingHeld.mode === "closing")))
             }
             moments={data.moments}
+            castCover={!!casting}
+            landingOnStack={
+              asideCut.current?.board === board
+                ? { id: asideCut.current.stackId, ms: asideCut.current.ms }
+                : null
+            }
             fans={data.fans}
             pileCards={pileCards}
             flyingOnto={flyingOnto}
@@ -2211,6 +2330,9 @@ export function GameScreen({
             }
             overlay={(at, geometry) => {
               atRef.current = at;
+              geometryRef.current = geometry;
+              const aside =
+                casting && asideRun.current?.card === casting.id ? asideRun.current : null;
               // Spec 0072 -- their fan as drawn now; the casting card, first
               // seen, rises from the fan as it was drawn just before.
               const fan = { hidden: [] as Box[], shown: new Map<string, Box>() };
@@ -2252,6 +2374,7 @@ export function GameScreen({
                       geometry={geometry}
                       ledger={balls.current}
                       onLanded={ballsLanded}
+                      aside={aside}
                     />
                   )}
                   {aiming && (
@@ -2294,6 +2417,8 @@ export function GameScreen({
                           : null
                       }
                       onRisen={casting.id === freeCasting?.id ? freeRisen : undefined}
+                      aside={aside}
+                      onAsideDone={asideDone}
                     />
                   )}
                   {theirBack.current &&
@@ -2335,7 +2460,10 @@ export function GameScreen({
                           key={flight.key}
                           card={flight.card}
                           geometry={geometry}
-                          to={at(onStack?.id ?? flyingOnto ?? flight.card.id)}
+                          to={
+                            at(onStack?.id ?? flyingOnto ?? flight.card.id) ?? flight.spot ?? null
+                          }
+                          fromOffset={flight.from ?? null}
                           artUrl={artUrl}
                           onDone={() => setFlight(null)}
                           reveal={flight.reveal}

@@ -117,8 +117,10 @@ test("paying for a spell, the card being cast stays centred and every card to ta
           continue;
         }
         if ((await page.locator(".gs-cast:not(.gs-cast-leaving)").count()) > 0) {
-          // Settled (its rise is 0.56 s): the middle of the window.
+          // Settled (its rise is 0.56 s): the middle of the window. Spec 0091:
+          // once any step aside (an Elf under it just tapped) is over.
           await page.waitForTimeout(700);
+          await expect.poll(async () => (await castCentre(page))?.aside ?? null).toBeNull();
           const centre = await castCentre(page);
           const cards = await payable(page);
           if (cards.length > 0 && centre) {

@@ -735,6 +735,8 @@ export async function castCentre(page: Page) {
       dy: r.y + r.height / 2 - window.innerHeight / 2,
       h: r.height,
       seeThrough: cast.dataset.seeThrough === "true",
+      // Spec 0091 -- stepping aside while a card under it is spent or tapped.
+      aside: cast.dataset.stepAside ?? null,
     };
   });
 }

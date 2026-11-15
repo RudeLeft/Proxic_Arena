@@ -18,6 +18,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import type { SnapshotPayment } from "../match";
 import type { Box, Geometry } from "./layout";
 import { hurry } from "./motion";
+import { offsetAt, type AsideRun } from "./stepAside";
 
 /** One ball's flight (the canvas's look C: 0.62 s). */
 export const BALL_MS = 620;
@@ -266,7 +267,13 @@ export function ManaBalls({
   geometry,
   ledger,
   onLanded,
+  aside = null,
 }: {
+  /**
+   * Spec 0091 -- the casting card's step aside: a ball for its pips waits
+   * until it has moved out of the way, and flies to where its pip will be.
+   */
+  aside?: AsideRun | null;
   payments: readonly SnapshotPayment[];
   /** Where a card is on the board, in the board's coordinates. */
   at: (objectId: string) => Box | null;
@@ -285,6 +292,8 @@ export function ManaBalls({
   }
   const atRef = useRef(at);
   atRef.current = at;
+  const asideRef = useRef(aside);
+  asideRef.current = aside;
   // Where each player's floating mana was last drawn: spent, the chip may be
   // gone from the board the ball leaves on.
   const poolAt = useRef(new Map<string, Point>());
@@ -323,7 +332,22 @@ export function ManaBalls({
           return;
         }
         const size = Math.max(10, Math.min(26, geometry.cardH * 0.13 * scale));
-        fly(from, centre(target), m.colour, k * BALL_LAG_MS, size, pip)
+        // Spec 0091 -- into the casting card while it steps aside: set off
+        // once it is out of the way, to where its pip is when it lands.
+        const run = asideRef.current;
+        const now = performance.now();
+        const onCard = !!run && !!target.closest(".gs-cast");
+        const wait = onCard && run ? Math.max(0, run.start + run.outMs - now) : 0;
+        const lag = wait + k * BALL_LAG_MS;
+        const shift = (t: number) => offsetAt(onCard ? run : null, t);
+        const was = shift(now);
+        const will = shift(now + lag + BALL_MS);
+        const aim = centre(target);
+        const to = {
+          x: aim.x + (will.dx - was.dx) * scale,
+          y: aim.y + (will.dy - was.dy) * scale,
+        };
+        fly(from, to, m.colour, lag, size, pip)
           .catch(() => undefined)
           .finally(() => {
             land();

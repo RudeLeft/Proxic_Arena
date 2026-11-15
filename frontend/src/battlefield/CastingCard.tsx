@@ -31,6 +31,7 @@ import type { Box, Geometry } from "./layout";
 import { manaSymbols, symbolUrl } from "./ManaCost";
 import { assignBalls, litShadow, type PaidStep } from "./manaBalls";
 import { MOVE_EASING, MOVE_MS, glideFramesAs, lateFade } from "./motion";
+import { castingBox, runFrames, runMs, type AsideRun, type Offset } from "./stepAside";
 
 /**
  * Spec 0072 -- the other player's card's Glide (A-00) into or out of the
@@ -49,8 +50,6 @@ export function stillMotion(): boolean {
     : true;
 }
 
-/** How much bigger than a card on the table. */
-const GROW = 2.5;
 /** Rises out of the hand, and flies away, in this long. */
 export const FLY_MS = 560;
 /**
@@ -66,24 +65,9 @@ const SETTLE_MS = 140;
 export const FLIP_MS = 420;
 export const HOLD_MS = 650;
 
-/**
- * Spec 0068 -- where the card floats: centred on the middle of the screen
- * (the game screen fills the window), as big as fits. A pure function of
- * the window's size, so after a resize it is in the new middle.
- */
-export function castingBox(g: Geometry): Box {
-  const h = Math.min(g.cardH * GROW, g.height * 0.5);
-  const w = (h * g.cardW) / g.cardH;
-  return {
-    x: g.width / 2 - w / 2,
-    y: g.height / 2 - h / 2,
-    w,
-    h,
-    scale: h / g.cardH,
-    rotation: 0,
-    z: 0,
-  };
-}
+// Spec 0068 -- where the card floats (moved to stepAside.ts for spec 0091,
+// so the board can tell what it covers).
+export { castingBox };
 
 /** Spec 0068 -- how solid the card is while what it covers is pointed at (canvas: 1 - 0.86). */
 export const SEE_THROUGH = 0.14;
@@ -397,7 +381,16 @@ export function CastingCard({
   asking = null,
   theirs = null,
   onRisen,
+  aside = null,
+  onAsideDone,
 }: {
+  /**
+   * Spec 0091 -- a step aside while a card under it is spent or tapped to
+   * pay (stepAside.ts): played once per run, on the page's clock.
+   */
+  aside?: AsideRun | null;
+  /** Spec 0091 -- the step's animation is over (back in the middle), or was hurried there. */
+  onAsideDone?: ((key: string) => void) | undefined;
   /**
    * Spec 0081 -- told when the rise (the Glide from `theirs`) has landed in
    * the middle, or at once when there is none: a free spell is cast then.
@@ -482,6 +475,46 @@ export function CastingCard({
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as it arrives
   }, [card.id]);
+  // Spec 0091 -- the step aside: the card and the line under it slide
+  // aside together, are held while what it uncovered plays, and glide back
+  // (added to its rise, never replacing it). Reduce motion: no slide, the
+  // card goes see-through for that moment instead. A Web Animation inside
+  // the board, so a click hurries it (A-00).
+  const doneRef = useRef(onAsideDone);
+  doneRef.current = onAsideDone;
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!aside || aside.done || !el) return undefined;
+    const key = aside.key;
+    if (typeof el.animate !== "function") {
+      doneRef.current?.(key);
+      return undefined;
+    }
+    const step = el.animate(runFrames(aside), {
+      duration: runMs(aside),
+      easing: "linear",
+      ...(aside.still ? {} : { composite: "add" as CompositeOperation }),
+    });
+    const elapsed = performance.now() - aside.start;
+    if (elapsed > 0) step.currentTime = elapsed;
+    el.dataset["stepAside"] = aside.still ? "see-through" : "aside";
+    let over = false;
+    const finish = () => {
+      if (over) return;
+      over = true;
+      delete el.dataset["stepAside"];
+      doneRef.current?.(key);
+    };
+    const finished = step.finished as Promise<Animation> | undefined;
+    if (finished !== undefined) void finished.then(finish, () => undefined);
+    else step.onfinish = finish;
+    return () => {
+      over = true;
+      delete el.dataset["stepAside"];
+      step.cancel();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per run
+  }, [aside?.key]);
   // Spec 0062 -- the opponent's spell is a back: no pips (its cost is not
   // even sent); the balls fly to the back itself (data-ball-for).
   const pips =
@@ -590,7 +623,13 @@ export function CastingFlight({
   hidden = false,
   landing = false,
   back = null,
+  fromOffset = null,
 }: {
+  /**
+   * Spec 0091 Amendment 1 -- it was held aside (its step) when its spell
+   * left the stack: it sets off at once from where it is, not the middle.
+   */
+  fromOffset?: Offset | null;
   card: SnapshotCard;
   geometry: Geometry;
   to: Box | null;
@@ -681,7 +720,9 @@ export function CastingFlight({
         }),
       );
     }
-    const wait = reveal ? FLIP_MS + HOLD_MS : DECIDE_MS;
+    const wait = reveal ? FLIP_MS + HOLD_MS : fromOffset ? 0 : DECIDE_MS;
+    const ox = fromOffset?.dx ?? 0;
+    const oy = fromOffset?.dy ?? 0;
     const timer = window.setTimeout(() => {
       const there = toRef.current;
       // Already resolved before this viewer saw it on the stack (and
@@ -699,9 +740,9 @@ export function CastingFlight({
       const dy = there.y + there.h / 2 - (box.y + box.h / 2);
       animation = el.animate(
         [
-          { transform: "translate(0, 0) scale(1) rotate(0deg)", opacity: 1 },
+          { transform: `translate(${ox}px, ${oy}px) scale(1) rotate(0deg)`, opacity: 1 },
           {
-            transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 60}px) scale(0.75) rotate(5deg)`,
+            transform: `translate(${(ox + dx) * 0.5}px, ${(oy + dy) * 0.5 - 60}px) scale(0.75) rotate(5deg)`,
             opacity: 1,
             offset: 0.5,
           },
@@ -757,11 +798,13 @@ export function CastingFlight({
       data-card={card.id}
       data-landing={landing ? "true" : undefined}
       data-going={back ? "back" : undefined}
+      data-from-aside={fromOffset ? "true" : undefined}
       style={{
         left: box.x,
         top: box.y,
         width: box.w,
         height: box.h,
+        ...(fromOffset ? { transform: `translate(${fromOffset.dx}px, ${fromOffset.dy}px)` } : {}),
         ["--gs-cast-colour" as string]: emberColour(card.manaCost),
       }}
       aria-hidden="true"

@@ -30,6 +30,15 @@ snapshots both seats were sent (protocol/README.md), never inferred:
              bite, no blockers (F-0084-F)
   edict      Diabolic Edict: Bob sacrifices his Bears -- `sacrificed`, never
              `spent` (an edict kills; it keeps the defeated look)
+  rites      Spec 0091 -- Village Rites sacrificing Alice's Grizzly Bears: the
+             Bears' move says `spent`, to both seats, on the board where the
+             spell goes on the stack; on the board before it was being cast
+             (`casting`): the page keeps the casting card for its step aside
+             (F-0091-B)
+  elfpay     Spec 0091 -- Llanowar Elves tapped for {G} paying for Centaur
+             Courser: a board where the Elves are tapped and a payment's mana
+             is from them while Courser is still being cast, both seats
+             (F-0091-B)
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
@@ -637,8 +646,126 @@ def edict():
     return result(problems, "Diabolic Edict: Bob's Bear sacrificed, not spent (keeps the defeated look)", found)
 
 
+def rites():
+    """Spec 0091 -- Village Rites sacrifices Grizzly Bears while it is being cast."""
+    g = game("rites", [("Swamp", 15), ("Forest", 15), ("Grizzly Bears", 15), ("Village Rites", 15)], QUIET,
+             deal={1: {"hand": ["Forest", "Swamp", "Grizzly Bears", "Village Rites", "Forest", "Swamp", "Swamp"],
+                       "top": ["Swamp", "Forest"] * 4}})
+    w = Watch(g)
+    st = {"bears": None, "rites": None}
+
+    def policy(g, f):
+        seat = f["authorisedSeat"]
+        kind = f.get("kind")
+        w.see()
+        if seat == 2:
+            return DEFAULT
+        if kind == "chooseSpellAbilityToPlay":
+            land = g.play_land(f)
+            if land:
+                return land
+            if not stack_empty(g):
+                return None
+            bears = g.mine(1, name="Grizzly Bears")
+            if not bears:
+                return cast(g, f, "Grizzly Bears")
+            if not st["rites"] and g.untapped_lands(1, name="Swamp"):
+                o = cast(g, f, "Village Rites")
+                if o:
+                    st["rites"], st["bears"] = card_of(o), bears[0]["id"]
+                    return o
+            return None
+        if kind in ("declareAttackers", "declareBlockers"):
+            return None
+        mine = [o["actionId"] for o in f.get("options", [])
+                if st["bears"] and (o.get("objectId") == st["bears"] or card_of(o.get("actionId")) == st["bears"])]
+        return mine[0] if mine else DEFAULT
+
+    def until(g):
+        w.see()
+        return st["rites"] is not None and stack_empty(g) and bool(spent_moves(w, 2, {st["bears"]}))
+
+    g.run(policy, until=until, max_turn=8)
+    w.see()
+    found = {"rites": st["rites"], "bears": st["bears"], "stopped": g.stopped_badly()}
+    if not st["rites"]:
+        return "inconclusive", "never cast Village Rites with the Bears on the table", found
+    problems = [found["stopped"]] if found["stopped"] else []
+    for seat in (1, 2):
+        during = [s for s in w.boards(seat)
+                  if any(m.get("card") == st["bears"] and m.get("spent") is True for m in (s.get("moves") or []))]
+        boards = w.boards(seat)
+        # The board before: Village Rites being cast (the casting card up).
+        before = [boards[i - 1] for i, s in enumerate(boards) if s in during and i > 0]
+        found[f"seat{seat}"] = [[c.get("id") for c in (b.get("casting") or [])] for b in before]
+        if not during:
+            problems.append(f"seat {seat}: the Bears' move off the battlefield is `spent`")
+        elif not any(any(c.get("id") == st["rites"] for c in (b.get("casting") or [])) for b in before):
+            problems.append(f"seat {seat}: Village Rites was being cast on the board before the Bears go")
+    return result(problems, "the Bears spent as Village Rites is cast (it was being cast the board before), "
+                            "both seats", found)
+
+
+def elfpay():
+    """Spec 0091 -- Llanowar Elves tapped for {G} while Centaur Courser is being cast."""
+    g = game("elfpay", [("Forest", 30), ("Llanowar Elves", 15), ("Centaur Courser", 15)], QUIET,
+             deal={1: {"hand": ["Forest", "Llanowar Elves", "Forest", "Centaur Courser", "Forest", "Forest",
+                                "Forest"], "top": ["Forest"] * 6}})
+    w = Watch(g)
+    st = {"elves": None, "courser": None}
+
+    def policy(g, f):
+        seat = f["authorisedSeat"]
+        kind = f.get("kind")
+        w.see()
+        if seat == 2:
+            return DEFAULT
+        if kind == "chooseSpellAbilityToPlay":
+            land = g.play_land(f)
+            if land:
+                return land
+            if not stack_empty(g):
+                return None
+            elves = g.mine(1, name="Llanowar Elves")
+            if not elves:
+                return cast(g, f, "Llanowar Elves")
+            if not st["courser"] and not elves[0].get("sick") and not elves[0].get("tapped"):
+                o = cast(g, f, "Centaur Courser")
+                if o:
+                    st["courser"], st["elves"] = card_of(o), elves[0]["id"]
+                    return o
+            return None
+        if kind in ("applyManaToCost", "chooseManaAbility") and st["courser"]:
+            return pay_with(g, f, "Llanowar Elves") or pay_with(g, f, "Forest") or DEFAULT
+        if kind in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    def until(g):
+        w.see()
+        return st["courser"] is not None and stack_empty(g)
+
+    g.run(policy, until=until, max_turn=8)
+    w.see()
+    found = {"courser": st["courser"], "elves": st["elves"], "stopped": g.stopped_badly()}
+    if not st["courser"]:
+        return "inconclusive", "never cast Centaur Courser with the Elves ready", found
+    problems = [found["stopped"]] if found["stopped"] else []
+    for seat in (1, 2):
+        tapped = [s for s in w.boards(seat)
+                  if any(c.get("id") == st["courser"] for c in (s.get("casting") or []))
+                  and any(c.get("id") == st["elves"] and c.get("tapped") for c in s.get("battlefield", []))
+                  and any(m.get("from") == st["elves"] for p in (s.get("payments") or [])
+                          for m in (p.get("mana") or []))]
+        if not tapped:
+            problems.append(f"seat {seat}: a board with the Elves tapped and paid from, Courser being cast")
+    return result(problems, "the Elves tapped for {G} while Centaur Courser is being cast, both seats", found)
+
+
+
 SCENARIOS = {"treasures": treasures, "wilds": wilds, "clue": clue, "rampant": rampant, "copter": copter,
-             "mutavault": mutavault, "prey": prey, "ram": ram, "edict": edict}
+             "mutavault": mutavault, "prey": prey, "ram": ram, "edict": edict,
+             "rites": rites, "elfpay": elfpay}
 
 if __name__ == "__main__":
     worst = 0
