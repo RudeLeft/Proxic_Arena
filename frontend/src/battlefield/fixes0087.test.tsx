@@ -5,7 +5,7 @@
 // the plate). The board as the game screen draws it, handed one board and
 // then the next, and the pure pieces under it.
 
-import { fireEvent, render } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, type StackView } from "./Board";
 import { FAN_CLOSE_MS, FAN_RISE_MS, FAN_SINK_MS, fanWords } from "./FanCards";
@@ -176,8 +176,6 @@ function draw(
   extra: {
     piles?: ReadonlySet<string>;
     stack?: StackView[];
-    onPick?: (id: string) => void;
-    choosable?: ReadonlySet<string>;
     seen?: (at: (id: string) => Box | null) => void;
   } = {},
 ) {
@@ -194,8 +192,6 @@ function draw(
       fans={fans}
       pileCards={extra.piles ?? new Set(fans.map((c) => c.id))}
       rail={<Tiles />}
-      {...(extra.onPick ? { onPick: extra.onPick } : {})}
-      {...(extra.choosable ? { choosable: extra.choosable } : {})}
       overlay={(at) => {
         extra.seen?.(at);
         return null;
@@ -484,20 +480,9 @@ describe("F-0087-A · Light Up the Stage: rising out of Exile, leaving when the 
 // --- F-0087-B: cast from the fan ---------------------------------------------------------------
 
 describe("F-0087-B · cast straight from the fan", () => {
-  it("a click on a fan card is a click on that card, as in the hand", () => {
-    const picked: string[] = [];
-    const c = render(
-      draw(fanCards(stageBoard(1)), {
-        onPick: (id) => picked.push(id),
-        choosable: new Set(["card:11"]),
-      }),
-    ).container;
-    const giant = c.querySelector<HTMLElement>('[data-object-id="card:11"]')!;
-    expect(giant.closest("[data-fan-card]")).toBeTruthy();
-    expect(giant.dataset["choosable"]).toBe("true");
-    fireEvent.click(giant);
-    expect(picked).toEqual(["card:11"]);
-  });
+  // The click itself (a fan card's options, its breath, the cast it sends) is
+  // proven on the real game screen from a real board: fixes0087screen.test.tsx,
+  // Amendment 3 (TEST-003: no clickable state handed to the board by hand).
 
   it("the board says where it stands, and still says so on the board after it was cast", () => {
     let at: ((id: string) => Box | null) | null = null;

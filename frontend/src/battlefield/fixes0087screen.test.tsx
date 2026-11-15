@@ -7,20 +7,21 @@
 // after it left the fan), as a card cast from the hand does. The real game
 // screen, its socket replaced, handed the boards the worker sends.
 
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_LOBBY, type MatchView } from "../lobby";
 import { reduceMatch, type MatchState } from "../match";
 
 const socket = vi.hoisted(() => ({
   onState: null as null | ((apply: (previous: MatchState) => MatchState) => void),
+  answers: [] as (string | null)[],
 }));
 vi.mock("../match", async (original) => ({
   ...(await original<typeof import("../match")>()),
   connectMatch: (_url: string, onState: (apply: (previous: MatchState) => MatchState) => void) => {
     socket.onState = onState;
     return {
-      answer: () => {},
+      answer: (_decisionId: number, actionId: string | null) => socket.answers.push(actionId),
       search: () => {},
       concede: () => {},
       endForAway: () => {},
@@ -38,6 +39,7 @@ type Recorded = { element: Element; frames: Keyframe[]; options: KeyframeAnimati
 let animations: Recorded[] = [];
 beforeEach(() => {
   animations = [];
+  socket.answers = [];
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
@@ -315,5 +317,87 @@ describe("F-0087-D · at zero the suspended card is cast for free from the fan",
     expect(at.x).toBeLessThan(RAIL_X);
     expect(at.x).toBeGreaterThan(RAIL_X - 200); // the fan, not the hand
     expect(at.y).toBeGreaterThan(820);
+  });
+});
+
+// Amendment 3 (owner 2026-11-15, option A: "no window, the glowing card is
+// the cue") -- on your move, a card you may cast from a pile is not asked
+// about in a window: its fan card breathes like a hand card and a click on
+// it casts it. An option the board draws nothing for still opens the window.
+describe("Amendment 3 · your move opens no window for a fan card; the click casts it", () => {
+  const thinkTwice = {
+    ...firebolt,
+    id: "card:55",
+    name: "Think Twice",
+    types: "Instant",
+    manaCost: "{1}{U}",
+    ...ALICE,
+  };
+  const forest = {
+    ...firebolt,
+    id: "card:60",
+    name: "Forest",
+    kind: "land",
+    types: "Basic Land — Forest",
+    manaCost: null,
+  };
+  const yourMove = (options: Record<string, unknown>[]) =>
+    act(() =>
+      socket.onState!((previous) =>
+        reduceMatch(previous, {
+          type: "DECISION_REQUEST",
+          decisionId: 21,
+          actedForSeat: 1,
+          authorisedSeat: 1,
+          kind: "chooseSpellAbilityToPlay",
+          stateVersion: revision,
+          options,
+        }),
+      ),
+    );
+  const flashback = {
+    actionId: "card:55/flashback",
+    label: "Think Twice — Flashback {2}{U}",
+    objectId: "card:55",
+  };
+  const land = { actionId: "card:60/play", label: "Play Forest", objectId: "card:60" };
+  // The window's heading; the bar's own (words for a screen reader only) is not a window.
+  const asked = () =>
+    screen
+      .queryAllByRole("heading", { name: /Your move/ })
+      .filter((h) => !h.classList.contains("pa-visually-hidden"))[0] ?? null;
+
+  it("no window; the fan card breathes; a real click on it sends its flashback", () => {
+    const c = open();
+    send(state({ graveyard: [thinkTwice], hand: [forest] }));
+    yourMove([flashback, land]);
+    expect(asked()).toBeNull();
+    const card = c.querySelector<HTMLElement>('[data-fan-card="card:55"] [data-object-id]')!;
+    expect(card.dataset["choosable"]).toBe("true");
+    expect(card.classList.contains("bf-breathes")).toBe(true);
+    expect(card.parentElement!.querySelector(".bf-breath")).toBeTruthy();
+    fireEvent.click(card);
+    expect(socket.answers).toEqual(["card:55/flashback"]);
+  });
+
+  it("one it cannot pay for now is dimmed, not breathing, as a hand card is", () => {
+    const c = open();
+    send(state({ graveyard: [thinkTwice], hand: [forest] }));
+    yourMove([{ ...flashback, payable: false }, land]);
+    expect(asked()).toBeNull();
+    const card = c.querySelector<HTMLElement>('[data-fan-card="card:55"] [data-object-id]')!;
+    expect(card.dataset["unpayable"]).toBe("true");
+    expect(card.classList.contains("bf-breathes")).toBe(false);
+  });
+
+  it("an option the board draws nothing for (an emblem's) still opens the window", () => {
+    open();
+    send(state({ graveyard: [thinkTwice], hand: [forest] }));
+    yourMove([
+      flashback,
+      land,
+      { actionId: "emblem:3/a1", label: "Emblem — draw a card", objectId: "emblem:3" },
+    ]);
+    expect(asked()).toBeTruthy();
   });
 });

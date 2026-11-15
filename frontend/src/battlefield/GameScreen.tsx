@@ -487,6 +487,11 @@ export function GameScreen({
     for (const card of [...board.battlefield, ...board.hand]) ids.add(card.id);
     // Spec 0088 (Q4 C) -- a library's top card on its tile is clicked as a card.
     for (const card of board.libraryTop ?? []) ids.add(card.id);
+    // Spec 0087 Amendment 3 (owner 2026-11-15) -- a card in a fan beside a
+    // plate is clicked as a card, like a hand card: its options are the
+    // fan card's, so your move opens no window for it. A pile card the fan
+    // does not draw (look-only) stays listed.
+    for (const card of fanCards(board)) ids.add(card.id);
     for (const entry of board.stack) ids.add(entry.id);
     for (const player of board.players) ids.add(`player:${player.seat}`);
     return ids;
