@@ -147,21 +147,38 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
         // F-0045-C: the other player sees Ringleader's cards, each marked
         // where it went once the effect is done (the bottom order is asked
         // first, so the game goes on in between).
-        if (!revealed && (await page.locator(".gs-reveal").count()) > 0) {
-          const to = await page
-            .locator(".gs-reveal [data-revealed-id]")
-            .evaluateAll((cards) => cards.map((c) => c.getAttribute("data-to")))
-            .catch(() => [] as (string | null)[]);
+        // ONE read of the tray, its words and its marks together: it can
+        // go with the turn between two separate reads, and a count then
+        // a wait for its text failed "element(s) not found" when it did
+        // (TEST-013.4, 2026-11-16). Gone before the read: the next pass.
+        // (Counted first only so a pass with no tray costs nothing.)
+        const seenTray =
+          revealed || (await page.locator(".gs-reveal").count()) === 0
+            ? null
+            : await page
+                .locator(".gs-reveal")
+                .first()
+                .evaluate(
+                  (t) => ({
+                    text: (t.textContent ?? "").replace(/\s+/g, " "),
+                    to: [...t.querySelectorAll("[data-revealed-id]")].map((c) =>
+                      c.getAttribute("data-to"),
+                    ),
+                  }),
+                  undefined,
+                  { timeout: 1_000 },
+                )
+                .catch(() => null);
+        if (seenTray) {
+          const to = seenTray.to;
           if (!sawTray) {
-            await expect(page.locator(".gs-reveal")).toContainText("Goblin Ringleader");
+            expect(seenTray.text).toContain("Goblin Ringleader");
             sawTray = true;
           }
           if (to.length > 0 && to.every((t) => t === "hand" || t === "bottom")) {
             // Amendment 12 -- who did it, in this reader's words; Amendment
             // 13 -- the caster, who chose, has no tray for it.
-            await expect(page.locator(".gs-reveal")).toContainText(
-              /\S+ revealed the top 4 cards of their library/,
-            );
+            expect(seenTray.text).toMatch(/\S+ revealed the top 4 cards of their library/);
             await expect(
               other.locator(".gs-reveal").filter({ hasText: "Goblin Ringleader" }),
               "the player who cast it is not shown what they chose",

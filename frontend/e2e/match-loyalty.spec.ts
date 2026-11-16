@@ -122,7 +122,13 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
     // startAMatch, not a second copy of it: the version this file
     // started with guessed a "Launch" button and hung for a quarter
     // of an hour on a button that is called "Start match".
-    await startAMatch(host, guest, deckName);
+    //
+    // settle: false -- the pregame is answered below, by the hand.
+    // In about one game in forty neither seat drew Elspeth in 36
+    // turns and nothing under test was ever asked (TEST-013.4,
+    // ROADMAP's flakes, 2026-11-16). Interim: spec 0098 deals the
+    // hand exactly.
+    await startAMatch(host, guest, deckName, { settle: false });
 
     // --- PLAY, until the decision under test appears -------------
     //
@@ -273,6 +279,16 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       },
     ];
     const seen = new Set<string>();
+    // Mulligans taken, per seat (at most two each, then keep).
+    const mulligans = new Map<Page, number>([
+      [host, 0],
+      [guest, 0],
+    ]);
+    // Either seat holding her is enough.
+    const holdsElspeth = async (page: Page) =>
+      (
+        await matchPanel(page).locator('[data-zone="viewer:hand"], .gs-opening').allTextContents()
+      ).some((text) => text.includes("Elspeth Resplendent"));
 
     // Bounded by the CLOCK, not by a loop counter. The first
     // version counted every pass of the loop, including the ones
@@ -385,6 +401,37 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       const options = await choices(live);
       const labels = await options.allTextContents();
 
+      // --- the pregame, answered towards Elspeth (match-karn's way) --
+      const heading = (await matchPanel(live).locator(".gs-question-title").allTextContents()).join(
+        " ",
+      );
+      if (
+        /Keep or mulligan|Play or draw|Put a card back|Begin with it on the battlefield/.test(
+          heading,
+        )
+      ) {
+        const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
+        let pregame = 0;
+        if (/Keep or mulligan/.test(heading)) {
+          // Each mulligan shrinks the hand, so "keep only with her"
+          // is bounded: twice per seat, then keep and draw into it.
+          const taken = mulligans.get(live) ?? 0;
+          const keep = taken >= 2 || (await holdsElspeth(host)) || (await holdsElspeth(guest));
+          if (!keep) mulligans.set(live, taken + 1);
+          pregame = find(keep ? /Keep/ : /Mulligan/);
+        } else if (/Put a card back/.test(heading)) {
+          // Never put her back.
+          pregame = labels.findIndex((label) => !label.includes("Elspeth"));
+        }
+        if (labels.length === 0) {
+          await live.waitForTimeout(100);
+          continue;
+        }
+        if (await answer(options.nth(Math.max(pregame, 0)))) answered += 1;
+        await live.waitForTimeout(60);
+        continue;
+      }
+
       // PLAY TOWARDS THE DECISIONS, deliberately. This is not a
       // test of how well anything plays; it is a test that these
       // decisions can be reached, answered and seen. So Elspeth
@@ -402,11 +449,21 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       // once a turn and -3 is only affordable some turns, so the
       // +1 — and with it the counter-type question — still
       // happens on all the others.
-      const dig = labels.findIndex((label) => /Look at the top/i.test(label));
-      const elspeth = dig >= 0 ? dig : labels.findIndex((label) => label.includes("Elspeth"));
+      //
+      // Never what cannot be paid for (an unpaid cast rolls back to
+      // the same question), and never Sensei's Divining Top once its
+      // ordering has been seen: its "look at the top three" was taken
+      // again and again, spending the turns Elspeth needed
+      // (2026-11-16).
+      const worth = (label: string) =>
+        !label.includes("(not enough mana right now)") &&
+        !(seen.has("the library ordering") && label.trim().startsWith("Sensei's Divining Top"));
+      const dig = labels.findIndex((label) => /Look at the top/i.test(label) && worth(label));
+      const elspeth =
+        dig >= 0 ? dig : labels.findIndex((label) => label.includes("Elspeth") && worth(label));
       const land = labels.findIndex((label) => label.includes("Play land"));
       const action = labels.findIndex(
-        (label) => !label.includes("Play land") && !label.includes("Add {"),
+        (label) => !label.includes("Play land") && !label.includes("Add {") && worth(label),
       );
       const pick = elspeth >= 0 ? elspeth : land >= 0 ? land : action;
 
@@ -414,8 +471,11 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
         if (await answer(options.nth(pick))) answered += 1;
       } else {
         const pass = matchPanel(live).getByRole("button", { name: "Pass" });
-        if ((await pass.count()) === 0) break;
-        if (await answer(pass)) answered += 1;
+        if ((await pass.count()) === 0) {
+          // Mandatory, and nothing above wanted any of it: Forge's first.
+          if (labels.length === 0) break;
+          if (await answer(options.first())) answered += 1;
+        } else if (await answer(pass)) answered += 1;
       }
       await live.waitForTimeout(40);
     }

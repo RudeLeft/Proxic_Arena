@@ -198,6 +198,19 @@ class Game:
                               "detail": f"no frame for {SILENCE_S} s; worker log: {self.stderr_path}"}
                 return
             if line is None:
+                # End of the worker's output with no GAME_ENDED and no
+                # ERROR: it died. Say so, so the scenario is not judged on
+                # a game that never finished and the worker log is kept
+                # (it is deleted only when there is no error).
+                # TEST-013.4 flake, 2026-11-16.
+                if not self.error and not self.ended:
+                    try:
+                        code = self.proc.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        code = self.proc.poll()
+                    self.error = {"errorCode": "WORKER_EXITED",
+                                  "detail": f"worker exited (code {code}) without a frame; "
+                                            f"worker log: {self.stderr_path}"}
                 return
             yield line
 

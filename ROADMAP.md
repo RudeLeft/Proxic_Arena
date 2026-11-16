@@ -158,8 +158,8 @@ failing line, until it is fixed or quarantined with a reason.
 
 | Test | Failing line | Seen | Status |
 |---|---|---|---|
-| `e2e/match-what-happened.spec.ts` | `toContainText` on the report | CI b621cd8, 1e08c7d; local 0088 | Open |
-| `e2e/match-loyalty.spec.ts` (planeswalker + modal) | "never asked in 1081 answered decisions" after 11 min | CI 630948c; 2026-11-02 | Open — the random game never reaches the question |
+| `e2e/match-what-happened.spec.ts` | `toContainText` on the report | CI b621cd8, 1e08c7d; local 0088 | Fixed 2026-11-16 — the reveal tray was counted, then its text waited for in a second read, and it could go with the turn in between (line 156, "element(s) not found"); now one read of its words and marks together, next pass if it went |
+| `e2e/match-loyalty.spec.ts` (planeswalker + modal) | "never asked in 1081 answered decisions" after 11 min | CI 630948c; 2026-11-02 | Fixed 2026-11-16 — about one game in forty neither seat drew Elspeth in 36 turns, and the bot spent turns on Sensei's Divining Top and on options it could not pay for; the spec now mulligans (twice per seat at most) for a hand with Elspeth and skips both; interim; exact deal in 0098 |
 | Lab `shapes` | HUNG after 300 s | CI 1e08c7d | Open |
 | `layout.test` "A-11 front line…" | 5 s timeout on CI (5054 ms) | CI b621cd8, a03a3db | Fixed (one expect) 2026-11-15 — overlaps collected, one `expect` for the sweep (108 ms locally) |
 | Lab `anywhere` fetch | second Polluted Delta drawn | CI de7af5e | Fixed 7ab3f1b (one copy of each fetch land) |
@@ -167,7 +167,7 @@ failing line, until it is fixed or quarantined with a reason.
 | `e2e/match-cast-from-pile.spec.ts` | "the game has not moved for 120 s … Put a card back" (line 90) | CI a03a3db | Fixed 2026-11-15 — a second put-back after two mulligans had no Island; any card but Think Twice now |
 | `e2e/match-cast-step-aside.spec.ts` | "the game has not moved for 120 s … Pay the mana" (line 119) | CI a03a3db | Fixed 2026-11-15 — only mana already made could pay and the script clicked board cards only; it now answers the window's option |
 | `e2e/match-session.spec.ts` | `locator.click: Test ended` on the second tab's choice (line 190), 15 min | CI a03a3db | Fixed 2026-11-15 — the second tab's click waited for "stable" while the first tab's answer removed its button; both now clicked at once, no wait |
-| Lab `unreachable` (unknown-card) | "a deck naming a card Forge does not have should be refused before the game", then HUNG at 300 s | local 1.70.0 run, 3 scenarios at once | Open -- passed alone in 15 s |
+| Lab `unreachable` (unknown-card) | "a deck naming a card Forge does not have should be refused before the game", then HUNG at 300 s | local 1.70.0 run, 3 scenarios at once | Fixed 2026-11-16 — the worker died mid-game, and lab.py took its end of output for an ordinary stop: no error, the scenario judged "wrong" and the worker log deleted; now WORKER_EXITED (log kept) and the scenario says INCONCLUSIVE (exit 2, retried once by CI) |
 | `e2e/admin.spec.ts:47`, `:77` | `toBeVisible` on the Lobby link / Accounts heading, 15 s | local 1.70.0 run | Open -- 10/10 on rerun |
 | `e2e/bench-scenes.spec.ts:86` (wipe) | `wipe: 95th-percentile frame` <= 50 ms; 66.7-83.4 ms locally (line 133) | local 1.70.0 run, every time; CI 2b0a1a8 (wipe, wash, army 50.1; storm 66.7) | Fixed 2026-11-16 -- also failed CI 2b0a1a8 at 50.1 ms (CI frames come in 16.7 ms steps, so 50 sat on the three-frame line); p95 budget 100 ms from CI's numbers |
 | `e2e/match-cast-step-aside.spec.ts` | "no jump at frame 5", 135.6 px between two frames | CI ba1251b | Fixed 2026-11-16 -- the smoothness check ignored the time between frames; a stalled CI frame looked like a jump. Allowance now scales with it |

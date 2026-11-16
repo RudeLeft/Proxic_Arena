@@ -75,6 +75,16 @@ def shards():
     return "ok", f"no card pays shards (the same search finds {len(life_cards)} that pay life)", found
 
 
+# The worker died or went quiet (lab.py): the game never got to the
+# question, so the proof is not wrong, only not reached. Exit 2, which CI
+# retries once (TEST-013.4, 2026-11-16).
+NO_WORKER = ("WORKER_EXITED", "WORKER_SILENT")
+
+
+def died(*games):
+    return next((g.stopped_badly() for g in games if (g.error or {}).get("errorCode") in NO_WORKER), None)
+
+
 def started(g):
     return g.turn >= 1 and not g.stopped_badly()
 
@@ -86,6 +96,8 @@ def backup_plan():
     without.run(lambda g, f: DEFAULT, until=lambda g: g.turn >= 2, max_turn=3)
     found = {"with Backup Plan": with_it.stopped_badly(), "asked": sorted({a[1] for a in with_it.asked}),
              "without it": without.stopped_badly() or f"turn {without.turn}"}
+    if died(with_it, without):
+        return "inconclusive", f"the worker stopped before the proof: {died(with_it, without)}", found
     problems = []
     if not (with_it.error or {}).get("errorCode") == "DECK_UNRESOLVED":
         problems.append(f"a deck with Backup Plan should be refused before the game: {found['with Backup Plan']}")
@@ -121,6 +133,8 @@ def unknown_card():
     g = game("unknown-card", [("Swamp", 59), ("Zzyzx Not A Real Card", 1)])
     g.run(lambda g, f: DEFAULT, until=lambda g: g.turn >= 2, max_turn=3)
     found = {"stopped": g.stopped_badly(), "turn": g.turn, "notices": g.notices}
+    if died(g):
+        return "inconclusive", f"the worker stopped before the proof: {died(g)}", found
     if (g.error or {}).get("errorCode") != "DECK_UNRESOLVED":
         return "wrong", f"a deck naming a card Forge does not have should be refused before the game: {found}", found
     return "ok", "a deck naming a card Forge does not have is refused before the game", found
