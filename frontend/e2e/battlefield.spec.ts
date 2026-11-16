@@ -37,7 +37,15 @@ import {
   type LayoutInput,
   type RowId,
 } from "../src/battlefield/layout";
-import { LIFE_R, MOVE_MS, SWEEP_MS, fateMs, anchors, handZoomBox } from "../src/battlefield/motion";
+import {
+  LIFE_R,
+  MOVE_MS,
+  SWEEP_MS,
+  fateMs,
+  anchors,
+  handReadBox,
+  handRiseBox,
+} from "../src/battlefield/motion";
 import { STACK_READ_SCALE, TIP_GAP, stackSpotBoxes, studY } from "../src/battlefield/effects";
 
 type Point = [number, number];
@@ -638,7 +646,8 @@ test("after every change the board moves, then settles exactly where layout() sa
   // nothing to do (say, no tapped land to untap).
   expect(moved, "changes that moved something").toBeGreaterThanOrEqual(steps - 2);
 
-  // A pointed-at hand card rises and zooms (AMENDMENT 6), then goes back.
+  // A pointed-at hand card rises a little and its reading card shows over
+  // the fan (spec 0094; it was AMENDMENT 6's zoom), then both go.
   const board = applyChanges(start, steps, 1).board;
   const expected = layout({ ...board, previousLands: rows }, viewport);
   const card = board.hand[Math.floor(board.hand.length / 2)]!;
@@ -648,24 +657,112 @@ test("after every change the board moves, then settles exactly where layout() sa
   await page.mouse.move((visible.left + visible.right) / 2, viewport.height - 20);
   await page.waitForTimeout(settled);
   await expect(handCard).toHaveAttribute("data-zoomed", "true");
-  const zoom = bounds(corners(handZoomBox(rest, expected.geometry), HAND_ORIGIN));
+  const risen = bounds(corners(handRiseBox(rest, expected.geometry), HAND_ORIGIN));
   const r = (await handCard.boundingBox())!;
   for (const [got, want] of [
-    [r.x, zoom.left],
-    [r.y, zoom.top],
-    [r.x + r.width, zoom.right],
-    [r.y + r.height, zoom.bottom],
+    [r.x, risen.left],
+    [r.y, risen.top],
+    [r.x + r.width, risen.right],
+    [r.y + r.height, risen.bottom],
   ] as const) {
     expect(Math.abs(got - want)).toBeLessThan(TOLERANCE);
+  }
+  const want = handReadBox(rest, expected.geometry);
+  const read = (await page.locator(`[data-reading="${card.id}"]`).boundingBox())!;
+  for (const [got, w] of [
+    [read.x, want.x],
+    [read.y, want.y],
+    [read.width, want.w],
+    [read.height, want.h],
+  ] as const) {
+    expect(Math.abs(got - w)).toBeLessThan(TOLERANCE);
   }
   await page.mouse.move(viewport.width / 2, viewport.height / 2);
   await page.waitForTimeout(settled);
   await expect(handCard).not.toHaveAttribute("data-zoomed", "true");
+  await expect(page.locator("[data-reading]")).toHaveCount(0);
   expect((await differences(page, board, viewport, false, undefined, rows)).wrong).toEqual([]);
 
   expect(problems, "browser reported errors").toEqual([]);
 });
 
+test("spec 0094: along the hand, the reading card is handReadBox's and covers no hand card", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const problems = watchErrors(page);
+  await signIn(page);
+  let read = 0;
+  for (const viewport of [
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/dev/board?permanents=40&faces=30&seed=1");
+    await page.locator(".bf-slot").first().waitFor();
+    const board = syntheticBoard(40, 30, 1);
+    const expected = layout(board, viewport);
+    const g = expected.geometry;
+    expect(board.hand.length).toBeGreaterThanOrEqual(5);
+    for (const card of board.hand) {
+      const rest = expected.boxes.get(card.id)!;
+      // A point on the strip of it that shows (left of the next card), as
+      // a player slides along: the rest box's 30% across, 40% down, tilted.
+      const [px, py] = (() => {
+        const c = corners(rest, HAND_ORIGIN);
+        const top = [
+          c[0]![0] + (c[1]![0] - c[0]![0]) * 0.3,
+          c[0]![1] + (c[1]![1] - c[0]![1]) * 0.3,
+        ];
+        const bottom = [
+          c[3]![0] + (c[2]![0] - c[3]![0]) * 0.3,
+          c[3]![1] + (c[2]![1] - c[3]![1]) * 0.3,
+        ];
+        return [top[0]! + (bottom[0]! - top[0]!) * 0.4, top[1]! + (bottom[1]! - top[1]!) * 0.4];
+      })();
+      await page.mouse.move(px, py, { steps: 4 });
+      await page.waitForTimeout(MOVE_MS);
+      const where = `${card.id} at ${viewport.width}x${viewport.height}`;
+      await expect(page.locator(`[data-object-id="${card.id}"]`), where).toHaveAttribute(
+        "data-zoomed",
+        "true",
+      );
+      const seen = await page.evaluate(
+        ({ id, x, y }) => {
+          const reading = document.querySelector<HTMLElement>(`[data-reading="${id}"]`);
+          const under = document.elementFromPoint(x, y)?.closest("[data-object-id]");
+          const r = reading?.getBoundingClientRect();
+          const hands = [
+            ...document.querySelectorAll<HTMLElement>('button[data-zone="viewer:hand"]'),
+          ].map((b) => b.getBoundingClientRect().top);
+          return {
+            box: r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null,
+            under: under?.getAttribute("data-object-id") ?? null,
+            fanTop: Math.min(...hands),
+            pointerEvents: reading ? getComputedStyle(reading).pointerEvents : null,
+          };
+        },
+        { id: card.id, x: px, y: py },
+      );
+      expect(seen.under, `${where}: the pointer stays on the hovered card`).toBe(card.id);
+      expect(seen.box, where).not.toBeNull();
+      expect(seen.pointerEvents).toBe("none");
+      const want = handReadBox(rest, g);
+      for (const [got, w] of [
+        [seen.box!.x, want.x],
+        [seen.box!.y, want.y],
+        [seen.box!.w, want.w],
+        [seen.box!.h, want.h],
+      ] as const) {
+        expect(Math.abs(got - w), where).toBeLessThan(TOLERANCE);
+      }
+      expect(seen.box!.y + seen.box!.h, `${where}: clear of the fan`).toBeLessThan(seen.fanTop);
+      read++;
+    }
+  }
+  expect(read).toBeGreaterThan(9);
+  expect(problems, "browser reported errors").toEqual([]);
+});
 /** Is the point inside the convex polygon (with a little slack)? */
 function inside(point: { x: number; y: number }, poly: Point[], slack = 1): boolean {
   let sign = 0;

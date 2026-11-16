@@ -228,19 +228,26 @@ describe("a card you saw in their hand slides into view when pointed at (F-0071-
     owner: 2,
     seen: true,
   });
+  // Spec 0094 (item 5): the whole card shows in the reading card under
+  // their hand; the card itself only comes down a little.
   it("whole card in view while pointed at, back after; the eye stays with it", () => {
     const c = open();
     board({ otherHands: [theirs] });
     const slot = slotOf(c, "card:50");
     const rest = slot.style.transform;
-    expect(yOf(slot)).toBeLessThan(0); // its top is off the screen
+    const restY = yOf(slot);
+    expect(restY).toBeLessThan(0); // its top is off the screen
     fireEvent.pointerEnter(slot.querySelector("button")!);
-    expect(yOf(slot)).toBe(0);
-    expect(slot.style.transform).toContain("rotate(0deg)");
+    expect(yOf(slot)).toBeGreaterThan(restY);
     expect(slot.querySelector("button")!.dataset["zoomed"]).toBe("true");
     expect(slot.querySelector('[data-sign="seen"]')).not.toBeNull();
+    const read = c.querySelector<HTMLElement>('[data-reading="card:50"]')!;
+    expect(read).not.toBeNull();
+    expect(read.dataset["readSide"]).toBe("opponent");
+    expect(read.querySelector('[data-sign="seen"]')).not.toBeNull();
     fireEvent.pointerLeave(slot.querySelector("button")!);
     expect(slot.style.transform).toBe(rest);
+    expect(c.querySelector("[data-reading]")).toBeNull();
   });
 
   it("their hidden cards do not move", () => {
@@ -264,8 +271,9 @@ describe("a card you saw in their hand slides into view when pointed at (F-0071-
     board({ otherHands: [theirs] });
     const slot = slotOf(c, "card:50");
     animations = [];
+    const restY = yOf(slot);
     fireEvent.pointerEnter(slot.querySelector("button")!);
-    expect(yOf(slot)).toBe(0);
+    expect(yOf(slot)).toBeGreaterThan(restY);
     expect(animations.filter((a) => a.element === slot)).toHaveLength(0);
     // The slots' glide is a CSS transition, off under reduced motion.
     const css = readFileSync(join(process.cwd(), "src", "battlefield", "battlefield.css"), "utf-8");

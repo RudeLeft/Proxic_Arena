@@ -84,8 +84,8 @@ import {
 import {
   anchors,
   boxAt,
-  handZoomBox,
-  opponentRevealBox,
+  handReadBox,
+  handRiseBox,
   LIFE_R,
   plateRects,
   MOVE_MS,
@@ -264,7 +264,7 @@ import {
 } from "./opening";
 import { domeMarks, shieldBreakMarks, wardMarks, type SurviveMark } from "./survive";
 import { GHOST_AT as UMBRA_GHOST_AT, umbraGhostBox, umbraMarks, umbraTimes } from "./umbra";
-import { payWords, type PayMark } from "./payPicks";
+import { payWords, type PayMark, type PayTone } from "./payPicks";
 import { PaySign } from "./PaySign";
 import {
   BADGE_FLOOR,
@@ -955,6 +955,86 @@ function CardFaceView({
 }
 
 export const CardFace = memo(CardFaceView, sameProps);
+
+/** Spec 0094 -- how much higher 0061's discard pick lifts a hand card (game.css `.bf-picked`). */
+const PICK_LIFT = 0.08;
+
+/** Spec 0094 -- what the reading card shows: the card pointed at in a hand, and its marks. */
+interface Reading {
+  id: string;
+  side: Side;
+  box: Box;
+  cardW: number;
+  cardH: number;
+  name: string;
+  /** The whole scan's table copy; SharpCard swaps in the close-up once it is whole. */
+  art: string | null;
+  /** Spec 0058 -- the cost now, when Forge says it differs from the printed one. */
+  cost: string | null;
+  change: "down" | "up" | null;
+  /** The hand card's marks (act()'s classes): playable, unpayable, picked, paying. */
+  className: string;
+  breathes: boolean;
+  pay: PayTone | null;
+  seen: boolean;
+  /** No scan (a server without card pictures): the table face, enlarged. */
+  face: Drawn;
+}
+
+/**
+ * Spec 0094 (owner 2026-11-16, A) -- the reading card: the whole printed
+ * card at HAND_READ times the card's size, clear of the fan, with the hand
+ * card's marks. It can't be clicked or pointed at, and screen readers skip
+ * it (the hand card keeps its own label). Drawn at its real size, not
+ * scaled, so the scan is sharp; its marks size off its own height.
+ */
+function ReadingCardView({ reading: r }: { reading: Reading }) {
+  return (
+    <div
+      className={`bf-read bf-read-${r.side}${r.className}`}
+      aria-hidden="true"
+      data-reading={r.id}
+      data-read-side={r.side}
+      style={{
+        width: r.box.w,
+        height: r.box.h,
+        transform: `translate3d(${r.box.x}px, ${r.box.y}px, 0)`,
+        zIndex: r.box.z,
+        ["--card-h" as string]: `${r.box.h}px`,
+      }}
+    >
+      {r.art ? (
+        <SharpCard low={r.art} high={closeUpOf(r.art)} alt="" className="bf-read-scan" />
+      ) : (
+        <div
+          className="bf-card bf-read-face"
+          style={{
+            width: r.cardW,
+            height: r.cardH,
+            transform: `scale(${r.box.scale})`,
+            ["--card-h" as string]: `${r.cardH}px`,
+          }}
+        >
+          <CardFace {...r.face} />
+        </div>
+      )}
+      {r.cost && (
+        <span className="bf-read-cost" data-read-cost={r.change ?? undefined}>
+          <ManaCost cost={r.cost} change={r.change} />
+        </span>
+      )}
+      {r.breathes && <Breath />}
+      {r.pay ? (
+        <PaySign tone={r.pay} corner="top-left" />
+      ) : (
+        r.seen && (
+          <PaySign tone="reveal" seen corner={r.side === "viewer" ? "top-left" : "bottom-left"} />
+        )
+      )}
+    </div>
+  );
+}
+const ReadingCard = memo(ReadingCardView, sameProps);
 
 /**
  * Spec 0089 (Q6 A) -- a stack card's name in its top bar: 5% smaller at a time
@@ -3056,8 +3136,10 @@ export function Board({
         costChange: costChange(now, card.manaCost),
         costFirst: true,
       };
+      // Spec 0094 -- pointed at, it only rises a little; the reading card
+      // above the fan shows the whole card (ReadingCard, below).
       const zoomed = pointed === card.id;
-      const box = zoomed ? handZoomBox(rest, g) : rest;
+      const box = zoomed ? handRiseBox(rest, g) : rest;
       const handAct = act([card.id], true);
       const handBreathes = handAct.breathing && !handAct.pay && !handAct.still;
       const show = () => setPointed(card.id);
@@ -3115,10 +3197,11 @@ export function Board({
       const rest = result.boxes.get(card.id);
       if (!rest) return;
       const shown = card.shown;
-      // Spec 0071, item 2 -- a card you may see slides down fully into
-      // view while pointed at, and back; a hidden back never moves.
+      // Spec 0071, item 2, as spec 0094 has it -- a card you may see comes
+      // down a little while pointed at, and the reading card under their
+      // hand shows the whole card; a hidden back never moves.
       const slid = !!shown && pointed === card.id;
-      const box = slid ? opponentRevealBox(rest, g) : rest;
+      const box = slid ? handRiseBox(rest, g, "opponent") : rest;
       const show = () => setPointed(card.id);
       const hide = () => setPointed((now) => (now === card.id ? null : now));
       const drawn: Drawn = shown
@@ -3208,6 +3291,92 @@ export function Board({
     inStep,
     zzStep,
   ]);
+  // Spec 0094 -- the reading card of the hand card pointed at (or focused):
+  // yours above your hand, a card of theirs you may see below theirs.
+  const reading = useMemo((): Reading | null => {
+    if (!result || !pointed) return null;
+    const g = result.geometry;
+    const mine = hand.find((card) => card.id === pointed);
+    if (mine) {
+      const rest = result.boxes.get(mine.id);
+      if (!rest) return null;
+      const a = act([mine.id], true);
+      const now = handCosts?.get(mine.id) ?? null;
+      const change = costChange(now, mine.manaCost);
+      return {
+        id: mine.id,
+        side: "viewer",
+        box: handReadBox(
+          rest,
+          g,
+          "viewer",
+          keepRight?.viewer ?? 0,
+          a.data["data-picked"] ? PICK_LIFT : 0,
+        ),
+        cardH: g.cardH,
+        cardW: g.cardW,
+        name: mine.name,
+        art: mine.art ? artUrl(mine.art) : null,
+        cost: change && now ? now : null,
+        change,
+        className: a.className,
+        breathes: a.breathing && !a.pay && !a.still,
+        pay: a.pay ? a.pay.tone : null,
+        seen: !!mine.seen,
+        face: {
+          name: mine.name,
+          look: lookOf(mine.kind, mine.types),
+          type: shortType(mine.types),
+          pt: figure(mine),
+          art: mine.art ? artUrl(mine.art) : null,
+          crop: mine.crop ? artUrl(mine.crop) : null,
+          faceDown: false,
+          side: "viewer",
+          cost: now ?? mine.manaCost ?? null,
+          costChange: change,
+          costFirst: true,
+        },
+      };
+    }
+    const theirs = opponentHand.find((card) => card.id === pointed && card.shown);
+    const shown = theirs?.shown;
+    const rest = theirs && result.boxes.get(theirs.id);
+    if (!theirs || !shown || !rest) return null;
+    return {
+      id: theirs.id,
+      side: "opponent",
+      box: handReadBox(rest, g, "opponent", keepRight?.opponent ?? 0),
+      cardH: g.cardH,
+      cardW: g.cardW,
+      name: shown.name,
+      art: shown.art ? artUrl(shown.art) : null,
+      cost: null,
+      change: null,
+      className: "",
+      breathes: false,
+      pay: null,
+      seen: !!shown.seen,
+      face: {
+        name: shown.name,
+        look: lookOf(shown.kind, shown.types),
+        type: shortType(shown.types),
+        pt: figure(shown),
+        art: shown.art ? artUrl(shown.art) : null,
+        crop: shown.crop ? artUrl(shown.crop) : null,
+        faceDown: false,
+        side: "opponent",
+        cost: shown.manaCost ?? null,
+      },
+    };
+  }, [result, pointed, hand, opponentHand, act, handCosts, artUrl, keepRight]);
+  // A card pointed at that has left the hand (cast, discarded) is no longer
+  // pointed at: back in the hand, it waits for the pointer again.
+  useEffect(() => {
+    if (!pointed) return;
+    if (hand.some((card) => card.id === pointed)) return;
+    if (opponentHand.some((card) => card.id === pointed && card.shown)) return;
+    setPointed(null);
+  }, [pointed, hand, opponentHand]);
   // A card selected to attack or block draws over its neighbours (Z_MARKED).
   const zOf = (item: Item) =>
     marked && item.ids.some((one) => marked.includes(one)) ? Z_MARKED : item.box.z;
@@ -8265,6 +8434,7 @@ export function Board({
             {item.content}
           </div>
         ))}
+        {reading && <ReadingCard reading={reading} />}
         {/* Spec 0087 -- the cards you (or they) may still use from a pile, in
             the fan beside that pile's plate. */}
         {fans.map((card) => {
@@ -8743,8 +8913,15 @@ export function Board({
         </svg>
         {/* A stack object is "where" its spot is: a spell cast flies there (spec 0044). */}
         {overlay?.(
+          // Spec 0094 -- a hand card pointed at is "where" its reading card
+          // is: a card cast from there rises from it.
           (id) =>
-            positions.get(id)?.box ?? spotBox.get(id) ?? waitingBox.get(id) ?? fanBox(id) ?? null,
+            (reading?.id === id ? reading.box : null) ??
+            positions.get(id)?.box ??
+            spotBox.get(id) ??
+            waitingBox.get(id) ??
+            fanBox(id) ??
+            null,
           g,
         )}
         {marks

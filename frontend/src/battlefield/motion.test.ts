@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { HAND_ORIGIN, TAPPED_ORIGIN, geometry, layout, type Box } from "./layout";
+import {
+  HAND_ORIGIN,
+  OPPONENT_HAND_ORIGIN,
+  TAPPED_ORIGIN,
+  geometry,
+  layout,
+  type Box,
+} from "./layout";
 import {
   GLIDE_LIFT,
-  HAND_ZOOM,
+  HAND_READ,
+  HAND_RISE,
+  READ_GAP,
   HURRY_MS,
   MOVE_MS,
   anchors,
@@ -10,7 +19,8 @@ import {
   fateMs,
   flipFrames,
   glideFrames,
-  handZoomBox,
+  handReadBox,
+  handRiseBox,
   hurry,
   MERGE_FADE_AT,
   MERGE_FADE_MS,
@@ -128,27 +138,117 @@ describe("the rail's zones (AMENDMENT 6)", () => {
   });
 });
 
-describe("a pointed-at hand card (AMENDMENT 6)", () => {
-  it("rises upright, twice the size, wholly on screen and in the play area", () => {
+describe("a pointed-at hand card and its reading card (spec 0094, F-0094-A)", () => {
+  /** The four corners of a card placed at `box`, as drawn. */
+  const cornersAt = (box: Box, cardW: number, cardH: number, origin: { x: number; y: number }) => {
+    const at = drawn(box, cardW, cardH, origin);
+    return [at(0, 0), at(cardW, 0), at(cardW, cardH), at(0, cardH)];
+  };
+
+  it("the card only rises; the reading card is 2.6x, upright, clear above the whole fan, in the play area", () => {
     for (const vp of VIEWPORTS) {
       for (const n of [1, 7, 12]) {
-        const hand = Array.from({ length: n }, (_, i) => ({ id: `card:h${i}` }));
-        const out = layout({ viewerSeat: 1, battlefield: [], hand }, vp);
-        const g = out.geometry;
-        for (const card of hand) {
-          const rest = out.boxes.get(card.id)!;
-          const zoom = handZoomBox(rest, g);
-          expect(zoom.rotation).toBe(0);
-          expect(zoom.scale).toBe(HAND_ZOOM);
-          const at = drawn(zoom, g.cardW, g.cardH, HAND_ORIGIN);
-          const top = at(0, 0);
-          const bottom = at(g.cardW, g.cardH);
-          expect(top.y).toBeGreaterThanOrEqual(0);
-          expect(bottom.y).toBeCloseTo(g.height - g.inset, 6);
-          expect(top.x).toBeGreaterThanOrEqual(g.play.x + g.inset - 1e-6);
-          expect(bottom.x).toBeLessThanOrEqual(g.play.x + g.play.w - g.inset + 1e-6);
-          expect(bottom.x - top.x).toBeCloseTo(g.cardW * HAND_ZOOM, 6);
+        for (const keep of [0, 300]) {
+          const hand = Array.from({ length: n }, (_, i) => ({ id: `card:h${i}` }));
+          const out = layout(
+            { viewerSeat: 1, battlefield: [], hand, keepRight: { viewer: keep } },
+            vp,
+          );
+          const g = out.geometry;
+          for (const card of hand) {
+            const rest = out.boxes.get(card.id)!;
+            const risen = handRiseBox(rest, g);
+            expect(risen.rotation).toBe(rest.rotation);
+            expect(risen.scale).toBe(1);
+            expect(risen.x).toBe(rest.x);
+            expect(rest.y - risen.y).toBeCloseTo(HAND_RISE * g.cardH, 6);
+            const read = handReadBox(rest, g, "viewer", keep);
+            expect(read.rotation).toBe(0);
+            expect(read.scale).toBe(HAND_READ);
+            const at = drawn(read, g.cardW, g.cardH, { x: 0, y: 0 });
+            const top = at(0, 0);
+            const bottom = at(g.cardW, g.cardH);
+            expect(bottom.x - top.x).toBeCloseTo(g.cardW * HAND_READ, 6);
+            expect(bottom.y - top.y).toBeCloseTo(g.cardH * HAND_READ, 6);
+            expect(top.y).toBeGreaterThanOrEqual(0);
+            expect(top.x).toBeGreaterThanOrEqual(g.play.x + g.inset - 1e-6);
+            expect(bottom.x).toBeLessThanOrEqual(
+              g.play.x + g.play.w - Math.max(g.inset, keep) + 1e-6,
+            );
+            // Clear of every card of the fan, the risen one included: its
+            // bottom READ_GAP above the highest corner of any of them.
+            const fanTop = Math.min(
+              ...hand.flatMap((other) =>
+                cornersAt(
+                  other.id === card.id ? risen : out.boxes.get(other.id)!,
+                  g.cardW,
+                  g.cardH,
+                  HAND_ORIGIN,
+                ).map((c) => c.y),
+              ),
+            );
+            expect(bottom.y).toBeLessThanOrEqual(fanTop - READ_GAP * g.height + 1e-6);
+            // ...and not floating far above it.
+            expect(bottom.y).toBeGreaterThan(fanTop - READ_GAP * g.height - 0.1 * g.cardH);
+            // Centred on the card, unless kept inside.
+            const mid = cornersAt(risen, g.cardW, g.cardH, HAND_ORIGIN);
+            const centre = (mid[0]!.x + mid[1]!.x) / 2;
+            const clamped =
+              centre - read.w / 2 < g.play.x + g.inset ||
+              centre + read.w / 2 > g.play.x + g.play.w - Math.max(g.inset, keep);
+            if (!clamped) expect((top.x + bottom.x) / 2).toBeCloseTo(centre, 6);
+          }
         }
+      }
+    }
+  });
+
+  it("is about 254x355 at 1080 and 338x473 at 1440", () => {
+    const size = (vp: { width: number; height: number }) => {
+      const g = geometry(vp);
+      return [g.cardW * HAND_READ, g.cardH * HAND_READ].map(Math.round);
+    };
+    const [w1, h1] = size({ width: 1920, height: 1080 });
+    const [w2, h2] = size({ width: 2560, height: 1440 });
+    expect(Math.abs(w1! - 254)).toBeLessThanOrEqual(2);
+    expect(Math.abs(h1! - 355)).toBeLessThanOrEqual(2);
+    expect(Math.abs(w2! - 338)).toBeLessThanOrEqual(2);
+    expect(Math.abs(h2! - 473)).toBeLessThanOrEqual(2);
+  });
+
+  it("a discard pick's extra lift keeps the gap", () => {
+    const vp = { width: 1920, height: 1080 };
+    const hand = [{ id: "card:h0" }];
+    const out = layout({ viewerSeat: 1, battlefield: [], hand }, vp);
+    const g = out.geometry;
+    const rest = out.boxes.get("card:h0")!;
+    const plain = handReadBox(rest, g, "viewer", 0, 0);
+    const lifted = handReadBox(rest, g, "viewer", 0, 0.08);
+    expect(plain.y - lifted.y).toBeCloseTo(0.08 * g.cardH, 6);
+  });
+
+  it("their revealed card's reading card sits below their hand", () => {
+    for (const vp of VIEWPORTS) {
+      const theirs = Array.from({ length: 7 }, (_, i) => ({ id: `card:o${i}` }));
+      const out = layout({ viewerSeat: 1, battlefield: [], hand: [], opponentHand: theirs }, vp);
+      const g = out.geometry;
+      for (const card of theirs) {
+        const rest = out.boxes.get(card.id)!;
+        const risen = handRiseBox(rest, g, "opponent");
+        expect(risen.y - rest.y).toBeCloseTo(HAND_RISE * g.cardH, 6);
+        const read = handReadBox(rest, g, "opponent");
+        const fanBottom = Math.max(
+          ...theirs.flatMap((other) =>
+            cornersAt(
+              other.id === card.id ? risen : out.boxes.get(other.id)!,
+              g.cardW,
+              g.cardH,
+              OPPONENT_HAND_ORIGIN,
+            ).map((c) => c.y),
+          ),
+        );
+        expect(read.y).toBeGreaterThanOrEqual(fanBottom + READ_GAP * g.height - 1e-6);
+        expect(read.y + read.h).toBeLessThan(g.height / 2 + g.cardH);
       }
     }
   });

@@ -35,8 +35,16 @@ export const SETTLE_EASING = "cubic-bezier(0.2, 0.7, 0.2, 1)";
 export const HURRY_MS = 100;
 /** How small a card is at a rail zone, as it arrives there or leaves it. */
 export const AT_ZONE_SCALE = 0.3;
-/** A pointed-at hand card is drawn this much larger (AMENDMENT 6). */
-export const HAND_ZOOM = 2;
+/**
+ * Spec 0094 (owner 2026-11-16, A) -- pointing at a hand card shows the whole
+ * printed card this many times the card's size (it was AMENDMENT 6's 2x
+ * zoom of the card itself, over the fan).
+ */
+export const HAND_READ = 2.6;
+/** Spec 0094 -- the pointed-at hand card itself only rises this much of its height. */
+export const HAND_RISE = 0.1;
+/** Spec 0094 -- the reading card's gap over the fan's top (10 px at 1080, scaled). */
+export const READ_GAP = 10 / 1080;
 
 export interface Point {
   x: number;
@@ -876,49 +884,75 @@ export function boxAt(at: Point, g: Geometry): Box {
   return { x: at.x - w / 2, y: at.y - h / 2, w, h, scale: AT_ZONE_SCALE, rotation: 0, z: 0 };
 }
 
-// --- a revealed card in the other player's hand (spec 0071, item 2) -----------
+// --- the pointed-at hand card and its reading card (spec 0094) ---------------
 
-/**
- * Where a face-up card in the other player's hand goes while it is pointed
- * at: upright, its own size, its top on the board's top edge -- the whole
- * card in view (name, picture, cost) -- over where it was, kept inside the
- * play area. Flush with the edge, not an inset below it, so the strip that
- * was showing is still under the pointer and the card does not slide away
- * from it.
- */
-export function opponentRevealBox(rest: Box, g: Geometry): Box {
-  const w = g.cardW;
-  const h = g.cardH;
-  const centre = rest.x + rest.w / 2;
-  const left = Math.min(
-    Math.max(centre - w / 2, g.play.x + g.inset),
-    g.play.x + g.play.w - g.inset - w,
-  );
-  return { x: left, y: 0, w, h, scale: 1, rotation: 0, z: rest.z + 1000 };
+/** A hand's turning point (layout's HAND_ORIGIN and OPPONENT_HAND_ORIGIN). */
+const handOrigin = (side: Side) => ({ x: 0.5, y: side === "viewer" ? 1.2 : -0.2 });
+
+/** A card box's four corners as drawn (its tilt about `origin`). */
+function cornersOf(box: Box, origin: { x: number; y: number }): Point[] {
+  const px = box.x + origin.x * box.w;
+  const py = box.y + origin.y * box.h;
+  const t = (box.rotation * Math.PI) / 180;
+  return [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1],
+  ].map(([fx, fy]) => {
+    const dx = box.x + fx! * box.w - px;
+    const dy = box.y + fy! * box.h - py;
+    return {
+      x: px + dx * Math.cos(t) - dy * Math.sin(t),
+      y: py + dx * Math.sin(t) + dy * Math.cos(t),
+    };
+  });
 }
 
-// --- the pointed-at hand card (AMENDMENT 6) -----------------------------------
+/**
+ * Spec 0094, item 2 -- where a hand card goes while it is pointed at: where
+ * it was, tilt and all, risen HAND_RISE of its height (the other player's
+ * comes down as much), so every card along the hand stays under the
+ * pointer as it slides along. Drawn over its neighbours.
+ */
+export function handRiseBox(rest: Box, g: Geometry, side: Side = "viewer"): Box {
+  const rise = HAND_RISE * g.cardH * (side === "viewer" ? -1 : 1);
+  return { ...rest, y: rest.y + rise, z: rest.z + 1000 };
+}
 
 /**
- * Where a hand card goes while it is pointed at: upright, HAND_ZOOM times
- * the size, its bottom edge on the board's bottom inset so the whole card
- * shows, centred over where it was and kept inside the play area.
+ * Spec 0094, item 1 -- the reading card: the whole printed card, upright,
+ * HAND_READ times the card's size, READ_GAP clear of the fan -- above your
+ * hand (its bottom over the top of the risen card, and of the resting fan),
+ * below theirs -- centred on the card as drawn, kept inside the play area
+ * and clear of the pile fan beside the plate (`keep`, the hand's keepRight).
+ * `lift` is how much more the card is lifted (0061's discard pick, 0.08 of
+ * its height). A Box like any other: CastingCard rises from it.
  */
-export function handZoomBox(rest: Box, g: Geometry): Box {
-  const w = g.cardW * HAND_ZOOM;
-  const h = g.cardH * HAND_ZOOM;
-  const centre = rest.x + rest.w / 2;
+export function handReadBox(
+  rest: Box,
+  g: Geometry,
+  side: Side = "viewer",
+  keep = 0,
+  lift = 0,
+): Box {
+  const w = g.cardW * HAND_READ;
+  const h = g.cardH * HAND_READ;
+  const gap = READ_GAP * g.height;
+  const risen = handRiseBox(rest, g, side);
+  const extra = lift * g.cardH * (side === "viewer" ? -1 : 1);
+  const corners = cornersOf({ ...risen, y: risen.y + extra }, handOrigin(side));
+  const top = corners[0]!;
+  const topRight = corners[1]!;
+  // The middle of the card's own edge toward the reading card.
+  const centre = side === "viewer" ? (top.x + topRight.x) / 2 : (corners[2]!.x + corners[3]!.x) / 2;
   const left = Math.min(
     Math.max(centre - w / 2, g.play.x + g.inset),
-    g.play.x + g.play.w - g.inset - w,
+    g.play.x + g.play.w - Math.max(g.inset, keep) - w,
   );
-  return {
-    x: left,
-    y: g.height - g.inset - h,
-    w,
-    h,
-    scale: HAND_ZOOM,
-    rotation: 0,
-    z: rest.z + 1000,
-  };
+  const y =
+    side === "viewer"
+      ? Math.min(g.handTop, ...corners.map((c) => c.y)) - gap - h
+      : Math.max(g.height - g.handTop, ...corners.map((c) => c.y)) + gap;
+  return { x: left, y, w, h, scale: HAND_READ, rotation: 0, z: rest.z + 2000 };
 }
