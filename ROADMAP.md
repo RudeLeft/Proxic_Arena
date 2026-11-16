@@ -162,7 +162,7 @@ failing line, until it is fixed or quarantined with a reason.
 | `e2e/match-session.spec.ts` | `locator.click: Test ended` on the second tab's choice (line 190), 15 min | CI a03a3db | Fixed 2026-11-15 — the second tab's click waited for "stable" while the first tab's answer removed its button; both now clicked at once, no wait |
 | Lab `unreachable` (unknown-card) | "a deck naming a card Forge does not have should be refused before the game", then HUNG at 300 s | local 1.70.0 run, 3 scenarios at once | Open -- passed alone in 15 s |
 | `e2e/admin.spec.ts:47`, `:77` | `toBeVisible` on the Lobby link / Accounts heading, 15 s | local 1.70.0 run | Open -- 10/10 on rerun |
-| `e2e/bench-scenes.spec.ts:86` (wipe) | `wipe: 95th-percentile frame` <= 50 ms; 66.7-83.4 ms locally (line 133) | local 1.70.0 run, every time; CI passes | Open -- local headless Edge only; headed on the same PC the scene holds 60 fps (0090 As built). Budget to set per machine |
+| `e2e/bench-scenes.spec.ts:86` (wipe) | `wipe: 95th-percentile frame` <= 50 ms; 66.7-83.4 ms locally (line 133) | local 1.70.0 run, every time; CI 2b0a1a8 (wipe, wash, army 50.1; storm 66.7) | Fixed 2026-11-16 -- also failed CI 2b0a1a8 at 50.1 ms (CI frames come in 16.7 ms steps, so 50 sat on the three-frame line); p95 budget 100 ms from CI's numbers |
 
 ## Built: the main build, 2026-10-15 → 2026-10-24
 
