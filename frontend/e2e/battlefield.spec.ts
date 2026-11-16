@@ -433,23 +433,32 @@ test("the drawn battlefield is exactly layout()'s, and keeps Amendment 4 and spe
       shrunk += result.shrunk;
       expect(result.wrong, where).toEqual([]);
 
-      // F-0093-C: every land drawn left of the anchor (a 7-card hand's left
-      // edge), tilt included -- both sides, at every size; the newest-first
-      // order and the mirror are layout.test.ts's.
+      // F-0093-C: no land drawn across the spot (a 7-card hand's left edge),
+      // tilt included -- left of it, or (Amendment 1, a land line nobody
+      // shares) wholly right of it; on a land line the others share, left of
+      // it -- both sides, at every size. Order and mirror: layout.test.ts.
       const anchor = landAnchor(geometry(viewport));
-      const landRights = await page.evaluate(() =>
+      const sharing = layout(syntheticBoard(permanents, faces, seed), viewport).sharing;
+      const drawnLands = await page.evaluate(() =>
         [
           ...document.querySelectorAll<HTMLElement>(
             '.bf-cards button[data-object-id][data-zone*=":land-"]',
           ),
-        ].map((b) => b.getBoundingClientRect().right),
+        ].map((b) => {
+          const r = b.getBoundingClientRect();
+          return { zone: b.dataset["zone"]!, left: r.left, right: r.right };
+        }),
       );
-      landsSeen += landRights.length;
-      for (const right of landRights)
+      landsSeen += drawnLands.length;
+      for (const l of drawnLands) {
+        const side = l.zone.startsWith("viewer") ? "viewer" : "opponent";
+        const shared = sharing[side] === "land" && l.zone.endsWith(":land-1");
+        const leftOf = l.right <= anchor + 0.5;
         expect(
-          right,
-          `${where}: a land right of the anchor ${anchor.toFixed(1)}`,
-        ).toBeLessThanOrEqual(anchor + 0.5);
+          shared ? leftOf : leftOf || l.left >= anchor - 0.5,
+          `${where}: a land (${l.zone}, ${l.left.toFixed(1)}-${l.right.toFixed(1)}) across the spot ${anchor.toFixed(1)}`,
+        ).toBe(true);
+      }
 
       // AMENDMENT 5: card text at 0.075 of the card's height.
       if (result.seen.nameFont !== null) {

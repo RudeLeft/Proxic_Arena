@@ -386,6 +386,8 @@ tapped group at the row's far left, which closes up (to the sliver) before
 any place squeezes. Past the stretch the row wraps onto a spare line from
 the same spot, else the other permanents share the land line (right of the
 spot, oldest first) so it can, else it squeezes, else the side steps down.
+*Amendment 1 (owner 2026-11-16):* a land line nobody shares keeps going
+right past the spot (just right of it, then rightwards) before it wraps.
 
 ---
 

@@ -1825,9 +1825,9 @@ describe("lands that stay put (spec 0093)", () => {
     for (const c of lands) expect(at(more.boxes.get(c.id))).toEqual(at(outs[0]!.boxes.get(c.id)));
   });
 
-  it("capacity: a new land never moves a land already there -- 4 to a line beside the anchor at 1080, then the next line", () => {
+  it("capacity (Amendment 1): a new land never moves a land already there -- 4 left of the spot, then on right of it, then the next line", () => {
     for (const vp of VIEWPORTS) {
-      const all = Array.from({ length: 10 }, (_, i) => land(`Land ${i}`, { enteredAt: i + 1 }));
+      const all = Array.from({ length: 30 }, (_, i) => land(`Land ${i}`, { enteredAt: i + 1 }));
       const outs = play(
         all.map((_, i) => all.slice(0, i + 1)),
         vp,
@@ -1838,17 +1838,33 @@ describe("lands that stay put (spec 0093)", () => {
             outs[k - 1]!.boxes.get(c.id),
           );
     }
-    const at1080 = layout(
-      { viewerSeat: 1, hand: [], battlefield: Array.from({ length: 5 }, (_, i) => land(`L${i}`)) },
-      { width: 1920, height: 1080 },
-    );
-    expect(new Set(at1080.slots.map((s) => s.row))).toEqual(
-      new Set(["viewer:land-1", "viewer:land-2"]),
-    );
-    expect(at1080.slots.filter((s) => s.row === "viewer:land-1")).toHaveLength(4);
+    const vp = { width: 1920, height: 1080 };
+    const at = (n: number) =>
+      layout(
+        {
+          viewerSeat: 1,
+          hand: [],
+          battlefield: Array.from({ length: n }, (_, i) => land(`L${i}`)),
+        },
+        vp,
+      );
+    const five = at(5);
+    const g = five.geometry;
+    const { left: L } = tiltOverhang(g.cardW, g.cardH);
+    // One line: the fifth stands just right of the spot, the first four left of it.
+    expect(new Set(five.slots.map((sl) => sl.row))).toEqual(new Set(["viewer:land-1"]));
+    const xs = five.slots.map((sl) => sl.box.x);
+    expect(xs[4]!).toBeCloseTo(landAnchor(g) + g.inset + L, 6);
+    for (const x of xs.slice(0, 4)) expect(x + g.cardW).toBeLessThan(landAnchor(g));
+    // Each later one further right, a full step on.
+    const ten = at(10).slots.map((sl) => sl.box.x);
+    for (let k = 5; k < 10; k++) expect(ten[k]! - ten[k - 1]!).toBeGreaterThan(g.cardW);
+    // 13 to the line at this size; the 14th wraps to the next line.
+    expect(new Set(at(13).slots.map((sl) => sl.row)).size).toBe(1);
+    expect(new Set(at(14).slots.map((sl) => sl.row)).size).toBe(2);
   });
 
-  it("capacity: with no line to spare, tapping a full row closes its tapped group up, then the others share the land line so the lands can wrap -- no untapped place moves, the side stays full size", () => {
+  it("capacity (Amendment 1): with no line to spare, tapping a full row moves no untapped place -- the tapped group closes up, then carries on right of the spot; full size, nothing shared", () => {
     const vp = { width: 1920, height: 1080 };
     // Creatures and others take the two lines from the middle.
     const rest = [...many(4, 1, "creature"), ...many(6, 1, "other")];
@@ -1863,42 +1879,45 @@ describe("lands that stay put (spec 0093)", () => {
       boards.map((b) => [...rest, ...b]),
       vp,
     );
-    // Two taps: the tapped group closes up on the one land line.
-    expect(outs[2]!.sharing.viewer).toBeNull();
-    expect(
-      new Set(outs[2]!.slots.filter((sl) => sl.row.includes("land")).map((sl) => sl.row)).size,
-    ).toBe(1);
-    // Three: it would squeeze the places, so the others share and the lands wrap.
-    expect(outs[3]!.sharing.viewer).toBe("land");
+    const anchor = landAnchor(outs[0]!.geometry);
     for (let k = 1; k < outs.length; k++) {
       expect(outs[k]!.scales.viewer).toBe(1);
-      // Where each is drawn (z follows the lines' order, which sharing changes).
-      const at = (bx: Box | undefined) =>
-        bx && { x: bx.x, y: bx.y, w: bx.w, rotation: bx.rotation };
+      expect(outs[k]!.sharing.viewer).toBeNull();
+      expect(
+        new Set(outs[k]!.slots.filter((sl) => sl.row.includes("land")).map((sl) => sl.row)).size,
+      ).toBe(1);
       for (const c of boards[k]!.filter((x) => !x.tapped))
-        expect(at(outs[k]!.boxes.get(c.id))).toEqual(at(outs[0]!.boxes.get(c.id)));
+        expect(outs[k]!.boxes.get(c.id)).toEqual(outs[0]!.boxes.get(c.id));
     }
+    // Three tapped: no longer room to close up on the left -- on right of the spot.
+    expect(
+      boards[3]!.filter((c) => c.tapped).some((c) => outs[3]!.boxes.get(c.id)!.x > anchor),
+    ).toBe(true);
   });
 
-  it("capacity: a row that would squeeze below half a card shares the land line and wraps, before the side shrinks", () => {
-    // 3 creatures, 3 others, 10 different lands at 1920x1080: on one line
-    // beside the anchor the lands would show under half; the others share
-    // the land line (right of the anchor) and the lands wrap -- full size.
+  it("capacity (Amendment 1): when the others share the land line, the lands keep left of the spot (today's rule)", () => {
+    const vp = { width: 1920, height: 1080 };
+    // Attackers make a fourth kind of line: the others share the land line.
+    const attackers = many(2, 1, "creature").map((c) => ({
+      ...c,
+      name: `attacker ${c.id}`,
+      attacking: true,
+      tapped: true,
+    }));
+    const lands = Array.from({ length: 3 }, (_, i) => land(`Land ${i}`));
     const out = layout(
       {
         viewerSeat: 1,
         hand: [],
-        battlefield: [
-          ...many(3, 1, "creature"),
-          ...many(3, 1, "other"),
-          ...Array.from({ length: 10 }, (_, i) => land(`Land ${i}`)),
-        ],
+        battlefield: [...attackers, ...many(1, 1, "creature"), ...many(2, 1, "other"), ...lands],
       },
-      { width: 1920, height: 1080 },
+      vp,
     );
-    expect(out.scales.viewer).toBe(1);
     expect(out.sharing.viewer).toBe("land");
-    expect(out.lines.filter((l) => l.side === "viewer" && l.kind === "land")).toHaveLength(2);
+    const anchor = landAnchor(out.geometry);
+    for (const c of lands) expect(out.boxes.get(c.id)!.x + out.geometry.cardW).toBeLessThan(anchor);
+    const line = out.lines.find((l) => l.id === "viewer:land-1" && l.kind === "land")!;
+    expect(line.rect.x + line.rect.w).toBeCloseTo(anchor, 6);
   });
 
   it("F-0093-D: picking a land to pay (0070) moves only that land, to the row's far left; taking it back returns it to its place", () => {

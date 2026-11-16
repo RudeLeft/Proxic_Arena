@@ -667,7 +667,12 @@ interface LandPlace {
 /** A land line laid out: its slots (no held places) and their plan. */
 interface LandLinePlan {
   slots: number[];
-  /** Each slot's place in the whole row (held places counted), nearest the anchor 0. */
+  /**
+   * Each slot's drawing order in its line, by place (held places counted):
+   * left of the spot 49 down to 0 going left, right of it 50 up going right
+   * (Amendment 1) -- so a card further right is on top, and a land leaving
+   * its place changes no other land's order.
+   */
   places?: number[];
   plan: LinePlan;
 }
@@ -680,16 +685,16 @@ interface LandLinePlan {
  * `fit` is the least share of a card the untapped places show: what sizes a
  * side, so a tapped group closing up never shrinks it.
  */
-function planLandLine(
+function planLeft(
   places: readonly LandPlace[],
   x0: number,
   anchor: number,
   s: number,
   g: Geometry,
-): LandLinePlan {
+): LandLinePlan & { full: boolean } {
   const n = places.length;
   const slots = places.flatMap((p) => (p.slot === null ? [] : [p.slot]));
-  if (n === 0) return { slots, plan: { xs: [], showing: 1, used: 0, fit: 1 } };
+  if (n === 0) return { slots, plan: { xs: [], showing: 1, used: 0, fit: 1 }, full: true };
   const w = g.cardW * s;
   const { left: L, right: R } = tiltOverhang(w, g.cardH * s);
   const step = g.referencePitch * s + L + R;
@@ -734,11 +739,99 @@ function planLandLine(
     at.push(x);
   });
   const xs = places.flatMap((p, i) => (p.slot === null ? [] : [at[i]!]));
+  const order = places.flatMap((p, i) => (p.slot === null ? [] : [Math.max(0, 49 - i)]));
   // Places squeezed at all have moved, though they may not overlap yet: say
   // so, and the row asks for a line (planSide) before any place moves.
   if (qp < 1) fit = Math.min(fit, 1 - 1e-6);
   const used = anchor - g.inset - (at[n - 1]! - L);
-  return { slots, plan: { xs, showing: Math.min(1, showing), used, fit: Math.min(1, fit) } };
+  return {
+    slots,
+    places: order,
+    plan: { xs, showing: Math.min(1, showing), used, fit: Math.min(1, fit) },
+    full: qe === 1 && qp === 1,
+  };
+}
+
+/**
+ * Spec 0093 Amendment 1 (owner 2026-11-16, "let it continue right"): a land
+ * line no other permanents share keeps going RIGHT past the spot, over the
+ * hand's side of the table, before the row wraps. Its places fill the
+ * stretch left of the spot first, side by side (planLeft, nothing closed
+ * up); the rest go just right of the spot and then rightwards, each a full
+ * step (lean room kept), the tapped group after its gap -- so a newcomer
+ * never moves a land before it. Past `x1` the right stretch closes its
+ * tapped group up, then squeezes, as the left one does. `x1` null: the line
+ * is shared (the others are right of the spot), the left stretch only.
+ */
+function planLandLine(
+  places: readonly LandPlace[],
+  x0: number,
+  anchor: number,
+  x1: number | null,
+  s: number,
+  g: Geometry,
+): LandLinePlan {
+  const whole = planLeft(places, x0, anchor, s, g);
+  if (x1 === null || (whole.plan.fit ?? 1) >= 1 - 1e-9) return whole;
+  // The left stretch: as many as stand there side by side.
+  let k = 1;
+  while (k < places.length && planLeft(places.slice(0, k + 1), x0, anchor, s, g).full) k++;
+  const left = planLeft(places.slice(0, k), x0, anchor, s, g);
+  const right = places.slice(k);
+  const w = g.cardW * s;
+  const { left: L, right: R } = tiltOverhang(w, g.cardH * s);
+  const step = g.referencePitch * s + L + R;
+  const gapBefore = (i: number) =>
+    places[i]!.end && !places[i - 1]!.end ? END_GAP * g.referencePitch * s : 0;
+  // Each right place's step from the one before it (to its left): that one's tabs.
+  const steps = right.map((_, j) =>
+    j === 0 ? 0 : step + right[j - 1]!.extra * s + gapBefore(k + j),
+  );
+  const start = anchor + g.inset + L + gapBefore(k);
+  const reach = w + right[right.length - 1]!.extra * s + R;
+  const avail = Math.max(0, x1 - reach - start);
+  const ends = steps.reduce((t, d, j) => t + (right[j]!.end ? d : 0), 0);
+  const rest = steps.reduce((t, d) => t + d, 0) - ends;
+  let qe = 1;
+  let qp = 1;
+  if (rest + ends > avail + 1e-9) {
+    const least = Math.min(1, (SLIVER * w) / step);
+    if (ends > 0 && rest + ends * least <= avail) qe = (avail - rest) / ends;
+    else if (rest > 0 && (avail - ends * least) / rest >= least) {
+      qe = least;
+      qp = (avail - ends * least) / rest;
+    } else {
+      qe = avail / (rest + ends);
+      qp = qe;
+    }
+  }
+  let x = start;
+  let showing = left.plan.showing;
+  let fit = left.plan.fit ?? 1;
+  const at: number[] = [];
+  right.forEach((p, j) => {
+    if (j > 0) {
+      const d = steps[j]! * (p.end ? qe : qp);
+      x += d;
+      showing = Math.min(showing, d / w);
+      if (!p.end || d / w < SLIVER - 1e-9) fit = Math.min(fit, d / w);
+    }
+    at.push(x);
+  });
+  if (qp < 1) fit = Math.min(fit, 1 - 1e-6);
+  return {
+    slots: [...left.slots, ...right.flatMap((p) => (p.slot === null ? [] : [p.slot]))],
+    places: [
+      ...(left.places ?? []),
+      ...right.flatMap((p, j) => (p.slot === null ? [] : [Math.min(99, 50 + j)])),
+    ],
+    plan: {
+      xs: [...left.plan.xs, ...right.flatMap((p, j) => (p.slot === null ? [] : [at[j]!]))],
+      showing: Math.min(1, showing),
+      used: left.plan.used + (x + reach - anchor),
+      fit: Math.min(1, fit),
+    },
+  };
 }
 
 /**
@@ -754,6 +847,8 @@ function planLandLines(
   anchor: number,
   s: number,
   g: Geometry,
+  /** Amendment 1 -- each line's right end when no others share it (null: shared). */
+  x1Of: (line: number) => number | null = () => null,
 ): LandLinePlan[] {
   const out: LandLinePlan[] = [];
   let from = 0;
@@ -762,11 +857,10 @@ function planLandLines(
     if (j < lines - 1) {
       to = Math.min(places.length, from + 1);
       const holds = (k: number) =>
-        (planLandLine(places.slice(from, k), x0, anchor, s, g).plan.fit ?? 1) >= 1 - 1e-9;
+        (planLandLine(places.slice(from, k), x0, anchor, x1Of(j), s, g).plan.fit ?? 1) >= 1 - 1e-9;
       while (to < places.length && holds(to + 1)) to++;
     }
-    const line = planLandLine(places.slice(from, to), x0, anchor, s, g);
-    line.places = places.slice(from, to).flatMap((p, i) => (p.slot === null ? [] : [from + i]));
+    const line: LandLinePlan = planLandLine(places.slice(from, to), x0, anchor, x1Of(j), s, g);
     out.push(line);
     from = to;
   }
@@ -907,7 +1001,7 @@ function planSide(
   });
   const plansOf = (k: LineKind, n: number) =>
     k === "land"
-      ? planLandLines(landPlaces, n, x0, anchor, s, g)
+      ? planLandLines(landPlaces, n, x0, anchor, s, g, () => x1)
       : share(indices(k), n).map((part) => {
           const p = partOf(k, part);
           return {
@@ -952,11 +1046,13 @@ function planSide(
         // Spec 0093: the lands grow left from the anchor, the others start
         // just right of it and go right, oldest first -- they never meet.
         // The lands may wrap onto lines of their own.
-        planLandLines(landPlaces, count.get(k)!, x0, anchor, s, g).forEach((row, index) =>
+        planLandLines(landPlaces, count.get(k)!, x0, anchor, s, g, (line) =>
+          line === 0 ? null : x1,
+        ).forEach((row, index) =>
           lines.push({
             kind: k,
             index,
-            rect: { x: x0, y: fromEdge(index), w: anchor - x0, h: lineH },
+            rect: { x: x0, y: fromEdge(index), w: (index === 0 ? anchor : x1) - x0, h: lineH },
             ...row,
             ...(index === 0 ? { shared: true } : {}),
           }),
@@ -994,8 +1090,8 @@ function planSide(
     }
     plansOf(k, count.get(k)!).forEach((p, index) => {
       const y = k === "land" ? fromEdge(index) : fromMiddle(j++);
-      // Spec 0093: a land line's stretch ends at the anchor.
-      const w = (k === "land" ? anchor : x1) - x0;
+      // Spec 0093 Amendment 1: a land line no others share runs the whole width.
+      const w = x1 - x0;
       lines.push({ kind: k, index, rect: { x: x0, y, w, h: lineH }, ...p });
     });
   }
@@ -1319,9 +1415,7 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
           // up to four lines a side stay under 2000. Spec 0093: a land row
           // is laid right to left, so its order is turned round -- by place,
           // so a land leaving its place changes no other land's z.
-          z:
-            Z_BATTLEFIELD +
-            (lineIndex * 100 + (line.places ? Math.max(0, 99 - line.places[i]!) : i)) * 4,
+          z: Z_BATTLEFIELD + (lineIndex * 100 + (line.places?.[i] ?? i)) * 4,
         };
         const attachedCards = attachmentsOf.get(lead.id) ?? [];
         for (const member of members) {

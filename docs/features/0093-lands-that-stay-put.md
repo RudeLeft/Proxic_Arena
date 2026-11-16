@@ -33,6 +33,27 @@ This amends 0036 (tapped is part of a land pile's identity — kept, but the tap
 
 ## Amendments
 
+### Amendment 1 — the row continues right when the line is free (owner, 2026-11-16)
+
+Asked after the build (the capacity cost: with all three kinds on a side
+the land row wrapped at 5 distinct lands and the side shrank at 14), the
+owner chose "Commit, then let it continue right".
+
+1. When no other permanents share a land line, the row keeps going **right
+   past the spot**, over the hand's side of the table, before it wraps to a
+   new line.
+2. Where the places go (chosen): the stretch left of the spot fills first,
+   side by side, as before; the next place stands **just right of the
+   spot**, and each later one a full step further right. A newcomer never
+   moves a land before it. The tapped group follows the places, so in a
+   row that has continued right it stands at the right-hand end.
+3. When the others need the land line (0059's sharing), today's rule: the
+   lands keep left of the spot, the others right of it.
+
+| ID | Test | Evidence |
+|---|---|---|
+| F-0093-E | Lands played one by one: none moves; the 5th stands just right of the spot, later ones further right; the 14th (1080) wraps; a shared land line stays left of the spot | layout test; battlefield sweep |
+
 ## As built (2026-11-16)
 
 **Layout (`frontend/src/battlefield/layout.ts`).**
@@ -161,3 +182,39 @@ clicks at one spot, each Swamp leaning off to the tapped group on the
 left while the pile stays put) and `0093-untap-tidy-up-payer.webm` (at the
 payer's next turn the tapped Swamps glide back into the pile). Frames
 read.
+
+## As built, Amendment 1 (2026-11-16)
+
+`layout.ts`: `planLeft` is the left stretch as built; `planLandLine` now
+takes the line's right end (`x1`, or null for a land line the others
+share) and, when the left stretch cannot hold the line's places side by
+side, keeps as many there as stand side by side and lays the rest from
+just right of the spot (`anchor + inset + lean room`) rightwards, a full
+step each (lean room kept, END_GAP before the tapped group); past `x1`
+that stretch closes its tapped group up, then squeezes, as the left one
+does. `planLandLines` passes each line's right end: every land line when
+nothing shares, every line but the first when the others share the land
+line. A free land line's `rect` is the whole width again; a shared one
+ends at the spot. Drawing order: left of the spot 49 down to 0 going
+left, right of it 50 up going right (a card further right is on top).
+
+Measured (distinct lands played one by one; 1920x1080 and 2560x1440
+alike; 13 places fit on one line at full size, 4 left + 9 right):
+
+| Side | Before 0093 | 0093 as committed | Amendment 1 |
+|---|---|---|---|
+| Lands only: first land that moves an earlier one / side shrinks at | 17 / none by 40 | 13 / 18 | 40 / 52 (wraps at 14) |
+| 3 creatures + 3 others: first move / shrinks at | 17 / 33 | 9 / 14 | 14 / 39 (at 14 the others share the land line and the lands wrap: the lands right of the spot move up a line) |
+
+Tests: `layout.test.ts` capacity tests rewritten to the amendment (30
+lands one by one at every screen, none moves; the 5th just right of the
+spot; 13 to a line at 1080, the 14th wraps; tapping a full row with no
+line to spare moves no untapped place and now carries the tapped group
+on right of the spot -- full size, nothing shared; a shared land line
+keeps its lands left of the spot). `battlefield.spec.ts`'s sweep: no land
+drawn across the spot; on a shared land line, all left of it. Bite test:
+a free line not continuing right -- caught (10 tests). Gates: tsc,
+eslint, prettier, vitest 1441/1441. Rebuilt local stack:
+`battlefield.spec` 4/4, `match-lands-stay-put` 1/1, `match-speed`
+5 of 6 tests over 3 runs: the 1x test failed once, "1x end: slowest frame 159.9 > 150" -- the game-end scene, no lands moving; in ROADMAP's flake list. Jumps: 4 land-heavy Lab traces (Nekrataal paid with a Forest and three Swamps, convoke, both land-mana games) x 2 seats, headless Edge: 0 found. No new clip: a normal game's few lands
+look as before.

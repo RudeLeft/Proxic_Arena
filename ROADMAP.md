@@ -171,7 +171,7 @@ failing line, until it is fixed or quarantined with a reason.
 | `e2e/admin.spec.ts:47`, `:77` | `toBeVisible` on the Lobby link / Accounts heading, 15 s | local 1.70.0 run | Open -- 10/10 on rerun |
 | `e2e/bench-scenes.spec.ts:86` (wipe) | `wipe: 95th-percentile frame` <= 50 ms; 66.7-83.4 ms locally (line 133) | local 1.70.0 run, every time; CI 2b0a1a8 (wipe, wash, army 50.1; storm 66.7) | Fixed 2026-11-16 -- also failed CI 2b0a1a8 at 50.1 ms (CI frames come in 16.7 ms steps, so 50 sat on the three-frame line); p95 budget 100 ms from CI's numbers |
 | `e2e/match-cast-step-aside.spec.ts` | "no jump at frame 5", 135.6 px between two frames | CI ba1251b | Fixed 2026-11-16 -- the smoothness check ignored the time between frames; a stalled CI frame looked like a jump. Allowance now scales with it |
-| `e2e/match-speed.spec.ts:809` (1x) | failed once (assertion not kept: the run's output was filtered and `test-results` cleared before reading) -- straight after a filmed two-seat game on the same machine | local 0093 build, 2026-11-16 | Open -- passed on the immediate rerun (both tests); the timing budgets are enforced locally since 83e918f |
+| `e2e/match-speed.spec.ts:809` (1x) | `expect(misses(rows, 1)).toEqual([])` (line 813): "1x end: slowest frame 159.9 > 150" -- one frame of the game-end scene over `endWorst` (150 ms); that scene's worst was 124.8 ms in a passing run | local, 0093 build 2026-11-16 (once, after a filmed game) and 0093 Amendment 1 build (1 of 3 runs in a row) | Open -- reproduced; a single slow frame at game end, not the land row (no lands tap in that scene); the budget or the end scene's heaviest frame needs a look |
 
 ## Built: the main build, 2026-10-15 → 2026-10-24
 
