@@ -6,7 +6,7 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Version 1.70.0 (2026-11-15).** The main build was completed in 1.1.0,
+**Version 1.71.0 (2026-11-16).** The main build was completed in 1.1.0,
 with every question Forge can ask answered (Phase 8); 1.2.0 added the
 redesigned lobby with avatars, a friendlier chat and card close-ups in
 the Deck Depot; 1.3.0 added online/away badges, the Hall of Champions,
@@ -89,7 +89,8 @@ it pays and adds a play log and a floating window to the game chat;
 1.67.0 shows storm copies, prepared spells and ability copies the way Magic treats them;
 1.68.0 adds polish (hits, day/night, Room doors, split second) and shows spent cards, shuffles, vehicles coming alive and fights;
 1.69.0 shows protection, gained and lost abilities, cards held in exile, player counters, the monarch, dungeons, emblems, turn starts and mana;
-1.70.0 shows cards you can still play from your graveyard and exile, keeps report windows until you close them, and animates the game's end, the opening hand, umbras, big token batches and paying with cards under the spell.
+1.70.0 shows cards you can still play from your graveyard and exile, keeps report windows until you close them, and animates the game's end, the opening hand, umbras, big token batches and paying with cards under the spell;
+1.71.0 keeps lands still when you tap them and puts them next to your hand, shows the whole card when you hover over your hand, makes busy boards lighter, and cleans up the pop-ups.
 Two players
 play a real game of Magic, run by Forge, on a graphical battlefield in
 the style of MTG Arena — cards clicked to play, target, attack and

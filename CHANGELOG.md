@@ -3,6 +3,35 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.71.0 — 2026-11-16
+
+Lands no longer jump when you tap them, and they sit next to your hand. Hovering over a card in your hand shows the whole, readable card. Busy boards are lighter on your computer, and the pop-ups have been cleaned up. Also a fix so a card hidden in your library can't be followed.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+- A new setting, `PROXIC_TEST_DEALS`, exists for automatic tests only. Never set it on a real server (see the install guide).
+
+**Lands**
+- Tapping a land no longer makes the others jump. The land you tap moves to a tapped group at the end of the row, and everything else stays where it was, so clicking the same spot again taps the next copy. The row tidies itself up at your untap step.
+- Your lands now start just left of your hand and grow outwards, so you don't have to move the mouse as far. When nothing else needs the line, the row carries on over your hand before starting a new line.
+
+**Your hand**
+- Pointing at a card in your hand shows the whole printed card, bigger, just above your hand, so you can read it without right-clicking. The card under your mouse only lifts a little, so you can slide along your hand easily.
+
+**Pop-ups**
+- When your turn passes itself because you have nothing to play, your act button says "Passing" and why. The grey box in the top corner is gone, and it can no longer get stuck on screen.
+- A trigger you can't pay for, a game restart (Karn Liberated), a refused attack or block, and a name a card won't accept are now shown where they belong instead of in a grey box.
+- No more window telling you which colour your opponent's land made.
+- No window telling you about your own Counterspell, mill, bounce or phasing, and no "is casting a spell…" caption. Your own reveals are shown to your opponent.
+- The orange dot under a player's name is gone.
+
+**Smoother play**
+- The board does much less work on each game update and while you wait for the other player, so busy boards stay smooth on slower computers.
+- Summoning-sickness z's no longer pile on top of each other.
+
+**Fixes**
+- A card hidden in your library could be followed by your opponent's computer while an ability of it was still waiting (Sensei's Divining Top). It no longer can.
+
 ## 1.70.0 — 2026-11-15
 
 Cards you can still play from your graveyard or exile now sit beside your plate where you can click them, and the "Your move" window no longer nags you about them. Report windows stay until you close them. The game's end, the opening hand and mulligans, umbras and big token batches are animated, and paying with cards under the spell you're casting happens in view.
