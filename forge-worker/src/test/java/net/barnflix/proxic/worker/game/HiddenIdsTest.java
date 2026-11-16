@@ -190,4 +190,54 @@ class HiddenIdsTest {
                     .get("prepared").getAsString());
         }
     }
+
+    /**
+     * The loyalty deck, 2026-11-16 (check-hidden-tops): Alice's Sensei's
+     * Divining Top (card:30) drew her a card and went on top of her library,
+     * under two of its own "look at the top three" still on the stack.
+     */
+    private static JsonObject topWentHome(String libraryTop) {
+        return JsonParser.parseString("""
+                {"hand": [], "libraryTop": %s,
+                 "stack": [{"id": "stack:24", "name": "Sensei's Divining Top", "kind": "ability",
+                            "description": "Sensei's Divining Top (30) - Look at the top 3 cards of Alice's library.",
+                            "source": "card:30", "owner": 1, "controller": 1, "targets": []},
+                           {"id": "stack:22", "name": "Sensei's Divining Top", "kind": "ability",
+                            "source": "card:30", "owner": 1, "controller": 1, "targets": []},
+                           {"id": "stack:25", "name": "Shock", "kind": "spell",
+                            "description": "Shock (40) - Shock deals 2 damage to any target. (3)",
+                            "source": "card:40", "owner": 2, "controller": 2, "targets": []}],
+                 "payments": [{"n": 5, "for": "card:30", "mana": [{"colour": "C", "from": "card:39"}]}]}
+                """.formatted(libraryTop)).getAsJsonObject();
+    }
+
+    @Test
+    void anAbilityOnTheStackIsNoHandleOnItsCardNowInALibrary() {
+        JsonObject bob = topWentHome("[]");
+        HiddenIds.strip(bob, HiddenIds.hiddenZones(ZONES, 2));
+        assertFalse(bob.toString().contains("card:30\""), "no id of Alice's library top card: " + bob);
+        JsonObject look = bob.getAsJsonArray("stack").get(0).getAsJsonObject();
+        assertFalse(look.has("source"));
+        assertEquals("Sensei's Divining Top", look.get("name").getAsString(), "what it is stays public");
+        assertEquals("stack:24", look.get("id").getAsString());
+        assertFalse(bob.getAsJsonArray("payments").get(0).getAsJsonObject().has("for"));
+        assertEquals("card:40", bob.getAsJsonArray("stack").get(2).getAsJsonObject().get("source").getAsString(),
+                "a spell's card is on the stack, hidden from no one");
+        assertEquals("Sensei's Divining Top - Look at the top 3 cards of Alice's library.",
+                look.get("description").getAsString(), "nor its id in Forge's own words");
+        assertEquals("Shock (40) - Shock deals 2 damage to any target. (3)",
+                bob.getAsJsonArray("stack").get(2).getAsJsonObject().get("description").getAsString(),
+                "a card on view, and a number that is no hidden card's, keep their words");
+    }
+
+    @Test
+    void theOwnerShownHerTopKeepsTheHandle() {
+        // HID-003: Forge shows Alice her own top card; her board keeps every id of it.
+        JsonObject alice = topWentHome("[{\"id\": \"card:30\", \"known\": true, \"owner\": 1}]");
+        HiddenIds.strip(alice, HiddenIds.hiddenZones(ZONES, 1));
+        assertEquals("card:30", alice.getAsJsonArray("stack").get(0).getAsJsonObject().get("source").getAsString());
+        assertEquals("card:30", alice.getAsJsonArray("payments").get(0).getAsJsonObject().get("for").getAsString());
+        assertTrue(alice.getAsJsonArray("stack").get(0).getAsJsonObject().get("description").getAsString()
+                .contains("(30)"));
+    }
 }

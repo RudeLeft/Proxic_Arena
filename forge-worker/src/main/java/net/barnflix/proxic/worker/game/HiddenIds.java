@@ -42,10 +42,22 @@ final class HiddenIds {
 
     private static final Pattern CARD = Pattern.compile("card:\\d+");
 
-    /** The snapshot lists that ARE the board: what is in them, the viewer sees. */
+    /**
+     * The snapshot lists that ARE the board: what is in them, the viewer sees.
+     *
+     * Not `stack` or `copying`: their entries are stack objects ("stack:N",
+     * "copying:N"), and an entry's `source` is a reference to a card, not
+     * that card on view. A spell's card is in the stack zone, hidden from
+     * no one; an ability's card can be anywhere -- found 2026-11-16 by
+     * check-hidden-tops on the loyalty deck: Sensei's Divining Top's "draw,
+     * then put it on top of its owner's library" resolved under two of its
+     * own "look at the top three", and those two entries' `source` kept the
+     * Top's id, now the library's top card, in the opponent's board and,
+     * through it, in every payment made for it. The entry keeps its name,
+     * owner and words; the id goes.
+     */
     private static final List<String> BOARD = List.of(
-            "battlefield", "hand", "otherHands", "casting", "graveyard", "exile", "command", "stack",
-            "copying",
+            "battlefield", "hand", "otherHands", "casting", "graveyard", "exile", "command",
             // Spec 0088 (Q4 C) -- a library's top card, sent only to a viewer Forge lets see it.
             "libraryTop");
 
@@ -92,7 +104,7 @@ final class HiddenIds {
         return out;
     }
 
-    /** Every card id the snapshot's board lists carry (any `id` or `source` inside them). */
+    /** Every card id the snapshot's board lists carry (any `id` or `source` inside them; not the stack's). */
     static Set<String> shown(JsonObject snapshot) {
         Set<String> out = new HashSet<>();
         for (String list : BOARD) {
@@ -168,6 +180,13 @@ final class HiddenIds {
                 if (dropped(array.get(i), drop)) {
                     array.remove(i);
                     removed++;
+                } else if (array.get(i).isJsonPrimitive() && array.get(i).getAsJsonPrimitive().isString()) {
+                    String said = array.get(i).getAsString();
+                    String plain = untext(said, drop);
+                    if (!plain.equals(said)) {
+                        array.set(i, new com.google.gson.JsonPrimitive(plain));
+                        removed++;
+                    }
                 } else {
                     removed += walk(array.get(i), key, drop);
                 }
@@ -177,6 +196,9 @@ final class HiddenIds {
         JsonObject object = node.getAsJsonObject();
         for (String name : new ArrayList<>(object.keySet())) {
             JsonElement value = object.get(name);
+            if (value == null) {
+                continue; // gone with its move's card (WITH_CARD)
+            }
             if (dropped(value, drop)) {
                 object.remove(name);
                 removed++;
@@ -186,10 +208,39 @@ final class HiddenIds {
                 if ("mana".equals(key) && "from".equals(name)) {
                     object.addProperty("from", "unseen");
                 }
+            } else if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
+                String said = value.getAsString();
+                String plain = untext(said, drop);
+                if (!plain.equals(said)) {
+                    object.addProperty(name, plain);
+                    removed++;
+                }
             } else {
                 removed += walk(value, name, drop);
             }
         }
         return removed;
+    }
+
+    /** Forge's own wording names a card by its id: "Sensei's Divining Top (48) - Look at...". */
+    private static final Pattern TEXT_ID = Pattern.compile("\\s*\\((\\d+)\\)");
+
+    /**
+     * [said] without the "(N)" of any card in [drop] (found 2026-11-16 beside
+     * the stack's `source`: a stack entry's `description` is Forge's
+     * String.valueOf(instance), which carries the id as text; the page hid it,
+     * HID-001 calls that a leak). Every other "(N)" stays, as Forge wrote it.
+     */
+    static String untext(String said, Set<String> drop) {
+        if (said.indexOf('(') < 0) {
+            return said;
+        }
+        java.util.regex.Matcher m = TEXT_ID.matcher(said);
+        StringBuilder out = new StringBuilder();
+        while (m.find()) {
+            m.appendReplacement(out, drop.contains("card:" + m.group(1)) ? "" : "$0");
+        }
+        m.appendTail(out);
+        return out.toString();
     }
 }

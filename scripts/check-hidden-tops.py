@@ -16,7 +16,8 @@ compares, round by round (one stateRevision), what each seat was sent:
              card is never sent to a seat that may not identify it
   top id     a top card's id never reaches a seat that was not sent that
              top card, under ANY key (a move, a payment, a play log line, a
-             report): an id is a live handle on a card in a library
+             report, or as text in Forge's own wording, "Name (48)", a stack
+             entry's description): an id is a live handle on a card in a library
   reports    every card a report shows (`action.cards`, and each gathered
              report's), for every seat, carries the report's own id
              ("action:N:I"), never a card's; a card hidden from that seat
@@ -35,6 +36,8 @@ import sys
 from collections import defaultdict
 
 CARD = re.compile(r"card:\d+")
+# A card's id in Forge's wording: "Name (48)" -- a word, a space, the number.
+TEXT_ID = re.compile(r"[\w'] \((\d+)\)")
 # What a card hidden from the reader may carry: that it is face down, whose,
 # where it went -- and the snapshot's own anonymous card shape (describe():
 # "Face-down", kind "unknown", its owner, when it arrived, tapped).
@@ -54,6 +57,10 @@ def ids_in(node, skip=("libraryTop",)):
                 walk(v, key)
         elif isinstance(n, str) and CARD.fullmatch(n):
             found.add(n)
+        elif isinstance(n, str):
+            # Forge's own wording names a card by its id as text ("Sensei's
+            # Divining Top (48) - Look at..."): the same handle (2026-11-16).
+            found.update(f"card:{m.group(1)}" for m in TEXT_ID.finditer(n))
 
     walk(node)
     return found

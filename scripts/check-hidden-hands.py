@@ -18,7 +18,8 @@ that can be followed), so the test is by id:
               or target, a move's `card` (Phase 10 A-00), a payment's
               `for` or mana `from` (spec 0062), a roll's `source`, a play
               log line's card (spec 0064): every string that is a card id,
-              wherever it sits -- except `otherHands`, which is Forge's own
+              wherever it sits, and as text in Forge's own wording ("Name
+              (48)", a stack entry's description, 2026-11-16) -- except `otherHands`, which is Forge's own
               permission (Mindslaver, a revealed hand). A card that was
               public a moment ago (Krark, the Thumbless returning a
               Lightning Bolt from the stack to its owner's hand,
@@ -61,6 +62,8 @@ from collections import Counter
 REVEAL = re.compile(r"^Looking at [^:]+: (.+)$")
 
 CARD = re.compile(r"card:(\d+)")
+# A card's id in Forge's wording: "Name (48)" -- a word, a space, the number.
+TEXT_ID = re.compile(r"[\w'] \((\d+)\)")
 
 
 def ids_in(node, skip=("otherHands",)):
@@ -77,6 +80,11 @@ def ids_in(node, skip=("otherHands",)):
                 walk(child, f"{where}[]")
         elif isinstance(n, str) and CARD.fullmatch(n):
             found.setdefault(n, []).append(where)
+        elif isinstance(n, str):
+            # Forge's own wording names a card by its id as text ("Sensei's
+            # Divining Top (48) - Look at..."): the same handle (2026-11-16).
+            for m in TEXT_ID.finditer(n):
+                found.setdefault(f"card:{m.group(1)}", []).append(f"{where} (text)")
 
     walk(node, "")
     return found
