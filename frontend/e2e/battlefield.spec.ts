@@ -31,8 +31,10 @@ import {
   TAPPED_ORIGIN,
   geometry,
   inCombat,
+  landAnchor,
   layout,
   type Box,
+  type LayoutInput,
   type RowId,
 } from "../src/battlefield/layout";
 import { LIFE_R, MOVE_MS, SWEEP_MS, fateMs, anchors, handZoomBox } from "../src/battlefield/motion";
@@ -182,6 +184,8 @@ const BOARDS: [number, number, number][] = [
 const TOLERANCE = 0.1; // px: sub-pixel rounding, nothing more
 /** F-0076-D: how many badges the sweep measured (it must reach some). */
 let badgesSeen = 0;
+/** F-0093-C: how many land cards the sweep measured against the anchor. */
+let landsSeen = 0;
 /** F-0085-D, 4 A: how many gained-ability squares and held tabs the sweep measured. */
 let kwMarksSeen = 0;
 let heldTabsSeen = 0;
@@ -198,12 +202,14 @@ async function differences(
   checkCorners: boolean,
   /** Spec 0087 -- the fans' reach, when the board has them (the hand keeps clear). */
   keepRight?: { viewer: number; opponent: number },
+  /** Spec 0093 -- each side's land row as the board before left it (the board remembers it). */
+  previousLands?: LayoutInput["previousLands"],
 ): Promise<{ wrong: string[]; shrunk: number; seen: Seen }> {
   const seen = await readBoard(page);
   const wrong: string[] = [];
   if (seen.width !== viewport.width || seen.height !== viewport.height)
     wrong.push(`the board is ${seen.width}x${seen.height}, not the window`);
-  const expected = layout({ ...board, keepRight }, viewport);
+  const expected = layout({ ...board, keepRight, previousLands }, viewport);
   const byId = new Map(seen.drawn.map((d) => [d.id, d]));
   if (byId.size !== seen.drawn.length) wrong.push("an id is drawn twice");
   for (const d of seen.drawn) if (d.label === "") wrong.push(`${d.id} has no name`);
@@ -427,6 +433,24 @@ test("the drawn battlefield is exactly layout()'s, and keeps Amendment 4 and spe
       shrunk += result.shrunk;
       expect(result.wrong, where).toEqual([]);
 
+      // F-0093-C: every land drawn left of the anchor (a 7-card hand's left
+      // edge), tilt included -- both sides, at every size; the newest-first
+      // order and the mirror are layout.test.ts's.
+      const anchor = landAnchor(geometry(viewport));
+      const landRights = await page.evaluate(() =>
+        [
+          ...document.querySelectorAll<HTMLElement>(
+            '.bf-cards button[data-object-id][data-zone*=":land-"]',
+          ),
+        ].map((b) => b.getBoundingClientRect().right),
+      );
+      landsSeen += landRights.length;
+      for (const right of landRights)
+        expect(
+          right,
+          `${where}: a land right of the anchor ${anchor.toFixed(1)}`,
+        ).toBeLessThanOrEqual(anchor + 0.5);
+
       // AMENDMENT 5: card text at 0.075 of the card's height.
       if (result.seen.nameFont !== null) {
         expect(result.seen.nameFont).toBeCloseTo(0.075 * result.seen.cardH!, 1);
@@ -435,6 +459,7 @@ test("the drawn battlefield is exactly layout()'s, and keeps Amendment 4 and spe
   }
   expect(shrunk, "some board exercised the scale floor (§7.51)").toBeGreaterThan(0);
   expect(badgesSeen, "the sweep measured counter badges (F-0076-D)").toBeGreaterThan(0);
+  expect(landsSeen, "the sweep measured lands against the anchor (F-0093-C)").toBeGreaterThan(0);
   expect(
     kwMarksSeen,
     "the sweep measured protection and gained squares (F-0085-D)",
@@ -581,8 +606,14 @@ test("after every change the board moves, then settles exactly where layout() sa
 
   let moved = 0;
   const steps = 16;
+  // Spec 0093: the board remembers each side's land row from one change to
+  // the next (a land that taps leaves the others in place), so layout()
+  // is followed through the same changes.
+  let rows = layout(start, viewport).lands;
   for (let n = 1; n <= steps; n++) {
     const step = applyChanges(start, n, 1);
+    const before = rows;
+    rows = layout({ ...step.board, previousLands: before }, viewport).lands;
     await page.getByRole("button", { name: "Next change" }).click();
     await expect(page.getByRole("note")).toContainText(`change ${n} `);
     // Right after the change, something is on its way (AMENDMENT 6)...
@@ -590,7 +621,7 @@ test("after every change the board moves, then settles exactly where layout() sa
     // ...and once it has had time to get there, nothing is, and the board
     // is exactly the new layout, ghosts gone.
     await page.waitForTimeout(settled);
-    const result = await differences(page, step.board, viewport, false);
+    const result = await differences(page, step.board, viewport, false, undefined, before);
     expect(result.seen.moving, `change ${n} (${step.what}): still moving`).toBe(0);
     expect(result.wrong, `change ${n} (${step.what})`).toEqual([]);
   }
@@ -600,7 +631,7 @@ test("after every change the board moves, then settles exactly where layout() sa
 
   // A pointed-at hand card rises and zooms (AMENDMENT 6), then goes back.
   const board = applyChanges(start, steps, 1).board;
-  const expected = layout(board, viewport);
+  const expected = layout({ ...board, previousLands: rows }, viewport);
   const card = board.hand[Math.floor(board.hand.length / 2)]!;
   const rest = expected.boxes.get(card.id)!;
   const handCard = page.locator(`[data-object-id="${card.id}"]`);
@@ -621,7 +652,7 @@ test("after every change the board moves, then settles exactly where layout() sa
   await page.mouse.move(viewport.width / 2, viewport.height / 2);
   await page.waitForTimeout(settled);
   await expect(handCard).not.toHaveAttribute("data-zoomed", "true");
-  expect((await differences(page, board, viewport, false)).wrong).toEqual([]);
+  expect((await differences(page, board, viewport, false, undefined, rows)).wrong).toEqual([]);
 
   expect(problems, "browser reported errors").toEqual([]);
 });

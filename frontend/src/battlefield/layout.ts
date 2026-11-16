@@ -199,6 +199,32 @@ export interface LayoutInput {
    * closes up rather than reach under it. Absent: nothing to keep clear.
    */
   keepRight?: Partial<Record<Side, number>> | undefined;
+  /**
+   * Spec 0093 -- each side's land row as the layout before this one left it
+   * (Layout.lands): its places and its tapped group, so a land that taps
+   * leaves every other pile where it was. Passed in, never stored here.
+   */
+  previousLands?: Partial<Record<Side, LandRow>> | undefined;
+  /**
+   * Spec 0093 -- the turn of each side's latest untap step, given while it
+   * is that side's turn: a row remembered from an earlier turn re-packs (the
+   * tidy-up). Absent for a side: its row is kept as it was.
+   */
+  landTurns?: Partial<Record<Side, number>> | undefined;
+}
+
+/**
+ * Spec 0093 -- a side's land row, remembered between layouts: `places` are
+ * the untapped piles' places, nearest the anchor first (a place whose pile
+ * has emptied is held until the tidy-up); `ends` the tapped group's, at the
+ * row's far (left) end, in the order they joined. Each is a slot's key.
+ */
+export interface LandRow {
+  turn?: number | undefined;
+  places: readonly string[];
+  ends: readonly string[];
+  /** Each land's slot key, so a held spot (spec 0079) takes its card's place. */
+  at: Readonly<Record<string, string>>;
 }
 
 export interface Viewport {
@@ -287,6 +313,8 @@ export interface Layout {
   /** Sides ("viewer:creature"...) whose cards show less than the minimum
    * sliver even at the smallest size. */
   overcrowded: string[];
+  /** Spec 0093 -- each side's land row, for the next layout's previousLands. */
+  lands: Record<Side, LandRow>;
 }
 
 // --- geometry ---------------------------------------------------------------
@@ -494,6 +522,11 @@ interface LinePlan {
   showing: number;
   /** How wide the line's cards are drawn, tilt included, from the first's left. */
   used: number;
+  /**
+   * Spec 0093 -- the share that sizes the side, when not `showing`: a land
+   * row's untapped places (its tapped group may close up further).
+   */
+  fit?: number;
 }
 
 /**
@@ -501,7 +534,7 @@ interface LinePlan {
  * plus the tilt room a tapped card needs (PHASE 7 AMENDMENT 3: while a line
  * has room, a tapped card overlaps nothing); past the line's width every
  * gap squeezes by one factor, so cards overlap evenly. Creatures and the
- * rest are centred on the table, lands start at its left edge.
+ * rest are centred on the table (spec 0093: lands are laid by planLandLine).
  */
 function planLine(
   tapped: readonly boolean[],
@@ -605,6 +638,184 @@ function planShared(
   };
 }
 
+// --- the land row (spec 0093) --------------------------------------------------
+
+/**
+ * Spec 0093 (owner 2026-11-16, L-1): each side's land row grows LEFTWARD from
+ * a fixed spot -- the left edge of a hand of this many cards at this size --
+ * so it never follows the live hand: drawing or playing a card moves no land.
+ */
+export const LAND_ANCHOR_HAND = 7;
+/** Spec 0093 (C) -- the gap before the tapped group, in reference pitches (the canvas's). */
+export const END_GAP = 0.25;
+
+/** Spec 0093 -- where the land rows grow from (x, px): the left edge of a 7-card hand. */
+export function landAnchor(g: Geometry): number {
+  const least = g.play.x + g.inset + g.cardW * 1.2;
+  return Math.max(least, handFan(LAND_ANCHOR_HAND, g).left);
+}
+
+/** Spec 0093 -- one place in a land row: a slot (by index), or a held place (null). */
+interface LandPlace {
+  slot: number | null;
+  /** In the tapped group at the row's end. */
+  end: boolean;
+  /** Its tab room at full size, px (Phase 10 A-17). */
+  extra: number;
+}
+
+/** A land line laid out: its slots (no held places) and their plan. */
+interface LandLinePlan {
+  slots: number[];
+  /** Each slot's place in the whole row (held places counted), nearest the anchor 0. */
+  places?: number[];
+  plan: LinePlan;
+}
+
+/**
+ * Spec 0093 -- one land line's places, nearest the anchor first, laid right to
+ * left from `anchor`, every slot with room for a lean (C: a lean never shifts
+ * its neighbours) and END_GAP before the tapped group. Past the room to `x0`
+ * the tapped group closes up first (to SLIVER), then everything squeezes.
+ * `fit` is the least share of a card the untapped places show: what sizes a
+ * side, so a tapped group closing up never shrinks it.
+ */
+function planLandLine(
+  places: readonly LandPlace[],
+  x0: number,
+  anchor: number,
+  s: number,
+  g: Geometry,
+): LandLinePlan {
+  const n = places.length;
+  const slots = places.flatMap((p) => (p.slot === null ? [] : [p.slot]));
+  if (n === 0) return { slots, plan: { xs: [], showing: 1, used: 0, fit: 1 } };
+  const w = g.cardW * s;
+  const { left: L, right: R } = tiltOverhang(w, g.cardH * s);
+  const step = g.referencePitch * s + L + R;
+  // Each place's step from the one before it (to its right).
+  const steps = places.map((p, i) =>
+    i === 0
+      ? 0
+      : step + p.extra * s + (p.end && !places[i - 1]!.end ? END_GAP * g.referencePitch * s : 0),
+  );
+  const first = anchor - g.inset - R - places[0]!.extra * s - w;
+  const avail = Math.max(0, first - L - x0);
+  const ends = steps.reduce((t, d, i) => t + (places[i]!.end ? d : 0), 0);
+  const rest = steps.reduce((t, d) => t + d, 0) - ends;
+  let qe = 1;
+  let qp = 1;
+  if (rest + ends > avail + 1e-9) {
+    // Spec 0093: the tapped group closes up first, to the least sliver
+    // (SLIVER), so tapping a land in a full row moves no place you click.
+    const least = Math.min(1, (SLIVER * w) / step);
+    if (ends > 0 && rest + ends * least <= avail) qe = (avail - rest) / ends;
+    else if (rest > 0 && (avail - ends * least) / rest >= least) {
+      // Then the places squeeze, the tapped group at its sliver.
+      qe = least;
+      qp = (avail - ends * least) / rest;
+    } else {
+      // Then all alike, as any line squeezes.
+      qe = avail / (rest + ends);
+      qp = qe;
+    }
+  }
+  const at: number[] = [];
+  let x = first;
+  let showing = 1;
+  let fit = 1;
+  places.forEach((p, i) => {
+    if (i > 0) {
+      const d = steps[i]! * (p.end ? qe : qp);
+      x -= d;
+      showing = Math.min(showing, d / w);
+      if (!p.end || d / w < SLIVER - 1e-9) fit = Math.min(fit, d / w);
+    }
+    at.push(x);
+  });
+  const xs = places.flatMap((p, i) => (p.slot === null ? [] : [at[i]!]));
+  // Places squeezed at all have moved, though they may not overlap yet: say
+  // so, and the row asks for a line (planSide) before any place moves.
+  if (qp < 1) fit = Math.min(fit, 1 - 1e-6);
+  const used = anchor - g.inset - (at[n - 1]! - L);
+  return { slots, plan: { xs, showing: Math.min(1, showing), used, fit: Math.min(1, fit) } };
+}
+
+/**
+ * Spec 0093 -- a side's land row over n lines: each line from the anchor
+ * leftward, the first ones filled as far as they hold side by side, the last
+ * taking the rest (closing up, then squeezed, when it must). So a newcomer
+ * at the row's end never moves a land before it.
+ */
+function planLandLines(
+  places: readonly LandPlace[],
+  lines: number,
+  x0: number,
+  anchor: number,
+  s: number,
+  g: Geometry,
+): LandLinePlan[] {
+  const out: LandLinePlan[] = [];
+  let from = 0;
+  for (let j = 0; j < lines; j++) {
+    let to = places.length;
+    if (j < lines - 1) {
+      to = Math.min(places.length, from + 1);
+      const holds = (k: number) =>
+        (planLandLine(places.slice(from, k), x0, anchor, s, g).plan.fit ?? 1) >= 1 - 1e-9;
+      while (to < places.length && holds(to + 1)) to++;
+    }
+    const line = planLandLine(places.slice(from, to), x0, anchor, s, g);
+    line.places = places.slice(from, to).flatMap((p, i) => (p.slot === null ? [] : [from + i]));
+    out.push(line);
+    from = to;
+  }
+  return out;
+}
+
+/**
+ * Spec 0093 -- the land row this time: the places remembered (held when a
+ * pile has emptied), then any new untapped pile's, in arrival order; the
+ * tapped group remembered, a newcomer filling a held place in it first, else
+ * joining at the far end, with held places at its very end let go.
+ */
+function landRow(
+  slots: readonly (readonly LayoutCard[])[],
+  keys: readonly string[],
+  extras: readonly number[],
+  before: LandRow | undefined,
+  turn: number | undefined,
+): { places: LandPlace[]; row: LandRow } {
+  const placeNow = new Map<string, number>();
+  const endNow = new Map<string, number>();
+  keys.forEach((key, i) => (key.startsWith("e:") ? endNow : placeNow).set(key, i));
+  const places = [...(before?.places ?? [])];
+  for (const key of placeNow.keys()) if (!places.includes(key)) places.push(key);
+  const ends = [...(before?.ends ?? [])];
+  const open = ends.flatMap((key, i) => (endNow.has(key) ? [] : [i]));
+  for (const key of endNow.keys()) {
+    if (ends.includes(key)) continue;
+    const hole = open.shift();
+    if (hole === undefined) ends.push(key);
+    else ends[hole] = key;
+  }
+  while (ends.length > 0 && !endNow.has(ends[ends.length - 1]!)) ends.pop();
+  const at: Record<string, string> = {};
+  slots.forEach((members, i) => members.forEach((card) => (at[card.id] = keys[i]!)));
+  const place = (slot: number | undefined, end: boolean): LandPlace => ({
+    slot: slot ?? null,
+    end,
+    extra: slot === undefined ? 0 : extras[slot]!,
+  });
+  return {
+    places: [
+      ...places.map((key) => place(placeNow.get(key), false)),
+      ...ends.map((key) => place(endNow.get(key), true)),
+    ],
+    row: { turn, places, ends, at },
+  };
+}
+
 /** Split a kind's slots over n lines, in arrival order, as evenly as can be. */
 function share<T>(slots: readonly T[], n: number): T[][] {
   return Array.from({ length: n }, (_, i) =>
@@ -621,6 +832,8 @@ interface SidePlan {
     index: number;
     rect: Rect;
     slots: readonly number[];
+    /** Spec 0093 -- a land line's slots' places in the row (LandLinePlan). */
+    places?: readonly number[];
     plan: LinePlan;
     shared?: boolean;
   }[];
@@ -668,6 +881,8 @@ function planSide(
   extras: ReadonlyMap<LineKind, readonly number[]> = new Map(),
   pres: ReadonlyMap<LineKind, readonly number[]> = new Map(),
   sharing: Sharing | null = null,
+  /** Spec 0093 -- the land row's places (held ones too), nearest the anchor first. */
+  lands?: readonly LandPlace[],
 ): SidePlan | null {
   const half = g.halves[side];
   const lineH = g.lineH * s;
@@ -675,6 +890,10 @@ function planSide(
   const total = Math.floor((half.h - lineH) / pitch + 1e-9) + 1;
   const x0 = g.play.x + g.inset;
   const x1 = g.play.x + g.play.w - g.inset;
+  // Spec 0093: the land rows grow left from here.
+  const anchor = landAnchor(g);
+  const landPlaces =
+    lands ?? (kinds.get("land") ?? []).map((_, i) => ({ slot: i, end: false, extra: 0 }));
   const present = KIND_ORDER.filter((k) => (kinds.get(k)?.length ?? 0) > 0);
   if (sharing && (!present.includes("other") || !present.includes(sharing))) return null;
   // The kinds with lines of their own.
@@ -687,15 +906,19 @@ function planSide(
     pre: part.map((i) => pres.get(k)?.[i] ?? 0),
   });
   const plansOf = (k: LineKind, n: number) =>
-    share(indices(k), n).map((part) => {
-      const p = partOf(k, part);
-      return {
-        slots: part,
-        plan: planLine(p.tapped, x0, x1, s, g, k !== "land", p.extra, p.pre),
-      };
-    });
+    k === "land"
+      ? planLandLines(landPlaces, n, x0, anchor, s, g)
+      : share(indices(k), n).map((part) => {
+          const p = partOf(k, part);
+          return {
+            slots: part,
+            plan: planLine(p.tapped, x0, x1, s, g, true, p.extra, p.pre),
+          };
+        });
+  // Spec 0093: a land row asks for a line only when its untapped places
+  // would squeeze -- its tapped group closes up at the row's far end first.
   const showingOf = (k: LineKind, n: number) =>
-    Math.min(...plansOf(k, n).map((p) => p.plan.showing));
+    Math.min(...plansOf(k, n).map((p) => (k === "land" ? (p.plan.fit ?? 1) : p.plan.showing)));
   for (let spare = total - own.length; spare > 0; spare--) {
     let worst: LineKind | null = null;
     let least = 1 - 1e-9;
@@ -703,7 +926,8 @@ function planSide(
       // The front line is one line: its cards face each other across the middle.
       if (k === "front") continue;
       // A shared line stays one line (sharing is only ever for want of lines).
-      if (k === sharing) continue;
+      // Spec 0093: but lands may wrap, their stretch ending at the anchor.
+      if (k === sharing && k !== "land") continue;
       const showing = showingOf(k, count.get(k)!);
       if (showing < least) {
         least = showing;
@@ -724,6 +948,32 @@ function planSide(
       // The shared line: its own kind from the left, the others from the
       // right, newest furthest in (so they are listed right to left).
       const y = k === "land" ? fromEdge(0) : fromMiddle(j++);
+      if (k === "land") {
+        // Spec 0093: the lands grow left from the anchor, the others start
+        // just right of it and go right, oldest first -- they never meet.
+        // The lands may wrap onto lines of their own.
+        planLandLines(landPlaces, count.get(k)!, x0, anchor, s, g).forEach((row, index) =>
+          lines.push({
+            kind: k,
+            index,
+            rect: { x: x0, y: fromEdge(index), w: anchor - x0, h: lineH },
+            ...row,
+            ...(index === 0 ? { shared: true } : {}),
+          }),
+        );
+        const theirs = indices("other");
+        const p = partOf("other", theirs);
+        const from = anchor + g.inset;
+        lines.push({
+          kind: "other",
+          index: 0,
+          rect: { x: from, y, w: x1 - from, h: lineH },
+          slots: theirs,
+          plan: planLine(p.tapped, from, x1, s, g, false, p.extra, p.pre),
+          shared: true,
+        });
+        continue;
+      }
       const mine = indices(k);
       const theirs = indices("other").reverse();
       const both = planShared(partOf(k, mine), partOf("other", theirs), x0, x1, s, g);
@@ -744,13 +994,15 @@ function planSide(
     }
     plansOf(k, count.get(k)!).forEach((p, index) => {
       const y = k === "land" ? fromEdge(index) : fromMiddle(j++);
-      lines.push({ kind: k, index, rect: { x: x0, y, w: x1 - x0, h: lineH }, ...p });
+      // Spec 0093: a land line's stretch ends at the anchor.
+      const w = (k === "land" ? anchor : x1) - x0;
+      lines.push({ kind: k, index, rect: { x: x0, y, w, h: lineH }, ...p });
     });
   }
   return {
     scale: s,
     lines,
-    showing: Math.min(1, ...lines.map((l) => l.plan.showing)),
+    showing: Math.min(1, ...lines.map((l) => l.plan.fit ?? l.plan.showing)),
     fits: own.length <= total,
     sharing,
   };
@@ -774,23 +1026,48 @@ function sizeSide(
   previous: number | undefined,
   extras: ReadonlyMap<LineKind, readonly number[]> = new Map(),
   pres: ReadonlyMap<LineKind, readonly number[]> = new Map(),
+  lands?: readonly LandPlace[],
 ): SidePlan & { overcrowded: boolean } {
   let floor: SidePlan | null = null;
   for (const s of SIZE_STEPS) {
     const needed = previous !== undefined && s > previous + 1e-9 ? GROW_SHOW : SHOW_MIN;
     floor = null;
+    // Spec 0093: the plan whose land row is least squeezed, when none has it whole.
+    let best: SidePlan | null = null;
+    let bestFit = -1;
     for (const sharing of SHARINGS) {
-      const plan = planSide(side, kinds, s, g, extras, pres, sharing);
+      const plan = planSide(side, kinds, s, g, extras, pres, sharing, lands);
       // Phase 10 A-11/A-12: a size whose band holds fewer lines than the
       // side needs is never taken (its lines would cover each other).
       if (!plan || !plan.fits) continue;
       floor ??= plan;
-      const shared = Math.min(1, ...plan.lines.filter((l) => l.shared).map((l) => l.plan.showing));
-      if (plan.showing >= needed - 1e-9 && shared >= SHARE_SHOW - 1e-9)
-        return { ...plan, overcrowded: false };
-      // Spec 0059: sharing is only for want of lines.
-      if (sharing === null) break;
+      // Spec 0093: a shared land line's lands squeeze as on a line of their own.
+      const shared = Math.min(
+        1,
+        ...plan.lines.filter((l) => l.shared && l.kind !== "land").map((l) => l.plan.showing),
+      );
+      const ok = plan.showing >= needed - 1e-9 && shared >= SHARE_SHOW - 1e-9;
+      // Spec 0093: a land row whose untapped places would squeeze wants a
+      // line too -- the others share the land line (or the creatures') so
+      // the lands can wrap, and no place you click moves. Else the least
+      // squeezed row, as before.
+      const landFit = Math.min(
+        1,
+        ...plan.lines.filter((l) => l.kind === "land").map((l) => l.plan.fit ?? 1),
+      );
+      if (ok) {
+        if (landFit >= 1 - 1e-9) return { ...plan, overcrowded: false };
+        if (landFit > bestFit + 1e-9) {
+          best = plan;
+          bestFit = landFit;
+        }
+        continue;
+      }
+      // Spec 0059: sharing is only for want of lines (spec 0093: lands
+      // squeezed on their line want one too).
+      if (sharing === null && landFit >= 1 - 1e-9) break;
     }
+    if (best) return { ...best, overcrowded: false };
   }
   return { ...floor!, overcrowded: floor!.showing < SLIVER - 1e-9 };
 }
@@ -867,6 +1144,10 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
   type Group = { side: Side; kind: LineKind; slots: LayoutCard[][] };
   const groups = new Map<string, Group>();
   const piles = new Map<string, LayoutCard[]>();
+  // Spec 0093: each slot's key in its land row -- "p:" an untapped pile's
+  // place, "e:" one in the tapped group (tapped, or picked to pay).
+  const slotKey = new Map<LayoutCard[], string>();
+  const pileCount = new Map<string, number>();
   for (const card of [...input.battlefield].sort(arrival)) {
     if (isAttachment(card) || riding.has(card.id)) continue;
     const side: Side = card.seat === input.viewerSeat ? "viewer" : "opponent";
@@ -886,6 +1167,10 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
       const slot = [card];
       group.slots.push(slot);
       if (key !== null) piles.set(key, slot);
+      const base = key ?? `id:${card.id}`;
+      const nth = pileCount.get(base) ?? 0;
+      pileCount.set(base, nth + 1);
+      slotKey.set(slot, `${card.tapped || card.paying ? "e" : "p"}:${base}#${nth}`);
     }
   }
 
@@ -901,6 +1186,7 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
     attackingSide === "viewer" ? ["viewer", "opponent"] : ["opponent", "viewer"];
   /** Each attacker slot placed: its members and its box, left to right. */
   const attackSlots: { members: LayoutCard[]; box: Box; lead: string }[] = [];
+  const lands = {} as Record<Side, LandRow>;
   for (const side of sides) {
     const kinds = new Map<LineKind, LayoutCard[][]>();
     for (const kind of KIND_ORDER) {
@@ -949,7 +1235,22 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
     const pres = new Map(
       [...kinds].map(([kind, list]) => [kind, list.map((members) => facingRoom(kind, members))]),
     );
-    const plan = sizeSide(side, tapped, g, input.previousScale?.[side], extras, pres);
+    // Spec 0093: the land row, from the one before unless this side's untap
+    // step has come since (the tidy-up: arrival order again).
+    const landSlots = kinds.get("land") ?? [];
+    const turn = input.landTurns?.[side];
+    const kept = input.previousLands?.[side];
+    const before = kept && (turn === undefined || kept.turn === turn) ? kept : undefined;
+    const landKeys = landSlots.map((members) => {
+      const own = slotKey.get(members)!;
+      // Spec 0079: a held spot takes its card's place, when that is empty now.
+      const lead = members[0]!;
+      const was = lead.held ? before?.at[lead.id.replace(/^held:/, "")] : undefined;
+      return was && !landSlots.some((m) => slotKey.get(m) === was) ? was : own;
+    });
+    const row = landRow(landSlots, landKeys, extras.get("land") ?? [], before, turn ?? kept?.turn);
+    lands[side] = row.row;
+    const plan = sizeSide(side, tapped, g, input.previousScale?.[side], extras, pres, row.places);
     scales[side] = plan.scale;
     sharing[side] = plan.sharing;
     if (plan.overcrowded) overcrowded.push(side);
@@ -1015,8 +1316,12 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
           // Spec 0070: picked to tap leans as a tapped card does.
           rotation: lead.tapped || lead.paying === "lean" ? TAPPED_TILT : 0,
           // Left to right, so a card overlaps the one before it (§7.9);
-          // up to four lines a side stay under 2000.
-          z: Z_BATTLEFIELD + (lineIndex * 100 + i) * 4,
+          // up to four lines a side stay under 2000. Spec 0093: a land row
+          // is laid right to left, so its order is turned round -- by place,
+          // so a land leaving its place changes no other land's z.
+          z:
+            Z_BATTLEFIELD +
+            (lineIndex * 100 + (line.places ? Math.max(0, 99 - line.places[i]!) : i)) * 4,
         };
         const attachedCards = attachmentsOf.get(lead.id) ?? [];
         for (const member of members) {
@@ -1080,5 +1385,5 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
     });
   });
 
-  return { geometry: g, boxes, slots, rowOf, lines, scales, sharing, overcrowded };
+  return { geometry: g, boxes, slots, rowOf, lines, scales, sharing, overcrowded, lands };
 }

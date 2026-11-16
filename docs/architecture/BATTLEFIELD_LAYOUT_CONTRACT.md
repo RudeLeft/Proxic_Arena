@@ -3,8 +3,8 @@
 **Status:** ACCEPTED — its open questions were answered by the owner 2026-10-15
 (Phase 7 §7.51); resolved values below. Placement within a zone is
 centre-out (`BATTLEFIELD_RENDERING.md` §4, owner decision 2026-10-19),
-except lands, which start at the left edge of their line since spec 0040
-(`layout.ts`).
+except lands, which grow leftward from a fixed spot beside the hand since
+spec 0093 (§7d; they started at the left edge of their line from spec 0040).
 **Supersedes:** `designer-blueprint.json` as a source of coordinates
 **Preserves:** every proportion the owner tuned in that file
 **Date:** 2026-10-14
@@ -22,6 +22,9 @@ owner 2026-11-07): before a side shrinks for want of lines, kinds share a
 line (§7b); and the land line sits nearer the hand, 4 px above its resting
 top at 1920×1080, mirrored (§7c). The card size and the lines from the
 middle are unchanged.
+**Amended by** spec 0093 (`docs/features/0093-lands-that-stay-put.md`,
+owner 2026-11-16): land rows grow left from a fixed spot and keep their
+places when a land taps (§7d).
 **As built:** the board is `frontend/src/battlefield/layout.ts` (React DOM
 + SVG, `BATTLEFIELD_RENDERING.md`). What §3 and §6 say about the Phase 0A
 spike -- `layout.mjs`, `BUILD_STATUS.md`, its pinned geometry -- describes
@@ -367,6 +370,22 @@ hand (18 px before), a tapped one's lowest corner about 4 px, and nothing
 of a land touches either hand fan at any hand size (`layout.test.ts` "the
 land line", outlines tilt included). Lines held at each size are
 unchanged (3 at 100-80%, 4 at 75-70%).
+
+## 7d. Amendment — lands that stay put (spec 0093, owner 2026-11-16)
+
+Each side's land row grows **leftward from a fixed spot**: the left edge of
+a hand of 7 cards at that size (`landAnchor`, `LAND_ANCHOR_HAND`; x ≈ 542
+at 1920×1080, 723 at 2560×1440), never the live hand, the opponent's at the
+same x. A land line's stretch is from the line inset to that spot; the
+first land's right edge (a lean's room included) sits one inset short of
+it, each newer one a step further left. Every land slot keeps a lean's
+room. The row is remembered between layouts (`LayoutInput.previousLands`,
+`Layout.lands`): untapped piles keep their places (held, if emptied, until
+that side's untap step), and tapped or picked-to-pay lands stand in a
+tapped group at the row's far left, which closes up (to the sliver) before
+any place squeezes. Past the stretch the row wraps onto a spare line from
+the same spot, else the other permanents share the land line (right of the
+spot, oldest first) so it can, else it squeezes, else the side steps down.
 
 ---
 

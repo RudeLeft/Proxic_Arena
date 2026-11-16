@@ -136,3 +136,15 @@ shared to 30 cards, the creature line to 47, then 90%, 80%, 75%). Tests
 changed to that rule; 903 page tests; `battlefield.spec.ts`,
 `match-big-combat.spec.ts`, `match-damage-tray.spec.ts` pass on the rebuilt
 local stack. Screenshots shown to the owner and approved.
+
+**Amendment 3 — amended by spec 0093 (2026-11-16).** Item 10's shared
+land line: the lands keep to the stretch left of 0093's fixed spot (a
+7-card hand's left edge), growing left; the other permanents start just
+right of the spot and go right, **oldest nearest the spot** (was: oldest
+at the line's right end), so the two kinds never meet and the gap is the
+spot's. Only the others must stay side by side (`SHARE_SHOW`); the lands
+squeeze as on a line of their own, and may wrap onto a second land line
+while the others share the first. A side whose land row would otherwise
+squeeze its untapped places also lets the others share the land line so
+the lands can wrap (spec 0093 As built). Item 11 (the land line 4 px above
+the hand) is unchanged.

@@ -77,6 +77,7 @@ import {
   type Box,
   type Geometry,
   type LayoutCard,
+  type LandRow,
   type Side,
   type Viewport,
 } from "./layout";
@@ -757,6 +758,12 @@ export interface BoardProps {
   /** Spec 0070 -- the cards picked so far to pay a cost: a Ribbon each (a
    * tap leans); a click on one takes it back. */
   payPicks?: ReadonlyMap<string, PayMark>;
+  /**
+   * Spec 0093 -- whose turn it is and the step: a side's land row re-packs
+   * once (the tidy-up) when that side's turn has begun -- past its untap
+   * step -- and keeps its places otherwise. Absent: the row never tidies.
+   */
+  turnNow?: { turn: number; activeSeat: number; phase: string } | null | undefined;
   /** Phase 9 W-17 -- the cards in the sector or on the sprocket the
    * player is pointing at in the question: lit, and said ("pointed at"). */
   lit?: ReadonlySet<string>;
@@ -2185,6 +2192,7 @@ export function Board({
   picked,
   chosenTargets,
   payPicks,
+  turnNow = null,
   lit,
   asking,
   fans = NO_FANS,
@@ -2443,23 +2451,36 @@ export function Board({
         : undefined,
     [fanViewer, fanOpponent, viewport],
   );
-  const result = useMemo(
-    () =>
-      viewport
-        ? layout(
-            {
-              battlefield: laidOut,
-              hand,
-              opponentHand,
-              viewerSeat,
-              previousScale: sideSizes,
-              keepRight,
-            },
-            viewport,
-          )
-        : null,
-    [laidOut, hand, opponentHand, viewerSeat, viewport, sideSizes, keepRight],
-  );
+  // Spec 0093 -- each side's land row last time, so a land that taps (or is
+  // picked to pay) leaves every other pile in its place; it re-packs once at
+  // that side's untap step. Kept here, so layout() itself stays pure.
+  const landRows = useRef<Partial<Record<Side, LandRow>>>({});
+  const turnNumber = turnNow?.turn ?? 0;
+  const turnSeat = turnNow?.activeSeat ?? 0;
+  const turnPhase = turnNow?.phase ?? "";
+  const landTurns = useMemo(() => {
+    if (turnNumber <= 0 || turnPhase === "UNTAP") return undefined;
+    const side: Side = turnSeat === viewerSeat ? "viewer" : "opponent";
+    return { [side]: turnNumber };
+  }, [turnNumber, turnSeat, turnPhase, viewerSeat]);
+  const result = useMemo(() => {
+    if (!viewport) return null;
+    const out = layout(
+      {
+        battlefield: laidOut,
+        hand,
+        opponentHand,
+        viewerSeat,
+        previousScale: sideSizes,
+        keepRight,
+        previousLands: landRows.current,
+        landTurns,
+      },
+      viewport,
+    );
+    landRows.current = out.lands;
+    return out;
+  }, [laidOut, hand, opponentHand, viewerSeat, viewport, sideSizes, keepRight, landTurns]);
   // Spec 0087 -- where each fan card stands now, and where each stood on the
   // board before (kept until the next board: a card cast from the fan rises
   // from there, a trigger or ability of it lifts off there).

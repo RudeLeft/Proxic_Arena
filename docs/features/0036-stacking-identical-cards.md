@@ -115,3 +115,10 @@ All taken 2026-10-29 (see the top).
    `combatPlan.test.ts`; the browser test (`match-big-combat.spec.ts`)
    uses All attack for attackers and clicks one at a time on the blocker
    pile.
+
+3. **2026-11-16 -- amended by spec 0093 (lands that stay put).** Tapped is
+   still part of a stack's identity, so a tapped land leaves its stack --
+   but on the land row the untapped stack keeps its place (held, if it
+   empties, until the tidy-up at that side's untap step) and the tapped
+   stack stands in a tapped group at the row's far (left) end. See
+   `docs/features/0093-lands-that-stay-put.md`.

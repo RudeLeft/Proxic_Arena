@@ -2221,6 +2221,7 @@ export function GameScreen({
             picked={pickedNow}
             chosenTargets={chosenTargets}
             payPicks={payPicks}
+            turnNow={{ turn: board.turn, activeSeat: board.activeSeat, phase: board.phase }}
             lit={lit}
             unpayable={unpayable}
             selected={selected}

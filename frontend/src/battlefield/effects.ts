@@ -213,10 +213,16 @@ export function arc(
       const y = Math.min(s.y - rise, s.y + (c2y - s.y) * share - 0.08 * cardH);
       // Landing as the canvas did; else (it would cut its target's corner)
       // coming down more steeply onto it.
+      // (Spec 0093: lands moved nearer the middle; an arc that would turn
+      // tighter than a tenth of a card -- a corner -- gives way to the next.)
+      let kept: Curve | null = null;
       for (const along of [0.78, 0.9, 0.97]) {
         const side: Curve = { start: s, c1: { x, y }, c2: { x: s.x + dx * along, y: c2y }, end };
-        if (oneBend(side) && !(avoid && crosses(side, avoid))) return [side];
+        if (!oneBend(side) || (avoid && crosses(side, avoid))) continue;
+        if (!cornered(side, cardH)) return [side];
+        kept ??= side;
       }
+      if (kept) return [kept];
       if (avoid && end.y < s.y) {
         // Its target close beside the card it leaves, and higher: straight
         // up past it first, then over and down onto its top.
@@ -229,7 +235,25 @@ export function arc(
         });
         for (let i = 0; i < 40 && crosses(climb(top), avoid) && top > 0.15 * cardH; i++)
           top -= 0.1 * cardH;
-        if (!crosses(climb(top), avoid)) return [climb(top)];
+        if (!crosses(climb(top), avoid)) {
+          // (Spec 0093: if it would turn a corner coming down, a longer
+          // landing, or a little higher.)
+          for (let i = 0; i < 6; i++) {
+            const y = top - 0.1 * cardH * i;
+            if (y < 0.15 * cardH && i > 0) break;
+            for (const along of [0.5, 0.35, 0.65, 0.8, 0.9])
+              for (const low of [0, 0.22, 0.44]) {
+                const base = climb(y);
+                const c: Curve = {
+                  ...base,
+                  c1: { x: base.c1.x, y: y + low * cardH },
+                  c2: { x: end.x - dx * along, y },
+                };
+                if (oneBend(c) && !cornered(c, cardH) && !crosses(c, avoid)) return [c];
+              }
+          }
+          return [climb(top)];
+        }
         // Right above the stud: round one side of it (the left, else the
         // right, under the stack), over, and down onto it.
         const roof = Math.max(0.15 * cardH, Math.min(...avoid.map((q) => q.y)) - 0.6 * cardH);
@@ -320,6 +344,25 @@ export function arc(
         for (let i = 0; i < 40 && over !== undefined && top > 0.15 * cardH; i++) {
           if (!inside(hook(top))) break;
           top -= 0.1 * cardH;
+        }
+        // (Spec 0093: its target right above the stud -- a permanent near the
+        // column -- the hook would climb through it: round its left side,
+        // over, and down onto it.)
+        if (avoid && crosses(hook(top), avoid)) {
+          const roof = Math.max(0.15 * cardH, Math.min(...avoid.map((q) => q.y)) - 0.6 * cardH);
+          for (const far of [
+            Math.min(...avoid.map((q) => q.x)) - 0.5 * cardH,
+            Math.min(...avoid.map((q) => q.x)) - 1.2 * cardH,
+          ]) {
+            const around: Curve = {
+              start: s,
+              c1: { x: far, y: roof },
+              c2: { x: end.x + (far - end.x) * 0.15, y: roof },
+              end,
+            };
+            if (!crosses(around, avoid) && !inside(around) && !cornered(around, cardH))
+              return [around];
+          }
         }
         return [hook(top)];
       }
@@ -423,6 +466,29 @@ export interface Clear {
   captionTop?: number;
   /** The number and face badges beside the stack cards' name bars. */
   badges?: readonly Rect[];
+}
+
+/**
+ * Spec 0093 -- does a curve turn anywhere tighter than a circle a tenth of a
+ * card high (a corner), short of its last fifth of a card (under the head)?
+ */
+function cornered(c: Curve, cardH: number): boolean {
+  const pts = routePoints([c], 96);
+  const e = c.end;
+  for (let i = 2; i < pts.length; i++) {
+    const a = { x: pts[i - 1]!.x - pts[i - 2]!.x, y: pts[i - 1]!.y - pts[i - 2]!.y };
+    const b = { x: pts[i]!.x - pts[i - 1]!.x, y: pts[i]!.y - pts[i - 1]!.y };
+    const la = Math.hypot(a.x, a.y);
+    const lb = Math.hypot(b.x, b.y);
+    if (la < 1e-6 || lb < 1e-6) continue;
+    if (Math.hypot(e.x - pts[i]!.x, e.y - pts[i]!.y) < cardH * 0.2) continue;
+    const turn = Math.atan2(
+      (a.x * b.y - a.y * b.x) / (la * lb),
+      (a.x * b.x + a.y * b.y) / (la * lb),
+    );
+    if (Math.abs(turn) > 1e-9 && lb / Math.abs(turn) <= cardH * 0.1) return true;
+  }
+  return false;
 }
 
 /** A cubic's handles turn the same way at both (no S-bend): its control polygon is convex. */

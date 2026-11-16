@@ -10,7 +10,6 @@ import {
   HAND_ORIGIN,
   LAND_GAP,
   OPPONENT_HAND_ORIGIN,
-  SHARE_GAP,
   TAPPED_ORIGIN,
   TAB_W,
   tabAt,
@@ -21,6 +20,7 @@ import {
   tiltOverhang,
   geometry,
   inCombat,
+  landAnchor,
   layout,
   type Box,
   type LayoutCard,
@@ -412,7 +412,8 @@ describe("lines (spec 0040, replacing §7.52a L3, L4)", () => {
           }
           if (land.length && other.length) {
             if (out.sharing[side] === "land") {
-              expect(Math.min(...land)).toBeCloseTo(Math.max(...other), 6);
+              // Spec 0093: on the land line at the edge; lands may wrap inward.
+              expect(Math.max(...land)).toBeCloseTo(Math.max(...other), 6);
             } else expect(Math.min(...land)).toBeGreaterThan(Math.max(...other));
           }
         }
@@ -479,7 +480,8 @@ describe("lines (spec 0040, replacing §7.52a L3, L4)", () => {
       vp,
     );
     expect(out.scales.viewer).toBeLessThanOrEqual(0.75);
-    expect(out.lines.filter((l) => l.side === "viewer")).toHaveLength(4);
+    // (Four rows: since 0093 the others may share a land line -- two parts of one row.)
+    expect(new Set(out.lines.filter((l) => l.side === "viewer").map((l) => l.rect.y)).size).toBe(4);
   });
 
   it("F-0040-C: each side is sized alone", () => {
@@ -507,7 +509,9 @@ describe("lines (spec 0040, replacing §7.52a L3, L4)", () => {
     const input = (n: number): LayoutInput => ({
       viewerSeat: 1,
       hand: [],
-      battlefield: [...many(n, 1, "creature"), ...many(16, 1, "other"), ...many(16, 1, "land")],
+      // Spec 0093: three lands, so the land row (4 to a line beside the
+      // anchor) is not what sizes the side.
+      battlefield: [...many(n, 1, "creature"), ...many(16, 1, "other"), ...many(3, 1, "land")],
     });
     // Some board is full size when seen fresh, yet stays at 90% after a
     // 90% layout: growing back needs GROW_SHOW, not SHOW_MIN.
@@ -526,12 +530,15 @@ describe("lines (spec 0040, replacing §7.52a L3, L4)", () => {
     }
   });
 
-  it("one land starts at the left edge; one creature sits in the middle of the table", () => {
+  it("F-0093-C: one land sits just left of a 7-card hand's left edge; one creature sits in the middle of the table", () => {
     const [land] = many(1, 1, "land");
     const [bear] = many(1, 1, "creature");
     const out = layout({ viewerSeat: 1, hand: [], battlefield: [land!, bear!] }, vp);
     const g = out.geometry;
-    expect(out.boxes.get(land!.id)!.x).toBeCloseTo(g.play.x + g.inset, 6);
+    const l = out.boxes.get(land!.id)!;
+    // Its right edge, a lean's room included, a gap short of the anchor.
+    const { right: r } = tiltOverhang(g.cardW, g.cardH);
+    expect(l.x + l.w + r).toBeCloseTo(landAnchor(g) - g.inset, 6);
     const b = out.boxes.get(bear!.id)!;
     expect(b.x + b.w / 2).toBeCloseTo(g.play.x + g.play.w / 2, 6);
   });
@@ -774,7 +781,8 @@ describe("tapped cards (PHASE 7 AMENDMENT 3)", () => {
   it("a tapped card overlaps nothing while its line is not overflowing", () => {
     for (const viewport of VIEWPORTS) {
       for (const every of [1, 2, 3]) {
-        const lands = many(6, 1, "land", every);
+        // (Spec 0093: creatures -- a land row's tapped group closes up by design.)
+        const lands = many(6, 1, "creature", every);
         const out = layout({ viewerSeat: 1, hand: [], battlefield: lands }, viewport);
         const g = out.geometry;
         expect(out.overcrowded).toEqual([]);
@@ -795,8 +803,8 @@ describe("tapped cards (PHASE 7 AMENDMENT 3)", () => {
   });
 
   it("tapped cards take more room: tapped neighbours stand a tilt further apart", () => {
-    const upright = layout({ viewerSeat: 1, hand: [], battlefield: many(5, 1, "land") }, vp);
-    const tapped = layout({ viewerSeat: 1, hand: [], battlefield: many(5, 1, "land", 1) }, vp);
+    const upright = layout({ viewerSeat: 1, hand: [], battlefield: many(5, 1, "creature") }, vp);
+    const tapped = layout({ viewerSeat: 1, hand: [], battlefield: many(5, 1, "creature", 1) }, vp);
     const step = (o: typeof upright) => {
       const xs = o.slots.map((s) => s.box.x).sort((p, q) => p - q);
       return xs[1]! - xs[0]!;
@@ -806,17 +814,32 @@ describe("tapped cards (PHASE 7 AMENDMENT 3)", () => {
     expect(tapped.overcrowded).toEqual([]);
   });
 
-  it("tapping one card moves its neighbours a little, nothing jumps", () => {
-    const lands = many(5, 1, "land");
+  it("spec 0093: every land slot keeps a lean's room, tapped or not", () => {
+    const upright = layout({ viewerSeat: 1, hand: [], battlefield: many(3, 1, "land") }, vp);
+    const tapped = layout({ viewerSeat: 1, hand: [], battlefield: many(3, 1, "land", 1) }, vp);
+    const steps = (o: typeof upright) => {
+      const xs = o.slots.map((s) => s.box.x).sort((p, q) => p - q);
+      return [xs[1]! - xs[0]!, xs[2]! - xs[1]!];
+    };
+    const g = upright.geometry;
+    const { left, right: r } = tiltOverhang(g.cardW, g.cardH);
+    for (const d of [...steps(upright), ...steps(tapped)])
+      expect(d).toBeCloseTo(g.referencePitch + left + r, 6);
+  });
+
+  it("F-0093-A: tapping one land moves only that land; nothing else moves at all", () => {
+    const lands = many(4, 1, "land");
     const before = layout({ viewerSeat: 1, hand: [], battlefield: lands }, vp);
-    const withTap = lands.map((c, i) => (i === 2 ? { ...c, tapped: true } : c));
-    const after = layout({ viewerSeat: 1, hand: [], battlefield: withTap }, vp);
-    // Lands start at the left edge, so the cards after it move by the tilt room.
-    const { left, right: r } = tiltOverhang(before.geometry.cardW, before.geometry.cardH);
+    const withTap = lands.map((c, i) => (i === 1 ? { ...c, tapped: true } : c));
+    const after = layout(
+      { viewerSeat: 1, hand: [], battlefield: withTap, previousLands: before.lands },
+      vp,
+    );
     for (const c of lands) {
-      const moved = Math.abs(before.boxes.get(c.id)!.x - after.boxes.get(c.id)!.x);
-      expect(moved).toBeLessThanOrEqual(left + r + EPS);
+      if (c === lands[1]) continue;
+      expect(after.boxes.get(c.id)).toEqual(before.boxes.get(c.id));
     }
+    expect(after.boxes.get(lands[1]!.id)).not.toEqual(before.boxes.get(lands[1]!.id));
   });
 });
 
@@ -1016,7 +1039,7 @@ describe("sharing a line before shrinking (spec 0059)", () => {
     });
   });
 
-  it("F-0059-B: lands from the left end, the others from the right end, a gap between", () => {
+  it("F-0059-B as amended by 0093: lands grow left from the anchor, the others right of it, oldest first", () => {
     const mine = side(2, 1, 3, 4);
     const out = layout({ viewerSeat: 1, hand: [], battlefield: all(mine) }, vp);
     const g = out.geometry;
@@ -1028,31 +1051,26 @@ describe("sharing a line before shrinking (spec 0059)", () => {
     expect(land.shared && other.shared).toBe(true);
     for (const c of mine.others) expect(out.rowOf.get(c.id)).toBe("viewer:other-1");
     for (const c of mine.lands) expect(out.rowOf.get(c.id)).toBe("viewer:land-1");
-    // The first land at the left end, the oldest other at the right end,
-    // each newer one further in.
-    const first = out.boxes.get(mine.lands[0]!.id)!; // tapped: its tilt starts at the end
-    expect(first.x - reach(first).left).toBeCloseTo(g.play.x + g.inset, 6);
+    // Spec 0093: every land left of the anchor, the oldest other just right
+    // of it, each newer one further right -- so nobody moves when one arrives.
+    const anchor = landAnchor(g);
+    for (const c of mine.lands) {
+      const b = out.boxes.get(c.id)!;
+      expect(right(b) + tiltOverhang(b.w, b.h).right).toBeLessThanOrEqual(anchor - g.inset + EPS);
+    }
     const xs = mine.others.map((c) => out.boxes.get(c.id)!.x);
-    expect(xs[0]! + g.cardW).toBeCloseTo(g.play.x + g.play.w - g.inset, 6);
-    expect(xs[1]!).toBeLessThan(xs[0]!);
-    expect(xs[2]!).toBeLessThan(xs[1]!);
-    // A gap of at least SHARE_GAP of a step between the two kinds.
-    const lastLand = Math.max(
-      ...mine.lands.map((c) => {
-        const b = out.boxes.get(c.id)!;
-        return right(b) + reach(b).right;
-      }),
-    );
-    expect(Math.min(...xs) - lastLand).toBeGreaterThanOrEqual(SHARE_GAP * g.referencePitch - EPS);
+    expect(xs[0]!).toBeCloseTo(anchor + g.inset, 6);
+    expect(xs[1]!).toBeGreaterThan(xs[0]!);
+    expect(xs[2]!).toBeGreaterThan(xs[1]!);
     // The owner's rule (2026-11-07, SHARE_SHOW = 1): a shared line never
-    // squeezes its cards -- 16 lands and 6 others would overlap there, so the
-    // others share the creatures' line instead, every card side by side.
-    const tight = side(2, 1, 6, 16);
+    // squeezes its others -- 14 others would overlap right of the anchor,
+    // so they share the creatures' line instead, every card side by side.
+    const tight = side(2, 1, 14, 4);
     const unsqueezed = layout({ viewerSeat: 1, hand: [], battlefield: all(tight) }, vp);
     expect(unsqueezed.sharing.viewer).toBe("creature");
     const sharedRows = linesOf(unsqueezed);
     for (const [id, line] of sharedRows) {
-      if (!line.shared) continue;
+      if (!line.shared || line.kind === "land") continue;
       const xs = unsqueezed.slots
         .filter((sl) => sl.row === id)
         .map((sl) => sl.box.x)
@@ -1079,9 +1097,10 @@ describe("sharing a line before shrinking (spec 0059)", () => {
     expect(
       layout({ viewerSeat: 1, hand: [], battlefield: all(side(2, 2, 3, 6)) }, vp).sharing.viewer,
     ).toBe("land");
-    // So many lands that sharing their line would make cards overlap (the
-    // owner's rule): the others share the creatures' line instead, full size.
-    const crowded = side(2, 2, 6, 16);
+    // So many others that sharing the land line would make them overlap (the
+    // owner's rule; since 0093 they have the stretch right of the anchor):
+    // they share the creatures' line instead, full size.
+    const crowded = side(2, 2, 12, 4);
     const out = layout({ viewerSeat: 1, hand: [], battlefield: all(crowded) }, vp);
     expect(out.scales.viewer).toBe(1);
     expect(out.sharing.viewer).toBe("creature");
@@ -1092,15 +1111,23 @@ describe("sharing a line before shrinking (spec 0059)", () => {
     // The front line is never shared.
     expect(lines.get("viewer:creature-1")!.shared).toBeUndefined();
     // And when no shared line has room, the side steps down a size.
-    const busy = layout({ viewerSeat: 1, hand: [], battlefield: all(side(2, 20, 14, 26)) }, vp);
+    // (Spec 0093: 8 lands, not 26 -- 26 different lands now crowd the row beside the anchor.)
+    const busy = layout({ viewerSeat: 1, hand: [], battlefield: all(side(2, 20, 14, 8)) }, vp);
     expect(busy.scales.viewer).toBeLessThan(1);
-    // Every card in every case still shows at least half of itself.
+    // Every card in every case still shows at least half of itself -- but
+    // (spec 0093) a land row's tapped group, which closes up to a sliver
+    // first, so the untapped places stay put.
     for (const o of [out, busy]) {
       for (const row of new Set(o.slots.map((s) => s.row))) {
-        const list = o.slots.filter((s) => s.row === row);
-        const xs = list.map((s) => s.box.x).sort((a, b) => a - b);
-        for (let i = 1; i < xs.length; i++)
-          expect(xs[i]! - xs[i - 1]!, row).toBeGreaterThanOrEqual(SHOW_MIN * list[0]!.box.w - EPS);
+        const list = o.slots.filter((s) => s.row === row).map((s) => s.box);
+        const sorted = [...list].sort((a, b) => a.x - b.x);
+        for (let i = 1; i < sorted.length; i++) {
+          const least = sorted[i - 1]!.rotation === 0 || !row.includes("land") ? SHOW_MIN : 0.33;
+          if (least < SHOW_MIN && o.overcrowded.length > 0) continue;
+          expect(sorted[i]!.x - sorted[i - 1]!.x, row).toBeGreaterThanOrEqual(
+            least * list[0]!.w - EPS,
+          );
+        }
       }
     }
   });
@@ -1569,5 +1596,370 @@ describe("big combats (spec 0037, Phase 10 A-12)", () => {
     expect(drawn(2)).toBeLessThanOrEqual(16);
     expect(drawn(1)).toBeLessThanOrEqual(16);
     expect(out.overcrowded).toEqual([]);
+  });
+});
+
+// Spec 0093 (owner 2026-11-16, canvas sections 2 C and 4 L-1): lands that
+// stay put when tapped, in a row growing left from a 7-card hand's edge.
+describe("lands that stay put (spec 0093)", () => {
+  const land = (name: string, over: Partial<LayoutCard> = {}) =>
+    card({
+      seat: 1,
+      name,
+      kind: "land",
+      types: name === "Dismal Backwater" ? "Land" : `Basic Land — ${name}`,
+      power: null,
+      toughness: null,
+      ...over,
+    });
+  /** The spec's row: Swamp, Island, Swamp, Backwater, Plains, Swamp, Island. */
+  const spec = () =>
+    ["Swamp", "Island", "Swamp", "Dismal Backwater", "Plains", "Swamp", "Island"].map((n, i) =>
+      land(n, { enteredAt: i + 1 }),
+    );
+  /** Lay out one board after another, each from the one before's land row. */
+  function play(boards: LayoutCard[][], vp: Viewport, over: Partial<LayoutInput> = {}) {
+    let lands: LayoutInput["previousLands"];
+    return boards.map((battlefield) => {
+      const out = layout(
+        { viewerSeat: 1, hand: [], battlefield, previousLands: lands, ...over },
+        vp,
+      );
+      lands = out.lands;
+      return out;
+    });
+  }
+  const tap = (list: LayoutCard[], ids: ReadonlySet<string>) =>
+    list.map((c) => (ids.has(c.id) ? { ...c, tapped: true } : c));
+  const slotOf = (out: ReturnType<typeof layout>, id: string) =>
+    out.slots.find((s) => s.ids.includes(id))!;
+
+  it("F-0093-A: tap each Swamp in turn -- each click finds an untapped Swamp where the last was, and no untapped pile moves at all", () => {
+    for (const vp of [
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      const row = spec();
+      const swamps = row.filter((c) => c.name === "Swamp");
+      const boards = [row];
+      const tapped = new Set<string>();
+      for (const s of swamps) {
+        tapped.add(s.id);
+        boards.push(tap(row, tapped));
+      }
+      const outs = play(boards, vp);
+      const pointer = slotOf(outs[0]!, swamps[0]!.id).box;
+      for (let k = 1; k < outs.length; k++) {
+        // Every card still untapped is exactly where it was (0 px).
+        for (const c of boards[k]!.filter((x) => !x.tapped))
+          expect(outs[k]!.boxes.get(c.id), `${c.name} after tap ${k}`).toEqual(
+            outs[k - 1]!.boxes.get(c.id),
+          );
+        // The next click at the same spot finds an untapped Swamp there.
+        if (k < swamps.length) {
+          const there = outs[k]!.slots.find(
+            (sl) => sl.box.x === pointer.x && sl.box.y === pointer.y,
+          )!;
+          expect(there.ids).toContain(swamps[k]!.id);
+        }
+      }
+      // All three tapped Swamps are one pile, left of every untapped land.
+      const last = outs[outs.length - 1]!;
+      const pile = slotOf(last, swamps[0]!.id);
+      expect([...pile.ids].sort()).toEqual(swamps.map((s) => s.id).sort());
+      expect(pile.box.rotation).toBe(TAPPED_TILT);
+      for (const c of row.filter((x) => x.name !== "Swamp"))
+        if (last.rowOf.get(c.id) === pile.row)
+          expect(pile.box.x).toBeLessThan(last.boxes.get(c.id)!.x);
+    }
+  });
+
+  it("F-0093-A: without the row's memory the untapped lands would close up (the jump this spec removes)", () => {
+    const vp = { width: 1920, height: 1080 };
+    const row = spec();
+    const tapped = tap(row, new Set([row[0]!.id, row[2]!.id, row[5]!.id]));
+    const fresh = layout({ viewerSeat: 1, hand: [], battlefield: row }, vp);
+    const kept = play([row, tapped], vp)[1]!;
+    const forgot = layout({ viewerSeat: 1, hand: [], battlefield: tapped }, vp);
+    const island = row[1]!.id;
+    expect(kept.boxes.get(island)).toEqual(fresh.boxes.get(island));
+    expect(Math.abs(forgot.boxes.get(island)!.x - fresh.boxes.get(island)!.x)).toBeGreaterThan(50);
+  });
+
+  it("F-0093-B: the tapped group sits at the row's far left; at that side's untap step the row re-packs once, in arrival order", () => {
+    const vp = { width: 1920, height: 1080 };
+    const row = spec();
+    const tappedIds = new Set([row[0]!.id, row[3]!.id]); // a Swamp and the Backwater
+    const [, mid] = play([row, tap(row, tappedIds)], vp, { landTurns: { viewer: 3 } });
+    // Each tapped card is further left than every untapped land on its line.
+    for (const id of tappedIds)
+      for (const c of row.filter((x) => !tappedIds.has(x.id)))
+        if (mid!.rowOf.get(c.id) === mid!.rowOf.get(id))
+          expect(mid!.boxes.get(id)!.x).toBeLessThan(mid!.boxes.get(c.id)!.x);
+    // The Backwater's place is held: the Plains has not moved over.
+    const fresh = layout({ viewerSeat: 1, hand: [], battlefield: row }, vp);
+    const plains = row[4]!.id;
+    expect(mid!.boxes.get(plains)).toEqual(fresh.boxes.get(plains));
+    // In the same turn, untapped again (an untap effect): still held.
+    const untapped = row.map((c) => ({ ...c }));
+    const sameTurn = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: untapped,
+        previousLands: mid!.lands,
+        landTurns: { viewer: 3 },
+      },
+      vp,
+    );
+    expect(sameTurn.boxes.get(plains)).toEqual(fresh.boxes.get(plains));
+    // At the side's untap step (its next turn): one re-pack, every land back
+    // in arrival order, no held place left.
+    const next = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: untapped,
+        previousLands: mid!.lands,
+        landTurns: { viewer: 5 },
+      },
+      vp,
+    );
+    expect([...next.boxes.entries()]).toEqual([...fresh.boxes.entries()]);
+    // Once: laid out again in that turn, nothing moves.
+    const again = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: untapped,
+        previousLands: next.lands,
+        landTurns: { viewer: 5 },
+      },
+      vp,
+    );
+    expect([...again.boxes.entries()]).toEqual([...next.boxes.entries()]);
+    // The other side's turn (no turn given for this side) keeps the row.
+    const theirTurn = layout(
+      { viewerSeat: 1, hand: [], battlefield: tap(row, tappedIds), previousLands: mid!.lands },
+      vp,
+    );
+    expect([...theirTurn.boxes.entries()]).toEqual([...mid!.boxes.entries()]);
+    // A land gone (destroyed) leaves its place held until the tidy-up, which
+    // closes it: the Plains slides over then, and only then.
+    const without = untapped.filter((c) => c.id !== row[3]!.id);
+    const held = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: without,
+        previousLands: mid!.lands,
+        landTurns: { viewer: 3 },
+      },
+      vp,
+    );
+    expect(held.boxes.get(plains)).toEqual(fresh.boxes.get(plains));
+    const tidied = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: without,
+        previousLands: held.lands,
+        landTurns: { viewer: 5 },
+      },
+      vp,
+    );
+    expect(tidied.boxes.get(plains)!.x).toBeGreaterThan(fresh.boxes.get(plains)!.x);
+    expect([...tidied.boxes.entries()]).toEqual([
+      ...layout({ viewerSeat: 1, hand: [], battlefield: without }, vp).boxes.entries(),
+    ]);
+  });
+
+  it("F-0093-C: the row grows left from a 7-card hand's left edge -- x 542 at 1080, 723 at 1440 -- and the opponent's mirrors it", () => {
+    for (const [vp, x] of [
+      [{ width: 1920, height: 1080 }, 542],
+      [{ width: 2560, height: 1440 }, 723],
+    ] as const) {
+      const g = geometry(vp);
+      expect(landAnchor(g)).toBeCloseTo(g.play.x + g.play.w / 2 - 2.84 * g.cardW, 6);
+      expect(Math.abs(landAnchor(g) - x)).toBeLessThan(1);
+      const mine = [land("Swamp"), land("Island"), land("Plains")];
+      const theirs = mine.map((c) => ({ ...c, id: `${c.id}:2`, seat: 2 }));
+      const out = layout({ viewerSeat: 1, hand: [], battlefield: [...mine, ...theirs] }, vp);
+      const xs = mine.map((c) => out.boxes.get(c.id)!.x);
+      // Land 1 rightmost, just left of the anchor; each later one further left.
+      const { right: r } = tiltOverhang(g.cardW, g.cardH);
+      expect(xs[0]! + g.cardW + r).toBeCloseTo(landAnchor(g) - g.inset, 6);
+      expect(xs[1]!).toBeLessThan(xs[0]!);
+      expect(xs[2]!).toBeLessThan(xs[1]!);
+      // Mirrored: the same x, their side.
+      theirs.forEach((c, i) => {
+        const b = out.boxes.get(c.id)!;
+        expect(b.x).toBeCloseTo(xs[i]!, 9);
+        expect(b.y).toBeLessThan(vp.height / 2);
+      });
+    }
+  });
+
+  it("F-0093-C: drawing or playing a card moves no land (the anchor never follows the hand)", () => {
+    const vp = { width: 1920, height: 1080 };
+    const lands = [land("Swamp"), land("Island")];
+    const hands = [0, 1, 3, 7, 9, 15].map((n) =>
+      Array.from({ length: n }, (_, i) => ({ id: `card:h${i}` })),
+    );
+    const outs = hands.map((hand) =>
+      layout({ viewerSeat: 1, hand, opponentHand: hand, battlefield: lands }, vp),
+    );
+    // Where it is drawn (its z is its line's order, not a place).
+    const at = (b: Box | undefined) => b && { x: b.x, y: b.y, w: b.w, rotation: b.rotation };
+    for (const out of outs)
+      for (const c of lands) expect(at(out.boxes.get(c.id))).toEqual(at(outs[0]!.boxes.get(c.id)));
+    // A creature or another permanent played moves no land either.
+    const more = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: [...lands, ...many(3, 1, "creature"), ...many(2, 1, "other")],
+      },
+      vp,
+    );
+    for (const c of lands) expect(at(more.boxes.get(c.id))).toEqual(at(outs[0]!.boxes.get(c.id)));
+  });
+
+  it("capacity: a new land never moves a land already there -- 4 to a line beside the anchor at 1080, then the next line", () => {
+    for (const vp of VIEWPORTS) {
+      const all = Array.from({ length: 10 }, (_, i) => land(`Land ${i}`, { enteredAt: i + 1 }));
+      const outs = play(
+        all.map((_, i) => all.slice(0, i + 1)),
+        vp,
+      );
+      for (let k = 1; k < outs.length; k++)
+        for (const c of all.slice(0, k))
+          expect(outs[k]!.boxes.get(c.id), `${vp.width}x${vp.height} land ${k + 1}`).toEqual(
+            outs[k - 1]!.boxes.get(c.id),
+          );
+    }
+    const at1080 = layout(
+      { viewerSeat: 1, hand: [], battlefield: Array.from({ length: 5 }, (_, i) => land(`L${i}`)) },
+      { width: 1920, height: 1080 },
+    );
+    expect(new Set(at1080.slots.map((s) => s.row))).toEqual(
+      new Set(["viewer:land-1", "viewer:land-2"]),
+    );
+    expect(at1080.slots.filter((s) => s.row === "viewer:land-1")).toHaveLength(4);
+  });
+
+  it("capacity: with no line to spare, tapping a full row closes its tapped group up, then the others share the land line so the lands can wrap -- no untapped place moves, the side stays full size", () => {
+    const vp = { width: 1920, height: 1080 };
+    // Creatures and others take the two lines from the middle.
+    const rest = [...many(4, 1, "creature"), ...many(6, 1, "other")];
+    const lands = ["Swamp", "Island", "Watery Grave", "Drowned Catacomb"].map((n) => land(n));
+    const boards = [lands];
+    const tapped = new Set<string>();
+    for (const c of lands) {
+      tapped.add(c.id);
+      boards.push(tap(lands, tapped));
+    }
+    const outs = play(
+      boards.map((b) => [...rest, ...b]),
+      vp,
+    );
+    // Two taps: the tapped group closes up on the one land line.
+    expect(outs[2]!.sharing.viewer).toBeNull();
+    expect(
+      new Set(outs[2]!.slots.filter((sl) => sl.row.includes("land")).map((sl) => sl.row)).size,
+    ).toBe(1);
+    // Three: it would squeeze the places, so the others share and the lands wrap.
+    expect(outs[3]!.sharing.viewer).toBe("land");
+    for (let k = 1; k < outs.length; k++) {
+      expect(outs[k]!.scales.viewer).toBe(1);
+      // Where each is drawn (z follows the lines' order, which sharing changes).
+      const at = (bx: Box | undefined) =>
+        bx && { x: bx.x, y: bx.y, w: bx.w, rotation: bx.rotation };
+      for (const c of boards[k]!.filter((x) => !x.tapped))
+        expect(at(outs[k]!.boxes.get(c.id))).toEqual(at(outs[0]!.boxes.get(c.id)));
+    }
+  });
+
+  it("capacity: a row that would squeeze below half a card shares the land line and wraps, before the side shrinks", () => {
+    // 3 creatures, 3 others, 10 different lands at 1920x1080: on one line
+    // beside the anchor the lands would show under half; the others share
+    // the land line (right of the anchor) and the lands wrap -- full size.
+    const out = layout(
+      {
+        viewerSeat: 1,
+        hand: [],
+        battlefield: [
+          ...many(3, 1, "creature"),
+          ...many(3, 1, "other"),
+          ...Array.from({ length: 10 }, (_, i) => land(`Land ${i}`)),
+        ],
+      },
+      { width: 1920, height: 1080 },
+    );
+    expect(out.scales.viewer).toBe(1);
+    expect(out.sharing.viewer).toBe("land");
+    expect(out.lines.filter((l) => l.side === "viewer" && l.kind === "land")).toHaveLength(2);
+  });
+
+  it("F-0093-D: picking a land to pay (0070) moves only that land, to the row's far left; taking it back returns it to its place", () => {
+    const vp = { width: 1920, height: 1080 };
+    const row = spec();
+    const swamp = row[0]!;
+    const picked = row.map((c) => (c.id === swamp.id ? { ...c, paying: "lean" as const } : c));
+    const [start, pick, back, again] = play([row, picked, row, picked], vp);
+    for (const c of row) {
+      if (c.id === swamp.id) continue;
+      expect(pick!.boxes.get(c.id)).toEqual(start!.boxes.get(c.id));
+      expect(back!.boxes.get(c.id)).toEqual(start!.boxes.get(c.id));
+      expect(again!.boxes.get(c.id)).toEqual(start!.boxes.get(c.id));
+    }
+    // It stands apart, leaning, further left than every other land on its line.
+    const b = pick!.boxes.get(swamp.id)!;
+    expect(slotOf(pick!, swamp.id).ids).toEqual([swamp.id]);
+    expect(b.rotation).toBe(TAPPED_TILT);
+    for (const c of row)
+      if (c.id !== swamp.id && pick!.rowOf.get(c.id) === pick!.rowOf.get(swamp.id))
+        expect(b.x).toBeLessThan(pick!.boxes.get(c.id)!.x);
+    // Taken back, it is in its pile again; picked again, at the same spot.
+    expect(back!.boxes.get(swamp.id)).toEqual(start!.boxes.get(swamp.id));
+    expect(again!.boxes.get(swamp.id)).toEqual(b);
+    // Two picked, the first taken back: the second stays where it stood, and
+    // the first, picked again, goes back to the place it left in the group.
+    const island = row[1]!;
+    const both = row.map((c) =>
+      c.id === swamp.id || c.id === island.id ? { ...c, paying: "lean" as const } : c,
+    );
+    const onlyIsland = row.map((c) => (c.id === island.id ? { ...c, paying: "lean" as const } : c));
+    const [, two, one, twoAgain] = play([row, both, onlyIsland, both], vp);
+    expect(one!.boxes.get(island.id)).toEqual(two!.boxes.get(island.id));
+    expect(twoAgain!.boxes.get(swamp.id)).toEqual(two!.boxes.get(swamp.id));
+    // Paid: tapped where they were picked -- the tapped piles take the places
+    // the picks held, nothing glides further on.
+    const paid = row.map((c) =>
+      c.id === swamp.id || c.id === island.id ? { ...c, tapped: true } : c,
+    );
+    const [, picks, done] = play([row, both, paid], vp);
+    for (const c of [swamp, island])
+      expect(done!.boxes.get(c.id)!.x).toBeCloseTo(picks!.boxes.get(c.id)!.x, 6);
+  });
+
+  it("a held spot (spec 0079) takes its land's place when that place is empty", () => {
+    const vp = { width: 1920, height: 1080 };
+    const row = [land("Swamp"), land("Dismal Backwater"), land("Plains")];
+    const gone = row[1]!;
+    const held = { ...gone, id: `held:${gone.id}`, held: true };
+    const [before, after] = play([row, [row[0]!, row[2]!, held]], vp);
+    expect(after!.boxes.get(held.id)).toEqual(before!.boxes.get(gone.id));
+    expect(after!.boxes.get(row[2]!.id)).toEqual(before!.boxes.get(row[2]!.id));
+  });
+
+  it("laying out again from its own row changes nothing (the memory is a fixed point)", () => {
+    for (const n of [1, 9, 23, 60]) {
+      const input = board(n);
+      const first = layout(input, VIEWPORTS[0]!);
+      const again = layout({ ...input, previousLands: first.lands }, VIEWPORTS[0]!);
+      expect([...again.boxes.entries()]).toEqual([...first.boxes.entries()]);
+      expect(again.lands).toEqual(first.lands);
+    }
   });
 });

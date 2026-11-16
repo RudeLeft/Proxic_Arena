@@ -178,3 +178,15 @@ authority:
   a size only when no such sharing shows every card at least half
   (`SHOW_MIN`). Outside combat nothing changes. The details are in the
   layout contract's §7b, as amended.
+
+**Amendment 3 (2026-11-16, spec 0093, owner-approved on the canvas "Owner
+list 2026-11-16", sections 2 C and 4 L-1).** Lands no longer start at the
+left edge of their line: each side's land row grows **leftward from a
+fixed spot**, the left edge of a 7-card hand at that size (x ≈ 542 at
+1920×1080, 723 at 2560×1440), the opponent's mirrored; every land slot
+keeps room for a lean, so a tap moves no neighbour; a land that taps goes
+to a tapped group at the row's far left; the row re-packs at that side's
+untap step. A land line's stretch now ends at the spot: about 4 slots fit
+beside it at full size, then the row wraps onto a spare line (or the
+others share the land line so it can), then squeezes, then the side steps
+down as before. Spec 0093 is the authority; its As built has the numbers.

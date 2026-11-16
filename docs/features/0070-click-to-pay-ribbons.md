@@ -139,3 +139,11 @@ Lab checks are in CI's list.
 
 **Filmed:** `Arrow videos/pay/` (Voice, Fireblast, Duress, each with the
 other player's screen); canvas `frontend/zz-canvas/pay-final-1111.html`.
+
+## Amendment 2 — a picked land goes to the row's end (spec 0093, 2026-11-16)
+
+A land picked to pay still stands apart from its pile, marked and leaning
+-- but it now glides to the tapped group at the far (left) end of its land
+row, every other pile keeping its place (spec 0093, option C). Taken back
+(a click on it there), it returns to its own place; paid, the tapped pile
+takes the place the pick held. See `docs/features/0093-lands-that-stay-put.md`.
