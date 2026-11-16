@@ -22,3 +22,9 @@ services:
       # browser will not keep a Secure cookie over that -- the same
       # finding that produced owner decision D2 for the LAN port.
       PROXIC_SECURE_COOKIES: "false"
+      # TEST ONLY -- spec 0098. Browser tests may deal set cards: the
+      # server starts the worker with --lab-deal and mounts
+      # POST /api/matches/test-deal. NEVER in docker-compose.yml,
+      # docker-compose.unraid.yml or the Dockerfile; CI fails if they
+      # name it (scripts/check-test-switch.py).
+      PROXIC_TEST_DEALS: "true"

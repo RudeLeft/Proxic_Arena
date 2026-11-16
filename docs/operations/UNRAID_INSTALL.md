@@ -346,3 +346,12 @@ PROXIC_ROOM_WARNING_MINUTES=5     how long before closing the room says so
 ```
 
 Leave them out to keep the defaults.
+
+
+## Never set: PROXIC_TEST_DEALS (spec 0098)
+
+`PROXIC_TEST_DEALS` is a switch for automated tests only: it lets a test
+choose the cards a game deals. It must **never** be set on this server --
+not in the settings file, not in a compose file. The production compose
+files do not pass it to the container, and the project's checks fail if
+they ever do (`scripts/check-test-switch.py`).

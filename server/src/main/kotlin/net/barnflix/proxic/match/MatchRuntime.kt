@@ -38,6 +38,8 @@ class MatchRuntime(
     private val decisions: DecisionAnnouncer = DecisionAnnouncer.NONE,
     /** Spec 0067 — a game ended: its spectators are told the result, then closed. */
     private val spectatorsTold: SpectatorsTold = SpectatorsTold.NONE,
+    /** TEST ONLY -- spec 0098: null (always, in production) unless PROXIC_TEST_DEALS is on. */
+    private val testDeals: TestDeals? = null,
 ) : MatchStarter, MatchControl, MatchAssets {
     private val log = LoggerFactory.getLogger(MatchRuntime::class.java)
 
@@ -86,7 +88,7 @@ class MatchRuntime(
      * JVM is a request that times out at Cloudflare's 100 seconds.
      */
     fun beginBlocking(match: Match): WorkerStart {
-        val seats = records.seatsFor(match)
+        val seats = records.seatsFor(match)?.let { testDeals.dealTo(match, it, log) }
         if (seats == null) {
             records.recordFailure(match.matchId, "DECK_UNAVAILABLE", clock())
             endings.failedStart(match, "DECK_UNAVAILABLE")

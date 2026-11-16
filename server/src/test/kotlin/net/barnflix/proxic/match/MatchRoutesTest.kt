@@ -545,4 +545,60 @@ class MatchRoutesTest {
             assertEquals(HttpStatusCode.BadRequest, response.status)
             assertEquals("INVALID_REQUEST", response.errorCode())
         }
+
+    private val dealBody =
+        """{"players":[{"username":"RudeLeft","hand":["Mountain"]},{"username":"Pat","top":["Mountain"]}]}"""
+
+    /**
+     * Spec 0098 (F-0098-A) -- switch off, as in production: a deal is
+     * refused (there is no such route) and nothing is queued anywhere.
+     */
+    @Test
+    fun `a test deal is refused with the switch off`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+
+            val refused =
+                client.post("/api/matches/test-deal") {
+                    signedBy(host)
+                    contentType(ContentType.Application.Json)
+                    setBody(dealBody)
+                }
+            assertEquals(HttpStatusCode.NotFound, refused.status, refused.bodyAsText())
+        }
+
+    /** Switch on: queued for the two players named, and only by one of them. */
+    @Test
+    fun `a test deal is queued with the switch on, by a player of that match`() =
+        testApplication {
+            application { module(config().copy(testDeals = true)) }
+            val host = signIn("RudeLeft")
+            val stranger = signIn("Sam")
+
+            suspend fun post(
+                creds: Creds,
+                body: String,
+            ) = client.post("/api/matches/test-deal") {
+                signedBy(creds)
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+
+            assertEquals(HttpStatusCode.NoContent, post(host, dealBody).status)
+            val notTheirs = post(stranger, dealBody)
+            assertEquals(HttpStatusCode.Forbidden, notTheirs.status)
+            assertEquals("NOT_YOUR_MATCH", notTheirs.errorCode())
+            val nobody = post(host, dealBody.replace("Pat", "Nobody"))
+            assertEquals("NO_SUCH_PLAYER", nobody.errorCode())
+            val one = post(host, """{"players":[{"username":"RudeLeft","hand":["Mountain"]}]}""")
+            assertEquals(HttpStatusCode.BadRequest, one.status)
+            // Signed out: the /api/matches gate, as for every match route.
+            val anonymous =
+                client.post("/api/matches/test-deal") {
+                    contentType(ContentType.Application.Json)
+                    setBody(dealBody)
+                }
+            assertEquals(HttpStatusCode.Unauthorized, anonymous.status)
+        }
 }

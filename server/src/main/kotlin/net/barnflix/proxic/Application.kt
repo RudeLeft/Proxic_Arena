@@ -36,6 +36,7 @@ import net.barnflix.proxic.match.MatchLauncher
 import net.barnflix.proxic.match.matchRoutes
 import net.barnflix.proxic.match.matchSocket
 import net.barnflix.proxic.match.spectatableRoom
+import net.barnflix.proxic.match.testDealRoute
 import net.barnflix.proxic.report.Reports
 import net.barnflix.proxic.report.reportRoutes
 import net.barnflix.proxic.room.matchPresetRoutes
@@ -502,6 +503,11 @@ private fun Route.databaseRoutes(
     // upgrade with a 401 the browser reports as "connection
     // failed".
     val matchHub = net.barnflix.proxic.match.MatchHub()
+    // TEST ONLY -- spec 0098. Null unless PROXIC_TEST_DEALS=true (the local
+    // and CI overrides only): then no route below and no deal for any match.
+    val testDeals =
+        net.barnflix.proxic.match.TestDeals().takeIf { config.testDeals }
+            ?.also { application.log.warn("PROXIC_TEST_DEALS is on: tests may deal set cards. Never in production.") }
     val matchRuntime =
         net.barnflix.proxic.match.MatchRuntime(
             database.dataSource(),
@@ -511,6 +517,7 @@ private fun Route.databaseRoutes(
             roomAnnouncer = lobby,
             decisions = matchHub,
             spectatorsTold = matchHub.endings,
+            testDeals = testDeals,
         )
     lobby.spectatable = { roomId -> matchRuntime.spectatableRoom(roomId) } // spec 0067: "Starting..." until then
     net.barnflix.proxic.match.stopMatchesWithServer(this, matchRuntime, matchHub) // spec 0056: told first
@@ -628,6 +635,11 @@ private fun Route.databaseRoutes(
             assets = matchRuntime,
             artStore = ArtStore(File(config.dataRoot)),
         )
+
+        // TEST ONLY -- spec 0098: mounted only with the switch on.
+        testDeals?.let { deals ->
+            testDealRoute(deals) { accounts.findByUsername(it)?.userId }
+        }
 
         // PHASE_07 §7.67 — the Admin page's API, administrators only.
         val parts = AdminParts(sessions, accounts, signIns, roomService, matchRuntime, lobby, updateWaiting)

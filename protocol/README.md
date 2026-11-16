@@ -927,14 +927,55 @@ players[i].labDeal   {"hand": [names], "top": [names]}, both optional.
 
 Why a player cannot use it:
 
-- The worker accepts it only when started with `--lab-deal`. Only
+- The worker accepts it only when started with `--lab-deal`.
   `scripts/lab.py` passes that; the server starts the worker as
-  `java -jar <jar> <res>` (`MatchWorker`). Without the switch, a seat
+  `java -jar <jar> <res>` (`workerCommand`), adding `--lab-deal` only
+  when spec 0098's test switch is on (below). Without the flag, a seat
   carrying it is refused: `ERROR LAB_DEAL_REFUSED`, no game.
-- The server never forwards it: `WorkerFrames.startGameFrame` builds
-  each seat field by field (`displayName`, `seatNumber`, `cards`,
-  `stops`), so nothing a player sends reaches the worker as a field
+- Nothing a player sends becomes the field: `WorkerFrames.startGameFrame`
+  builds each seat field by field (`displayName`, `seatNumber`, `cards`,
+  `stops`, and `labDeal` only from the server's own test-deal store)
   (`WorkerFramesTest` "the start frame never carries the Lab's deal").
 - A seat without it is dealt exactly as before: no listener is even
   subscribed (`LabDealTest`). A deal the deck cannot make (a name it
   lacks, more than seven for the hand) is refused before the game.
+
+
+## Test-only: exact test games (server, spec 0098, 2026-11-16)
+
+**Never set in production.** `PROXIC_TEST_DEALS=true` lets a browser test
+deal set cards, through the Lab's deal above. It is set only in
+`docker-compose.local.yml` and `docker-compose.ci.yml`; CI's
+`scripts/check-test-switch.py` fails if `docker-compose.yml`,
+`docker-compose.unraid.yml` or the `Dockerfile` names it at all.
+
+With the switch on (only then):
+
+```text
+POST /api/matches/test-deal        signed in + CSRF, like every /api/matches route
+  {"players": [{"username": "RudeLeft", "hand": [names], "top": [names]},
+               {"username": "Pat", ...}]}
+  204   queued for the NEXT match between exactly these two accounts
+        (taken once; forgotten after 10 minutes)
+  400   not two different players, more than 7 for a hand, 60 for the top,
+        or a blank name
+  403   NOT_YOUR_MATCH -- the caller is not one of the two
+  422   NO_SUCH_PLAYER
+```
+
+When that match starts, each seat's deal becomes its START_GAME `labDeal`
+and the worker is started with `--lab-deal`; a deal the deck cannot make
+fails the start (`LAB_DEAL_REFUSED`). The e2e helper is `startAMatch(...,
+{ deal: { host, guest } })` (`queueDeal` in `e2e/match-helpers.ts`).
+
+With the switch off (production): the route is not mounted (404, nothing
+queued), the runtime has no store, and the worker has no `--lab-deal`
+(`MatchRoutesTest` "a test deal is refused with the switch off",
+`TestDealLaunchTest`, `TestDealsTest`).
+
+Why an endpoint and not a field on `POST /api/matches`: §6.10 says the
+browser supplies only the setup id when it starts a match, never Forge
+options. A field there would sit in the production request body, switch or
+not; an unmounted route is no surface at all. Hidden information is
+unchanged: the deal orders a library before the opening hand; what each
+seat is sent is still Forge's per-viewer answer.

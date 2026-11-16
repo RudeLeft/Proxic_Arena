@@ -454,11 +454,15 @@ export async function startAMatch(
     // A different deck for the guest (also shared by the host), for the
     // tests that need the two seats to bring different cards.
     guestDeck = deckName,
+    // Spec 0098 -- each seat's opening hand and the draws after it, by
+    // card name (TEST ONLY: the stack must run with PROXIC_TEST_DEALS).
+    deal,
   }: {
     settle?: boolean;
     hostName?: string;
     guestName?: string;
     guestDeck?: string;
+    deal?: { host?: SeatDeal; guest?: SeatDeal };
   } = {},
 ) {
   await host.goto("/play");
@@ -488,6 +492,7 @@ export async function startAMatch(
   // §7.64 — one button: the server prepares and launches behind it.
   const start = host.getByRole("button", { name: "Start match" });
   await expect(start).toBeEnabled();
+  if (deal) await queueDeal(host, { [hostName]: deal.host ?? {}, [guestName]: deal.guest ?? {} });
   await start.click();
 
   // PREGAME COMES FIRST, and nobody else will answer it.
@@ -509,6 +514,32 @@ export async function startAMatch(
   await expect(matchPanel(guest).getByText(/The game is running/)).toBeAttached({
     timeout: 600_000,
   });
+}
+
+/** Spec 0098 -- one seat's deal: its opening hand, then the draws after it, in order. */
+export type SeatDeal = { hand?: string[]; top?: string[] };
+
+/**
+ * Spec 0098 -- queue a deal for the next match between these two players
+ * (username -> deal). TEST ONLY: the server mounts the route only with
+ * PROXIC_TEST_DEALS on (docker-compose.local.yml, docker-compose.ci.yml);
+ * anywhere else this fails, loudly, rather than playing an undealt game.
+ */
+export async function queueDeal(page: Page, seats: Record<string, SeatDeal>) {
+  const queued = await page.request.post("/api/matches/test-deal", {
+    headers: { "X-CSRF-Token": await csrfOf(page) },
+    data: {
+      players: Object.entries(seats).map(([username, d]) => ({
+        username,
+        hand: d.hand ?? [],
+        top: d.top ?? [],
+      })),
+    },
+  });
+  expect(
+    queued.status(),
+    `the deal was not queued (is the stack running with PROXIC_TEST_DEALS?): ${await queued.text()}`,
+  ).toBe(204);
 }
 
 /**

@@ -55,7 +55,24 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
 
   try {
     const deckName = await sharedDeck(host, guest, ringPackage);
-    await startAMatch(host, guest, deckName);
+    // DEALT (spec 0098). A random game sometimes never reached a dungeon:
+    // "no dungeon room was shown (the game ended: Your opponent won on
+    // turn 25.)" (ROADMAP's flakes). Both seats open with Call of the Ring
+    // (the Ring tempts), White Plume Adventurer (the initiative: the
+    // Undercity), a creature to bear the Ring, and both colours of land.
+    const dealt = {
+      hand: [
+        "Call of the Ring",
+        "White Plume Adventurer",
+        "Elite Vanguard",
+        "Swamp",
+        "Swamp",
+        "Plains",
+        "Plains",
+      ],
+      top: ["Plains", "Swamp", "Walking Corpse", "Plains", "Swamp"],
+    };
+    await startAMatch(host, guest, deckName, { deal: { host: dealt, guest: dealt } });
 
     // Spec 0038: counters and markers are in the status trays.
     const totals = (page: Page) => matchPanel(page).locator(".gs-seat, .gs-status");

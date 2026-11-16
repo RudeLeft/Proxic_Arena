@@ -74,6 +74,12 @@ data class ServerConfig(
     val matchRecordDays: Long = net.barnflix.proxic.match.GameRecords.DEFAULT_DAYS,
     /** Spec 0054 — how long a room in the lobby may sit, in minutes. */
     val roomTimeouts: net.barnflix.proxic.room.RoomTimeouts = net.barnflix.proxic.room.RoomTimeouts(),
+    /**
+     * TEST ONLY -- spec 0098 (PROXIC_TEST_DEALS=true). Browser tests may
+     * deal set cards (match/TestDeals.kt). Set only by the local and CI
+     * compose overrides; never in production (scripts/check-test-switch.py).
+     */
+    val testDeals: Boolean = false,
 ) {
     /** Where match game records live (§7.56). */
     fun gameRecords(): net.barnflix.proxic.match.GameRecords =
@@ -119,7 +125,7 @@ data class ServerConfig(
         "ServerConfig(host=$host, port=$port, appEnv=$appEnv, " +
             "databaseUrl=${redactUrl(databaseUrl)}, " +
             "forgeWorkerJar=$forgeWorkerJar, dataRoot=$dataRoot, " +
-            "staticRoot=$staticRoot, " +
+            "staticRoot=$staticRoot, testDeals=$testDeals, " +
             "sessionSecret=${mask(sessionSecretValue)}, " +
             "databasePassword=${mask(databasePasswordValue)})"
 
@@ -149,6 +155,7 @@ data class ServerConfig(
                 sessionSecretValue = getenv("PROXIC_SESSION_SECRET"),
                 databasePasswordValue = getenv("POSTGRES_PASSWORD"),
                 databaseUserValue = getenv("POSTGRES_USER"),
+                testDeals = getenv("PROXIC_TEST_DEALS")?.toBooleanStrictOrNull() ?: false,
                 matchRecordDays =
                     getenv("PROXIC_MATCH_RECORD_DAYS")?.toLongOrNull()?.takeIf { it > 0 }
                         ?: net.barnflix.proxic.match.GameRecords.DEFAULT_DAYS,

@@ -123,12 +123,30 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
     // started with guessed a "Launch" button and hung for a quarter
     // of an hour on a button that is called "Start match".
     //
-    // settle: false -- the pregame is answered below, by the hand.
-    // In about one game in forty neither seat drew Elspeth in 36
-    // turns and nothing under test was ever asked (TEST-013.4,
-    // ROADMAP's flakes, 2026-11-16). Interim: spec 0098 deals the
-    // hand exactly.
-    await startAMatch(host, guest, deckName, { settle: false });
+    // settle: false -- the pregame is answered below.
+    //
+    // DEALT (spec 0098). In about one game in forty neither seat drew
+    // Elspeth in 36 turns and nothing under test was ever asked
+    // (TEST-013.4, ROADMAP's flakes, 2026-11-16); a mulligan for her
+    // made that rarer, not impossible. Now both seats open with her, a
+    // creature for her +1 and the modal spell, and draw the Top and the
+    // X spell next -- whoever goes first, every question is reachable.
+    const dealt = {
+      hand: [
+        "Elspeth Resplendent",
+        "Perimeter Captain",
+        "Alley Evasion",
+        "Plains",
+        "Plains",
+        "Plains",
+        "Plains",
+      ],
+      top: ["Plains", "Sensei's Divining Top", "Secure the Wastes", "Plains", "Plains"],
+    };
+    await startAMatch(host, guest, deckName, {
+      settle: false,
+      deal: { host: dealt, guest: dealt },
+    });
 
     // --- PLAY, until the decision under test appears -------------
     //
@@ -279,16 +297,8 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       },
     ];
     const seen = new Set<string>();
-    // Mulligans taken, per seat (at most two each, then keep).
-    const mulligans = new Map<Page, number>([
-      [host, 0],
-      [guest, 0],
-    ]);
-    // Either seat holding her is enough.
-    const holdsElspeth = async (page: Page) =>
-      (
-        await matchPanel(page).locator('[data-zone="viewer:hand"], .gs-opening').allTextContents()
-      ).some((text) => text.includes("Elspeth Resplendent"));
+    // The dealt hand is in front of each seat before it is asked to keep it.
+    const checkedDeal = new Set<Page>();
 
     // Bounded by the CLOCK, not by a loop counter. The first
     // version counted every pass of the loop, including the ones
@@ -401,7 +411,7 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
       const options = await choices(live);
       const labels = await options.allTextContents();
 
-      // --- the pregame, answered towards Elspeth (match-karn's way) --
+      // --- the pregame: keep the dealt hand, never put her back --
       const heading = (await matchPanel(live).locator(".gs-question-title").allTextContents()).join(
         " ",
       );
@@ -413,12 +423,19 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
         const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
         let pregame = 0;
         if (/Keep or mulligan/.test(heading)) {
-          // Each mulligan shrinks the hand, so "keep only with her"
-          // is bounded: twice per seat, then keep and draw into it.
-          const taken = mulligans.get(live) ?? 0;
-          const keep = taken >= 2 || (await holdsElspeth(host)) || (await holdsElspeth(guest));
-          if (!keep) mulligans.set(live, taken + 1);
-          pregame = find(keep ? /Keep/ : /Mulligan/);
+          if (!checkedDeal.has(live)) {
+            // F-0098-A: the deal reached the game -- the three dealt
+            // spells are in the opening hand this seat is asked about
+            // (an undealt seven holds all three about one hand in twenty).
+            const hand = matchPanel(live).locator('[data-zone="viewer:hand"], .gs-opening');
+            for (const card of ["Elspeth Resplendent", "Perimeter Captain", "Alley Evasion"]) {
+              await expect
+                .poll(async () => (await hand.allTextContents()).join(" "), { timeout: 30_000 })
+                .toContain(card);
+            }
+            checkedDeal.add(live);
+          }
+          pregame = find(/Keep/);
         } else if (/Put a card back/.test(heading)) {
           // Never put her back.
           pregame = labels.findIndex((label) => !label.includes("Elspeth"));

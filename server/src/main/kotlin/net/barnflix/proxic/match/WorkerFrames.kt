@@ -153,6 +153,17 @@ fun startGameFrame(
                         put("seatNumber", seat.seatNumber)
                         put("cards", cardsOf(seat))
                         if (seat.stops) put("stops", true)
+                        // TEST ONLY -- spec 0098. Only MatchRuntime attaches
+                        // one, and only with PROXIC_TEST_DEALS on.
+                        seat.deal?.let { deal ->
+                            put(
+                                "labDeal",
+                                buildJsonObject {
+                                    putJsonArray("hand") { deal.hand.forEach { add(it) } }
+                                    putJsonArray("top") { deal.top.forEach { add(it) } }
+                                },
+                            )
+                        }
                     },
                 )
             }

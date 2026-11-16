@@ -2,7 +2,6 @@ package net.barnflix.proxic.match
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.add
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
@@ -48,6 +47,8 @@ data class WorkerSeat(
     val cards: List<DeckEntry>,
     /** Spec 0035 — this player follows the one stops rule; false asks at every step. */
     val stops: Boolean = false,
+    /** TEST ONLY -- spec 0098: the seat's deal, attached only when PROXIC_TEST_DEALS is on. */
+    val deal: SeatDeal? = null,
 )
 
 sealed interface WorkerStart {
@@ -127,13 +128,7 @@ class MatchWorker(
             return WorkerStart.Failed("WORKER_MISSING", "The Forge worker jar is not there.")
         }
 
-        val command =
-            buildList {
-                add(javaExecutable())
-                add("-jar")
-                add(jar.absolutePath)
-                config.forgeResRoot?.let { add(it) }
-            }
+        val command = workerCommand(config, jar)
 
         return try {
             val started =
@@ -398,7 +393,7 @@ class MatchWorker(
 // detekt counts what a class does. A process launcher that also
 // knows how to spell java.exe is two jobs.
 
-private fun javaExecutable(): String {
+internal fun javaExecutable(): String {
     val home = System.getProperty("java.home")
     val candidate = File(home, if (isWindows()) "bin/java.exe" else "bin/java")
     return if (candidate.isFile) candidate.absolutePath else "java"
