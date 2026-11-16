@@ -90,7 +90,12 @@ test("a card you may cast from your graveyard: no window, and a click on it cast
       await watch.check();
       if (clicked && (await onStack.count()) > 0) castSeen = true;
       // Flashback exiles it as it resolves: out of the fan, into Exile.
-      if (castSeen && (await fan.count()) === 0 && (await exiled.innerText()) !== "0") break;
+      // The card clicked, by id: another Think Twice can reach the
+      // graveyard later and stand in the fan (CI 088b6a4, turn 94).
+      const gone = clicked
+        ? (await fan.and(panel.locator(`[data-object-id="${clicked}"]`)).count()) === 0
+        : false;
+      if (castSeen && gone && (await exiled.innerText()) !== "0") break;
 
       const live = (await asking(host)) ? host : (await asking(guest)) ? guest : null;
       if (!live) {
@@ -172,7 +177,10 @@ test("a card you may cast from your graveyard: no window, and a click on it cast
 
     expect(clicked, "Think Twice was castable from the fan on the host's move").not.toBeNull();
     expect(castSeen, "the click cast it: Think Twice went on the stack").toBe(true);
-    await expect(fan, "it left the fan").toHaveCount(0);
+    await expect(
+      fan.and(panel.locator(`[data-object-id="${clicked}"]`)),
+      "the card cast left the fan",
+    ).toHaveCount(0);
     await host.waitForTimeout(2_500);
     await host.screenshot({ path: "test-results/seen/cast-from-pile-after.png" });
     await stopFilming();
