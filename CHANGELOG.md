@@ -3,6 +3,39 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.70.0 — 2026-11-15
+
+Cards you can still play from your graveyard or exile now sit beside your plate where you can click them, and the "Your move" window no longer nags you about them. Report windows stay until you close them. The game's end, the opening hand and mulligans, umbras and big token batches are animated, and paying with cards under the spell you're casting happens in view.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Cards you can still play from your piles**
+- When you can cast or use a card from your graveyard or exile (flashback, adventure, foretell, Light Up the Stage, Unearth, a card Gonti took), the Graveyard or Exile tile glows and the card stands in a small fan beside your plate. Click it to cast it, just like a card in your hand.
+- The "Your move" window no longer opens and stays open for these cards. This was reported from the live server.
+- A suspended card waits in the fan with a time badge that ticks down each upkeep, and is cast from there at zero.
+- The other player sees a plain card back for anything hidden from them.
+
+**Triggers, reports and the top of the library**
+- A trigger whose card is in a graveyard, in exile, in a hand or being cast now rises from that card, instead of sliding in from nowhere (Solemn Simulacrum, cascade, cycling).
+- Report windows stay until you close them, even across the turn change. Newer reports gather in the same window, with up to three older ones as short rows on top.
+- When the top card of a library is public or playable (Courser of Kruphix, Future Sight, Bolas's Citadel), it shows on the Library tile and can be played from there. A card only its owner may see is shown only to them.
+- A card targeted by a spell on the stack gets four still gold corners.
+
+**Game end, opening hand and more**
+- At the end of a game the result banner waits for the last hit. The loser's life shield breaks (or their poison badge closes) and the winner's plate lights gold before the banner appears.
+- The opening seven are dealt from your library, and a mulligan sweeps them back and deals again. The other player only ever sees card backs.
+- An extra combat (Relentless Assault, Aurelia) or an extra turn (Time Warp) is explained in a window to the other player. The player who cast it isn't interrupted.
+- An umbra turns into a shield over the creature and shatters instead of it.
+- Many tokens arriving at once (Krenko) come in waves of eight.
+- Long names on the stack shrink to fit before they are cut short.
+
+**Paying for a spell**
+- When a Treasure, a sacrificed creature or a tapped mana creature under the big casting card pays for the spell, the casting card steps aside so you can see it happen, then comes back to the middle.
+
+**Smoother busy boards**
+- The glow on cards you can choose is drawn more cheaply, and a large group of flyers hovers in step, so big boards stay smooth on slower computers.
+
 ## 1.69.0 — 2026-11-14
 
 What a creature has gained or lost, and cards held in exile, are now shown on the card itself. Player counters, the monarch, dungeons, emblems, turn starts and mana are shown on the table too.
