@@ -62,6 +62,10 @@ def menace():
 
     def policy(g, f):
         kind, seat = f.get("kind"), f["authorisedSeat"]
+        # Spec 0097: the refusal now rides on the question asked again
+        # (decision.refused, the combat button's note), not a grey notice.
+        if seat == 2 and f.get("refused"):
+            st["notes"].append(f["refused"])
         if kind == "chooseSpellAbilityToPlay":
             land = g.play_land(f)
             if land:
@@ -110,7 +114,7 @@ def menace():
         return st["life_after"] is not None
 
     g.run(policy, until=until, max_turn=24)
-    st["notes"] = list(g.notices.get(2, []))
+    st["notes"] += list(g.notices.get(2, []))
     found = {k: st[k] for k in ("blocked", "asked_again", "took_back", "notes", "blocks_seen", "life_before", "life_after")}
     found["stopped"] = g.stopped_badly()
     if not st["attacked"] or st["blocked"] == 0:
