@@ -93,3 +93,7 @@ What it says: the waiting player's page stopped repainting 120 times a second; t
 **Evidence.** Gates (frontend): `npx tsc --noEmit`, `npx eslint . --max-warnings=0`, `npx prettier --check src e2e tools` clean; `npx vitest run` 94 files, 1,425 tests passed (was 93, 1,414). e2e on the local stack rebuilt from this tree: `match-speed.spec.ts` 2 passed (6.6 min); `battlefield.spec.ts`, `match-board-motion`, `match-what-happened`, `match-ring` (the Ring's flight), `match-state` (monarch, energy), `match-numbers`, `match-big-combat`, `match-alternate-win` (a game's end), `match-damage-tray` and `match-surveil`: 13 passed. Not run: the full browser suite and the full Lab (CI's), and `match-many-triggers`.
 
 ## Amendments
+
+### Amendment 1 — timings enforced on a fixed machine only (2026-11-16)
+
+CI ran the speed test twice (28e07b8, 726c14d) on shared machines whose timings swung run to run: frame p95 33-67 ms and 4x JavaScript 130-184 ms/s for the same code. The count budgets (re-renders per update, idle repaints) passed both times. So on CI the frame and JavaScript budgets are printed, not enforced; they are enforced on a fixed machine, in the once-per-release local run (TEST-013.2). The counts, which do not depend on the machine, are enforced everywhere. This follows the spec's own rule that CI's numbers set the budgets, without chasing a moving target.

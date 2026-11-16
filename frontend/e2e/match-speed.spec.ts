@@ -746,19 +746,28 @@ async function playAndTime(
 }
 
 /** Every budget this run missed, in words. */
+// Timings on CI's shared machines swing run to run (frames 33-67 ms and
+// JavaScript 130-184 ms/s at 4x on the same commit, 28e07b8 and 726c14d), so
+// there the frame and JavaScript budgets are printed, not enforced; they are
+// enforced on a fixed machine (the once-per-release local run, TEST-013.2).
+// The counts -- re-renders per update and idle repaints -- do not depend on
+// the machine and are enforced everywhere.
+const TIMINGS_ENFORCED = !process.env.CI;
+
 function misses(rows: Row[], cpu: 1 | 4): string[] {
   const out: string[] = [];
+  const timed: string[] = [];
   const frames = SPEED_BUDGETS.frames[cpu];
   for (const row of rows) {
     const at = `${cpu}x ${row.scene}`;
     const p95 = row.scene === "end" ? frames.endP95 : frames.p95;
-    if (row.frames.p95 > p95) out.push(`${at}: frame p95 ${row.frames.p95} > ${p95}`);
+    if (row.frames.p95 > p95) timed.push(`${at}: frame p95 ${row.frames.p95} > ${p95}`);
     const worst = row.scene === "end" ? frames.endWorst : frames.worst;
-    if (row.frames.worst > worst) out.push(`${at}: slowest frame ${row.frames.worst} > ${worst}`);
+    if (row.frames.worst > worst) timed.push(`${at}: slowest frame ${row.frames.worst} > ${worst}`);
     if (cpu === 4 && (row.scene === "combat" || row.scene === "cast")) {
       const limit = SPEED_BUDGETS.scriptMsPerSecond4x[row.scene];
       if (row.scriptMsPerSecond > limit)
-        out.push(`${at}: JavaScript ${row.scriptMsPerSecond} ms/s > ${limit}`);
+        timed.push(`${at}: JavaScript ${row.scriptMsPerSecond} ms/s > ${limit}`);
     }
     // Re-renders per game update: the moments the game sends updates in.
     if (row.scene === "cast" || row.scene === "combat" || row.scene === "end") {
@@ -782,6 +791,8 @@ function misses(rows: Row[], cpu: 1 | 4): string[] {
         out.push(`${at}: the waiting player's page repainted ${waiting} times a second`);
     }
   }
+  if (TIMINGS_ENFORCED) return [...timed, ...out];
+  for (const t of timed) console.log(`[speed] over budget on CI (not enforced): ${t}`);
   return out;
 }
 
