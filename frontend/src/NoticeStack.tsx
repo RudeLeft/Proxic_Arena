@@ -76,7 +76,12 @@ function NoticeCard({ notice, paused }: { notice: Notice; paused: boolean }) {
 }
 
 export function NoticeStack({ notices, place }: { notices: Notice[]; place: "page" | "table" }) {
-  const [pointed, setPointed] = useState(false);
+  // Spec 0097, item 1 -- the card under the pointer, not just "pointed": a
+  // card removed under the pointer (an invitation closed, "Reconnecting"
+  // gone) sends no mouseleave, and a plain flag stayed true, so every later
+  // card mounted paused forever. A pause holds only while the card that was
+  // pointed at is still shown, and an empty stack forgets it.
+  const [pointedAt, setPointedAt] = useState<string | null>(null);
   const stack = useRef<HTMLDivElement | null>(null);
 
   // On the table the cards take no pointer, so :hover never fires: whatever
@@ -99,18 +104,30 @@ export function NoticeStack({ notices, place }: { notices: Notice[]; place: "pag
   }, [place]);
 
   const { shown, more } = arrange(notices);
+  // "*": the stack itself (between cards, "+N more").
+  const pointedShown =
+    pointedAt !== null &&
+    shown.length > 0 &&
+    (pointedAt === "*" || shown.some((notice) => notice.key === pointedAt));
+  useEffect(() => {
+    if (pointedAt !== null && !pointedShown) setPointedAt(null);
+  }, [pointedAt, pointedShown]);
   if (shown.length === 0) return null;
+  const point = (target: EventTarget | null) => {
+    const card = target instanceof Element ? target.closest<HTMLElement>("[data-notice]") : null;
+    setPointedAt(card?.dataset["notice"] ?? "*");
+  };
   return (
     <div
       ref={stack}
       className={`pa-notes pa-notes-${place}`}
       aria-label="Notices"
       role="region"
-      onMouseEnter={() => setPointed(true)}
-      onMouseLeave={() => setPointed(false)}
+      onMouseOver={(event) => point(event.target)}
+      onMouseLeave={() => setPointedAt(null)}
     >
       {shown.map((notice) => (
-        <NoticeCard key={notice.key} notice={notice} paused={pointed} />
+        <NoticeCard key={notice.key} notice={notice} paused={pointedShown} />
       ))}
       {more > 0 && <span className="pa-notes-more">+{more} more</span>}
     </div>

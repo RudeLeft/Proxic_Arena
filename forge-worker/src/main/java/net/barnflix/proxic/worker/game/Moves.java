@@ -41,24 +41,24 @@ final class Moves {
 
     /** One zone change. Seats are Arena seats; null when unknown or no zone. */
     record Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
-            Integer into, String where, String said, String name, Integer power, Integer toughness, Integer via) {
+            Integer into, String where, String name, Integer power, Integer toughness, Integer via) {
 
         Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why) {
-            this(card, from, fromSeat, to, toSeat, faceDown, why, null, null, null, null, null, null, null);
+            this(card, from, fromSeat, to, toSeat, faceDown, why, null, null, null, null, null, null);
         }
 
         Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
                 Integer into) {
-            this(card, from, fromSeat, to, toSeat, faceDown, why, into, null, null, null, null, null, null);
+            this(card, from, fromSeat, to, toSeat, faceDown, why, into, null, null, null, null, null);
         }
 
         Move(int card, String from, Integer fromSeat, String to, Integer toSeat, boolean faceDown, String why,
-                Integer into, String where, String said, String name, Integer power, Integer toughness) {
-            this(card, from, fromSeat, to, toSeat, faceDown, why, into, where, said, name, power, toughness, null);
+                Integer into, String where, String name, Integer power, Integer toughness) {
+            this(card, from, fromSeat, to, toSeat, faceDown, why, into, where, name, power, toughness, null);
         }
 
         Move withWhere(String place) {
-            return new Move(card, from, fromSeat, to, toSeat, faceDown, why, into, place, said, name, power,
+            return new Move(card, from, fromSeat, to, toSeat, faceDown, why, into, place, name, power,
                     toughness);
         }
 
@@ -70,19 +70,20 @@ final class Moves {
          * was on the table, so this is public; it travels only with the card.
          */
         Move withLast(Integer lastPower, Integer lastToughness) {
-            return new Move(card, from, fromSeat, to, toSeat, faceDown, why, into, where, said, name, lastPower,
+            return new Move(card, from, fromSeat, to, toSeat, faceDown, why, into, where, name, lastPower,
                     lastToughness);
         }
 
         /**
          * Spec 0061, item 4 -- why it went to a graveyard (`why`: "cycled",
-         * "discarded", "countered", "died"...), the tag the page shows on
-         * the card on its way ("Countered by Counterspell"), and the card's
-         * name for what the game tells the players. The name is never sent
-         * with the move itself: the board names cards by id.
+         * "discarded", "countered", "died"...), and the card's name for what
+         * the game tells the players. The name is never sent with the move
+         * itself: the board names cards by id. Spec 0097, item 9: the word
+         * tag it once carried ("Countered by Counterspell") is gone -- no page
+         * showed it since 0074/0075.
          */
-        Move withSaid(String reason, String words, String cardName) {
-            return new Move(card, from, fromSeat, to, toSeat, faceDown, reason, into, where, words, cardName, power,
+        Move withWhy(String reason, String cardName) {
+            return new Move(card, from, fromSeat, to, toSeat, faceDown, reason, into, where, cardName, power,
                     toughness);
         }
     }
@@ -93,31 +94,28 @@ final class Moves {
     }
 
     /**
-     * Spec 0061, item 4 -- why a card went to a graveyard, from Forge's facts:
-     * {why, tag}. From the hand: discarded for its cycling cost ("Cycled"),
-     * discarded down to hand size in the cleanup step ("Discarded: too many
-     * cards"), any other discard ("Discarded"). From the stack, while another
-     * card's spell or ability resolves: countered ("Countered by
-     * Counterspell"). From the battlefield: sacrificed, a creature that died
-     * (why "destroyed" kept when Forge destroyed it, as Phase 10 A-00 has
-     * it), any other destroyed permanent -- each with no words (null tag:
-     * spec 0066 item 6, the shatter shows it). Null when none of these is
-     * known (a spell that resolved, a mill).
+     * Spec 0061, item 4 -- why a card went to a graveyard, from Forge's facts.
+     * From the hand: discarded for its cycling cost ("cycled"), any other
+     * discard ("discarded"). From the stack, while another card's spell or
+     * ability resolves: "countered". From the battlefield: sacrificed, a
+     * creature that died (why "destroyed" kept when Forge destroyed it, as
+     * Phase 10 A-00 has it), any other destroyed permanent. Null when none of
+     * these is known (a spell that resolved, a mill). Spec 0097, item 9: the
+     * word tag each once carried ("Countered by Counterspell") is gone.
      */
-    static String[] graveReason(GraveFacts f) {
+    static String graveReason(GraveFacts f) {
         switch (f.from()) {
             case "hand" -> {
                 if (!f.discarded()) {
                     return null;
                 }
                 if (f.cycled()) {
-                    return new String[] {"cycled", "Cycled"};
+                    return "cycled";
                 }
-                return new String[] {"discarded", f.cleanup() ? "Discarded: too many cards" : "Discarded"};
+                return "discarded";
             }
             case "stack" -> {
-                return f.counteredBy() == null ? null
-                        : new String[] {"countered", "Countered by " + f.counteredBy()};
+                return f.counteredBy() == null ? null : "countered";
             }
             case "battlefield" -> {
                 // Spec 0066, item 6 -- no words from the battlefield: the
@@ -125,12 +123,12 @@ final class Moves {
                 // "Died", "Destroyed" or "Sacrificed" tag and no message.
                 // The why stays (A-00 and A-04 play from it).
                 if (f.sacrificed()) {
-                    return new String[] {"sacrificed", null};
+                    return "sacrificed";
                 }
                 if (f.creature()) {
-                    return new String[] {f.destroyed() ? "destroyed" : "died", null};
+                    return f.destroyed() ? "destroyed" : "died";
                 }
-                return f.destroyed() ? new String[] {"destroyed", null} : null;
+                return f.destroyed() ? "destroyed" : null;
             }
             default -> {
                 return null;
@@ -195,7 +193,7 @@ final class Moves {
                     || ("battlefield".equals(move.from()) && "exile".equals(move.to()));
             out.add(host != null && merging && host != move.card()
                     ? new Move(move.card(), move.from(), move.fromSeat(), move.to(), move.toSeat(),
-                            move.faceDown(), move.why(), host, move.where(), move.said(), move.name(),
+                            move.faceDown(), move.why(), host, move.where(), move.name(),
                             move.power(), move.toughness())
                     : move);
         }
@@ -226,7 +224,7 @@ final class Moves {
             if (at != null && "exile".equals(move.from()) && "battlefield".equals(move.to())) {
                 Move left = out.get(at);
                 out.set(at, new Move(move.card(), "battlefield", left.fromSeat(), "battlefield", move.toSeat(),
-                        move.faceDown(), "flickered", null, null, null, null, null, null, left.toSeat()));
+                        move.faceDown(), "flickered", null, null, null, null, null, left.toSeat()));
                 continue;
             }
             out.add(move);
@@ -303,10 +301,6 @@ final class Moves {
             if (named && "sacrificed".equals(move.why()) && "battlefield".equals(move.from())
                     && spent.contains(move.card())) {
                 entry.addProperty("spent", true);
-            }
-            // Spec 0061, item 4 -- the tag the card carries to the graveyard.
-            if (named && move.said() != null) {
-                entry.addProperty("said", move.said());
             }
             if (named && move.into() != null) {
                 entry.addProperty("into", "card:" + move.into());

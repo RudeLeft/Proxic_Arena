@@ -54,8 +54,6 @@ export interface BoardData {
   merges: Map<string, Merge>;
   /** Phase 10 A-14 -- each card that went back to a hand or onto/into a library, from the table or the stack. */
   returns: Map<string, Return>;
-  /** Spec 0061, item 4 -- each card gone to a graveyard with a reason: the game's tag ("Cycled"). */
-  graves: Map<string, string>;
   /** Spec 0074 -- the cards discarded, milled, or moved out of a graveyard or exile this update. */
   tileMoves: TileMove[];
   /** Spec 0074 -- the spells countered this update (each spell's own card). */
@@ -744,15 +742,6 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
       hidden: move.to.zone === "library" || !seenInHands.has(move.card),
     });
   }
-  // Spec 0061, item 4 -- why a card went to a graveyard, as the game says.
-  const graves = new Map<string, string>();
-  for (const move of moves) {
-    // Spec 0074, Amendment 1 (owner 2026-11-12): no word pill for a discard
-    // or a counter -- the report window explains what the other player did.
-    // Spec 0075: nor for a card cycled ("Cycled").
-    if (move.why === "discarded" || move.why === "countered" || move.why === "cycled") continue;
-    if (move.card && move.said && move.to.zone === "graveyard") graves.set(move.card, move.said);
-  }
   // Spec 0074 -- discards, mills, out of a graveyard or exile; spells countered.
   const tileMoves = tileMovesOf(snapshot, previous, moves);
   const countered = new Set(
@@ -871,7 +860,6 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     departures,
     merges,
     returns,
-    graves,
     tileMoves,
     countered,
     fizzled,

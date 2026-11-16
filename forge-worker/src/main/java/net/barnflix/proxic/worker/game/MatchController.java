@@ -725,12 +725,12 @@ public final class MatchController extends GeneratedControllerBase {
             host.offerUnavailable(java.util.Map.of());
             host.offerNotNow(java.util.Map.of());
             // Spec 0061, item 2 -- your own turn passed because nothing could
-            // be played: said once (at Main 1), and its steps then move where
-            // the player can see them (a short pause at each).
-            String told = host.stops().passedTurn(actedForSeat, player, player.getGame(),
-                    actedForSeat != authorisedSeat, byId, unpayable);
-            if (told != null) {
-                host.note(actedForSeat, told);
+            // be played: its steps then move where the player can see them
+            // (a short pause at each). Spec 0097, item 2: said on the act
+            // button (the boards carry it, PriorityStops#passingFor), never
+            // as a grey notice.
+            if (host.stops().passedTurn(actedForSeat, player, player.getGame(),
+                    actedForSeat != authorisedSeat, byId, unpayable)) {
                 host.publishSnapshots();
             }
             if (host.stops().pausing(actedForSeat, player, player.getGame())) {
@@ -913,7 +913,12 @@ public final class MatchController extends GeneratedControllerBase {
         String words = cost.getTotalMana().toString();
         String name = sa.getHostCard() == null ? "This trigger" : sa.getHostCard().getName();
         if (!payable(sa, player)) {
-            host.note(actedForSeat, name + ": you can't pay " + words + ", so it was skipped.");
+            // Spec 0097, item 3 (owner) -- the fizzle window, to both players;
+            // no grey line.
+            ActionReports reports = host.actions();
+            if (reports != null) {
+                reports.unpaid(sa, words);
+            }
             return false;
         }
         host.offerSubject(sa);
@@ -4567,9 +4572,15 @@ public final class MatchController extends GeneratedControllerBase {
                     sa.getHostCard(), sa)) {
                 return name;
             }
-            // Not a name this effect accepts. Forge asks again.
-            host.note(actedForSeat, name + " cannot be named here.");
+            // Not a name this effect accepts. Forge asks again; spec 0097,
+            // item 6: the naming window asking again says why, in red.
+            host.offerRefused(actedForSeat, nameRefused(name));
         }
+    }
+
+    /** Spec 0097, item 6 -- the canvas's words, said in red in the naming window asking again. */
+    static String nameRefused(String name) {
+        return name + " can't be named here. Try another card.";
     }
 
     /**
@@ -5875,9 +5886,9 @@ public final class MatchController extends GeneratedControllerBase {
             if (reports != null) {
                 reports.emptyLook(player, owner == null ? player : owner, zone);
             } else {
-                String whose = own ? "your" : (ownerName == null ? "a player's" : ownerName + "'s");
-                host.note(actedForSeat, "There are no cards in " + whose + " "
-                        + zone.getTranslatedName().toLowerCase(java.util.Locale.ROOT) + ".");
+                // Spec 0097, item 9 -- before a game has begun there is no
+                // report window: logged, never a grey notice.
+                System.err.println("proxic: empty look before the game, not shown: " + zone);
             }
             return;
         }
@@ -5913,11 +5924,15 @@ public final class MatchController extends GeneratedControllerBase {
             // for this seat alone (Forge told this controller). Spec 0075:
             // the tray (or a report after it) says it -- no "Looking at ..."
             // line repeats it; only a reveal with no tray is told in words.
-            if (host.revealed(actedForSeat, ids, said, told)) {
+            // Spec 0097, item 7: the seat's own cards, shown to another
+            // too, are that player's tray only (Causes#revealFor).
+            if (host.revealed(actedForSeat, ids, said, told, own)) {
                 return;
             }
         }
-        host.note(actedForSeat, text);
+        // Spec 0097, item 9 -- a reveal with no tray (before a game has
+        // begun): logged, never a grey notice.
+        System.err.println("proxic: reveal with no tray, not shown: " + text.length() + " chars");
     }
 
     /**
@@ -6051,10 +6066,10 @@ public final class MatchController extends GeneratedControllerBase {
             Player who = realtimeTarget instanceof Player p ? p : sa.getActivatingPlayer();
             reports.valueTold(player, sa, toldValue(sa, who, value, message));
         } else if (!dice) {
-            String about = sa == null || sa.getHostCard() == null || message.contains(sa.getHostCard().getName())
-                    ? ""
-                    : sa.getHostCard().getName() + ": ";
-            host.note(actedForSeat, about + message);
+            // Spec 0097, item 9 -- no report window (no game yet, or Forge
+            // named no ability): logged, never a grey notice.
+            System.err.println("proxic: value with no report window, not shown: "
+                    + (sa == null || sa.getHostCard() == null ? "?" : sa.getHostCard().getName()));
         }
         // Phase 9 W-17 -- a die roll, recorded once, by the roller's own
         // controller (Forge tells every player): the page tumbles a die.

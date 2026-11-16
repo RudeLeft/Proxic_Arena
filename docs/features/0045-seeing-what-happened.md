@@ -92,3 +92,11 @@ Forge decides.
    Ringleader"), with the whole action in one sentence, instead of "Goblin
    Ringleader revealed:"; the player who made the choices is not shown it
    again. See `docs/history/phases/phase-09/PHASE_09_GAME_WINDOWS_LOCKED.md`.
+
+### Amendment (spec 0097, owner 2026-11-16): your own reveal goes to the other player only
+
+A plain reveal of a player's own cards that the other player is shown too is
+the other player's tray only; the player who revealed them sees them on the
+table. A reveal shown to one player alone (a peek) is unchanged, and so is
+one whose cards go back into the library (the other player then knows the
+top card, so the revealer is shown it too). See `0097-popups-cleanup.md`.

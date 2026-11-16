@@ -4,8 +4,9 @@
 // The worker-level check (scripts/check-karn.py) proves the protocol:
 // a new epoch, the old ids dead. This proves what a PLAYER sees: the
 // match carries on in the same page, the board is a new game -- turn
-// one, twenty life -- the turn line says "Game 2", and both players
-// are told in words that the game restarted.
+// one, twenty life -- the turn line says "Game 2", and (spec 0097, item 4)
+// the player who did not restart it is told so in a report window ("Bob
+// restarted the game. This is game 2."); no grey notice for anyone.
 //
 // The deck is protocol/fixtures/karn-deck: 56 Plains, 4 Karn. CI
 // builds it; locally:
@@ -136,13 +137,23 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
       await expect(panel.getByText(restarted), `after ${answered} decisions`).toBeVisible({
         timeout: 120_000,
       });
-      await expect(
-        panel.getByText("The game restarted. This is game 2 of the match."),
-      ).toBeVisible();
+      // Spec 0097: no grey line any more.
+      await expect(panel.getByText("The game restarted. This is game 2 of the match.")).toHaveCount(
+        0,
+      );
       // A new game: the same page and the same match, and twenty life
       // each again.
       await expect(panel.locator(".gs-seat").filter({ hasText: "20 life" })).toHaveCount(2);
     }
+    // Spec 0097, item 4 (F-0097-C): the report window, to the other player only.
+    const told = async (page: Page) =>
+      (await matchPanel(page)
+        .locator(".gs-reveal")
+        .filter({ hasText: "restarted the game. This is game 2." })
+        .count()) > 0;
+    await expect
+      .poll(async () => (await told(host)) !== (await told(guest)), { timeout: 15_000 })
+      .toBe(true);
     await host.screenshot({ path: "test-results/seen/karn-restart.png", fullPage: true });
   } finally {
     await clearEverything(host).catch(() => undefined);

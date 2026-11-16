@@ -56,12 +56,16 @@ final class Causes {
         /** Spec 0083 (17) -- the turn it was made in: 0 before the game began. */
         final int turn;
 
-        Reveal(long key, String title, java.util.List<Integer> cards, Told told, int turn) {
+        /** Spec 0097, item 7 -- the cards are this seat's own (it revealed them). */
+        final boolean own;
+
+        Reveal(long key, String title, java.util.List<Integer> cards, Told told, int turn, boolean own) {
             this.key = key;
             this.title = title;
             this.cards = cards;
             this.told = told;
             this.turn = turn;
+            this.own = own;
         }
     }
 
@@ -314,13 +318,45 @@ final class Causes {
     }
 
     void revealed(int seat, java.util.List<Integer> cardIds, String forgeWords, Told told) {
+        revealed(seat, cardIds, forgeWords, told, false);
+    }
+
+    void revealed(int seat, java.util.List<Integer> cardIds, String forgeWords, Told told, boolean own) {
         if (cardIds.isEmpty()) {
             return;
         }
         String by = resolvingName();
         String title = told != null ? told.said() : by != null ? by + " revealed:" : forgeWords;
         reveals.put(seat, new Reveal(revealKeys.incrementAndGet(), title, java.util.List.copyOf(cardIds), told,
-                game.getPhaseHandler().getTurn()));
+                game.getPhaseHandler().getTurn(), own));
+    }
+
+    /**
+     * Spec 0097, item 7 (owner) -- a plain reveal of [seat]'s own cards that
+     * another seat was shown too (Goblin Ringleader's four: Forge reveals to
+     * every player) is the other player's tray only; the one who revealed
+     * them sees them on the table. A look shown to this seat alone (a peek)
+     * stays: nobody else was shown it. So does a reveal whose cards went
+     * back into the library (the top card shown and left there): the other
+     * player knows it, and so must the one who revealed it.
+     */
+    private boolean shownToAnother(int seat, Reveal reveal) {
+        if (!reveal.own) {
+            return false;
+        }
+        for (int id : reveal.cards) {
+            Card card = game.findById(id);
+            if (card == null || card.getZone() == null || card.getZone().is(ZoneType.Library)) {
+                return false;
+            }
+        }
+        for (java.util.Map.Entry<Integer, Reveal> other : reveals.entrySet()) {
+            if (other.getKey() != seat && other.getValue().turn == reveal.turn
+                    && new java.util.HashSet<>(other.getValue().cards).equals(new java.util.HashSet<>(reveal.cards))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The revealing effect finished: where each card went is now fixed. */
@@ -379,7 +415,7 @@ final class Causes {
      */
     JsonObject revealFor(int seat, java.util.function.Function<Card, JsonObject> shown) {
         Reveal reveal = reveals.get(seat);
-        if (reveal == null) {
+        if (reveal == null || shownToAnother(seat, reveal)) {
             return null;
         }
         JsonObject out = new JsonObject();

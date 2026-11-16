@@ -283,7 +283,9 @@ describe("Bob casts from his hand: it rises from the middle of his fan (F-0072-A
     expect(card).not.toBeNull();
     // Its back, and who is casting; no fade in on the spot.
     expect(card.querySelector(".gs-cast-back")).not.toBeNull();
-    expect(card.textContent).toContain("Bob is casting a spell");
+    // Spec 0097, item 8: no caption under the back; who is casting is its label.
+    expect(card.textContent).not.toContain("is casting a spell");
+    expect(card.getAttribute("aria-label")).toBe("Bob is casting a spell");
     expect(card.classList.contains("gs-cast-glide")).toBe(true);
     // The A-00 Glide: 450 ms, linear over sampled frames (the easing in them).
     const [rise] = glidesOf(card);

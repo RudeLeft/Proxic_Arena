@@ -20,20 +20,18 @@ class ThrownAwayTest {
 
     // --- item 2: a turn passed for you says so ---------------------------------------
 
+    // Spec 0097, item 2: said on the act button ("Nothing to play · 1 land, no
+    // land in hand"), so the worker sends only the why.
     @Test
     void theOwnersGameOneLandNoLandInHand() {
-        assertEquals("Nothing you can play this turn -- 1 land, no land in hand. Passing your turn.",
-                PriorityStops.nothingToPlay(1, 0, false, false));
+        assertEquals("1 land, no land in hand", PriorityStops.nothingToPlay(1, 0, false));
     }
 
     @Test
     void thePassedTurnSaysWhyNoLandComesFromTheHand() {
-        assertEquals("Nothing you can play this turn -- 3 lands, you've already played a land this turn."
-                + " Passing your turn.", PriorityStops.nothingToPlay(3, 2, true, false));
-        assertEquals("Nothing you can play this turn -- No lands, no land in hand. Passing your turn.",
-                PriorityStops.nothingToPlay(0, 0, false, false));
-        assertEquals("Nothing you can play this turn -- 2 lands, no land in hand. Passing your turn"
-                + " (you can still attack).", PriorityStops.nothingToPlay(2, 0, false, true));
+        assertEquals("3 lands, you've already played a land this turn", PriorityStops.nothingToPlay(3, 2, true));
+        assertEquals("No lands, no land in hand", PriorityStops.nothingToPlay(0, 0, false));
+        assertEquals("2 lands, no land you can play", PriorityStops.nothingToPlay(2, 1, false));
     }
 
     @Test
@@ -43,37 +41,29 @@ class ThrownAwayTest {
 
     // --- item 4: every card going to a graveyard says why ----------------------------
 
-    private static String[] reason(String from, boolean discarded, boolean cycled, boolean cleanup,
+    private static String reason(String from, boolean discarded, boolean cycled, boolean cleanup,
                                    String counteredBy, boolean sacrificed, boolean destroyed, boolean creature) {
         return Moves.graveReason(new Moves.GraveFacts(from, discarded, cycled, cleanup, counteredBy,
                 sacrificed, destroyed, creature));
     }
 
+    // Spec 0097, item 9: the why only -- the word tags are gone.
     @Test
     void theCanvasFourReasons() {
-        assertArrayEquals(new String[] {"cycled", "Cycled"},
-                reason("hand", true, true, false, null, false, false, false));
-        assertArrayEquals(new String[] {"discarded", "Discarded: too many cards"},
-                reason("hand", true, false, true, null, false, false, true));
-        assertArrayEquals(new String[] {"countered", "Countered by Counterspell"},
-                reason("stack", false, false, false, "Counterspell", false, false, false));
-        // Spec 0066, item 6: a creature Forge destroyed (Shock's lethal damage)
-        // has no words -- the shatter shows it -- and A-00's why stays.
-        assertArrayEquals(new String[] {"destroyed", null},
-                reason("battlefield", false, false, false, null, false, true, true));
+        assertEquals("cycled", reason("hand", true, true, false, null, false, false, false));
+        assertEquals("discarded", reason("hand", true, false, true, null, false, false, true));
+        assertEquals("countered", reason("stack", false, false, false, "Counterspell", false, false, false));
+        // Spec 0066, item 6: a creature Forge destroyed (Shock's lethal damage):
+        // the shatter shows it, and A-00's why stays.
+        assertEquals("destroyed", reason("battlefield", false, false, false, null, false, true, true));
     }
 
     @Test
     void theOtherReasons() {
-        assertArrayEquals(new String[] {"discarded", "Discarded"},
-                reason("hand", true, false, false, null, false, false, false));
-        // Spec 0066, item 6: from the battlefield, the why with no words.
-        assertArrayEquals(new String[] {"sacrificed", null},
-                reason("battlefield", false, false, false, null, true, false, true));
-        assertArrayEquals(new String[] {"died", null},
-                reason("battlefield", false, false, false, null, false, false, true));
-        assertArrayEquals(new String[] {"destroyed", null},
-                reason("battlefield", false, false, false, null, false, true, false));
+        assertEquals("discarded", reason("hand", true, false, false, null, false, false, false));
+        assertEquals("sacrificed", reason("battlefield", false, false, false, null, true, false, true));
+        assertEquals("died", reason("battlefield", false, false, false, null, false, false, true));
+        assertEquals("destroyed", reason("battlefield", false, false, false, null, false, true, false));
     }
 
     @Test
@@ -87,19 +77,18 @@ class ThrownAwayTest {
     }
 
     @Test
-    void theTagTravelsWithANamedMoveOnly() {
+    void theWhyTravelsWithANamedMoveAndNoWordTag() {
         Moves.Move cycled = new Moves.Move(62, "hand", 2, "graveyard", 2, false, null)
-                .withSaid("cycled", "Cycled", "Forgotten Cave");
+                .withWhy("cycled", "Forgotten Cave");
         JsonObject mine = Moves.forViewer(List.of(cycled), 2).get(0).getAsJsonObject();
         assertEquals("cycled", mine.get("why").getAsString());
-        assertEquals("Cycled", mine.get("said").getAsString());
+        // Spec 0097, item 9: no word pill rides on the card any more.
+        assertFalse(mine.has("said"));
         // The name is for what the game tells the players, never the move.
         assertFalse(mine.has("name"));
         JsonObject theirs = Moves.forViewer(List.of(cycled), 1).get(0).getAsJsonObject();
-        assertEquals("Cycled", theirs.get("said").getAsString(), "a graveyard is public");
-        Moves.Move hidden = new Moves.Move(5, "library", 2, "other", 2, false, null)
-                .withSaid("discarded", "Discarded", "Secret");
-        assertFalse(Moves.forViewer(List.of(hidden), 1).get(0).getAsJsonObject().has("said"));
+        assertEquals("cycled", theirs.get("why").getAsString(), "a graveyard is public");
+        assertFalse(theirs.has("said"));
     }
 
     // --- item 5: the payment window says what it's for ---------------------------------

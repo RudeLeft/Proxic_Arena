@@ -11,7 +11,7 @@
 // snapshot names only what this viewer may know.
 //
 // Spec 0044 (owner 2026-10-31) -- the opponent sees its back while it is
-// paid for ("Pat is casting a spell…"); committed, it flips to the face,
+// paid for (spec 0097: no caption under it); committed, it flips to the face,
 // holds, and flies to the stack.
 //
 // Spec 0068 (owner 2026-11-09, A · Stay centred, see-through) -- it never
@@ -22,7 +22,7 @@
 // click for the question that the card covers, the card fades almost
 // away; clicks always went through it (pointer-events: none).
 
-import { useEffect, useLayoutEffect, useRef, useState, type Ref } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { SnapshotCard } from "../match";
 import { SharpCard, closeUpOf } from "../closeUp";
 import { figure } from "./Board";
@@ -350,23 +350,13 @@ function Face({ card, artUrl }: { card: SnapshotCard; artUrl: (art: string) => s
   );
 }
 
-function Back({
-  caster,
-  captionRef,
-}: {
-  caster: string | null;
-  captionRef?: Ref<HTMLSpanElement>;
-}) {
-  return (
-    <>
-      <span className="gs-cast-back" aria-hidden="true" />
-      {caster && (
-        <span ref={captionRef} className="gs-cast-caption">
-          {caster} is casting a spell…
-        </span>
-      )}
-    </>
-  );
+/**
+ * The rising back. Spec 0097, item 8 (owner): no "Bob is casting a spell…"
+ * caption under it -- the rising back already says it (the card keeps its
+ * label for a screen reader).
+ */
+function Back() {
+  return <span className="gs-cast-back" aria-hidden="true" />;
 }
 
 export function CastingCard({
@@ -428,7 +418,6 @@ export function CastingCard({
   // Spec 0068, item 2 -- your own card fades off what you point at under
   // it; the other player's never needs to (nothing of yours waits on it).
   const see = useSeeThrough(ref, !hidden && !theirs, asking);
-  const captionRef = useRef<HTMLSpanElement>(null);
   const [gliding] = useState(() => !!theirs && !stillMotion());
   const colour = emberColour(hidden ? null : card.manaCost);
   // Rise out of the hand once, when it first appears.
@@ -456,10 +445,6 @@ export function CastingCard({
         if (done !== undefined) void done.then(onRisen, onRisen);
         else rise.onfinish = () => onRisen();
       }
-      captionRef.current?.animate([{ opacity: 0 }, { opacity: 0, offset: 0.73 }, { opacity: 1 }], {
-        duration: MOVE_MS,
-        easing: "linear",
-      });
       return;
     }
     onRisen?.();
@@ -538,13 +523,7 @@ export function CastingCard({
       aria-label={hidden ? `${hiddenBy} is casting a spell` : `Being cast: ${card.name}`}
     >
       <Embers colour={colour} />
-      <div className="gs-cast-sway">
-        {hidden ? (
-          <Back caster={hiddenBy} captionRef={captionRef} />
-        ) : (
-          <Face card={card} artUrl={artUrl} />
-        )}
-      </div>
+      <div className="gs-cast-sway">{hidden ? <Back /> : <Face card={card} artUrl={artUrl} />}</div>
       {pips.length > 0 && (
         <div className="gs-cast-cost" aria-label={owing ? "Paying its cost" : "Its cost"}>
           {pips.map((pip, i) => {
@@ -815,12 +794,12 @@ export function CastingFlight({
             <Face card={card} artUrl={artUrl} />
           </div>
           <div ref={backRef} className="gs-cast-turn">
-            <Back caster={null} />
+            <Back />
           </div>
           <span ref={flashRef} className="gs-cast-flash" />
         </>
       ) : hidden ? (
-        <Back caster={null} />
+        <Back />
       ) : (
         <Face card={card} artUrl={artUrl} />
       )}

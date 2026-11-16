@@ -127,8 +127,9 @@ class SurvivorsTest {
         // F-0080-B: Bob's Teferi's Protection -- Alice's window; Bob did it to himself.
         assertTrue(ActionReports.tells(ActionReports.Kind.PHASE, "Alice", "Bob", "Bob", "Bob"));
         assertFalse(ActionReports.tells(ActionReports.Kind.PHASE, "Bob", "Bob", "Bob", "Bob"));
-        // Alice phases Bob's creature out: both.
+        // Alice phases Bob's creature out: Bob only (spec 0097, item 7).
         assertTrue(ActionReports.tells(ActionReports.Kind.PHASE, "Bob", "Alice", "Bob", "Alice"));
+        assertFalse(ActionReports.tells(ActionReports.Kind.PHASE, "Alice", "Alice", "Bob", "Alice"));
     }
 
     @Test

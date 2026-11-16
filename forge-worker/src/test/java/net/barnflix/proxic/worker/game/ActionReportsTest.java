@@ -8,9 +8,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Spec 0074, Amendment 1 (owner 2026-11-12) -- who is shown the report
- * window for a mill, a counter, or cards out of a graveyard or exile: both
- * players, unless the reader did it to themselves alone. The other kinds keep
- * Amendment 13 item 7: not the player who made the choices.
+ * window for a mill, a counter, or cards out of a graveyard or exile. Spec
+ * 0097, item 7 (owner 2026-11-16): never the player who did it, whoever it
+ * happened to (F-0097-E). The other kinds keep Amendment 13 item 7: not the
+ * player who made the choices.
  */
 class ActionReportsTest {
 
@@ -18,9 +19,10 @@ class ActionReportsTest {
     private static final String BOB = "Bob";
 
     @Test
-    void yourMillOnBobIsShownToYouAndToBob() {
-        // Glimpse the Unthinkable: Alice acts, Bob's library.
-        assertTrue(ActionReports.tells(ActionReports.Kind.MILL, ALICE, ALICE, BOB, ALICE));
+    void yourMillOnBobIsShownToBobOnly() {
+        // Glimpse the Unthinkable: Alice acts, Bob's library. Spec 0097: no
+        // window for Alice, who did it.
+        assertFalse(ActionReports.tells(ActionReports.Kind.MILL, ALICE, ALICE, BOB, ALICE));
         assertTrue(ActionReports.tells(ActionReports.Kind.MILL, BOB, ALICE, BOB, ALICE));
     }
 
@@ -31,9 +33,10 @@ class ActionReportsTest {
     }
 
     @Test
-    void bobsCounterspellOnYourSpellIsShownToBoth() {
+    void bobsCounterspellOnYourSpellIsShownToYouOnly() {
         assertTrue(ActionReports.tells(ActionReports.Kind.COUNTER, ALICE, BOB, ALICE, BOB));
-        assertTrue(ActionReports.tells(ActionReports.Kind.COUNTER, BOB, BOB, ALICE, BOB));
+        // Spec 0097: Bob countered it -- no window for Bob.
+        assertFalse(ActionReports.tells(ActionReports.Kind.COUNTER, BOB, BOB, ALICE, BOB));
         // Countering your own spell: the other player only.
         assertFalse(ActionReports.tells(ActionReports.Kind.COUNTER, BOB, BOB, BOB, BOB));
     }
@@ -42,8 +45,26 @@ class ActionReportsTest {
     void bobsRaiseDeadIsShownToYouNotToBob() {
         assertTrue(ActionReports.tells(ActionReports.Kind.RETURN, ALICE, BOB, BOB, BOB));
         assertFalse(ActionReports.tells(ActionReports.Kind.RETURN, BOB, BOB, BOB, BOB));
-        // Bojuka Bog: Alice exiles Bob's graveyard -- both.
-        assertTrue(ActionReports.tells(ActionReports.Kind.RETURN, ALICE, ALICE, BOB, ALICE));
+        // Bojuka Bog: Alice exiles Bob's graveyard -- Bob only (spec 0097).
+        assertFalse(ActionReports.tells(ActionReports.Kind.RETURN, ALICE, ALICE, BOB, ALICE));
+        assertTrue(ActionReports.tells(ActionReports.Kind.RETURN, BOB, ALICE, BOB, ALICE));
+    }
+
+    @Test
+    void aRestartIsToldToTheOtherPlayerOnly() {
+        // Spec 0097, item 4: Bob's Karn Liberated.
+        assertTrue(ActionReports.tells(ActionReports.Kind.RESTART, ALICE, BOB, BOB, BOB));
+        assertFalse(ActionReports.tells(ActionReports.Kind.RESTART, BOB, BOB, BOB, BOB));
+        assertEquals("Bob restarted the game. This is game 2.", ActionReports.restartWords(BOB, 2));
+    }
+
+    @Test
+    void anUnpaidTriggerSaysWhoCouldNotPay() {
+        // Spec 0097, item 3: the fizzle window, both players (a FIZZLE).
+        assertEquals("Bob's Lightning Rift did nothing: they couldn't pay {1}.",
+                ActionReports.unpaidSentence(BOB, "Lightning Rift", "{1}"));
+        assertEquals("Your Lightning Rift did nothing: you couldn't pay {1}.",
+                ActionReports.unpaidSentence(null, "Lightning Rift", "{1}"));
     }
 
     @Test

@@ -334,6 +334,6 @@ describe("no Died, Destroyed or Sacrificed on the table (F-0066-F)", () => {
     const data = boardFromSnapshot(after, before);
     expect(data.departures.get("card:50")).toBe("opponent:graveyard"); // the shatter plays
     // Spec 0075: nor a cycled card -- the report window explains it.
-    expect([...data.graves]).toEqual([]);
+    expect("graves" in data).toBe(false);
   });
 });

@@ -324,7 +324,7 @@ describe("no word pills for these card actions (F-0075-A, B)", () => {
       ]),
       null,
     );
-    expect([...data.graves]).toEqual([]);
+    expect("graves" in data).toBe(false);
   });
 
   it("a bounce still flies (the return is kept), only its words are gone", () => {

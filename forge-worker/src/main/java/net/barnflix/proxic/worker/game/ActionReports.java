@@ -103,6 +103,11 @@ final class ActionReports {
         /** Spec 0089 (Q4 B) -- the creature an umbra saved, and who controlled it then. */
         String savedName;
         Player savedBy;
+        /**
+         * Spec 0097, item 3 -- a fizzle that is a trigger its controller
+         * could not pay for: the mana it cost ("{1}"); null for a fizzled spell.
+         */
+        String unpaid;
 
         Report(long key, Player actor, String source, Kind kind, Player subject, int count, List<Move> moves,
                 java.util.Map<Integer, String> where, boolean shuffled, int top, int bottom) {
@@ -151,12 +156,18 @@ final class ActionReports {
          */
         EXTRA_COMBAT,
         /** Spec 0089 (Q4 B) -- an Aura's umbra armor was destroyed instead of its creature: told to the other player. */
-        UMBRA }
+        UMBRA,
+        /**
+         * Spec 0097, item 4 -- a player restarted the game (Karn Liberated):
+         * told to the other player only, with the card that did it.
+         */
+        RESTART }
 
     /**
-     * Spec 0074, Amendment 1 -- the kinds told to both players unless the
-     * reader did it to themselves alone (milling yourself, your own Raise
-     * Dead): what the other player does, or what happens to them.
+     * Spec 0074, Amendment 1 -- the kinds that hide nothing Forge shows (a
+     * mill, a counter, a return, a fizzle, a phasing). Who is told is
+     * {@link #tells}: since spec 0097, item 7, never the one who did it,
+     * except a fizzle (both).
      */
     static boolean toBoth(Kind kind) {
         return kind == Kind.MILL || kind == Kind.COUNTER || kind == Kind.RETURN || kind == Kind.FIZZLE
@@ -211,10 +222,23 @@ final class ActionReports {
         this.keys = keys;
     }
 
+    /**
+     * Spec 0097, item 4 -- the ability on top of the stack as last seen: a
+     * restart (Karn Liberated) empties the stack before Forge says so, so
+     * the card that did it is read from here.
+     */
+    private SpellAbility lastTop;
+
     /** Forge's events, as it fires them (on the game thread). */
     final class Listener {
         @com.google.common.eventbus.Subscribe
         public void on(forge.game.event.GameEvent event) {
+            if (!game.getStack().isEmpty()) {
+                SpellAbility top = game.getStack().peekAbility();
+                if (top != null) {
+                    lastTop = top;
+                }
+            }
             if (event instanceof forge.game.event.GameEventCardChangeZone moved) {
                 noteResolving();
                 // Spec 0089 (Q4 B) -- the umbra destroyed instead has gone.
@@ -862,6 +886,67 @@ final class ActionReports {
      * alone, "You looked at Bob's hand. It has no cards." -- whoever made
      * the look, as its source is the effect resolving (Duress).
      */
+    /**
+     * Spec 0097, item 3 (owner) -- [sa], a trigger with a mana cost, was not
+     * played: its controller could not pay [cost]. The fizzle window, told
+     * to both players (0079's precedent): "Bob's Lightning Rift did nothing:
+     * they couldn't pay {1}." / "Your Lightning Rift did nothing: you
+     * couldn't pay {1}.", with the card where it is.
+     */
+    void unpaid(SpellAbility sa, String cost) {
+        if (sa == null || sa.getHostCard() == null || sa.getActivatingPlayer() == null) {
+            return;
+        }
+        Card host = sa.getHostCard();
+        Card now = game.findById(host.getId());
+        Card card = now != null ? now : host;
+        ZoneType zone = card.getZone() == null ? ZoneType.Battlefield : card.getZone().getZoneType();
+        List<Move> shown = new ArrayList<>();
+        shown.add(new Move(card.getId(), card.getOwner(), zone, zone, card.isFaceDown()));
+        String source = card.isFaceDown() ? "a face-down card" : card.getName();
+        Report report = new Report(keys.incrementAndGet(), sa.getActivatingPlayer(), source, Kind.FIZZLE,
+                sa.getActivatingPlayer(), shown.size(), shown, new java.util.HashMap<>(), false, -1, 0);
+        report.chooser = sa.getActivatingPlayer();
+        report.unpaid = cost;
+        report.cards.put(card.getId(), card);
+        tell(report);
+    }
+
+    /**
+     * Spec 0097, item 4 (owner) -- [who] restarted the game, which is now
+     * game [number] of the match: "Bob restarted the game. This is game 2.",
+     * to the other player only, with the card that did it (the ability last
+     * seen on top of the stack: Karn Liberated).
+     */
+    void restarted(forge.game.player.PlayerView who, int number) {
+        SpellAbility by = lastTop;
+        Player actor = null;
+        for (Player each : game.getRegisteredPlayers()) {
+            if (who != null && each.getView().equals(who)) {
+                actor = each;
+            }
+        }
+        if (actor == null && by != null) {
+            actor = by.getActivatingPlayer();
+        }
+        if (actor == null) {
+            return;
+        }
+        Card host = by == null ? null : by.getHostCard();
+        List<Move> shown = new ArrayList<>();
+        if (host != null) {
+            shown.add(new Move(host.getId(), host.getOwner(), ZoneType.Battlefield, ZoneType.Battlefield,
+                    false));
+        }
+        Report report = new Report(keys.incrementAndGet(), actor, host == null ? "" : host.getName(),
+                Kind.RESTART, actor, number, shown, new java.util.HashMap<>(), false, -1, 0);
+        report.chooser = actor;
+        if (host != null) {
+            report.cards.put(host.getId(), host);
+        }
+        tell(report);
+    }
+
     void emptyLook(Player reader, Player owner, ZoneType zone) {
         if (reader == null || owner == null || zone == null) {
             return;
@@ -1099,10 +1184,14 @@ final class ActionReports {
             // this reader may see it -- its owner, a public place, or a hand it
             // went to face up (the reader watched it go there).
             if (report.kind == Kind.FIZZLE) {
-                boolean spell = n == 0 && move.from() == ZoneType.Stack;
+                boolean spell = n == 0 && (move.from() == ZoneType.Stack || report.unpaid != null);
                 Card shownCard = card != null ? card : report.cards.get(move.cardId());
                 String place = card == null ? null : whereIs(move.cardId());
-                boolean visible = shownCard != null && (spell ? !move.faceDown()
+                // Spec 0097, item 3 -- an unpaid trigger's card, face up where
+                // the reader may see it (on the table, its owner's own).
+                boolean visible = shownCard != null && (report.unpaid != null
+                        ? !move.faceDown() && (move.owner() == reader || publicZone(place))
+                        : spell ? !move.faceDown()
                         : move.owner() == reader || publicZone(place)
                         || ("hand".equals(place) && !move.faceDown()));
                 if (!spell && !visible) {
@@ -1149,6 +1238,13 @@ final class ActionReports {
             // Spec 0080: phased out on the battlefield, public (a face-down one stays a back).
             if (report.kind == Kind.PHASE && card != null && !move.faceDown()) {
                 wasPublic = true;
+            }
+            // Spec 0097, item 4: the card that restarted the game was on the
+            // table as it did -- shown as it was, never where it is now.
+            if (report.kind == Kind.RESTART) {
+                card = report.cards.get(move.cardId());
+                wasPublic = card != null;
+                to = null;
             }
             boolean visible = card != null
                     && (move.owner() == reader || publicZone(to) || wasPublic || revealedTo.test(move.cardId()));
@@ -1303,7 +1399,9 @@ final class ActionReports {
             case CYCLE -> who + " cycled " + r.source + (r.drew > 0
                     ? " and drew " + (r.drew == 1 ? "a card" : r.drew + " cards") : "") + ".";
             case CHOICE -> "";
-            case FIZZLE -> fizzledWords(r, w);
+            case FIZZLE -> r.unpaid != null
+                    ? unpaidSentence(r.actor == w.reader ? null : r.actor.getName(), r.source, r.unpaid)
+                    : fizzledWords(r, w);
             case PHASE -> phasedWords(r, w, named, hidden) + (r.lifeHeld
                     ? " " + lifeWords(r.subject == w.reader ? null : r.subject.getName()) : "");
             case EMPTY_LOOK -> who + " looked at " + its + " " + r.zone + ". It has no cards.";
@@ -1314,6 +1412,8 @@ final class ActionReports {
             case EXTRA_COMBAT -> extraCombatWords(r.actor == w.reader ? null : r.actor.getName());
             case UMBRA -> umbraWords(r.source,
                     r.savedBy == w.reader ? null : (r.savedBy == null ? r.actor : r.savedBy).getName(), r.savedName);
+            // Spec 0097, item 4, the canvas's words.
+            case RESTART -> restartWords(r.actor == w.reader ? null : r.actor.getName(), r.count);
         };
     }
 
@@ -1341,6 +1441,20 @@ final class ActionReports {
             return capital(whose) + " " + what + " phased out" + until;
         }
         return w.who(r.actor) + " phased out " + whose + " " + what + until;
+    }
+
+    /**
+     * Spec 0097, item 3 -- "Bob's Lightning Rift did nothing: they couldn't
+     * pay {1}." ([controller] null: "Your ... you couldn't pay {1}.").
+     */
+    static String unpaidSentence(String controller, String card, String cost) {
+        return (controller == null ? "Your" : controller + "'s") + " " + card + " did nothing: "
+                + (controller == null ? "you" : "they") + " couldn't pay " + cost + ".";
+    }
+
+    /** Spec 0097, item 4 -- "Bob restarted the game. This is game 2." ([player] null: the reader). */
+    static String restartWords(String player, int number) {
+        return (player == null ? "You" : player) + " restarted the game. This is game " + number + ".";
     }
 
     /** Spec 0086 (10 B) -- "Extra turn: this is Alice's turn again." ([player] null: the reader's own). */
@@ -1381,10 +1495,11 @@ final class ActionReports {
     }
 
     /**
-     * Spec 0074, Amendment 1 -- whether [reader] is shown the report: a
-     * mill, a counter or a return goes to both players unless the reader did
-     * it to themselves alone (milling yourself, your own Raise Dead); the
-     * others as before (Amendment 13, item 7: not to the one who chose).
+     * Spec 0074, Amendment 1 -- whether [reader] is shown the report. Spec
+     * 0097, item 7 (owner, the 0086 A4 / 0089 A1 rule): a mill, a counter, a
+     * return or a phasing is told to everyone but the player who did it (it
+     * was told to both when the subject was the other player); the others as
+     * before (Amendment 13, item 7: not to the one who chose).
      */
     static <P> boolean tells(Kind kind, P reader, P actor, P subject, P chooser) {
         return switch (kind) {
@@ -1403,7 +1518,11 @@ final class ActionReports {
             case EXTRA_COMBAT -> reader != chooser;
             // Spec 0089 (Q4 B): an umbra destroyed instead is told to the other player.
             case UMBRA -> reader != actor;
-            default -> toBoth(kind) ? !(reader == actor && reader == subject) : reader != chooser;
+            // Spec 0097, item 4 (owner): a restart is told to the other player only.
+            case RESTART -> reader != actor;
+            // Spec 0097, item 7 (owner): never a window for the one who did it.
+            case MILL, COUNTER, RETURN, PHASE -> reader != actor;
+            default -> reader != chooser;
         };
     }
 

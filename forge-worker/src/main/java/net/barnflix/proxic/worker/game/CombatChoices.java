@@ -182,10 +182,22 @@ final class CombatChoices {
         if (CombatUtil.validateAttackers(combat)) {
             return true;
         }
-        host.note(actedForSeat,
-                "That attack breaks a rule. A creature must attack, or one can't"
-                        + " attack alone. Change your attackers.");
+        // Spec 0097, item 5 -- on the combat button, where the player acted
+        // (the attackers stay selected): the words of the question asked again.
+        host.offerRefused(actedForSeat, ATTACK_REFUSED);
         return false;
+    }
+
+    /** Spec 0097, item 5 -- the canvas's words for a refused attack. */
+    static final String ATTACK_REFUSED =
+            "That attack breaks a rule: a creature must attack, or one can't attack alone. Change your attackers.";
+
+    /**
+     * A refused block in Forge's own reason; Forge names cards with their
+     * game id ("Boggart Brute (38)"), the player sees names.
+     */
+    static String blockRefused(String problem) {
+        return "Not allowed: " + problem.replaceAll("\\s\\(\\d+\\)", "");
     }
 
     /** Forge's verdict on the whole block, with Forge's own reason when it refuses. */
@@ -194,9 +206,8 @@ final class CombatChoices {
         if (problem == null) {
             return true;
         }
-        // Forge names cards with their game id ("Boggart Brute (38)");
-        // the player sees names.
-        host.note(actedForSeat, "Not allowed: " + problem.replaceAll("\\s\\(\\d+\\)", ""));
+        // Spec 0097, item 5 -- on the combat button, as the attack's.
+        host.offerRefused(actedForSeat, blockRefused(problem));
         return false;
     }
 

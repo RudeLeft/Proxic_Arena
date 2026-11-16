@@ -78,6 +78,7 @@ found = {
     "ultimate": None,        # the -14: decision id, action id, epoch, turn
     "exiled_by_karn": [],    # seat 2's cards exiled by the +4s (ids)
     "after": None,           # game 2's first board, as seat 1 sees it
+    "restart_told": {},      # spec 0097: each seat's game-2 report sentences
     "epochs_seen": [],       # every distinct epoch on snapshots
     "question_epochs": [],   # every distinct epoch on questions
     "stale_answer": None,    # the gate's verdict on game 1's last answer
@@ -128,6 +129,16 @@ for line in proc.stdout:
             returned.update(c["id"] for c in s.get("battlefield", []) if c.get("seat") == 1)
         if epoch not in found["epochs_seen"]:
             found["epochs_seen"].append(epoch)
+        # Spec 0097, item 4 -- the restart's report window, by seat.
+        if epoch == 2:
+            report = s.get("action") or {}
+            for one in [report] + list(report.get("gathered") or []):
+                said = one.get("said") or ""
+                if "restarted the game" in said:
+                    found["restart_told"].setdefault(str(s.get("seat")), said)
+            for n in s.get("notices") or []:
+                if "restarted" in n:
+                    found.setdefault("restart_notices", []).append(n)
         if epoch == 2 and s.get("seat") == 1 and found["after"] is None and s.get("phase"):
             found["after"] = {
                 "turn": s.get("turn"),
@@ -241,8 +252,15 @@ else:
     missing = [cid for cid in found["exiled_by_karn"] if cid and cid not in returned]
     if found["exiled_by_karn"] and missing:
         problems.append(f"cards exiled with Karn did not come back under seat 1: {missing}")
-    if not any("restarted" in n for n in (after["notices"] or [])):
-        problems.append(f"seat 1 was not told the game restarted: {after['notices']}")
+    # Spec 0097, item 4 (owner): seat 1 played Karn -- the other player is
+    # told in a report window, seat 1 is not; nobody gets a grey line.
+    if found["restart_told"].get("2") != "Alice restarted the game. This is game 2." and \
+            not (found["restart_told"].get("2") or "").endswith("restarted the game. This is game 2."):
+        problems.append(f"seat 2 was not told the game restarted: {found['restart_told']}")
+    if "1" in found["restart_told"]:
+        problems.append(f"seat 1, who restarted it, got a window: {found['restart_told']}")
+    if found.get("restart_notices"):
+        problems.append(f"a grey restart notice was still sent: {found['restart_notices']}")
 if found["epochs_seen"][:1] != [1] or 2 not in found["epochs_seen"]:
     problems.append(f"snapshots did not go from game 1 to game 2: {found['epochs_seen']}")
 if 2 not in found["question_epochs"]:

@@ -110,9 +110,9 @@ class MovesTest {
             assertEquals(0, move.getAsJsonObject("last").get("power").getAsInt());
             assertEquals(0, move.getAsJsonObject("last").get("toughness").getAsInt());
         }
-        // The size survives the other withs (said, where, into).
+        // The size survives the other withs (why, where, into).
         Moves.Move said = new Moves.Move(21, "battlefield", 2, "graveyard", 2, false, null).withLast(3, -1)
-                .withSaid("died", null, "Rumbling Baloth");
+                .withWhy("died", "Rumbling Baloth");
         assertEquals(-1, only(Moves.forViewer(List.of(said), 1)).getAsJsonObject("last").get("toughness")
                 .getAsInt());
     }
@@ -188,7 +188,7 @@ class MovesTest {
     void aFizzledSpellSaysSoToBothSeatsWithNoTag() {
         // F-0079-D: Alice's Bolt fizzled: off the stack to her graveyard, "fizzled".
         List<Moves.Move> moves = List.of(new Moves.Move(30, "stack", 1, "graveyard", 1, false, null)
-                .withSaid("fizzled", null, "Lightning Bolt"));
+                .withWhy("fizzled", "Lightning Bolt"));
         for (Integer viewer : new Integer[] {1, 2, null}) {
             JsonObject move = only(Moves.forViewer(moves, viewer));
             assertEquals("card:30", move.get("card").getAsString());

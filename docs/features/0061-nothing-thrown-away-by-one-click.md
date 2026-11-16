@@ -139,3 +139,15 @@ card from the table and the hand, the move record's tag, the payment
 title, notices after the sixth. Lab `check-thrown-away.py` (cave,
 handsize, countered, passed), added to the CI list; against a worker from before this change
 cave and handsize fail.
+
+### Amendment 2 (spec 0097, owner 2026-11-16): item 2 moves to the act button
+
+Item 2's grey notice ("Nothing you can play this turn -- 1 land, no land in
+hand. Passing your turn.") is no longer sent. The seat's boards carry
+`passing` {turn, why} during that turn only, and the act button reads
+"Passing" over "Nothing to play · 1 land, no land in hand"; it is gone at the
+turn line. The pause at each step passed for is unchanged. If a creature
+could attack, the attack question still comes, on the same button. Item 4's
+word tags ("Cycled", "Countered by Counterspell") are retired too: no page
+showed them since 0074/0075, and the worker no longer sends `said`. See
+`0097-popups-cleanup.md`.

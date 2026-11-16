@@ -158,7 +158,6 @@ function draw(
       arrivals={new Map()}
       departures={extra.departures ?? new Map()}
       returns={new Map()}
-      graves={new Map()}
       tileMoves={extra.tileMoves ?? []}
       countered={new Set()}
       fizzled={extra.fizzled ?? new Set()}

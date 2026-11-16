@@ -130,7 +130,6 @@ function draw(
       arrivals={new Map()}
       departures={new Map()}
       returns={new Map()}
-      graves={new Map()}
       tileMoves={[]}
       countered={new Set()}
       fizzled={extra.fizzled ?? new Set()}

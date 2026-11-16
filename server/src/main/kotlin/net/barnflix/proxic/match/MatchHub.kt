@@ -224,6 +224,8 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
         }
         request.notNow?.let { put("notNow", it) }
         request.owing?.let { put("owing", it) }
+        // Spec 0097 -- why the last answer was refused, where the player acted.
+        request.refused?.let { put("refused", it) }
         if (request.about.isNotEmpty()) {
             putJsonObject("about") { request.about.forEach { (key, value) -> put(key, value) } }
         }

@@ -239,17 +239,11 @@ moves                     Phase 10 A-00: the cards moved since the last
                           "discarded" (hand; Forge's discard record),
                           "countered" (the stack, while another card's
                           spell or ability resolves), "died" (a creature
-                          neither destroyed nor sacrificed); said: the tag
-                          the board shows on its way ("Cycled",
-                          "Discarded: too many cards", "Discarded",
-                          "Countered by Counterspell"); only with `card`.
-                          Spec 0066: a card leaving the battlefield
-                          ("died", "destroyed", "sacrificed") has a why
-                          but no said, and no notice. Spec 0074
-                          Amendment 1 and spec 0075: no move with a said
-                          is told as a notice any more (discarded,
-                          countered, cycled), and the page shows no tag
-                          for these; the `action` report explains them.
+                          neither destroyed nor sacrificed). Spec 0097,
+                          item 9: the word tag a move once carried
+                          (`said`: "Cycled", "Countered by Counterspell")
+                          is gone -- no page showed it since 0074/0075; the
+                          why stays, and the `action` report explains it.
                           Spec 0078, item 4: a creature leaving the
                           battlefield carries last {power, toughness}, its
                           size as it last stood there (Forge's last-known
@@ -316,7 +310,16 @@ action (PHASE)            spec 0080: the other player's permanents phased out
                           Out the Back adds nothing
 noticesTotal              spec 0061: how many notices this seat was told in
                           all (`notices` keeps the last six), so a page can
-                          tell new ones once the list is full
+                          tell new ones once the list is full. Spec 0097:
+                          the page counts what a board it first sees after
+                          mounting holds as already seen (turn 0 excepted)
+passing                   spec 0097, item 2: this seat's own turn is being
+                          passed for it, nothing it can play: {turn, why
+                          ("2 lands, no land in hand")}, in that seat's
+                          boards during that turn only; the act button
+                          says "Passing" / "Nothing to play · {why}". The
+                          grey "Nothing you can play this turn" notice is
+                          no longer sent
 rolls                     Phase 9 W-17: the dice rolled lately, public, the
                           last six: {n (only grows), seat, source "card:N",
                           name, sides, results [final]}
@@ -450,6 +453,14 @@ decision.about.then       ability (applyManaToCost): what it is for, after
 decision.owing            on a payment question (applyManaToCost): the mana
                           still due, "{1}{R}"; the buttons no longer repeat
                           it (Phase 9 Amendment 13, item 9)
+decision.refused          spec 0097, items 5-6: why the game refused the
+                          answer just given, on the question asked again,
+                          to that seat only: an attack or a block a rule
+                          forbids ("That attack breaks a rule: ...", "Not
+                          allowed: ..."; the combat button's note), a name
+                          the card won't take ("Forest can't be named
+                          here. Try another card."; red in the naming
+                          window). These are no longer grey notices
 arrange.number            on a number question (announceRequirements,
                           chooseNumberForKeywordCost, chooseNumber): values
                           (each option's number, in the options' order),
@@ -488,8 +499,9 @@ snapshot.action           who did what to a library or hand, in this
                           out of a graveyard or exile ("Bob returned
                           Grizzly Bears to their hand.", "You exiled ...
                           from Bob's graveyard."); a mill says "Bob milled
-                          10 cards."; these three go to both seats unless
-                          the reader did it to themselves alone. A card
+                          10 cards."; these three go to every seat but the
+                          one who did it (spec 0097, item 7; they went to
+                          both when the subject was the other player). A card
                           out of a graveyard or face-up exile is shown as
                           it was there (public), never by its id.
                           Spec 0075: also cards from the table or the
@@ -513,7 +525,21 @@ snapshot.action           who did what to a library or hand, in this
                           library with no cards ("You looked at Bob's
                           hand. It has no cards."), to the one shown it
                           (Duress on an empty hand: both seats, there was
-                          nothing to choose). `cards` may then be empty
+                          nothing to choose). `cards` may then be empty.
+                          Spec 0097: a trigger its controller could not
+                          pay for is a fizzle, to both seats ("Bob's
+                          Lightning Rift did nothing: they couldn't pay
+                          {1}." / "Your ... you couldn't pay {1}.", the
+                          card where it is); a game restart goes to the
+                          other seat only ("Bob restarted the game. This
+                          is game 2.", the card that did it shown as it
+                          was, under the report's id). Neither is a grey
+                          notice any more. A phasing done to the other
+                          player is, like a mill, not told to the one who
+                          did it. A plain reveal of a seat's own cards
+                          that another seat was shown too is in the other
+                          seat's `reveal` only, not the revealer's, unless
+                          a card went back into the library
 action.marks              spec 0075: pictures that are not cards, in
                           order: {kind "color", color "white"|"blue"|
                           "black"|"red"|"green"} for a colour chosen,

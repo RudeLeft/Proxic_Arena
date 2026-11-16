@@ -122,7 +122,6 @@ import {
   RIFFLE_MS,
   returnBackFrames,
   returnFrames,
-  graveTagFrames,
   fateMs,
   riffleFrames,
   type Placed,
@@ -213,15 +212,11 @@ import {
   type BadgeChange,
 } from "./piles";
 import {
-  COUNTER_GO_MS,
   COUNTER_MS,
   counterFrames,
   DISCARD_BEAT_MS,
-  DISCARD_LIFT_MS,
-  DISCARD_DROP_MS,
   DISCARD_MS,
   discardFrames,
-  discardPose,
   MILL_BEAT_MS,
   MILL_MS,
   MILL_SCALE,
@@ -651,11 +646,6 @@ export interface BoardProps {
   merges?: ReadonlyMap<string, Merge>;
   /** Phase 10 A-14 -- each card that went back to a hand or a library this update (the game says). */
   returns?: ReadonlyMap<string, Return>;
-  /**
-   * Spec 0061, item 4 -- each card that went to a graveyard this update with
-   * a reason, and the game's tag for it ("Cycled", "Countered by Counterspell").
-   */
-  graves?: ReadonlyMap<string, string>;
   /**
    * Spec 0074 -- the cards discarded, milled, or moved out of a graveyard or
    * exile this update, as the game moved them (fromSnapshot's tileMoves).
@@ -1407,8 +1397,6 @@ interface ReturnMark {
   text?: string;
   /** The card it is about ("card:N"), for tests and the jump check. */
   of: string;
-  /** Spec 0061, item 4 -- a tag riding to a graveyard, not one at a return's destination. */
-  grave?: boolean;
 }
 
 /** Phase 10 A-14 -- tags and riffles above everything on the table and the hand. */
@@ -2235,7 +2223,6 @@ export function Board({
   departures,
   merges,
   returns,
-  graves,
   tileMoves,
   countered,
   fizzled,
@@ -5407,15 +5394,6 @@ export function Board({
       const ticks = new Map<string, TileChange[]>();
       const tick = (tile: string, at: number, by: number) =>
         ticks.set(tile, [...(ticks.get(tile) ?? []), { at, by }]);
-      /** The tags these cards carry to a graveyard: from where, when, for how long. */
-      const graveTags: {
-        card: string;
-        from: Point;
-        delay: number;
-        lead: number;
-        move: number;
-        side: Side;
-      }[] = [];
       // Once per board: pointing at a card re-runs this, and must not play them again.
       const tm = tileMoves !== playedTiles.current ? (tileMoves ?? []) : [];
       const spellLeft = before.stack.some((e) => !(stack ?? []).some((s) => s.id === e.s.id));
@@ -5528,17 +5506,6 @@ export function Board({
               waits: false,
             }),
           );
-          // Its tag shows once it is face up, and rides with it to the pile.
-          const upAt = DISCARD_LIFT_MS + 0.4 * DISCARD_DROP_MS;
-          const up = discardPose(upAt, from, to, g.cardH, true);
-          graveTags.push({
-            card: m.card,
-            from: { x: up.x, y: up.y - (g.cardH * up.s) / 2 - g.cardH * 0.04 },
-            delay: delay + upAt,
-            lead: 0,
-            move: DISCARD_MS - upAt,
-            side: m.to.side,
-          });
           tick(`${m.to.side}:${pile}`, delay + DISCARD_MS, 1);
         });
       }
@@ -6709,14 +6676,6 @@ export function Board({
               { fade: true, waits: false, zIndex: Z_RETURN_MARK - 20 },
             ),
           );
-          graveTags.push({
-            card: id,
-            from: { x: from.x, y: from.y - (g.cardH * from.s) / 2 - g.cardH * 0.04 },
-            delay,
-            lead: DISCARD_LIFT_MS,
-            move: DISCARD_DROP_MS,
-            side: m.to.side,
-          });
           tick(`${m.to.side}:${m.to.zone}`, delay + DISCARD_MS, 1);
           continue;
         }
@@ -7195,15 +7154,6 @@ export function Board({
               },
             ),
           );
-          const top = centreOf(box, at.origin);
-          graveTags.push({
-            card: s.card!,
-            from: { x: top.x, y: top.y - box.h / 2 - g.cardH * 0.04 },
-            delay: hold + COUNTER_GO_MS,
-            lead: 0,
-            move: MOVE_MS,
-            side,
-          });
           tick(`${side}:graveyard`, hold + COUNTER_MS, 1);
           continue;
         }
@@ -7461,66 +7411,6 @@ export function Board({
             : undefined,
           zIndex: Z_LINES - 50,
         });
-      }
-      // Spec 0061, item 4 -- why each card went to a graveyard: a tag rides
-      // above it there (the table's, the hand's and the stack's cards), stays
-      // a moment by the pile, and goes.
-      if (graves && graves.size > 0) {
-        const tagGrave = (card: string, ghost: Ghost, lead: number, move: number, side: Side) => {
-          const said = graves.get(card);
-          if (!said) return;
-          const top = centreOf(ghost.box, ghost.origin);
-          const from = { x: top.x, y: top.y - (g.cardH * ghost.box.scale) / 2 - g.cardH * 0.04 };
-          const pile = where[`${side}:graveyard`];
-          const to = { x: g.rail.x - g.cardH * 0.06, y: pile.y };
-          const { frames, duration } = graveTagFrames(to.x - from.x, to.y - from.y, lead, move);
-          returning.push({
-            key: `grave:${card}:${performance.now()}`,
-            kind: "tag",
-            style: { left: from.x, top: from.y },
-            frames,
-            duration,
-            delay: ghost.delay,
-            text: said,
-            of: card,
-            grave: true,
-          });
-        };
-        for (const ghost of leaving) {
-          if (!ghost.fade || ghost.returning || ghost.chained) continue;
-          tagGrave(ghost.id, ghost, ghost.fate ? fateMs(ghost.fate) : 0, MOVE_MS, ghost.side);
-        }
-        for (const ghost of gone) {
-          if (!ghost.fade || ghost.chained) continue;
-          const card = before.stack.find((entry) => entry.s.id === ghost.id)?.s.card;
-          if (card) tagGrave(card, ghost, 0, MOVE_MS, ghost.side);
-        }
-        // Spec 0074 -- a discard's tag rides with it from the hand (the other
-        // player's from when it is face up); a countered spell's from when it
-        // sets off for the graveyard.
-        for (const tag of graveTags) {
-          const said = graves.get(tag.card);
-          if (!said) continue;
-          const pile = where[`${tag.side}:graveyard`];
-          const to = { x: g.rail.x - g.cardH * 0.06, y: pile.y };
-          const { frames, duration } = graveTagFrames(
-            to.x - tag.from.x,
-            to.y - tag.from.y,
-            tag.lead,
-            tag.move,
-          );
-          returning.push({
-            key: `grave:${tag.card}:${performance.now()}`,
-            kind: "tag",
-            style: { left: tag.from.x, top: tag.from.y },
-            frames,
-            duration,
-            delay: tag.delay,
-            text: said,
-            of: tag.card,
-            grave: true,
-          });
-        }
       }
       // Spec 0085 (4 A) -- a holder leaving: each held card's tab flies from
       // its edge to that card's exile pile as the holder's fate starts; a
@@ -7896,7 +7786,6 @@ export function Board({
     departures,
     merges,
     returns,
-    graves,
     tileMoves,
     countered,
     fizzled,
@@ -9716,9 +9605,8 @@ function ReturnMarkView({ mark, done }: { mark: ReturnMark; done: () => void }) 
   return mark.kind === "tag" ? (
     <div
       ref={ref}
-      className={`bf-return-tag${mark.grave ? " bf-grave-tag" : ""}`}
-      data-return-tag={mark.grave ? undefined : mark.of}
-      data-grave-tag={mark.grave ? mark.of : undefined}
+      className="bf-return-tag"
+      data-return-tag={mark.of}
       aria-hidden="true"
       style={style}
     >

@@ -21,9 +21,8 @@ choices is sent no report, and no reveal tray, for it.
   seize       Thoughtseize on Bob: Bob reads "Alice looked at your hand and
               chose <card> for you to discard"
   probe       Gitaxian Probe on Bob: Bob reads "Alice looked at your hand."
-  scour       Thought Scour on Bob: Bob reads "You milled 2 cards." and
-              Alice "Bob milled 2 cards." (spec 0074, Amendment 1: a mill is
-              told to both unless you milled yourself)
+  scour       Thought Scour on Bob: Bob reads "You milled 2 cards."; Alice,
+              who did it, is told nothing (spec 0097, item 7)
   mindrot     Mind Rot on Bob, who chooses: Alice reads "Bob discarded
               <names>"; Bob is told nothing
 
@@ -62,7 +61,7 @@ SCENARIOS = {
     "probe": ([("Island", 30), ("Gitaxian Probe", 30)], "Gitaxian Probe", 1,
               {2: r"^Alice looked at your hand\.$"}, set(), 1),
     "scour": ([("Island", 30), ("Thought Scour", 30)], "Thought Scour", 1,
-              {1: r"^Bob milled 2 cards\.$", 2: r"^You milled 2 cards\.$"}, set(), None),
+              {2: r"^You milled 2 cards\.$"}, set(), 1),
     "mindrot": ([("Swamp", 30), ("Mind Rot", 30)], "Mind Rot", 3,
                 {1: r"^Bob discarded .+\.$"}, set(), 2),
 }

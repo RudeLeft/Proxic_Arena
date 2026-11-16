@@ -329,6 +329,13 @@ public final class WorkerMain {
                         // to hand size is the plain case. The client
                         // must not offer a Pass the gate will refuse.
                         ask.addProperty("mandatory", pending.mandatory());
+                        // Spec 0097 -- why the last answer was refused (an attack a
+                        // rule forbids, a name the card won't take), on the question
+                        // asked again, for the seat it was refused for.
+                        String refusedWords = GAME.takeRefused(pending.actedForSeat());
+                        if (refusedWords != null) {
+                            ask.addProperty("refused", refusedWords);
+                        }
                         // Forge's own wording, when it has any.
                         if (pending.prompt() != null && !pending.prompt().isBlank()) {
                             // Spec 0057, item 1 -- never Forge's script shorthand.

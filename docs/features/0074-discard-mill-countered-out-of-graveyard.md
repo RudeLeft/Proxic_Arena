@@ -63,3 +63,11 @@ On reviewing the clips the owner asked: **no yellow word pills on the table** ("
 - **Who sees it:** a mill, a counter or a return goes to both players unless the reader did it to themselves alone (your Glimpse on Bob: both; milling yourself or your own Raise Dead: only the other player). Discard, search and the rest keep Amendment 13 item 7 (not the one who chose): your hand-size discard opens nothing.
 - Worker tests: `ActionReportsTest` (who is told), `ThrownAwayTest` (no line for a discard or a counter); `mvn -q -o test` and `package` pass. Lab: `check-who-did-it.py` (scour now "Bob milled 2 cards." / "You milled 2 cards.", told to both) and `check-thrown-away.py` (no notice for the hand-size discard or the counter) pass; `check-hidden-hands.py` and `check-hidden-log.py` OK over the new Lab traces. `protocol/README.md` updated.
 - Clips in `Arrow videos/0074/amended/` (normal and quarter speed): Mind Rot on Bob, Glimpse milling Bob's library, Bob's Counterspell on your Giant Growth (your view), Bob's Raise Dead to his hand. Animations unchanged.
+
+## Amendment 2 (spec 0097, owner 2026-11-16): no window for the one who did it
+
+A mill, a counter or a return is no longer told to the player who did it
+when the subject is the other player (Alice's Glimpse on Bob: Bob only;
+Bojuka Bog on Bob's graveyard: Bob only). Doing it to yourself was already
+the other player's alone. A fizzle still goes to both players (0079). See
+`0097-popups-cleanup.md`.

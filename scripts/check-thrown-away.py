@@ -17,19 +17,20 @@ Each scenario is its own small game against Forge.
              Forgotten Cave and drew a card.", check-card-actions.py).
   handsize   F-0061-C, D: Alice never plays a land; at her cleanup with eight
              cards the discard question says how many (arrange.discard 1);
-             the card goes why "discarded", tag "Discarded: too many cards";
+             the card goes why "discarded" (spec 0097: no word tag);
              spec 0074 Amendment 1: no one is told a line for it (no
              top-of-table notice; the report window explains what the other
              player does).
   countered  F-0061-D: Bob casts Grizzly Bears, Alice counters it: the Bears
-             goes from the stack to his graveyard, why "countered", tag
-             "Countered by Counterspell", to both seats; spec 0074
+             goes from the stack to his graveyard, why "countered" (spec
+             0097: no word tag), to both seats; spec 0074
              Amendment 1: no line for it (the report window explains it).
   passed     F-0061-B: both seats follow the stops rule (spec 0035); Alice
              holds only Craw Wurms ({4}{G}{G}) and Forests. At her own Main 1
-             with nothing to play she is told "Nothing you can play this turn
-             -- N lands, .... Passing your turn." (once that turn, her seat
-             only), and the rest of the turn takes visible time: its END
+             with nothing to play her board says so (spec 0097, item 2: the
+             act button's "Passing · Nothing to play · N lands, ..."; the
+             board's `passing`, her seat only, that turn only -- no grey
+             notice any more), and the rest of the turn takes visible time: its END
              step (or the next turn) comes at least 0.8 s later (a 0.4 s
              pause at each step passed for: Main 1, Main 2, ...).
 
@@ -161,7 +162,7 @@ def cave():
         problems.append(f"the payment should say what it is for: {about}")
     for seat in (1, 2):
         moved = found[f"seat{seat}"]
-        if [(m.get("why"), m.get("said"), m["from"]["zone"]) for m in moved] != [("cycled", "Cycled", "hand")]:
+        if [(m.get("why"), m.get("said"), m["from"]["zone"]) for m in moved] != [("cycled", None, "hand")]:
             problems.append(f"seat {seat} should be told the Cave was cycled from the hand: {moved}")
     for seat in (1, 2):
         if any(n.startswith("Cycled") for n in g.notices.get(seat) or []):
@@ -209,7 +210,7 @@ def handsize():
         problems.append(f"the question should say one card is to go: {st['asked']}")
     for seat in (1, 2):
         moved = found[f"seat{seat}"]
-        if [(m.get("why"), m.get("said")) for m in moved] != [("discarded", "Discarded: too many cards")]:
+        if [(m.get("why"), m.get("said")) for m in moved] != [("discarded", None)]:
             problems.append(f"seat {seat} should be told the card was discarded, too many cards: {moved}")
     for seat in (1, 2):
         if any(n.startswith("Discarded") for n in g.notices.get(seat) or []):
@@ -268,8 +269,8 @@ def countered():
     problems = [found["stopped"]] if found["stopped"] else []
     for seat in (1, 2):
         moved = found[f"seat{seat}"]
-        if [(m.get("said"), m["from"]["zone"], m["to"].get("seat")) for m in moved] != \
-                [("Countered by Counterspell", "stack", 2)]:
+        if [(m.get("why"), m.get("said"), m["from"]["zone"], m["to"].get("seat")) for m in moved] != \
+                [("countered", None, "stack", 2)]:
             problems.append(f"seat {seat} should be told the Bears was countered by Counterspell: {moved}")
     # The Counterspell itself resolved: no reason, no tag.
     if any(m.get("said") for m in found["stack_to_graveyard"] if m.get("why") != "countered"):
@@ -277,15 +278,20 @@ def countered():
     for seat in (1, 2):
         if any(n.startswith("Countered") for n in g.notices.get(seat) or []):
             problems.append(f"seat {seat} should be told no line for a counter (spec 0074): {g.notices.get(seat)}")
-    return result(problems, "a countered Bears moves as 'Countered by Counterspell', no top-of-table line; "
+    return result(problems, "a countered Bears moves as 'countered' with no word tag, no top-of-table line; "
                             "the Counterspell that resolved has no tag", found)
 
 
 # --- passed -------------------------------------------------------------------
 
-NOTICE = re.compile(r"^Nothing you can play this turn -- (No lands|1 land|\d+ lands), "
-                    r"(no land in hand|you've already played a land this turn|no land you can play)\. "
-                    r"Passing your turn( \(you can still attack\))?\.$")
+# Spec 0097, item 2 -- the board's why, for the act button's "Nothing to play · ...".
+WHY = re.compile(r"^(No lands|1 land|\d+ lands), "
+                 r"(no land in hand|you've already played a land this turn|no land you can play)$")
+
+
+def passing_now(s):
+    p = s.get("passing") or {}
+    return bool(p) and p.get("turn") == s.get("turn")
 
 
 LATE = {"END_OF_TURN", "CLEANUP"}
@@ -311,7 +317,7 @@ def passed():
         snaps = w.snaps[1]
         if st["at"] is None:
             for i, s in enumerate(snaps):
-                if any(NOTICE.match(n) for n in s.get("notices") or []):
+                if passing_now(s):
                     st["at"] = i
                     break
         if st["at"] is not None:
@@ -331,6 +337,10 @@ def passed():
     w.see()
     told = [n for n in g.notices.get(1) or [] if n.startswith("Nothing you can play")]
     board = w.snaps[1][st["at"]] if st["at"] is not None else {}
+    why = (board.get("passing") or {}).get("why")
+    # Gone at the turn line: no board of a later turn still says it.
+    later = [s.get("turn") for s in w.snaps[1][(st["at"] or 0):]
+             if s.get("turn") != board.get("turn") and s.get("passing")]
     # Bob's board of the same round: nothing new told him (his own turns may be passed too).
     revision = board.get("stateRevision")
     bob = [i for i, s in enumerate(w.snaps[2]) if s.get("stateRevision") == revision]
@@ -339,25 +349,30 @@ def passed():
         before, now = w.snaps[2][bob[0] - 1], w.snaps[2][bob[0]]
         k = (now.get("noticesTotal") or 0) - (before.get("noticesTotal") or 0)
         bob_new = (now.get("notices") or [])[-k:] if k > 0 else []
-    found = {"told": told, "phase": board.get("phase"), "active": board.get("activeSeat"),
+    bob_passing = [s.get("turn") for s in w.snaps[2] if s.get("turn") == board.get("turn") and s.get("passing")]
+    found = {"told": told, "why": why, "later": later, "bob_passing": bob_passing,
+             "phase": board.get("phase"), "active": board.get("activeSeat"),
              "noticesTotal": board.get("noticesTotal"), "gap_s": st["gap"], "until": st.get("until"),
              "bob_told": [n for n in bob_new if n.startswith("Nothing you can play")],
              "stopped": g.stopped_badly()}
     if st["at"] is None or st["gap"] is None:
         return "inconclusive", "Alice's turn was never passed for want of anything to play", found
     problems = [found["stopped"]] if found["stopped"] else []
-    if not all(NOTICE.match(n) for n in told):
-        problems.append(f"the notice's words: {told}")
+    if told:
+        problems.append(f"spec 0097: no grey notice for a passed turn any more: {told}")
+    if not WHY.match(why or ""):
+        problems.append(f"the act button's why: {why!r}")
+    if later:
+        problems.append(f"the passed turn should be gone at the turn line, still said on turns {later}")
     if board.get("phase") != "MAIN1" or board.get("activeSeat") != 1:
-        problems.append(f"the notice should come at Alice's own Main 1: {board.get('phase')}, "
+        problems.append(f"the passed turn should be said from Alice's own Main 1: {board.get('phase')}, "
                         f"seat {board.get('activeSeat')}")
-    if not isinstance(board.get("noticesTotal"), int) or board["noticesTotal"] < len(board.get("notices") or []):
-        problems.append(f"the board should count every notice told: {board.get('noticesTotal')}")
-    if found["bob_told"]:
-        problems.append(f"Bob must not be told Alice's turn was passed: {found['bob_told']}")
+    if found["bob_told"] or found["bob_passing"]:
+        problems.append(f"Bob must not be told Alice's turn was passed: {found['bob_told']} {found['bob_passing']}")
     if st["gap"] < 0.8:
         problems.append(f"the passed turn's steps should take visible time (>= 0.8 s), took {st['gap']:.2f} s")
-    return result(problems, f"Alice told at her Main 1 ('{told[0] if told else ''}'), Bob not; the rest of the "
+    return result(problems, f"Alice's board says it from her Main 1 ('Nothing to play · {why}'), Bob's not; "
+                            f"gone at the turn line; the rest of the "
                             f"turn took {st['gap']:.2f} s", found)
 
 

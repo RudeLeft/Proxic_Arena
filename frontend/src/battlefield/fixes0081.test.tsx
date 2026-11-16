@@ -281,7 +281,9 @@ describe("F-0081-A · a free spell rises from where it was cast", () => {
     expect(card.dataset["objectId"]).toBe("card:75");
     // A back (which of his cards it was is never known), with who is casting.
     expect(card.querySelector(".gs-cast-back")).not.toBeNull();
-    expect(card.textContent).toContain("Bob is casting a spell");
+    // Spec 0097, item 8: no caption under the back; who is casting is its label.
+    expect(card.textContent).not.toContain("is casting a spell");
+    expect(card.getAttribute("aria-label")).toBe("Bob is casting a spell");
     expect(card.textContent).not.toContain("Memnite");
     // Spec 0072's Glide: 450 ms, from exactly where the middle back was.
     const [rise] = glidesOf(card);
@@ -491,7 +493,6 @@ function draw(extra: {
       arrivals={new Map()}
       departures={new Map()}
       returns={new Map()}
-      graves={new Map()}
       tileMoves={extra.tileMoves ?? []}
       countered={new Set()}
       stack={extra.stack ?? []}

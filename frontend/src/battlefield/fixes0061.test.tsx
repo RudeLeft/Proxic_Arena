@@ -4,17 +4,13 @@
 // (F-0061-A, C, D, E; B's notice words are the worker's, its showing here).
 
 import { fireEvent, render } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Decision, DecisionOption, SnapshotCard } from "../match";
 import { newNotices, noticeParts } from "../notices";
-import { Board } from "./Board";
 import { DISCARD_KIND, discardCount, discardWords, togglePick } from "./discard";
-import { syntheticBoard } from "./fixture";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { ActionPopup, DiscardAct } from "./GameScreen";
 import { PRIORITY_KIND, clickOn, questionOf, throwsAway } from "./interaction";
-import { layout } from "./layout";
-import { GRAVE_TAG_HOLD_MS, MOVE_MS, fateMs, graveTagFrames } from "./motion";
 import { payLine, payTitle } from "./QuestionWindows";
 
 function decision(kind: string, options: DecisionOption[], over: Partial<Decision> = {}): Decision {
@@ -226,137 +222,10 @@ describe("the hand-size discard needs a pick and Discard (F-0061-C)", () => {
 
 // --- item 4: every card going to a graveyard says why -------------------------------
 
-describe("a card going to a graveyard carries its tag (F-0061-D)", () => {
-  const size = { width: 1920, height: 1080 };
-  const calls: { element: Element; frames: Keyframe[]; options: KeyframeAnimationOptions }[] = [];
-  beforeEach(() => {
-    calls.length = 0;
-    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(size.width);
-    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(size.height);
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        disconnect() {}
-      },
-    );
-    vi.stubGlobal("matchMedia", () => ({ matches: false }));
-    (HTMLElement.prototype as unknown as { animate: unknown }).animate = function (
-      this: Element,
-      frames: Keyframe[],
-      options: KeyframeAnimationOptions,
-    ) {
-      calls.push({ element: this, frames, options });
-      return { onfinish: null, cancel() {} };
-    };
-  });
-  afterEach(() => {
-    delete (HTMLElement.prototype as unknown as { animate?: unknown }).animate;
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-  });
-
-  const start = syntheticBoard(24, 30, 2);
-  const viewer = start.viewerSeat;
-  const out = layout(start, size);
-  const slot = out.slots.find((s) => {
-    const c = start.battlefield.find((card) => card.id === s.ids[0]);
-    return s.ids.length === 1 && c?.kind === "creature" && c.seat === viewer && !s.attached.length;
-  })!;
-  const bears = start.battlefield.find((card) => card.id === slot.ids[0])!;
-  function draw(battlefield = start.battlefield, hand = start.hand, graves = new Map()) {
-    return (
-      <Board
-        battlefield={battlefield}
-        hand={hand}
-        opponentName="Bob"
-        viewerSeat={viewer}
-        artUrl={(art) => art}
-        arrivals={new Map()}
-        departures={new Map()}
-        graves={graves}
-      />
-    );
-  }
-  const tags = (c: HTMLElement) =>
-    [...c.querySelectorAll("[data-grave-tag]")].map((t) => [
-      t.getAttribute("data-grave-tag"),
-      t.textContent,
-    ]);
-
-  // Spec 0066, item 6: the game no longer tags a death on the battlefield
-  // ("Died", "Destroyed", "Sacrificed" are gone; fixes0066 checks none is
-  // drawn). The page still carries any tag the game gives a table card.
-  it("a table card's tag rides on it, after its shatter, to the graveyard", () => {
-    const view = render(draw());
-    calls.length = 0;
-    view.rerender(
-      draw(
-        start.battlefield.filter((c) => c.id !== bears.id),
-        start.hand,
-        new Map([[bears.id, "Countered by Negate"]]),
-      ),
-    );
-    expect(tags(view.container)).toEqual([[bears.id, "Countered by Negate"]]);
-    const tag = view.container.querySelector("[data-grave-tag]")!;
-    expect(tag.classList.contains("bf-return-tag")).toBe(true); // A-14's look
-    const run = calls.find((c) => c.element === tag)!;
-    const ghost = calls.find(
-      (c) => c.element === view.container.querySelector(`[data-ghost-of="${bears.id}"]`),
-    )!;
-    expect(run.options.delay).toBe(ghost.options.delay); // sets off with the card
-    expect(run.options.duration).toBe(fateMs("defeated") + MOVE_MS + GRAVE_TAG_HOLD_MS);
-    expect(run.frames[0]!.opacity).toBe(0);
-    expect(run.frames.at(-1)!.opacity).toBe(0); // gone after its hold
-  });
-
-  it("Discarded: too many cards -- rides on the hand card to the graveyard", () => {
-    const view = render(draw());
-    const card = start.hand[0]!;
-    calls.length = 0;
-    view.rerender(
-      draw(
-        start.battlefield,
-        start.hand.slice(1),
-        new Map([[card.id, "Discarded: too many cards"]]),
-      ),
-    );
-    expect(tags(view.container)).toEqual([[card.id, "Discarded: too many cards"]]);
-  });
-
-  it("no tag without the game's reason (a spell that resolved, an older worker)", () => {
-    const view = render(draw());
-    view.rerender(draw(start.battlefield.filter((c) => c.id !== bears.id)));
-    expect(view.container.querySelector("[data-grave-tag]")).toBeNull();
-  });
-
-  it("the move record's tag reaches the board, only for a graveyard", () => {
-    const snap = {
-      ...(fromSnapshotInput() as object),
-      moves: [
-        {
-          // The mechanism: any tag the game still sends with a graveyard
-          // move rides with its card (spec 0075: cycling sends none it shows).
-          card: "card:62",
-          from: { zone: "hand", seat: 1 },
-          to: { zone: "graveyard", seat: 1 },
-          why: null,
-          said: "Tagged",
-        },
-        {
-          card: "card:7",
-          from: { zone: "battlefield", seat: 1 },
-          to: { zone: "hand", seat: 1 },
-          why: null,
-          said: null,
-        },
-      ],
-    };
-    const data = boardFromSnapshot(snap as never, null);
-    expect([...data.graves]).toEqual([["card:62", "Tagged"]]);
-  });
-
-  it("spec 0074 Amendment 1, spec 0075: a discard, a counter or a cycle carries no tag (the report window explains it)", () => {
+// Spec 0097, item 9 (owner 2026-11-16): the tag was retired -- no page showed
+// it since 0074/0075 -- and the worker no longer sends one. The why stays.
+describe("a card going to a graveyard carries no word tag (F-0061-D, retired by spec 0097)", () => {
+  it("a move's why reaches the board; a stray word tag is not read", () => {
     const snap = {
       ...(fromSnapshotInput() as object),
       moves: [
@@ -367,31 +236,11 @@ describe("a card going to a graveyard carries its tag (F-0061-D)", () => {
           why: "discarded",
           said: "Discarded: too many cards",
         },
-        {
-          card: "card:63",
-          from: { zone: "stack", seat: null },
-          to: { zone: "graveyard", seat: 2 },
-          why: "countered",
-          said: "Countered by Counterspell",
-        },
-        {
-          card: "card:64",
-          from: { zone: "hand", seat: 2 },
-          to: { zone: "graveyard", seat: 2 },
-          why: "cycled",
-          said: "Cycled",
-        },
       ],
     };
     const data = boardFromSnapshot(snap as never, null);
-    expect([...data.graves]).toEqual([]);
-  });
-
-  it("the tag's frames: over the card, then by the pile, held, then gone", () => {
-    const { frames, duration } = graveTagFrames(300, -200, 0, MOVE_MS);
-    expect(duration).toBe(MOVE_MS + GRAVE_TAG_HOLD_MS);
-    expect(String(frames.at(-1)!.transform)).toContain("translate(300px, -200px)");
-    expect(String(frames[0]!.transform)).toContain("translate(0px, 0px)");
+    expect("graves" in data).toBe(false);
+    expect(JSON.stringify(data)).not.toContain("too many cards");
   });
 });
 

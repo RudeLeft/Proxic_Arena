@@ -171,6 +171,23 @@ class WorkerFramesTest {
         assertTrue(!decisionMessage(plain).toString().contains("window"))
     }
 
+    /** Spec 0097 -- why the last answer was refused reaches the asked player, as sent. */
+    @Test
+    fun `a refusal is carried to the asked player`() {
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"9","actedForSeat":1,"authorisedSeat":1,"kind":"declareAttackers",
+                     "stateVersion":"3","options":[],"refused":"That attack breaks a rule."}
+                    """.trimIndent(),
+                ),
+            )!!
+        assertEquals("That attack breaks a rule.", request.refused)
+        assertTrue(decisionMessage(request).toString().contains("\"refused\":\"That attack breaks a rule.\""))
+        assertTrue(!decisionMessage(request.copy(refused = null)).toString().contains("refused"))
+    }
+
     /** Owner 2026-10-22 -- what Cancel backs out of reaches the browser. */
     @Test
     fun `what a question is about reaches the browser`() {

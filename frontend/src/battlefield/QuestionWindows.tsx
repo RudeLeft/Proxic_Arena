@@ -1023,6 +1023,13 @@ export function NameWindow(
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
+      {/* Spec 0097, item 6 -- a name the card won't take, in red, here where
+          the window asks again (never a grey notice). */}
+      {decision.refused && (
+        <p className="gs-win-prompt gs-name-refused" role="alert">
+          {decision.refused}
+        </p>
+      )}
       {props.naming && <p className="gs-win-prompt">Naming {props.naming}…</p>}
       {asked && !results && <p className="gs-win-prompt">Searching…</p>}
       {results && results.total === 0 && <p className="gs-win-prompt">No card is called that.</p>}

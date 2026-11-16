@@ -49,3 +49,10 @@ Built as approved (Q1 A, Q2 A with the window, Q3 B, Q4b F1 with the mark at res
 - **Found filming, fixed.** The grey "0" at a player sat on the life total and read as "life 0": it now rises off the shield's left, as 0077's numbers do. The prevention shield round a card reached into its neighbours: now half the card's height. An indestructible card in a fight flashed red under its dome as if hurt: it is knocked, never red. A phased-out card's square mark was as faded as the card: the card fades, the mark stays solid.
 - **Known, not changed.** The report window (0074/0079's place, above the hand) can cover a creature in the middle of your row, so the pale shield on a fizzled Bolt's target shows only above the window's edge (pro-red clip).
 - **Evidence.** Lab traces replayed into the real page at 1920x1080, normal and quarter speed: `Arrow videos/0080/` (flicker both seats, Flickerwisp exile and return, phasing out with the window and back in from both seats, regeneration shield appearing and breaking, Darksteel Myr against Wrath and a lethal block, Holy Day from both seats, protection from red against Bolt and Pyroclasm; close stills of each mark and of the dome and the prevention shield).
+
+### Amendment (spec 0097, owner 2026-11-16): phasing out the other player's permanents
+
+Phasing out the other player's permanents is no longer told to the player who
+did it (it went to both): Bob only. Phasing out your own (Teferi's
+Protection) was already the other player's alone. See
+`0097-popups-cleanup.md`.

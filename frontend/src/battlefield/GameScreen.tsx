@@ -49,6 +49,7 @@ import {
   type MatchState,
   type NotNowRow,
   type Snapshot,
+  type SnapshotPassing,
   type SnapshotCard,
   type SnapshotPlayer,
   type SnapshotReveal,
@@ -2169,7 +2170,6 @@ export function GameScreen({
             departures={data.departures}
             merges={data.merges}
             returns={data.returns}
-            graves={data.graves}
             tileMoves={data.tileMoves}
             countered={data.countered}
             fizzled={data.fizzled}
@@ -2297,7 +2297,9 @@ export function GameScreen({
                             : null,
                         marked: marked.length,
                         canPass: question.canPass,
-                        notice: game.notice ?? combatNote,
+                        // Spec 0097, item 5 -- an attack or a block the rules
+                        // refused: said here, where the player acted.
+                        notice: game.notice ?? combatNote ?? decision.refused ?? null,
                       }
                     : null
                 }
@@ -3580,6 +3582,17 @@ export function useSteadyAct(
 }
 
 /**
+ * Spec 0097, item 2 -- the viewer's own turn being passed for them, from the
+ * board: only while it is still that turn and theirs. Null otherwise (a
+ * spectator never).
+ */
+export function passingOf(board: Snapshot, mySeat: number): SnapshotPassing | null {
+  const passing = board.passing;
+  if (!passing || board.spectator) return null;
+  return passing.turn === board.turn && board.activeSeat === mySeat ? passing : null;
+}
+
+/**
  * Spec 0061, item 3 (owner's way "a") -- the act button while discarding to
  * hand size: grey until the cards are picked ("Discard 1 · Click a card to
  * pick it"), then red and naming them ("Discard Elvish Warrior"); only it
@@ -3709,9 +3722,14 @@ function Rail({
   const lastAsked = useLastAsked(asking);
   const myPriority = question?.context === "priority";
   const words = passWords(board, mySeat);
+  // Spec 0097, item 2 (owner: A) -- your own turn passing for you, nothing
+  // you can play: the act button says why, during that turn only (a step
+  // moving on to the next turn takes it away before the next board does).
+  const passing =
+    !over && !combat && !cancel && !myPriority && !question ? passingOf(board, mySeat) : null;
   // W-25 — whose move it is, when nothing is asked of you; their corner glows.
   const waiting =
-    !over && !combat && !cancel && !myPriority && !question
+    !over && !combat && !cancel && !myPriority && !question && !passing
       ? waitingLine(board, board.spectator ? -1 : mySeat, asking, lastAsked, resolving)
       : null;
   const act = over?.aside ? (
@@ -3891,6 +3909,14 @@ function Rail({
         </button>
       )}
     </div>
+  ) : passing ? (
+    <div className="gs-waiting gs-passing" role="status" data-passing="true">
+      <Coin emblem="wait" />
+      <span className="gs-act-text">
+        <span className="gs-waiting-word">Passing</span>
+        <span className="gs-waiting-sub">Nothing to play · {passing.why}</span>
+      </span>
+    </div>
   ) : waiting ? (
     <div className="gs-waiting" role="status">
       {/* W-25: whose move, in plain letters, and what they are doing. */}
@@ -3910,7 +3936,11 @@ function Rail({
     </div>
   );
   // Spec 0058, item 5 -- nothing asked of you: the last button, for a moment.
-  const steadyAct = useSteadyAct(act, waiting !== null && !over, placing);
+  // Spec 0097, item 2 -- "Passing" is not held over the turn line: it goes as
+  // the turn does.
+  const wasPassing = useRef(false);
+  const steadyAct = useSteadyAct(act, waiting !== null && !over && !wasPassing.current, placing);
+  wasPassing.current = passing !== null;
   // Spec 0067 -- a spectator's "Switch sides": the plates swap ends with
   // the table, gliding there (P10-R1), each keyed by its seat so it is the
   // same plate that moves.
@@ -5128,9 +5158,17 @@ function useGameMessages(board: Snapshot | null): Notice[] {
   const [shown, setShown] = useState<{ key: string; text: string }[]>([]);
   const seen = useRef(0);
   const seenTotal = useRef<number | null>(null);
+  const primed = useRef(false);
   useEffect(() => {
     if (!board) return;
-    const fresh = newNotices(board, seen.current, seenTotal.current);
+    // Spec 0097, item 1 -- the first board after this screen mounts (a
+    // reload, coming back to the game): what the game kept was told before,
+    // so it counts as seen. It used to replay up to six old notices as new.
+    // Before the first turn (turn 0: the opening hand) nothing has been
+    // shown yet -- an ante card taken out is still told.
+    const fresh =
+      primed.current || board.turn === 0 ? newNotices(board, seen.current, seenTotal.current) : [];
+    primed.current = true;
     seen.current = board.notices.length;
     seenTotal.current = board.noticesTotal ?? null;
     if (fresh.length === 0) return;

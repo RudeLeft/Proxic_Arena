@@ -133,6 +133,12 @@ export interface Decision {
   /** Phase 9 Amendment 13 -- on a payment question, the mana still due ("{1}{R}"). */
   owing?: string | null;
   /**
+   * Spec 0097 -- why the game refused the answer just given, on the question
+   * asked again: an attack or a block a rule forbids (said on the combat
+   * button), a name the card won't take (said in red in the naming window).
+   */
+  refused?: string | null;
+  /**
    * Owner 2026-10-22 — what a question you can back out of is about (the
    * spell being cast, the ability being paid for), so Cancel says what it
    * undoes. Null when the server says nothing.
@@ -831,6 +837,12 @@ export interface Snapshot {
    * says how many of them are new. Absent from an older worker.
    */
   noticesTotal?: number | null;
+  /**
+   * Spec 0097, item 2 -- this viewer's own turn is being passed for them
+   * (nothing they can play): the turn, and why ("2 lands, no land in hand").
+   * The act button says it during that turn only. Absent otherwise.
+   */
+  passing?: SnapshotPassing | null;
   battlefield: SnapshotCard[];
   /** Phase 9 W-17 -- the dice rolled lately (public); absent from an older worker. */
   rolls?: SnapshotRoll[] | undefined;
@@ -1410,6 +1422,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     players: asPlayers(row["players"]),
     notices: asNotices(row["notices"]),
     noticesTotal: asNumber(row["noticesTotal"]),
+    passing: asPassing(row["passing"]),
     battlefield: asCards(row["battlefield"]),
     rolls: asRolls(row["rolls"]),
     payments: asPayments(row["payments"]),
@@ -2030,6 +2043,7 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     unavailable: asReasons(message["unavailable"]),
     notNow: asNotNow(message["notNow"]),
     owing: asString(message["owing"]),
+    refused: asString(message["refused"]),
     about: asAbout(message["about"]),
     looking: asCards(message["looking"]),
     arrange: asArrange(message["arrange"]),
@@ -2271,13 +2285,6 @@ export interface SnapshotMove {
   /** Spec 0080 -- a flicker's exile, on its way back: whose. */
   via?: { zone: string; seat: number | null } | null;
   /**
-   * Spec 0061, item 4 -- the tag the card carries on its way to a graveyard,
-   * in the game's words ("Cycled", "Discarded: too many cards", "Countered by
-   * Counterspell"). Only with a named card; never from the battlefield
-   * (spec 0066, item 6).
-   */
-  said?: string | null;
-  /**
    * Phase 10 A-10 -- the permanent this card merged into ("card:N"): a meld
    * partner going to exile, a mutating card going to the merged zone. Only
    * with a named card.
@@ -2332,7 +2339,6 @@ function asMoves(value: unknown): SnapshotMove[] {
         from: place(e["from"]),
         to: place(e["to"]),
         why: MOVE_WHYS.has(why ?? "") ? (why as SnapshotMove["why"]) : null,
-        said: asString(e["said"]),
         into: asString(e["into"]),
         where: where === "top" || where === "bottom" || where === "shuffled" ? where : null,
         last: asLast(e["last"]),
@@ -2384,6 +2390,20 @@ function asPayments(value: unknown): SnapshotPayment[] {
       },
     ];
   });
+}
+
+/** Spec 0097, item 2 -- see Snapshot.passing. */
+export interface SnapshotPassing {
+  turn: number;
+  why: string;
+}
+
+function asPassing(value: unknown): SnapshotPassing | null {
+  if (typeof value !== "object" || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const turn = asNumber(row["turn"]);
+  const why = asString(row["why"]);
+  return turn === null || why === null ? null : { turn, why };
 }
 
 function asRolls(value: unknown): SnapshotRoll[] {

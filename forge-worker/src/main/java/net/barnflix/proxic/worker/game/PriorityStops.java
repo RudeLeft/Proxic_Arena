@@ -174,27 +174,31 @@ public final class PriorityStops {
     /** Spec 0061, item 2 -- seat to the turn number it is being passed for. */
     private final Map<Integer, Integer> passingTurn = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** Spec 0097, item 2 -- seat to why its turn is being passed ("2 lands, no land in hand"). */
+    private final Map<Integer, String> passingWhy = new java.util.concurrent.ConcurrentHashMap<>();
+
     /**
-     * Spec 0061, item 2 -- this priority question was NOT asked (shouldAsk
-     * said no). If it is the seat's own Main 1, with an empty stack and
-     * nothing it could play, its turn is being passed for it: the words to
-     * tell it, once ("Nothing you can play this turn -- 1 land, no land in
-     * hand. Passing your turn."), and the rest of the turn's steps pause
-     * (pausing). Null otherwise. Words only: nothing here decides anything.
+     * Spec 0061, item 2; spec 0097, item 2 (owner: A, on the act button) --
+     * this priority question was NOT asked (shouldAsk said no). If it is the
+     * seat's own Main 1, with an empty stack and nothing it could play, its
+     * turn is being passed for it: true the first time (the boards then say
+     * so: {@link #passingFor}), and the rest of the turn's steps pause
+     * (pausing). No grey notice any more: the act button says it. Words
+     * only: nothing here decides anything.
      */
-    String passedTurn(int seat, Player player, Game game, boolean controlled,
-                      Map<String, SpellAbility> options, Collection<String> unpayable) {
+    boolean passedTurn(int seat, Player player, Game game, boolean controlled,
+                       Map<String, SpellAbility> options, Collection<String> unpayable) {
         if (!ruled.contains(seat) || controlled || !game.getStack().isEmpty()) {
-            return null;
+            return false;
         }
         PhaseType phase = game.getPhaseHandler().getPhase();
         if (phase != PhaseType.MAIN1 || !player.equals(game.getPhaseHandler().getPlayerTurn())
                 || somethingToDo(options, unpayable, false, phase) > 0) {
-            return null;
+            return false;
         }
         int turn = game.getPhaseHandler().getTurn();
         if (Integer.valueOf(turn).equals(passingTurn.put(seat, turn))) {
-            return null; // said already
+            return false; // said already
         }
         int lands = player.getLandsInPlay().size();
         int inHand = 0;
@@ -203,8 +207,26 @@ public final class PriorityStops {
                 inHand++;
             }
         }
-        return nothingToPlay(lands, inHand, player.getLandsPlayedThisTurn() > 0,
-                CombatUtil.canAttack(player));
+        passingWhy.put(seat, nothingToPlay(lands, inHand, player.getLandsPlayedThisTurn() > 0));
+        return true;
+    }
+
+    /**
+     * Spec 0097, item 2 -- for the seat's own board: its turn is being passed
+     * for it now ({turn, why}), or null. Only during that very turn, the seat
+     * the active player: gone at the turn line, so it can never go stale.
+     */
+    com.google.gson.JsonObject passingFor(int seat, Player player, Game game) {
+        Integer turn = passingTurn.get(seat);
+        String why = passingWhy.get(seat);
+        if (turn == null || why == null || turn != game.getPhaseHandler().getTurn()
+                || !player.equals(game.getPhaseHandler().getPlayerTurn())) {
+            return null;
+        }
+        com.google.gson.JsonObject out = new com.google.gson.JsonObject();
+        out.addProperty("turn", turn);
+        out.addProperty("why", why);
+        return out;
     }
 
     /** Spec 0061, item 2 -- the seat's own turn is being passed for it now: pause at this step. */
@@ -223,17 +245,17 @@ public final class PriorityStops {
     }
 
     /**
-     * Spec 0061, item 2 -- the notice, in the approved words, adapted to the
-     * case: how many lands, and why no land comes from the hand (none there,
-     * or the land for the turn already played). "Passing your turn" stays
-     * true when a creature could attack: that question is still asked.
+     * Spec 0061, item 2; spec 0097, item 2 -- why the turn is passing, for
+     * the act button's "Nothing to play · 2 lands, no land in hand": how many
+     * lands, and why no land comes from the hand (none there, or the land
+     * for the turn already played). A creature that could attack is not
+     * said: that question is still asked, on the same button.
      */
-    static String nothingToPlay(int lands, int landsInHand, boolean landPlayed, boolean canAttack) {
+    static String nothingToPlay(int lands, int landsInHand, boolean landPlayed) {
         String have = lands == 0 ? "No lands" : lands == 1 ? "1 land" : lands + " lands";
         String hand = landsInHand == 0
                 ? "no land in hand"
                 : landPlayed ? "you've already played a land this turn" : "no land you can play";
-        return "Nothing you can play this turn -- " + have + ", " + hand + ". Passing your turn"
-                + (canAttack ? " (you can still attack)." : ".");
+        return have + ", " + hand;
     }
 }

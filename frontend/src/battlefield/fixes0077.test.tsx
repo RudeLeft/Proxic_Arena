@@ -144,7 +144,6 @@ function draw(opts: {
       arrivals={new Map()}
       departures={new Map()}
       returns={new Map()}
-      graves={new Map()}
       tileMoves={[]}
       countered={new Set()}
       stack={opts.stack ?? []}

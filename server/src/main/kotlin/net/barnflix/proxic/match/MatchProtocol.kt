@@ -114,6 +114,12 @@ data class DecisionRequest(
     /** Phase 9 Amendment 13 -- the mana still due, "{1}{R}", on a payment question. */
     val owing: String? = null,
     /**
+     * Spec 0097 -- why the game refused the last answer (an attack a rule
+     * forbids, a name the card won't take), on the question asked again.
+     * Words only; to the same seat the question goes to and nobody else.
+     */
+    val refused: String? = null,
+    /**
      * Owner 2026-10-22 — what a question that can be backed out of is
      * about ("name", "kind": spell/ability/trigger/card, and a spell's
      * "from"), so Cancel can say what it undoes. The asking player's own

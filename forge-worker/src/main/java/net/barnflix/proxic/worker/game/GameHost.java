@@ -507,9 +507,14 @@ public final class GameHost {
      * "Looking at ..." line need repeat them).
      */
     boolean revealed(int seat, java.util.List<Integer> cardIds, String forgeWords, Causes.Told told) {
+        return revealed(seat, cardIds, forgeWords, told, false);
+    }
+
+    /** Spec 0097, item 7 -- [own]: the cards are this seat's own (it revealed them). */
+    boolean revealed(int seat, java.util.List<Integer> cardIds, String forgeWords, Causes.Told told, boolean own) {
         Causes now = causes;
         if (now != null) {
-            now.revealed(seat, cardIds, forgeWords, told);
+            now.revealed(seat, cardIds, forgeWords, told, own);
         }
         // Spec 0064 -- and in that seat's play log, for that seat alone.
         PlayLog log = playLog;
@@ -1125,12 +1130,12 @@ public final class GameHost {
                 // graveyard; exile, cast with flashback): said so. The report
                 // window explains it, so no tag rides on the card.
                 if ("stack".equals(from) && fizzling.remove(card.getId())) {
-                    move = move.withSaid("fizzled", null, card.getName());
+                    move = move.withWhy("fizzled", card.getName());
                 } else if ("graveyard".equals(to)) {
                     // Spec 0061, item 4 -- why it went there, said on its way.
-                    String[] reason = Moves.graveReason(graveFacts(card, from, moved.from(), why));
+                    String reason = Moves.graveReason(graveFacts(card, from, moved.from(), why));
                     if (reason != null) {
-                        move = move.withSaid(reason[0], reason[1], card.getName());
+                        move = move.withWhy(reason, card.getName());
                     }
                 }
                 movesMade.add(move);
@@ -1439,13 +1444,16 @@ public final class GameHost {
             // version counted starts, and the play-or-draw question
             // is asked (with a snapshot) before Forge fires the first
             // one, so the opening board said "game 0".
-            if (event instanceof forge.game.event.GameEventGameRestarted) {
+            if (event instanceof forge.game.event.GameEventGameRestarted restarted) {
                 int now = epoch.incrementAndGet();
                 lifeChanges.clear();
-                // Both players are told, in words: the board they were
-                // looking at is gone, not rearranged.
-                for (Integer seat : seatOf.values()) {
-                    note(seat, "The game restarted. This is game " + now + " of the match.");
+                // Spec 0097, item 4 (owner) -- the other player is told, in a
+                // report window with the card that did it: the board they
+                // were looking at is gone, not rearranged. Whoever restarted
+                // it knows (0086 A4's rule). No grey line.
+                ActionReports reports = actions();
+                if (reports != null) {
+                    reports.restarted(restarted.whoRestarted(), now);
                 }
             }
         }
@@ -1603,6 +1611,12 @@ public final class GameHost {
             addHandCosts(snapshot, player);
             // Spec 0061 -- how many notices this seat was told in all.
             snapshot.addProperty("noticesTotal", noticesTotal(seat));
+            // Spec 0097, item 2 -- this seat's own turn is being passed for
+            // it (nothing it can play): the act button says so, this turn only.
+            com.google.gson.JsonObject passing = stops().passingFor(seat, player, current);
+            if (passing != null) {
+                snapshot.add("passing", passing);
+            }
             snapshot.add("rolls", rollsSoFar());
             snapshot.add("payments", payments.forViewer(seat));
             if (!moved.isEmpty()) {
@@ -1931,6 +1945,23 @@ public final class GameHost {
 
     public java.util.Map<String, java.util.List<String[]>> notNow() {
         return notNow;
+    }
+
+    /**
+     * Spec 0097, items 5 and 6 -- why the game refused the answer just
+     * given (an attack or a block a rule forbids, a name the card won't
+     * accept): said once, on the question asked again, where the player
+     * acted (the combat button's note, the naming window). Never a notice.
+     */
+    private final java.util.Map<Integer, String> refused = new java.util.concurrent.ConcurrentHashMap<>();
+
+    void offerRefused(int seat, String words) {
+        refused.put(seat, words);
+    }
+
+    /** Spec 0097 -- the refusal for [seat]'s question being sent now, once; null when none. */
+    public String takeRefused(int seat) {
+        return refused.remove(seat);
     }
 
     /** Phase 9 Amendment 13 (items 8, 9) -- the mana still due, "{1}{R}", for

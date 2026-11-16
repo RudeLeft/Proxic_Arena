@@ -40,6 +40,27 @@ that no grey notice repeats it (no "Cycled: ...", no "Bob chose white", no
             resolve, or the scenario proves nothing. (Voice of All's colour,
             still a window, is "color" above.)
 
+Spec 0097 (owner 2026-11-16) -- fewer windows for the player who acted,
+grey notices made windows:
+
+  counter   F-0097-E: Alice's Counterspell on Bob's Grizzly Bears: Bob
+            reads "Alice countered your Grizzly Bears."; Alice is sent
+            nothing (it used to tell both)
+  mill      F-0097-E: Alice's Thought Scour on Bob: Bob reads "You milled
+            2 cards."; Alice is sent nothing
+  unpaid    F-0097-C: Bob's Lightning Rift triggers when he cycles with his
+            last land: he can't pay {1}. Both read the fizzle window --
+            Alice "Bob's Lightning Rift did nothing: they couldn't pay {1}.",
+            Bob "Your Lightning Rift did nothing: you couldn't pay {1}." --
+            and no grey "... so it was skipped." line
+  reveal    F-0097-E: Bob's Armored Kincaller enters and he reveals a
+            Dinosaur from his hand (a plain reveal, shown to every player):
+            the reveal tray is Alice's; Bob is shown no tray of his own
+            reveal (Goblin Ringleader's was already the other player's
+            alone: Amendment 13, item 7)
+  (Bounce audiences are unsummon and bounce above: the one it happened to
+  only. A game restart is scripts/check-karn.py.)
+
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
 """
@@ -58,7 +79,8 @@ ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
 BEARS_DEAL = {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3, "top": ["Forest"] * 3}
 # Grey lines the report window replaces (spec 0075): none may reach a page.
-GREY = re.compile(r"^(Cycled|.*\bchose\b|.*\bpicked\b|.*\bthe flip\b|.*\brolled\b|There are no cards in |Looking at )",
+GREY = re.compile(r"^(Cycled|.*\bchose\b|.*\bpicked\b|.*\bthe flip\b|.*\brolled\b|There are no cards in |Looking at "
+                  r"|.*so it was skipped|.*cannot be named)",
                   re.IGNORECASE)
 
 
@@ -121,7 +143,32 @@ SCENARIOS = {
               # Birds on the table since an earlier turn (cast with Jungle Hollow's {G}).
               ready=lambda g: any(not c.get("tapped") and not c.get("sick")
                                   for c in g.mine(2, name="Birds of Paradise")),
-              birds=True, said={}, silent=[1, 2], resolved="Putrid Leech")
+              birds=True, said={}, silent=[1, 2], resolved="Putrid Leech"),
+    # --- spec 0097 ---
+    "counter": S(actor=1, card="Counterspell", lands=2,
+                 decks={2: BEARS, 1: [("Island", 30), ("Counterspell", 30)]},
+                 deal={2: BEARS_DEAL, 1: {"hand": ["Island"] * 4 + ["Counterspell"] * 3, "top": ["Island"] * 3}},
+                 ready=lambda g: any(e.get("name") == "Grizzly Bears"
+                                     for e in (g.state.get(1) or {}).get("stack") or []),
+                 target="Grizzly Bears",
+                 said={2: r"^Alice countered your Grizzly Bears\.$"}, silent=[1]),
+    "mill": S(actor=1, card="Thought Scour", lands=1,
+              decks={2: BEARS, 1: [("Island", 30), ("Thought Scour", 30)]},
+              deal={2: BEARS_DEAL, 1: {"hand": ["Island"] * 4 + ["Thought Scour"] * 3, "top": ["Island"] * 3}},
+              target="Bob", said={2: r"^You milled 2 cards\.$"}, silent=[1]),
+    "unpaid": S(actor=2, card="Lightning Rift", lands=2, rift=True,
+                decks={1: BEARS, 2: [("Mountain", 20), ("Lightning Rift", 10), ("Forgotten Cave", 30)]},
+                deal={1: BEARS_DEAL,
+                      2: {"hand": ["Mountain"] * 2 + ["Lightning Rift"] + ["Forgotten Cave"] * 4,
+                          "top": ["Forgotten Cave"] * 4}},
+                said={1: r"^Bob's Lightning Rift did nothing: they couldn't pay \{1\}\.$",
+                      2: r"^Your Lightning Rift did nothing: you couldn't pay \{1\}\.$"}, silent=[],
+                pictures={1: [("Lightning Rift", "battlefield")], 2: [("Lightning Rift", "battlefield")]}),
+    "reveal": S(actor=2, card="Armored Kincaller", lands=3,
+                decks={1: BEARS, 2: [("Forest", 30), ("Armored Kincaller", 30)]},
+                deal={1: BEARS_DEAL,
+                      2: {"hand": ["Forest"] * 4 + ["Armored Kincaller"] * 3, "top": ["Forest"] * 4}},
+                said={}, silent=[], tray={1: True, 2: False}),
 }
 
 
@@ -137,7 +184,7 @@ def run(name):
     sc = SCENARIOS[name]
     actor, other = sc["actor"], 3 - sc["actor"]
     g = Game(seat1=sc["decks"][1], seat2=sc["decks"][2], jar=JAR, res=RES, trace=trace_of(name), deal=sc["deal"])
-    st = {"turn": None, "rolls": {1: [], 2: []}}
+    st = {"turn": None, "rolls": {1: [], 2: []}, "trays": {1: [], 2: []}}
     seen = {1: [], 2: []}
     ready = sc.get("ready") or (lambda g: True)
 
@@ -148,6 +195,26 @@ def run(name):
                 # The other player plays out: lands, Bears, every Ornithopter.
                 return game.play_land(f) or game.option(f, name="Grizzly Bears", zone="hand", land=False) \
                     or game.option(f, name="Ornithopter", zone="hand", land=False)
+            if sc.get("rift"):
+                # Spec 0097 -- Lightning Rift on the table, then cycle Caves
+                # (declining to pay while he could): the cycle with the last
+                # untapped land leaves the {1} unpayable.
+                lands = game.untapped_lands(actor)
+                if not game.mine(actor, name="Lightning Rift"):
+                    land = game.play_land(f, prefer="Mountain")
+                    if land:
+                        return land
+                    if len(lands) >= 2:
+                        return game.option(f, name="Lightning Rift", zone="hand", land=False)
+                    return None
+                caves = game.mine(actor, "hand", name="Forgotten Cave")
+                if st["turn"] is None and caves and lands:
+                    for o in f["options"]:
+                        if o.get("objectId") == caves[0]["id"] and (o.get("use") or {}).get("kind") == "cycling":
+                            if len(lands) == 1:
+                                st["turn"] = game.turn
+                            return o["actionId"]
+                return None
             if st["turn"] is not None:
                 return game.play_land(f, prefer=sc["decks"][actor][0][0]) if not sc.get("cycle") else None
             land = game.play_land(f, prefer=sc["decks"][actor][0][0])
@@ -174,6 +241,10 @@ def run(name):
                     st["turn"] = game.turn
                     return o
             return None
+        if sc.get("rift") and kind == "confirmPayment" and seat == actor:
+            return None
+        if kind == "chooseCardsToRevealFromHand" and seat == actor and f.get("options"):
+            return f["options"][0]["actionId"]
         if kind in ("declareAttackers", "declareBlockers", "mulliganKeepHand", "chooseStartingPlayer"):
             return DEFAULT
         if kind == "chooseTargetsFor" and seat == actor and sc.get("target"):
@@ -192,6 +263,10 @@ def run(name):
             for r in s.get("rolls") or []:
                 if r not in st["rolls"][seat]:
                     st["rolls"][seat].append(r)
+            # Spec 0097 -- the reveal tray each seat was shown.
+            t = s.get("reveal")
+            if t and t.get("key") not in st["trays"][seat]:
+                st["trays"][seat].append(t.get("key"))
         return st["turn"] is not None and game.turn > st["turn"] + 1
 
     g.run(policy, until=until, max_turn=16)
@@ -244,6 +319,13 @@ def main():
                         problems.append(f"{name}: the card Bob drew was named to seat {seat}: {c.get('name')}")
         if sc.get("resolved") and not g.mine(sc["actor"], name=sc["resolved"]):
             problems.append(f"{name}: {sc['resolved']} never reached the battlefield: nothing was paid for")
+        # Spec 0097, item 7 -- a plain reveal: the other player's tray only.
+        for seat, want in (sc.get("tray") or {}).items():
+            got = bool(st["trays"][seat]) or (want and any(a.get("said") for a in seen[seat]))
+            if got != want:
+                problems.append(f"{name}: seat {seat} should {'' if want else 'not '}be shown the reveal: "
+                                f"trays {st['trays'][seat]}, windows {found[name]['told'][seat]}")
+        found[name]["trays"] = {seat: len(st["trays"][seat]) for seat in (1, 2)}
         if sc.get("rolled") and not all(st["rolls"][seat] for seat in (1, 2)):
             problems.append(f"{name}: the roll should reach both boards (the die tumbles): {st['rolls']}")
         if len(problems) == before:
