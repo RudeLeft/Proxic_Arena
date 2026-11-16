@@ -163,6 +163,7 @@ failing line, until it is fixed or quarantined with a reason.
 | Lab `unreachable` (unknown-card) | "a deck naming a card Forge does not have should be refused before the game", then HUNG at 300 s | local 1.70.0 run, 3 scenarios at once | Open -- passed alone in 15 s |
 | `e2e/admin.spec.ts:47`, `:77` | `toBeVisible` on the Lobby link / Accounts heading, 15 s | local 1.70.0 run | Open -- 10/10 on rerun |
 | `e2e/bench-scenes.spec.ts:86` (wipe) | `wipe: 95th-percentile frame` <= 50 ms; 66.7-83.4 ms locally (line 133) | local 1.70.0 run, every time; CI 2b0a1a8 (wipe, wash, army 50.1; storm 66.7) | Fixed 2026-11-16 -- also failed CI 2b0a1a8 at 50.1 ms (CI frames come in 16.7 ms steps, so 50 sat on the three-frame line); p95 budget 100 ms from CI's numbers |
+| `e2e/match-cast-step-aside.spec.ts` | "no jump at frame 5", 135.6 px between two frames | CI ba1251b | Fixed 2026-11-16 -- the smoothness check ignored the time between frames; a stalled CI frame looked like a jump. Allowance now scales with it |
 
 ## Built: the main build, 2026-10-15 → 2026-10-24
 

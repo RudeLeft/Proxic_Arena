@@ -164,11 +164,16 @@ test("paying with an Elf under the casting card: it steps aside, the Elf taps in
               expect(Math.abs(last.dy), "back down").toBeLessThan(1.5);
               expect(last.aside, "no longer aside").toBeNull();
             }
-            // Smooth: never more than a sixth of the way in one frame.
+            // Smooth: never more than a sixth of the way in one frame. The
+            // allowance grows with the time between frames: a loaded CI
+            // runner can stall a frame for 100 ms+, and a glide covers more
+            // ground then without having jumped (CI ba1251b: 135.6 px).
             for (let i = 1; i < mine.length; i++) {
-              expect(Math.abs(mine[i]!.dy - mine[i - 1]!.dy), `no jump at frame ${i}`).toBeLessThan(
-                120,
-              );
+              const dt = mine[i]!.t - mine[i - 1]!.t;
+              expect(
+                Math.abs(mine[i]!.dy - mine[i - 1]!.dy),
+                `no jump at frame ${i} (${dt.toFixed(1)} ms after the last)`,
+              ).toBeLessThan(120 * Math.max(1, dt / 16.7));
             }
             // The Elf is tapped.
             await expect(
