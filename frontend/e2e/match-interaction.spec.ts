@@ -74,7 +74,9 @@ test("a click with nothing asked selects and does not attack; a cancelled target
         // P7-G: a creature of ours that nothing is asked about.
         const idle = panel
           .locator(
-            '.bf-cards button[data-controller="viewer"][data-object-id]:not([data-zone="viewer:hand"]):not([data-choosable="true"])',
+            // Not one already in a fight: at priority during combat a
+            // creature the bot attacked with is still "attacking" (CI a4e7007).
+            '.bf-cards button[data-controller="viewer"][data-object-id]:not([data-zone="viewer:hand"]):not([data-choosable="true"]):not([data-attacking="true"]):not([data-blocking="true"])',
           )
           .filter({ hasNotText: "Mountain" });
         if ((await idle.count()) > 0) {
