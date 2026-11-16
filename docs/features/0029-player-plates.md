@@ -53,4 +53,12 @@ All taken 2026-10-28 (see the top).
 
 ## Amendments
 
-None.
+### Amendment 1 (spec 0092, owner 2026-11-16): no priority dot
+
+The orange dot under a player's name (who has priority) is gone, for
+players and anyone watching: whose turn it is shows through the plate's
+gold edge and life shield, who must act through the act button and the
+waiting line, and the dot's row made the name hop as priority passed.
+The row under the name now holds only the Belt. The plate's hidden
+summary for screen readers says ", has priority" instead. See
+`docs/features/0092-dot-mana-windows-zs.md`.

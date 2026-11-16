@@ -58,7 +58,9 @@ export default function DevBoardPage() {
   // a sector, in turn, and a Contraption on sprocket 2 for each player.
   const unsets = params.get("unsets") === "1";
   const sectors = ["Alpha", "Beta", "Gamma"];
-  const battlefield = unsets
+  // ?sick=N (spec 0092) -- the first N creatures came in this turn: their z's.
+  const sickN = number(params, "sick", 0, 200);
+  const asDealt = unsets
     ? [
         ...now.board.battlefield.map((card, i) =>
           card.kind === "creature" ? { ...card, sector: sectors[i % 3]! } : card,
@@ -81,6 +83,13 @@ export default function DevBoardPage() {
         })),
       ]
     : now.board.battlefield;
+  let left = sickN;
+  const battlefield =
+    sickN === 0
+      ? asDealt
+      : asDealt.map((card) =>
+          card.kind === "creature" && left-- > 0 ? { ...card, sick: true, keywords: [] } : card,
+        );
 
   // `&combat=1` (spec 0059) -- the board's attackers attack the other player;
   // with `&pw=N` the last N of a side attack the defender's first planeswalker;

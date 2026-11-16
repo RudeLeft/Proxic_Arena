@@ -24,6 +24,16 @@ export const FLY_ANIMATIONS: ReadonlySet<string> = new Set([
   "bf-fly-shadow",
 ]);
 
+/** Spec 0092 -- more sick creatures than this on the table drift their z's in step. */
+export const ZZ_SYNC_AT = 12;
+
+/** Spec 0092 -- a summoning-sick creature's drifting z's. */
+export const ZZ_ANIMATIONS: ReadonlySet<string> = new Set(["bf-zz"]);
+
+/** Spec 0092 -- one loop of the z's (battlefield.css `bf-zz`), and a third of it. */
+export const ZZ_LOOP_MS = 2800;
+export const ZZ_GAP_MS = 933;
+
 /** What a card's movement may change that its glow must follow. */
 const FOLLOWED = ["transform", "translate", "rotate", "scale", "opacity", "filter"];
 
@@ -70,25 +80,35 @@ export function followCards(root: ParentNode | null) {
   }
 }
 
-/** Every hovering flyer's CSS animation under the board. */
-export function flyAnimations(root: Element | null): Animation[] {
+/** Every hovering flyer's CSS animation under the board (or those named). */
+export function flyAnimations(
+  root: Element | null,
+  names: ReadonlySet<string> = FLY_ANIMATIONS,
+): Animation[] {
   if (!root || typeof root.getAnimations !== "function") return [];
   return root
     .getAnimations({ subtree: true })
-    .filter((a) => FLY_ANIMATIONS.has((a as Css).animationName ?? ""));
+    .filter((a) => names.has((a as Css).animationName ?? ""));
 }
 
 /**
  * Spec 0090 (3) -- in step: every flyer's hover runs on the page's own
  * timeline from its zero, so all of them are at the same point of their bob.
+ * Spec 0092 -- the z's too, with ZZ_ANIMATIONS: each letter keeps its own
+ * third of the loop (its delay), so they stay apart.
  */
-export function bobInStep(root: Element | null) {
-  for (const a of flyAnimations(root)) if (a.startTime !== 0) a.startTime = 0;
+export function bobInStep(root: Element | null, names: ReadonlySet<string> = FLY_ANIMATIONS) {
+  for (const a of flyAnimations(root, names)) if (a.startTime !== 0) a.startTime = 0;
 }
 
-/** Spec 0090 (3) -- the tab hidden: no flyer bobs; shown again: they go on. */
+const STILL_WHEN_HIDDEN: ReadonlySet<string> = new Set([...FLY_ANIMATIONS, ...ZZ_ANIMATIONS]);
+
+/**
+ * Spec 0090 (3) -- the tab hidden: no flyer bobs; shown again: they go on.
+ * Spec 0092 -- nor do the z's drift.
+ */
 export function pauseFlyers(root: Element | null, hidden: boolean) {
-  for (const a of flyAnimations(root)) {
+  for (const a of flyAnimations(root, STILL_WHEN_HIDDEN)) {
     if (hidden && a.playState === "running") a.pause();
     else if (!hidden && a.playState === "paused") a.play();
   }

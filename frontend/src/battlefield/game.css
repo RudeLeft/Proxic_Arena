@@ -195,14 +195,6 @@
   line-height: 1.1;
   color: #f1f4f8;
 }
-.gs-priority-dot {
-  flex: none;
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #e0a44a;
-}
 /* The life banner: a button (it can be chosen as a target), its picture
    drawn by ::before so the chosen outline and the target glow are not
    clipped by the shape. Spec 0032: the owner's banner redrawn (canvas L2):

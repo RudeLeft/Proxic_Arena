@@ -32,6 +32,19 @@ Follows the owner's standing rule of spec 0074 Amendment 1: card actions are exp
 
 ## Amendments
 
+### Amendment 1 (spec 0092, owner 2026-11-16): no window for a mana colour
+
+A value Forge announces from a mana ability or a mana spell (the colour a
+gain land, a guildgate, Birds of Paradise or a Signet made: "Bob picked
+{B}.") is never a report window or a grey line for anyone
+(`MatchController.notifyOfValue` returns at once for
+`SpellAbility#isManaAbility` or `ApiType.Mana`); Forge's own client only
+logs it. Every other announced value (a colour named, a creature type, a
+card named, a coin flip) keeps its window. And a CHOICE window shows its
+card "-> place" only when the card really arrived there (a spell, or a
+replacement as it entered, as Voice of All): an ability of a card already
+on the table is no arrival. See `docs/features/0092-dot-mana-windows-zs.md`.
+
 ### As built (2026-11-12)
 
 - **Worker (`ActionReports`, `MatchController`, `GameHost`, `Moves`).** New report kinds: **BOUNCE** (from the table or the stack back to a hand or into a library; told only to the owner of a card the *other* player sent back: "Bob returned your Grizzly Bears to your hand.", "... put your Serra Angel on top of your library.", "... shuffled ... into your library."; a face-up card is shown as it was on the table, under the report's own id), **CYCLE** ("Bob cycled Forgotten Cave and drew a card.", the cycled card shown "→ graveyard", the drawn card never named; only to the other player), **CHOICE** (Forge's `notifyOfValue` values, collected per reader while the effect resolves, or at once outside a resolution; a reader is shown only the other player's choices, but every coin flip, their own too: "Bob chose white." with `marks` [{kind "color"}], "Bob flipped a coin and lost." with [{kind "coin", won}], "Bob named ...", else Forge's own words), and **EMPTY_LOOK** ("You looked at Bob's hand. It has no cards.", for the reader Forge showed the empty zone). The kind comes from the ability (`ApiType`, `isCycling`), never from Forge's words. No grey lines any more for: a cycle (`tellGraveyards`, `Moves.told`/`toldByOwner` removed), a value (a die keeps only `rolls`), a reveal that has a window (`GameHost.revealed` says so; only a reveal with no window is still told in words), or an empty look.

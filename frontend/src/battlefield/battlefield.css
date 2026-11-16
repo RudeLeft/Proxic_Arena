@@ -2067,13 +2067,18 @@ img.bf-makes-pip {
 }
 /* Came in this turn, can't attack yet: little z's drifting up from the
    left (the part a crowded row still shows), outlined to read on any
-   picture. Gone on its controller's next turn; never with haste. */
+   picture. Gone on its controller's next turn; never with haste.
+   Spec 0092 (3): the three z's ride one straight path a third of a loop
+   apart (Board.tsx zzDelay), so they never meet: a third of the path
+   (0.057 x the card's height across) is wider than the widest z. The box
+   sits above the state words (CardBadges STATE_BAND, ZZZ_BAND); the
+   letters' size and outline scale with the card. */
 .bf-zz {
   position: absolute;
   left: calc(var(--card-h) * 0.045);
-  top: calc(var(--card-h) * 0.37);
+  top: calc(var(--card-h) * 0.15);
   width: calc(var(--card-h) * 0.25);
-  height: calc(var(--card-h) * 0.3);
+  height: calc(var(--card-h) * 0.27);
   pointer-events: none;
 }
 .bf-zz i {
@@ -2083,39 +2088,41 @@ img.bf-makes-pip {
   font-family: var(--pa-display, "Barlow Condensed", sans-serif);
   font-style: normal;
   font-weight: 700;
-  font-size: calc(var(--card-h) * 0.13);
+  font-size: calc(var(--card-h) * 0.11);
   line-height: 1;
   color: #eef0ff;
-  -webkit-text-stroke: 1.2px #000;
+  -webkit-text-stroke: calc(var(--card-h) * 0.009) #000;
   paint-order: stroke fill;
   text-shadow:
-    1px 1px 0 #000,
-    -1px 1px 0 #000,
-    1px -1px 0 #000,
-    -1px -1px 0 #000,
-    0 0 6px #4a55c8;
-  animation: bf-zz 2.8s ease-out infinite;
-  animation-delay: inherit;
+    calc(var(--card-h) * 0.006) calc(var(--card-h) * 0.006) 0 #000,
+    calc(var(--card-h) * -0.006) calc(var(--card-h) * 0.006) 0 #000,
+    calc(var(--card-h) * 0.006) calc(var(--card-h) * -0.006) 0 #000,
+    calc(var(--card-h) * -0.006) calc(var(--card-h) * -0.006) 0 #000,
+    0 0 calc(var(--card-h) * 0.03) #4a55c8;
+  /* Linear: the three keep the same distance all the way. */
+  animation: bf-zz 2.8s linear infinite;
 }
+/* The floor: the smallest z is still 0.09 of the card's height (was 0.08). */
 .bf-zz i:nth-child(2) {
   font-size: calc(var(--card-h) * 0.1);
-  animation-delay: -0.9s;
 }
 .bf-zz i:nth-child(3) {
-  font-size: calc(var(--card-h) * 0.08);
-  animation-delay: -1.8s;
+  font-size: calc(var(--card-h) * 0.09);
 }
 @keyframes bf-zz {
   0% {
     opacity: 0;
-    translate: 0 calc(var(--card-h) * 0.04);
+    translate: 0 0;
   }
-  25% {
+  20% {
+    opacity: 1;
+  }
+  80% {
     opacity: 1;
   }
   100% {
     opacity: 0;
-    translate: calc(var(--card-h) * 0.07) calc(var(--card-h) * -0.16);
+    translate: calc(var(--card-h) * 0.17) calc(var(--card-h) * -0.16);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2133,10 +2140,10 @@ img.bf-makes-pip {
     opacity: 1;
   }
   .bf-zz i:nth-child(2) {
-    translate: calc(var(--card-h) * 0.035) calc(var(--card-h) * -0.08);
+    translate: calc(var(--card-h) * 0.057) calc(var(--card-h) * -0.053);
   }
   .bf-zz i:nth-child(3) {
-    translate: calc(var(--card-h) * 0.07) calc(var(--card-h) * -0.15);
+    translate: calc(var(--card-h) * 0.113) calc(var(--card-h) * -0.107);
   }
 }
 

@@ -312,8 +312,8 @@ export const BADGE_ROOF = 0.86;
 export const BADGE_ROOF_PILE = 0.72;
 /** The state word, centred (0.1 tall + borders). */
 export const STATE_BAND: readonly [number, number] = [0.435, 0.565];
-/** The zZz's box (top 0.37, 0.3 tall). */
-export const ZZZ_BAND: readonly [number, number] = [0.33, 0.63];
+/** The zZz's box (top 0.15, 0.27 tall): above the state word (spec 0092). */
+export const ZZZ_BAND: readonly [number, number] = [0.58, 0.85];
 /** A sector or sprocket word (top 38%, 0.1 tall + borders). */
 export const ZONE_BAND: readonly [number, number] = [0.5, 0.635];
 /** Columns, left to right: two always fit inside the card's width. */

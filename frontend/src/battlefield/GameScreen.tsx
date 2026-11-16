@@ -3209,7 +3209,8 @@ function SeatBlock({
   // Said to a screen reader only (owner 2026-10-28: the medallion shows
   // just the name and the Belt; the gold ring on the life says whose turn).
   // Spec 0067 -- a spectator is nobody's "you" or "opponent".
-  const role = `${board.spectator ? "player" : mine ? "you" : "opponent"}${active ? ", active turn" : ""}`;
+  // Spec 0092 -- who has priority is said here only: the dot under the name is gone.
+  const role = `${board.spectator ? "player" : mine ? "you" : "opponent"}${active ? ", active turn" : ""}${priority ? ", has priority" : ""}`;
   const visibleHand = board.otherHands.filter((card) => card.seat === player.seat);
   // Spec 0082 -- a spell prepared on a creature is drawn on it, not in the pile.
   const exiled = exilePile(board).filter((card) => card.seat === player.seat).length;
@@ -3280,17 +3281,12 @@ function SeatBlock({
           {away !== null && <span className="gs-seat-away">Away · {away} min</span>}
           {/* Spec 0047 -- a spectator sees no hand: how many cards it holds. */}
           {board.spectator && <span className="gs-seat-hand">{player.handCount} in hand</span>}
-          {/* Under the name: who may act (the dot) and the Belt, so the
-              name keeps the whole row. */}
-          {(priority || holdsBelt(lobby, seatedAs)) && (
+          {/* Under the name: the Belt, so the name keeps the whole row.
+              Spec 0092 -- no priority dot: the name never moves as priority
+              passes (the summary above says who has it). */}
+          {holdsBelt(lobby, seatedAs) && (
             <span className="gs-seat-marks">
-              {priority && (
-                <>
-                  <span aria-hidden="true" className="gs-priority-dot" />
-                  <span className="pa-visually-hidden">has priority</span>
-                </>
-              )}
-              {holdsBelt(lobby, seatedAs) && <BeltMark />}
+              <BeltMark />
             </span>
           )}
         </span>

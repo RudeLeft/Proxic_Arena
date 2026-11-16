@@ -300,7 +300,10 @@ describe("spec 0076 -- counters and the Ring-bearer as pictures", () => {
     });
     const s = cardOf(draw([sick]), sick.id);
     expect(s.querySelector(".bf-zz")).not.toBeNull();
-    expect(clear(s, [STATE_BAND, ZZZ_BAND], BADGE_FLOOR, BADGE_ROOF)).toHaveLength(3);
+    // Spec 0092: the zZz's box now sits above the state word, so with a
+    // state word one badge fits in each column (was two in the first); the
+    // third goes in "··· N", still covering nothing.
+    expect(clear(s, [STATE_BAND, ZZZ_BAND], BADGE_FLOOR, BADGE_ROOF)).toHaveLength(2);
     // A pile: below its x N; a land: above its mana symbols.
     clear(lead, [], BADGE_FLOOR, BADGE_ROOF_PILE);
     clear(land, [], BADGE_FLOOR_MANA, BADGE_ROOF);

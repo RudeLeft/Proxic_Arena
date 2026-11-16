@@ -6006,6 +6006,11 @@ public final class MatchController extends GeneratedControllerBase {
         // Nothing here has one to cancel.
     }
 
+    /** Spec 0092 -- a value Forge announces from a mana ability or a mana spell. */
+    static boolean isManaValue(forge.game.spellability.SpellAbility sa) {
+        return sa != null && (sa.isManaAbility() || sa.getApi() == forge.game.ability.ApiType.Mana);
+    }
+
     /**
      * Forge reporting a value it chose or computed.
      *
@@ -6025,6 +6030,13 @@ public final class MatchController extends GeneratedControllerBase {
     public void notifyOfValue(
             forge.game.spellability.SpellAbility sa, forge.game.GameObject realtimeTarget,
             String value) {
+        // Spec 0092 (owner 2026-11-16) -- the colour a mana ability or mana
+        // spell made ("Bob picked {B}." for a gain land, Birds, a Signet) is
+        // never a window or a notice for anyone: Forge's own client only logs
+        // it. Real choices (Voice of All's colour, a flip, a name) still are.
+        if (isManaValue(sa)) {
+            return;
+        }
         // Forge's own wording (forge-game's MessageUtil, which its
         // human controller uses): "You win the flip." / "Alice loses
         // the flip." rather than "Krark, the Thumbless: lose", which

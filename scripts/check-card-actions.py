@@ -32,6 +32,13 @@ that no grey notice repeats it (no "Cycled: ...", no "Bob chose white", no
             for anyone; the look is a report window for both -- Alice "Bob
             looked at your hand. It has no cards.", Bob (there was nothing
             to choose) "You looked at Alice's hand. It has no cards."
+  mana      F-0092-B (spec 0092): Bob casts Birds of Paradise with Jungle
+            Hollow ({B} or {G}), then Putrid Leech ({B}{G}) with two of
+            Jungle Hollow, Dismal Backwater ({U} or {B}) and the Birds (any
+            colour). Forge announces each colour to Alice; none is a window
+            for anyone, nor a grey line ("Bob picked {B}"). The Leech must
+            resolve, or the scenario proves nothing. (Voice of All's colour,
+            still a window, is "color" above.)
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
@@ -105,6 +112,16 @@ SCENARIOS = {
                 target="Alice", empty_look=True,
                 said={2: r"^You looked at Alice's hand\. It has no cards\.$",
                       1: r"^Bob looked at your hand\. It has no cards\.$"}, silent=[]),
+    "mana": S(actor=2, card="Putrid Leech", lands=1,
+              decks={1: BEARS, 2: [("Jungle Hollow", 15), ("Dismal Backwater", 15), ("Birds of Paradise", 15),
+                                   ("Putrid Leech", 15)]},
+              deal={1: BEARS_DEAL,
+                    2: {"hand": ["Jungle Hollow", "Dismal Backwater", "Birds of Paradise"] + ["Putrid Leech"] * 4,
+                        "top": ["Dismal Backwater"] * 3}},
+              # Birds on the table since an earlier turn (cast with Jungle Hollow's {G}).
+              ready=lambda g: any(not c.get("tapped") and not c.get("sick")
+                                  for c in g.mine(2, name="Birds of Paradise")),
+              birds=True, said={}, silent=[1, 2], resolved="Putrid Leech")
 }
 
 
@@ -136,6 +153,10 @@ def run(name):
             land = game.play_land(f, prefer=sc["decks"][actor][0][0])
             if land and not sc.get("cycle"):
                 return land
+            if sc.get("birds") and not game.mine(actor, name="Birds of Paradise"):
+                birds = game.option(f, name="Birds of Paradise", zone="hand", land=False)
+                if birds:
+                    return birds
             if sc.get("cycle"):
                 if land and game.state.get(actor, {}).get("activeSeat") == actor \
                         and not game.untapped_lands(actor):
@@ -221,6 +242,8 @@ def main():
                     if c.get("seat") == 3 - seat and c.get("to") == "hand" and seat != sc["actor"] \
                             and c.get("name") and name == "cycle":
                         problems.append(f"{name}: the card Bob drew was named to seat {seat}: {c.get('name')}")
+        if sc.get("resolved") and not g.mine(sc["actor"], name=sc["resolved"]):
+            problems.append(f"{name}: {sc['resolved']} never reached the battlefield: nothing was paid for")
         if sc.get("rolled") and not all(st["rolls"][seat] for seat in (1, 2)):
             problems.append(f"{name}: the roll should reach both boards (the die tumbles): {st['rolls']}")
         if len(problems) == before:

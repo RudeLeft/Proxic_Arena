@@ -642,6 +642,12 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/landing-deck.zip" protocol/fixtures/landing-deck
 
+      # Spec 0092 -- every land a two-colour gain land: a colour tapped for
+      # is never a report window for the other player.
+      - name: Build the mana colours deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/mana-colours-deck.zip" protocol/fixtures/mana-colours-deck
+
       - run: npm ci
         working-directory: frontend
       # The browser itself is cached by Playwright's version; its system

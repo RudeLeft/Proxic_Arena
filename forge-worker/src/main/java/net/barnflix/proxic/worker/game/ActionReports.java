@@ -793,6 +793,11 @@ final class ActionReports {
         }
     }
 
+    /** Spec 0092 -- did this ability bring its card somewhere: a spell, or a replacement as it entered? */
+    static boolean arrives(SpellAbility sa) {
+        return sa != null && (sa.isSpell() || sa.isReplacementAbility());
+    }
+
     /** Spec 0075 -- a report made of choices and flips alone, shown with the card that made them. */
     private Report choiceReport(SpellAbility sa) {
         Card host = sa.getHostCard();
@@ -805,7 +810,10 @@ final class ActionReports {
             if (publicZone(place)) {
                 shown.add(new Move(host.getId(), host.getOwner(), ZoneType.Stack, host.getZone().getZoneType()));
                 // A spell still resolving is on its way off the stack: no "-> stack" under it.
-                if (!"stack".equals(place)) {
+                // Spec 0092 -- and only a card that really arrived gets "-> place": a
+                // spell, or a replacement as it entered (Voice of All). An ability of a
+                // card already on the table (a land, a creature) is not an arrival.
+                if (arrives(sa) && !"stack".equals(place)) {
                     where.put(host.getId(), place);
                 }
             }

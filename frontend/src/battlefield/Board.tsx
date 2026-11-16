@@ -300,7 +300,15 @@ import {
 } from "./markMotion";
 import { RoomFace } from "./RoomDoors";
 import { Breath } from "./Breath";
-import { FLY_SYNC_AT, bobInStep, followCards, pauseFlyers } from "./breathMotion";
+import {
+  FLY_SYNC_AT,
+  ZZ_ANIMATIONS,
+  ZZ_GAP_MS,
+  ZZ_SYNC_AT,
+  bobInStep,
+  followCards,
+  pauseFlyers,
+} from "./breathMotion";
 import { Sight } from "./Sight";
 import {
   ALIVE_BACK_MS,
@@ -989,6 +997,14 @@ function hoverOffset(id: string): number {
  */
 function hoverDelay(id: string, inStep: boolean): CSSProperties {
   return inStep ? { animationDelay: "0ms" } : motionDelay(id);
+}
+/**
+ * Spec 0092 (3) -- the k-th z of a sick creature: its card's own point in
+ * the loop (none when in step, above ZZ_SYNC_AT), and k thirds of the loop
+ * on, so the three z's never meet.
+ */
+function zzDelay(id: string, k: number, inStep: boolean): CSSProperties {
+  return { animationDelay: `-${(inStep ? 0 : hoverOffset(id)) + k * ZZ_GAP_MS}ms` };
 }
 /**
  * Spec 0090 (2) -- a card's glow layer: a flyer's hovers with it (the same
@@ -2568,6 +2584,11 @@ export function Board({
   const inStepRef = useRef(false);
   const inStep = flyingNow > FLY_SYNC_AT || (inStepRef.current && flyingNow > 0);
   inStepRef.current = inStep;
+  // Spec 0092 (3) -- and more than ZZ_SYNC_AT sick creatures drift their z's in step.
+  const sickNow = battlefield.filter(sick).length;
+  const zzStepRef = useRef(false);
+  const zzStep = sickNow > ZZ_SYNC_AT || (zzStepRef.current && sickNow > 0);
+  zzStepRef.current = zzStep;
 
   const items = useMemo<Item[]>(() => {
     if (!result) return [];
@@ -2866,10 +2887,15 @@ export function Board({
               )}
               {/* Owner 2026-11-01 (item 3) -- came in this turn: drifting zZz. */}
               {sick(lead) && (
-                <span className="bf-zz" aria-hidden="true" style={motionDelay(lead.id)}>
-                  <i>z</i>
-                  <i>z</i>
-                  <i>z</i>
+                // Spec 0092 (3) -- a third of a loop apart, so they never stack.
+                <span
+                  className="bf-zz"
+                  aria-hidden="true"
+                  data-in-step={zzStep ? "true" : undefined}
+                >
+                  <i style={zzDelay(lead.id, 0, zzStep)}>z</i>
+                  <i style={zzDelay(lead.id, 1, zzStep)}>z</i>
+                  <i style={zzDelay(lead.id, 2, zzStep)}>z</i>
                 </span>
               )}
               {lead.sector && <span className="bf-zone">{lead.sector}</span>}
@@ -3155,6 +3181,7 @@ export function Board({
     goneMarks,
     dropGoneMark,
     inStep,
+    zzStep,
   ]);
   // A card selected to attack or block draws over its neighbours (Z_MARKED).
   const zOf = (item: Item) =>
@@ -7721,7 +7748,10 @@ export function Board({
     const root = ref.current;
     followCards(root);
     if (typeof document !== "undefined" && document.hidden) pauseFlyers(root, true);
-    else if (inStep) bobInStep(root);
+    else {
+      if (inStep) bobInStep(root);
+      if (zzStep) bobInStep(root, ZZ_ANIMATIONS);
+    }
     if (typeof requestAnimationFrame !== "function") return undefined;
     const frame = requestAnimationFrame(() => followCards(ref.current));
     return () => cancelAnimationFrame(frame);
@@ -7730,6 +7760,7 @@ export function Board({
     const seen = () => {
       pauseFlyers(ref.current, document.hidden);
       if (!document.hidden && inStepRef.current) bobInStep(ref.current);
+      if (!document.hidden && zzStepRef.current) bobInStep(ref.current, ZZ_ANIMATIONS);
     };
     document.addEventListener("visibilitychange", seen);
     return () => document.removeEventListener("visibilitychange", seen);
