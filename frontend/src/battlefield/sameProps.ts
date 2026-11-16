@@ -28,6 +28,14 @@ function same(a: unknown, b: unknown, depth: number): boolean {
   return true;
 }
 
+/**
+ * Spec 0096 -- two keys of a drawing the same, by contents (as above, a level
+ * deeper: a key holds the card, which holds its counters).
+ */
+export function sameContent(a: unknown, b: unknown): boolean {
+  return same(a, b, 6);
+}
+
 /** React.memo's compare: every prop the same, by contents (see above). */
 export function sameProps<P extends object>(a: Readonly<P>, b: Readonly<P>): boolean {
   return same(a, b, 5);

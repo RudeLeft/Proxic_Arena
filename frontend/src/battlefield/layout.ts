@@ -211,6 +211,13 @@ export interface LayoutInput {
    * tidy-up). Absent for a side: its row is kept as it was.
    */
   landTurns?: Partial<Record<Side, number>> | undefined;
+  /**
+   * Spec 0096 -- the layout before this one: a place whose members, tabs and
+   * box are unchanged keeps that layout's Slot and Box objects (and a line
+   * its Line), so what the board drew from them can be kept as it is.
+   * Passed in, never stored here; it changes no number.
+   */
+  previousLayout?: Pick<Layout, "slots" | "boxes" | "lines"> | null | undefined;
 }
 
 /**
@@ -1479,5 +1486,72 @@ export function layout(input: LayoutInput, viewport: Viewport): Layout {
     });
   });
 
+  if (input.previousLayout) keepUnchanged(input.previousLayout, slots, boxes, lines);
   return { geometry: g, boxes, slots, rowOf, lines, scales, sharing, overcrowded, lands };
+}
+
+function sameBox(a: Box, b: Box): boolean {
+  return (
+    a.x === b.x &&
+    a.y === b.y &&
+    a.w === b.w &&
+    a.h === b.h &&
+    a.scale === b.scale &&
+    a.rotation === b.rotation &&
+    a.z === b.z
+  );
+}
+
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i]);
+}
+
+/**
+ * Spec 0096 -- every place, box and line equal to the layout before keeps
+ * that layout's object (in place, in the arrays and map just built), so a
+ * card nothing happened to is the same Slot and Box as last time.
+ */
+function keepUnchanged(
+  before: Pick<Layout, "slots" | "boxes" | "lines">,
+  slots: Slot[],
+  boxes: Map<string, Box>,
+  lines: Line[],
+): void {
+  const wasSlot = new Map(before.slots.map((slot) => [slot.ids[0]!, slot]));
+  slots.forEach((slot, i) => {
+    const was = wasSlot.get(slot.ids[0]!);
+    if (
+      !was ||
+      was.row !== slot.row ||
+      was.faces !== slot.faces ||
+      !sameIds(was.ids, slot.ids) ||
+      !sameIds(was.attached, slot.attached) ||
+      !sameBox(was.box, slot.box)
+    )
+      return;
+    slots[i] = was;
+    for (const id of slot.ids) boxes.set(id, was.box);
+    for (const id of slot.attached) boxes.set(id, was.box);
+  });
+  // The hands' boxes, one by one (a slot's are kept above).
+  for (const [id, box] of boxes) {
+    const was = before.boxes.get(id);
+    if (was && was !== box && sameBox(was, box)) boxes.set(id, was);
+  }
+  const wasLine = new Map(before.lines.map((line) => [line.id, line]));
+  lines.forEach((line, i) => {
+    const was = wasLine.get(line.id);
+    if (
+      was &&
+      was.side === line.side &&
+      was.kind === line.kind &&
+      was.scale === line.scale &&
+      Boolean(was.shared) === Boolean(line.shared) &&
+      was.rect.x === line.rect.x &&
+      was.rect.y === line.rect.y &&
+      was.rect.w === line.rect.w &&
+      was.rect.h === line.rect.h
+    )
+      lines[i] = was;
+  });
 }

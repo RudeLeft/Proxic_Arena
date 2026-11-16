@@ -70,7 +70,7 @@ import {
   targetWords,
 } from "../matchText";
 import { Board, CardFace, counterWords, figure, lookOf, shortType } from "./Board";
-import { boardFromSnapshot, exilePile } from "./fromSnapshot";
+import { boardFromSnapshot, exilePile, keepCards, type BoardData } from "./fromSnapshot";
 import { fanCards, pileGlows } from "./pileFan";
 import { preparedMarkBox } from "./copies";
 import { clickOn, questionOf, type Question } from "./interaction";
@@ -410,10 +410,14 @@ export function GameScreen({
     const turned = frames.current.current !== null && frames.current.current.seat !== board.seat;
     frames.current = { current: board, previous: turned ? null : frames.current.current };
   }
-  const data = useMemo(
-    () => (board ? boardFromSnapshot(board, frames.current.previous) : null),
-    [board],
-  );
+  // Spec 0096 -- the cards nothing happened to stay the same objects (keepCards).
+  const dataBefore = useRef<BoardData | null>(null);
+  const data = useMemo(() => {
+    if (!board) return null;
+    const next = keepCards(boardFromSnapshot(board, frames.current.previous), dataBefore.current);
+    dataBefore.current = next;
+    return next;
+  }, [board]);
   // Spec 0087 -- every card in a graveyard or an exile now (a card that
   // leaves its fan but stays there sinks back into its tile).
   const pileCards = useMemo(

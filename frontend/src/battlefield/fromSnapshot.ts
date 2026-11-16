@@ -12,6 +12,7 @@
 // direction, never a wrong board, because the board is the snapshot.
 
 import type { LifeChanges, Snapshot, SnapshotCard } from "../match";
+import { sameContent } from "./sameProps";
 import { sizeChanges, type SizeChanges } from "./sizeTicks";
 import type {
   BoardCard,
@@ -893,4 +894,38 @@ function sizesOf(snapshot: Snapshot, previous: Snapshot | null): SizeChanges | n
   });
   if (changes.length === 0 && last.size === 0) return null;
   return { key: `${snapshot.gameEpoch}:${snapshot.stateRevision}`, changes, last };
+}
+
+/**
+ * Spec 0096 -- the cards nothing happened to keep the objects of the board
+ * before: each battlefield card, hand card and card in the other hand equal
+ * (by contents) to the one with its id last time is that one, and a list all
+ * of whose cards are kept, in the same order, is the list before. So the
+ * board's layout and drawings, which look at these objects, can tell at a
+ * glance that a card did not change; so is an unchanged combat. Every value
+ * is the same as `next`'s.
+ */
+export function keepCards(next: BoardData, before: BoardData | null): BoardData {
+  if (!before) return next;
+  const battlefield = keptList(next.battlefield, before.battlefield);
+  const hand = keptList(next.hand, before.hand);
+  const opponentHand = keptList(next.opponentHand, before.opponentHand);
+  // Who attacks and blocks, the same as before: the same object (layout's input).
+  const combat =
+    next.combat && before.combat && sameContent(next.combat, before.combat)
+      ? before.combat
+      : next.combat;
+  return { ...next, battlefield, hand, opponentHand, combat };
+}
+
+function keptList<C extends { id: string }>(next: C[], before: C[]): C[] {
+  const was = new Map(before.map((card) => [card.id, card]));
+  let changed = next.length !== before.length;
+  const out = next.map((card, i) => {
+    const old = was.get(card.id);
+    const kept = old !== undefined && sameContent(old, card) ? old : card;
+    if (kept !== before[i]) changed = true;
+    return kept;
+  });
+  return changed ? out : before;
 }
