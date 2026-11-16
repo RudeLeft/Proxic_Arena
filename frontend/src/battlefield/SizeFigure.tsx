@@ -9,7 +9,8 @@
 // and its looks run on the card: the pop, the soft edge, the small shake,
 // the rising number -- each a Web Animation, so a click hurries it (A-00).
 
-import { useLayoutEffect, useRef } from "react";
+import { sameProps } from "./sameProps";
+import { memo, useLayoutEffect, useRef } from "react";
 import {
   BADGE_LEAD_MS,
   FLOAT_MS,
@@ -154,7 +155,7 @@ export function runSizeLooks(span: HTMLElement, playing: Playing): void {
 }
 
 /** The number, with its tints; it switches when its change plays. */
-export function SizeFigure({ figure }: { figure: Figure }) {
+function SizeFigureView({ figure }: { figure: Figure }) {
   const ref = useRef<HTMLSpanElement>(null);
   const { size, tint } = useShownSize(figure.card, figure.size);
   const playing = playingOf(figure.card);
@@ -235,3 +236,5 @@ export function SizeFigure({ figure }: { figure: Figure }) {
     </span>
   );
 }
+
+export const SizeFigure = memo(SizeFigureView, sameProps);

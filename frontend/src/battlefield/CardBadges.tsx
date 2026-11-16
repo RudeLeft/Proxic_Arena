@@ -8,7 +8,8 @@
 // says spec 0045's words; the close-up keeps them too. The pictures and
 // colours are the canvas's, exactly; colour always comes with a picture.
 
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { sameProps } from "./sameProps";
+import { memo, useLayoutEffect, useRef, type ReactNode } from "react";
 import { counterWords } from "./Board";
 import { cardMarks, MarkIcon, type CardMark, type Marked } from "./marks";
 import {
@@ -390,7 +391,7 @@ export const MARK_OUT_MS = 350;
  * A permanent's badges, or nothing. Loyalty is not one: it is the
  * planeswalker's number in the bottom bar (`figure`), unchanged.
  */
-export function CardBadges({
+function CardBadgesView({
   card,
   pile,
   room,
@@ -678,6 +679,8 @@ export function CardBadges({
     </span>
   );
 }
+
+export const CardBadges = memo(CardBadgesView, sameProps);
 
 /** Spec 0085 -- each mark's leaving plays once (its key is the round's). */
 const goneStarted = new Set<string>();

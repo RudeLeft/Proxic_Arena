@@ -17,7 +17,7 @@
 // come. The looks (pop, glow, shake, rising number, badge growing
 // in) are each a Web Animation on the card, started from the same moment.
 
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { LIFE_CHANGE_MAX_MS, LIFE_POINT_MS } from "./lifeTicks";
 
 /** What a card's number says: power, the toughness it has left, loyalty. */
@@ -335,13 +335,29 @@ export function playingOf(card: string): Playing[] {
 }
 
 /** Redraw on any clock starting or ending, and each frame while [card] has points to come. */
+/** Whether a clock now has anything for [card]. */
+function holdsCard(card: string): boolean {
+  for (const run of runs.values())
+    if (run.steps.some((s) => s.card === card) || run.played.some((p) => p.change.card === card))
+      return true;
+  return false;
+}
+
 function useSizeClock(card: string): number {
   const [n, redraw] = useState(0);
+  // Spec 0095 -- told of a clock, a number redraws only if a clock holds its
+  // card, or held it when it was last drawn: not every card on the table.
+  const held = useRef(false);
+  const of = useRef(card);
+  of.current = card;
+  held.current = holdsCard(card);
   // Layout, not passive: the board starts its clocks in a layout effect, and
   // a number told then redraws before the frame is painted -- the new size
   // never shows ahead of its change.
   useLayoutEffect(() => {
-    const listener = () => redraw((x) => x + 1);
+    const listener = () => {
+      if (held.current || holdsCard(of.current)) redraw((x) => x + 1);
+    };
     listeners.add(listener);
     return () => {
       listeners.delete(listener);

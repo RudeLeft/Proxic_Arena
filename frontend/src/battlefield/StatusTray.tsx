@@ -24,7 +24,9 @@
 // picture now (playerMarks.tsx FaceMarks), and still in the list. A mana
 // chip's count steps up as each ball lands (11 A, poolHeld.ts).
 
+import { sameProps } from "./sameProps";
 import {
+  memo,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -125,7 +127,7 @@ const watchOpen = (watcher: () => void) => {
 };
 
 /** Spec 0038 + W-21 -- a player's status tray and its list. */
-export function StatusTray({
+function StatusTrayView({
   player,
   side,
   spectating = false,
@@ -390,6 +392,8 @@ export function StatusTray({
     </div>
   );
 }
+
+export const StatusTray = memo(StatusTrayView, sameProps);
 
 /**
  * Spec 0086 (8) -- items that left the tray (a dungeon completed) are drawn

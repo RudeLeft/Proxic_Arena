@@ -14,7 +14,8 @@
 // as the badge swells a little; at zero the badge shrinks away. A click
 // hurries it (A-00); with reduce motion the count just shows (none: gone).
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { sameProps } from "./sameProps";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Snapshot } from "../match";
 import { hurry } from "./motion";
 
@@ -83,7 +84,7 @@ function reducedMotion(): boolean {
 }
 
 /** The badge, or nothing at no poison. [pulses] counts the counters' arrivals: each new one pulses. */
-export function PoisonBadge({
+function PoisonBadgeView({
   count,
   pulses,
   closed = false,
@@ -217,3 +218,5 @@ export function PoisonBadge({
     </span>
   );
 }
+
+export const PoisonBadge = memo(PoisonBadgeView, sameProps);

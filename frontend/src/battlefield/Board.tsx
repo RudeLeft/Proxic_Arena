@@ -27,7 +27,9 @@
 // burst and the amount. All of it is drawn from data Forge supplies (§7.61
 // B2-B4, B13, and the damage wave's fights); none of it is inferred here.
 
+import { sameProps } from "./sameProps";
 import {
+  memo,
   Fragment,
   useCallback,
   useEffect,
@@ -306,7 +308,7 @@ import {
   ZZ_GAP_MS,
   ZZ_SYNC_AT,
   bobInStep,
-  followCards,
+  followStarted,
   pauseFlyers,
 } from "./breathMotion";
 import { Sight } from "./Sight";
@@ -863,7 +865,7 @@ export function figure(card: {
   return loyalty ? String(loyalty.count) : "";
 }
 
-export function CardFace({
+function CardFaceView({
   name,
   look,
   type,
@@ -944,6 +946,8 @@ export function CardFace({
     </>
   );
 }
+
+export const CardFace = memo(CardFaceView, sameProps);
 
 /**
  * Spec 0089 (Q6 A) -- a stack card's name in its top bar: 5% smaller at a time
@@ -4412,8 +4416,15 @@ export function Board({
       else lead = Math.max(lead, RESOLVE_MS);
     }
     const start = holdLeft() + lead;
-    const rootBox = root.getBoundingClientRect();
-    const k = root.offsetWidth > 0 ? rootBox.width / root.offsetWidth || 1 : 1;
+    // Spec 0095: the board is measured only when a mark rises (not on every board).
+    let scale: number | null = null;
+    const kOf = () => {
+      if (scale === null) {
+        const rootBox = root.getBoundingClientRect();
+        scale = root.offsetWidth > 0 ? rootBox.width / root.offsetWidth || 1 : 1;
+      }
+      return scale;
+    };
     const risers: FightMark[] = [];
     const gone = new Map<string, GoneMark[]>();
     const drawnFor = new Set<string>();
@@ -4439,6 +4450,7 @@ export function Board({
       if (added.length === 0 || !element) continue;
       const box = at.box;
       const h = box.h;
+      const k = kOf();
       const itemBox = element.getBoundingClientRect();
       const delay = start + beat * RISER_BEAT_MS;
       beat++;
@@ -6003,6 +6015,28 @@ export function Board({
       // per board: pointing at a card re-runs this.
       const flickering =
         survive && survive.key !== playedFlickers.current ? survive.flickers : undefined;
+      // Spec 0095 -- what each card is playing, read once for the whole
+      // table (the first time a card has to glide) instead of once per card
+      // between the animations this loop starts: asking each card in turn
+      // made the browser work out every style again for each.
+      let playing: Map<Element, Animation[]> | null = null;
+      const animationsOf = (element: HTMLElement): Animation[] => {
+        if (playing === null) {
+          playing = new Map();
+          const root = ref.current;
+          if (root && typeof root.getAnimations === "function")
+            for (const a of root.getAnimations({ subtree: true })) {
+              const effect = a.effect as KeyframeEffect | null;
+              const target = effect?.target;
+              if (!target || effect.pseudoElement) continue;
+              const list = playing.get(target);
+              if (list) list.push(a);
+              else playing.set(target, [a]);
+            }
+          else return element.getAnimations?.() ?? [];
+        }
+        return playing.get(element) ?? [];
+      };
       for (const item of items) {
         if (!before.mounted.has(item.id)) continue;
         const was = wasAt(item.id);
@@ -6201,9 +6235,9 @@ export function Board({
         const element = elements.current.get(item.id);
         if (!element || typeof element.animate !== "function") continue;
         // Still gliding from the last board: set off from where it is now.
-        const moving =
-          element.getAnimations?.().some((a) => a.playState === "running" && a.id !== "fight") ??
-          false;
+        const moving = animationsOf(element).some(
+          (a) => a.playState === "running" && a.id !== "fight",
+        );
         // Spec 0072: a back closing the gap sets off from the place of the
         // back after it (the CSS transition the new place just started says
         // nothing about that).
@@ -6212,7 +6246,7 @@ export function Board({
         // nothing about that).
         const start = moving && was === before.at.get(item.id) ? placedNow(element) : null;
         // A fight's moves are on its card, not its place: they play on.
-        if (moving) for (const a of element.getAnimations()) if (a.id !== "fight") a.cancel();
+        if (moving) for (const a of animationsOf(element)) if (a.id !== "fight") a.cancel();
         // A-14: off the table and back into a hand it can be seen in (yours,
         // or a card shown to you): the same card lifts and glides into its
         // place there -- a card of that hand, no pop.
@@ -7744,16 +7778,18 @@ export function Board({
   // started its animations: each glow layer plays its card's movements; the
   // flyers bob in step (more than FLY_SYNC_AT), or not at all while the tab
   // is hidden. Once more on the next frame, for anything started late.
+  // Spec 0095: only the cards that started moving (followStarted); the
+  // next frame's look does nothing when nothing started since.
   useLayoutEffect(() => {
     const root = ref.current;
-    followCards(root);
+    followStarted(root);
     if (typeof document !== "undefined" && document.hidden) pauseFlyers(root, true);
     else {
       if (inStep) bobInStep(root);
       if (zzStep) bobInStep(root, ZZ_ANIMATIONS);
     }
     if (typeof requestAnimationFrame !== "function") return undefined;
-    const frame = requestAnimationFrame(() => followCards(ref.current));
+    const frame = requestAnimationFrame(() => followStarted(ref.current));
     return () => cancelAnimationFrame(frame);
   });
   useEffect(() => {
@@ -9166,7 +9202,7 @@ function HeldPicture({ held, artUrl }: { held: HeldCard; artUrl: (art: string) =
   );
 }
 
-function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
+function FightMarkDrawn({ mark, done }: { mark: FightMark; done: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const element = ref.current;
@@ -9239,6 +9275,8 @@ function FightMarkView({ mark, done }: { mark: FightMark; done: () => void }) {
     </div>
   );
 }
+
+const FightMarkView = memo(FightMarkDrawn, (a, b) => a.mark === b.mark);
 
 /**
  * Spec 0074 (F · Struck by the beam) -- the countering spell's gold beam

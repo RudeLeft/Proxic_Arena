@@ -7,6 +7,8 @@
 // printed cost otherwise. The symbol pictures are the Proxic Deck Builder's
 // (assets/mana), copied, not drawn here.
 
+import { sameProps } from "./sameProps";
+import { memo } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 const PICTURES = import.meta.glob<string>("../assets/mana/*.png", {
@@ -52,7 +54,7 @@ export function costChange(
   return a < b ? "down" : a > b ? "up" : null;
 }
 
-export function ManaCost({
+function ManaCostView({
   cost,
   change = null,
   style,
@@ -89,6 +91,8 @@ export function ManaCost({
     </span>
   );
 }
+
+export const ManaCost = memo(ManaCostView, sameProps);
 
 /** Card text with every cost in it ("Spectacle {R}") drawn as symbols. */
 export function withSymbols(text: string): ReactNode[] {

@@ -80,6 +80,69 @@ export function followCards(root: ParentNode | null) {
   }
 }
 
+// --- spec 0095: only the cards that started moving -----------------------------------------------
+
+/** Cards with a glow layer that have started a Web Animation since the last look. */
+const started = new Set<Element>();
+/** Glow layers already looked at: a new one has its card's running movements copied once. */
+const layersSeen = new WeakSet<Element>();
+let watched: typeof Element.prototype.animate | null = null;
+
+/**
+ * Notes every `animate()` on a card that has a glow layer (its next sibling),
+ * so the Board looks only at those. True while it is the page's animate; false
+ * when something replaced it since (a test's stand-in): then nobody knows what
+ * started, and the Board looks at every card once, as before 0095.
+ */
+function watchAnimate(): boolean {
+  if (typeof Element === "undefined" || typeof Element.prototype.animate !== "function")
+    return false;
+  if (Element.prototype.animate === watched) return true;
+  // Called below with the element as `this` (apply), as the page calls it.
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  const own = Element.prototype.animate;
+  const noting = function (this: Element, ...args: Parameters<Element["animate"]>) {
+    if (this.nextElementSibling?.classList.contains("bf-breath")) started.add(this);
+    return own.apply(this, args);
+  };
+  Element.prototype.animate = noting;
+  watched = noting;
+  return false;
+}
+watchAnimate();
+
+/**
+ * Spec 0095 -- followCards for what changed only: the cards that started a
+ * Web Animation since the last call, and the cards whose glow layer is new.
+ * No card is asked for its animations (which makes the browser work out
+ * every style) when nothing started.
+ */
+export function followStarted(root: ParentNode | null) {
+  if (!root) return;
+  if (!watchAnimate()) {
+    started.clear();
+    for (const breath of root.querySelectorAll(".bf-breath")) layersSeen.add(breath);
+    followCards(root);
+    return;
+  }
+  const hosts = new Set<Element>();
+  for (const host of started) if (host.isConnected) hosts.add(host);
+  started.clear();
+  for (const breath of root.querySelectorAll(".bf-breath")) {
+    if (layersSeen.has(breath)) continue;
+    layersSeen.add(breath);
+    const host = breath.previousElementSibling;
+    if (host) hosts.add(host);
+  }
+  if (hosts.size === 0) return;
+  followCards({
+    querySelectorAll: () =>
+      [...hosts]
+        .map((host) => host.nextElementSibling)
+        .filter((el): el is HTMLElement => !!el && el.classList.contains("bf-breath")),
+  } as unknown as ParentNode);
+}
+
 /** Every hovering flyer's CSS animation under the board (or those named). */
 export function flyAnimations(
   root: Element | null,

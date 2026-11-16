@@ -133,26 +133,66 @@
   border-top-color: #e0a44a;
 }
 /* Phase 9 W-25 -- you are waiting for this player: their plate glows,
-   softly, so it shows from anywhere on the screen. */
+   softly, so it shows from anywhere on the screen. Spec 0095 -- as 0090's
+   breath: the glow's two looks are two still shadows on layers the plate's
+   size (a shadow is drawn only outside its box, so they never cover the
+   plate), and only their opacity animates, one fading out as the other
+   fades in -- no repaint on any frame. The plate's own inset line is not
+   drawn while it glows, as before (the old animation replaced it). */
 .gs-seat-deciding {
-  animation: gs-deciding 2.4s ease-in-out infinite;
+  box-shadow: none;
 }
-@keyframes gs-deciding {
+.gs-seat-deciding::before,
+.gs-seat-deciding::after {
+  content: "";
+  position: absolute;
+  /* The plate's border box: 2 px top border, 1 px elsewhere. */
+  inset: -2px -1px -1px;
+  border-radius: 10px;
+  pointer-events: none;
+  /* Under the plate, as its own shadow was (the rail's transform makes it
+     the stacking context: above the rail, below every plate's content). */
+  z-index: -1;
+  animation: 2.4s ease-in-out infinite;
+}
+.gs-seat-deciding::before {
+  box-shadow:
+    0 0 0 2px rgb(217 178 106 / 85%),
+    0 0 22px rgb(217 178 106 / 45%);
+  animation-name: gs-deciding-strong;
+}
+.gs-seat-deciding::after {
+  box-shadow:
+    0 0 0 2px rgb(217 178 106 / 40%),
+    0 0 8px rgb(217 178 106 / 15%);
+  opacity: 0;
+  animation-name: gs-deciding-soft;
+}
+/* The strong look at the ends of the old loop, the soft one at its middle. */
+@keyframes gs-deciding-strong {
   0%,
   100% {
-    box-shadow:
-      0 0 0 2px rgb(217 178 106 / 85%),
-      0 0 22px rgb(217 178 106 / 45%);
+    opacity: 1;
   }
   50% {
-    box-shadow:
-      0 0 0 2px rgb(217 178 106 / 40%),
-      0 0 8px rgb(217 178 106 / 15%);
+    opacity: 0;
+  }
+}
+@keyframes gs-deciding-soft {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .gs-seat-deciding::before,
+  .gs-seat-deciding::after {
+    display: none;
+  }
   .gs-seat-deciding {
-    animation: none;
     box-shadow: 0 0 0 2px rgb(217 178 106 / 70%);
   }
 }

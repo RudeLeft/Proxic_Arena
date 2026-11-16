@@ -14,6 +14,7 @@ import { Breath } from "./Breath";
 import { AimPointer } from "./AimPointer";
 import { ReportButton, type ReportGame } from "../ReportDialog";
 import {
+  memo,
   createContext,
   Fragment,
   useCallback,
@@ -3415,9 +3416,11 @@ function SeatBlock({
 /** Spec 0031 — the owner's pictures, drawn faded behind each tile's count. */
 const ZONE_ART = { library: libraryArt, graveyard: graveyardArt, exile: exileArt };
 
-function ZoneIcon({ zone }: { zone: keyof typeof ZONE_ART }) {
+function ZoneIconView({ zone }: { zone: keyof typeof ZONE_ART }) {
   return <img className="gs-zone-art" src={ZONE_ART[zone]} alt="" draggable={false} />;
 }
+
+const ZoneIcon = memo(ZoneIconView);
 
 /** Spec 0034 (B2, Seal) — the act button's coin: what pressing it does, as a picture. */
 const EMBLEM = {

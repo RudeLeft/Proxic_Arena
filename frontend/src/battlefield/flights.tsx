@@ -22,7 +22,7 @@
 // a key hurries all of it (A-00); with reduce motion nothing flies -- the
 // marks and counts simply change. Nothing here can be clicked.
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { Component, useEffect, useLayoutEffect, useRef } from "react";
 import type { ManaRun, Snapshot, SnapshotPlayer } from "../match";
 import { ballBackground, ballColour, ballPath, BALL_MS, BALL_LAG_MS } from "./manaBalls";
 import { hurry } from "./motion";
@@ -239,9 +239,23 @@ export function PlayerFlights({ board }: { board: Snapshot }) {
     };
   }, []);
 
+  // Spec 0095 -- where things fly from is read off the board on screen just
+  // before the next one is drawn (React's last look before it changes the
+  // page), and only when something will fly, and then only the cards that
+  // will: no card is measured on an update where nothing flies, and nothing
+  // is read after this layer's writes.
+  const measureBefore = (next: Snapshot) => {
+    const before = was.current;
+    seen.current =
+      before && before.gameEpoch === next.gameEpoch && !reducedMotion()
+        ? remember(before, flyingFrom(before, next))
+        : empty();
+  };
+
   useLayoutEffect(() => {
     const before = was.current;
     const old = seen.current;
+    seen.current = empty();
     if (before !== board) {
       was.current = board;
       const sameGame = before && before.gameEpoch === board.gameEpoch;
@@ -253,7 +267,6 @@ export function PlayerFlights({ board }: { board: Snapshot }) {
       )
         play(before, board, old);
     }
-    seen.current = remember(board);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per board
   }, [board]);
 
@@ -626,7 +639,56 @@ export function PlayerFlights({ board }: { board: Snapshot }) {
     }
   }
 
-  return null;
+  return <BeforeDrawn board={board} onBefore={measureBefore} />;
+}
+
+/**
+ * Spec 0095 -- tells [onBefore] of a new board in the moment before React
+ * changes the page for it (getSnapshotBeforeUpdate): the old board is still
+ * on screen, and nothing has been written since it was last laid out.
+ */
+class BeforeDrawn extends Component<{ board: Snapshot; onBefore: (next: Snapshot) => void }> {
+  override getSnapshotBeforeUpdate(previous: { board: Snapshot }) {
+    if (previous.board !== this.props.board) this.props.onBefore(this.props.board);
+    return null;
+  }
+  override componentDidUpdate() {}
+  override render() {
+    return null;
+  }
+}
+
+/**
+ * Spec 0095 -- whether anything will fly from [before] to [next], and which
+ * cards it may fly from (an emblem's maker, mana's source): null when nothing
+ * flies. Mirrors what `play` reads from the remembered board.
+ */
+export function flyingFrom(before: Snapshot, next: Snapshot): Set<string> | null {
+  const cards = new Set<string>();
+  let flies = false;
+  for (const kind of ["monarch", "initiative"])
+    if (holderOf(before, kind) !== holderOf(next, kind)) flies = true;
+  const ringsWere = ringBearers(before);
+  for (const [seat, card] of ringBearers(next)) {
+    const was = ringsWere.get(seat);
+    if (was && was !== card) flies = true;
+  }
+  const had = new Set((before.emblems ?? []).map((e) => e.id));
+  for (const e of next.emblems ?? []) {
+    if (had.has(e.id)) continue;
+    flies = true;
+    if (e.from) cards.add(e.from);
+  }
+  for (const p of next.players) {
+    const prev = playerOf(before, p.seat);
+    if (countOf(prev, "ENERGY") > countOf(p, "ENERGY")) flies = true;
+    for (const run of poolIn(prev, p)) {
+      flies = true;
+      if (run.from) cards.add(run.from);
+    }
+    if (poolOut(prev, p, {}, false).length > 0) flies = true;
+  }
+  return flies ? cards : null;
 }
 
 /** A colour's mana symbol picture (the tray's own). */
@@ -634,15 +696,19 @@ function symbolOf(colour: string): string | null {
   return symbolUrl(colour) ?? null;
 }
 
-/** Where everything that may fly from was drawn, for the next board. */
-function remember(board: Snapshot): Remembered {
+/**
+ * Where everything that may fly from is drawn, for the next board: nothing
+ * when nothing flies ([cards] null), and of the cards only [cards].
+ */
+function remember(board: Snapshot, cards: ReadonlySet<string> | null): Remembered {
   const out = empty();
-  if (typeof document === "undefined") return out;
+  if (typeof document === "undefined" || cards === null) return out;
   for (const s of board.stack) {
     const r = rectOf(document.querySelector(`[data-object-id="${s.id}"]`));
     if (r) out.stack.set(s.id, { rect: r, source: s.source, controller: s.controller });
   }
   for (const c of board.battlefield) {
+    if (!cards.has(c.id)) continue;
     const r = rectOf(document.querySelector(`.bf-card[data-object-id="${c.id}"]`));
     if (r) out.cards.set(c.id, r);
   }

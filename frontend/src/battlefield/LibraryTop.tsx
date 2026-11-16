@@ -15,8 +15,9 @@
 // the plate's show spot at 1.2 of a table card (0.3 s, turning face up),
 // holds (to 0.9 s), and settles onto the tile (0.4 s, its glow fading).
 
+import { sameProps } from "./sameProps";
 import { Breath } from "./Breath";
-import { useLayoutEffect, useRef, useState } from "react";
+import { memo, useLayoutEffect, useRef, useState } from "react";
 import type { SnapshotCard } from "../match";
 import type { Box, Geometry } from "./layout";
 import { anchors } from "./motion";
@@ -136,7 +137,7 @@ export function topBackFrames(): Keyframe[] {
  * rise and show when it is new. `quiet`: the first board the page draws
  * (nothing animates in from anywhere).
  */
-export function LibraryTop({
+function LibraryTopView({
   card,
   owner,
   choosable,
@@ -166,10 +167,12 @@ export function LibraryTop({
     }
     const el = ref.current;
     if (!el) return;
-    const placed = boardBox(el);
+    // Spec 0095: nothing is measured for the same card (every other board).
     if (was?.id === card.id) return;
     if (was) setLeaving(was);
-    if (quiet || reducedMotion() || !placed || typeof el.animate !== "function") return;
+    if (quiet || reducedMotion() || typeof el.animate !== "function") return;
+    const placed = boardBox(el);
+    if (!placed) return;
     // The rise and show, from the tile's middle to the plate's show spot.
     const { box, root, k } = placed;
     const tile = el.parentElement?.querySelector<HTMLElement>('[data-zone-tile$=":library"]');
@@ -228,6 +231,8 @@ export function LibraryTop({
     </>
   );
 }
+
+export const LibraryTop = memo(LibraryTopView, sameProps);
 
 /** A top card that left the top (drawn, played, cast): it fades where it stood, small. */
 function TopLeaving({ card, done }: { card: SnapshotCard; done: () => void }) {

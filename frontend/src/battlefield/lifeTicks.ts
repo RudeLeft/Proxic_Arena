@@ -252,22 +252,36 @@ export function lifeLanded(): boolean {
   return true;
 }
 
-/** Spec 0089 (Q1 A) -- lifeLanded(), redrawn as the clocks run and end. */
+/**
+ * Spec 0089 (Q1 A) -- lifeLanded(), redrawn when it changes (spec 0095: not
+ * on every frame of the clocks). While [watch] and a hit is still to land, a
+ * frame loop only LOOKS at the clocks; the screen redraws once, the frame the
+ * last hit lands. Not watched, nothing redraws for it.
+ */
 export function useLifeLanded(watch: boolean): boolean {
   const [, redraw] = useState(0);
+  const landed = lifeLanded();
+  const drawn = useRef(landed);
+  drawn.current = landed;
+  const watching = useRef(watch);
+  watching.current = watch;
   useLayoutEffect(() => {
-    const listener = () => redraw((n) => n + 1);
+    const listener = () => {
+      if (watching.current && lifeLanded() !== drawn.current) redraw((n) => n + 1);
+    };
     listeners.add(listener);
     return () => {
       listeners.delete(listener);
     };
   }, []);
-  const landed = lifeLanded();
   useEffect(() => {
     if (!watch || landed) return undefined;
     let frame = 0;
     const tick = () => {
-      redraw((n) => n + 1);
+      if (lifeLanded()) {
+        redraw((n) => n + 1);
+        return;
+      }
       frame = window.requestAnimationFrame(tick);
     };
     frame = window.requestAnimationFrame(tick);
@@ -276,23 +290,8 @@ export function useLifeLanded(watch: boolean): boolean {
   return landed;
 }
 
-/** The plate now: its life and poison, and a count of the blows landed on each. */
-export function useShownPlate(
-  seat: number,
-  life: number,
-  poison = 0,
-): { life: number; hits: number; poison: number; poisonHits: number } {
-  const [, redraw] = useState(0);
-  // Layout, not passive: the board starts its clocks in a layout effect,
-  // and a plate told then redraws before the frame is painted -- the new
-  // total never shows ahead of the first blow.
-  useLayoutEffect(() => {
-    const listener = () => redraw((n) => n + 1);
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
-  }, []);
+/** What a plate shows now: its life and poison, the blows landed, and whether more is to come. */
+function plateNow(seat: number, life: number, poison: number) {
   let shown = life;
   let shownP = poison;
   let pending = false;
@@ -307,28 +306,84 @@ export function useShownPlate(
       else if (isBlow(step)) landed.push(step);
     }
   }
-  // While something is still to land on this plate, look at the clock each frame.
+  return { life: shown, poison: shownP, pending, landed };
+}
+
+/**
+ * The plate now: its life and poison, and a count of the blows landed on each.
+ * Spec 0095 -- redrawn only when what it shows changes: while something is
+ * still to land, a frame loop looks at the clocks and redraws the plate on
+ * the frame a point (or a blow) lands, not on every frame.
+ */
+export function useShownPlate(
+  seat: number,
+  life: number,
+  poison = 0,
+): { life: number; hits: number; poison: number; poisonHits: number } {
+  const [, redraw] = useState(0);
+  const now = plateNow(seat, life, poison);
+  // What this drawing shows, for the frame loop and the clocks' listener.
+  const drawn = useRef({ life: now.life, poison: now.poison, landed: now.landed.length });
+  drawn.current = { life: now.life, poison: now.poison, landed: now.landed.length };
+  const args = useRef({ seat, life, poison });
+  args.current = { seat, life, poison };
+  const pendingRef = useRef(now.pending);
+  pendingRef.current = now.pending;
+  // Layout, not passive: the board starts its clocks in a layout effect,
+  // and a plate told then redraws before the frame is painted -- the new
+  // total never shows ahead of the first blow.
+  useLayoutEffect(() => {
+    const listener = () => {
+      const { seat: s, life: l, poison: p } = args.current;
+      const next = plateNow(s, l, p);
+      const was = drawn.current;
+      if (
+        next.life !== was.life ||
+        next.poison !== was.poison ||
+        next.landed.length !== was.landed ||
+        next.pending !== pendingRef.current
+      )
+        redraw((n) => n + 1);
+    };
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
+  // While something is still to land on this plate, look at the clock each
+  // frame; redraw when a point or a blow lands, or nothing is left to come.
   useEffect(() => {
-    if (!pending) return undefined;
+    if (!now.pending) return undefined;
     let frame = 0;
     const tick = () => {
-      redraw((n) => n + 1);
+      const { seat: s, life: l, poison: p } = args.current;
+      const next = plateNow(s, l, p);
+      const was = drawn.current;
+      if (
+        next.life !== was.life ||
+        next.poison !== was.poison ||
+        next.landed.length !== was.landed ||
+        !next.pending
+      ) {
+        redraw((n) => n + 1);
+        return;
+      }
       frame = window.requestAnimationFrame(tick);
     };
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
-  }, [pending]);
+  });
   // A blow: one that landed on a clock now playing (not a new board's own drop).
   const seen = useRef(new WeakSet<LifeStep>());
   const hits = useRef(0);
   const poisonHits = useRef(0);
-  for (const step of landed) {
+  for (const step of now.landed) {
     if (seen.current.has(step)) continue;
     seen.current.add(step);
     if (step.poison) poisonHits.current += 1;
     else hits.current += 1;
   }
-  return { life: shown, hits: hits.current, poison: shownP, poisonHits: poisonHits.current };
+  return { life: now.life, hits: hits.current, poison: now.poison, poisonHits: poisonHits.current };
 }
 
 /** The plate's life now (spec 0067's A): the number, and a count of the hits that landed. */

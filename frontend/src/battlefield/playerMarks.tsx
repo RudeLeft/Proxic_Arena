@@ -19,7 +19,8 @@
 // it (A-00); with reduce motion nothing moves -- the numbers, badges, crown
 // and tiles simply change.
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { sameProps } from "./sameProps";
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { CommandWords, SnapshotEmblem, StackEntry } from "../match";
 import { hurry } from "./motion";
 
@@ -667,7 +668,7 @@ export const HOLDER_WORDS: Record<string, string> = {
  * the stack (the monarch's end-step draw, the initiative's venture), and a
  * trigger of its own rises from it (Amendment 1).
  */
-export function FaceMarks({
+function FaceMarksView({
   seat,
   designations,
   stack,
@@ -700,3 +701,5 @@ export function FaceMarks({
     </>
   );
 }
+
+export const FaceMarks = memo(FaceMarksView, sameProps);
