@@ -1,0 +1,8 @@
+16 Forest
+12 Island
+12 Swamp
+4 Llanowar Elves
+4 Evolving Wilds
+4 Panglacial Wurm
+4 Agent of Kotis
+4 Village Rites

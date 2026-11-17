@@ -53,6 +53,7 @@ import {
   FAN_RISE_MS,
   FAN_SINK_MS,
   FAN_TICK_MS,
+  FAN_WAIT,
   FanCardView,
   TILE_PULSE_MS,
   closeFrames,
@@ -2590,6 +2591,8 @@ function playFans({
         easing: "ease-in-out",
         fill: "backwards",
       });
+      // Spec 0099 (Q2b) -- not drawn until it rises (after the rise, so it wins).
+      if (delay > 0) el.animate(FAN_WAIT, { duration: delay, easing: "linear" });
       const face = el.querySelector<HTMLElement>(":scope > .bf-fan-face");
       if (face && card.how !== "suspended" && typeof face.animate === "function")
         face.animate(FAN_SWELL, {
@@ -7876,7 +7879,13 @@ export function Board({
             Math.abs(at.x - (ghost.to.x + ghost.to.w / 2)) < 1 &&
             Math.abs(at.y - (ghost.to.y + ghost.to.h / 2)) < 1,
         )?.[0];
-        if (!tile || !ticks.has(tile)) continue;
+        if (!tile) continue;
+        // Spec 0099 (Q2a, Q2c) -- a card now in that pile (a creature that
+        // died, one paid as a cost) is counted as it lands even when nothing
+        // else lands there: the number waits for it, and the fan's card
+        // rises after it (`landed` below). A token is gone, never counted.
+        if (before.cards.get(ghost.id)?.token === true) continue;
+        if (!ticks.has(tile) && !pileCards?.has(ghost.id)) continue;
         const lead = ghost.fate ? fateMs(ghost.fate) + (ghost.peel ? PEEL_MS : 0) : 0;
         tick(tile, ghost.delay + lead + MOVE_MS, 1);
       }

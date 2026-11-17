@@ -183,6 +183,13 @@ export const FAN_FLOAT_MS = 1000;
 /** A tile's pulse as a card rises out of it. */
 export const TILE_PULSE_MS = 500;
 
+/**
+ * Spec 0099 (Q2b) -- a new fan card waiting to rise is not drawn at all: never
+ * a faint copy on its tile while the card it is flies there. Played for the
+ * wait, over the rise's held first frame.
+ */
+export const FAN_WAIT: Keyframe[] = [{ opacity: 0 }, { opacity: 0 }];
+
 /** From a tile's centre, small and faint, to its place in the fan. */
 export function riseFrames(
   from: { x: number; y: number },

@@ -102,4 +102,59 @@ Proportion (TEST-013): the two Lab scripts (`check-panglacial-wurm.py`, `check-a
 - **Q2b changes every waiting fan card**, not only dying ones (Think Twice into the graveyard, a card discarded with flashback): they no longer sit faint on the tile while their flight is under way. Re-run 0087's and 0088's clips' moments by reading their recordings, not refilming.
 - The Graveyard tile's gold "playable" glow also lights when the board arrives, before the card lands. Not in this spec (it is the tile, not a card); noted for the efficiency/error-checking phase.
 
+## As built
+
+Built 2026-11-16 on main at 3b9d540 (uncommitted at the time of writing). Page only, as specified.
+
+**The changes.**
+
+- Q1 -- `GameScreen.tsx` `ownPileRise`: a library cast that was not the shown top card now returns `boxAt(anchors(geometry)["viewer:library"], geometry)` instead of `null` (the shown top card keeps 0088's `libraryTopBox`).
+- Q2a / Q2c -- `Board.tsx`, the loop that counts leaving cards into a tile: a ghost going to a graveyard or exile tile is counted (`tick(tile, delay + fate + peel + MOVE_MS, 1)`) when the tile is already ticking **or** the card is now in a graveyard or exile (`pileCards`, the game screen's set of every card there). So `playFans`' `landed(tile)` reads the real landing time, and `tickTile` holds the number until the card lands. A card that was a token is never counted -- also when the tile was already ticking for another card: before, a token dying beside a creature counted too (the bite test shows the old code drawing "-1" first).
+- Q2b -- `FanCards.tsx` `FAN_WAIT` + `Board.tsx` `playFans`: a new fan card that waits gets a second animation, opacity 0 for exactly its wait, made after the rise so it wins over the rise's held first frame. The rise itself is unchanged.
+
+Not changed: stack spells' ghosts (their ids are stack ids, not card ids) still count only when the tile is ticking, as before; so a resolving spell's own graveyard number is as it was. The gold "playable" glow of the tile (Risks) is unchanged.
+
+**Tests (F-0099-B, C, D, E).** `frontend/src/battlefield/fixes0099screen.test.tsx` (the real game screen, socket replaced): the Wurm found by a search rises from the Library tile, not the middle; a shown top card still rises from the small card (0088). `frontend/src/battlefield/fixes0099.test.tsx` (the real Board, one board then the next): the fan card's rise starts at or after the leaving creature's last ghost frame; its opacity is under 0.15 at 0, 250, 600 ms and the frame before landing, then rises; the Graveyard number reads 0 until the creature lands, then 1; a token dying beside a creature never changes the number (never -1, never 2); a token dying alone leaves it alone. The unit test names no real card (the Lab's `check-agent-of-kotis.py` fails if `frontend/src` names the card; it did, on a first draft).
+
+**Bites (TEST-004), one per acceptance test, each restored after:**
+
+| Line of the fix removed | Result |
+|---|---|
+| `ownPileRise`'s tile fallback back to `: null` | F-0099-B "found by a search" fails |
+| the count gate back to `if (!ticks.has(tile)) continue` | 3 of 5 fail (rise before landing, faint copy, number early) |
+| `FAN_WAIT` never played | "nothing of it is drawn on the tile while it waits" fails |
+| the token guard disabled | "a dying token does not change it" fails: the tile reads "-1" first |
+
+**Gates.** `npx tsc -b` clean; `npx eslint . --max-warnings=0` clean; `npx prettier --check src e2e tools` clean; vitest 100 files, 1472 tests passed.
+
+**Lab (TEST-013 1).** `check-panglacial-wurm.py` 3/3 OK, `check-agent-of-kotis.py` 3/3 OK (after the test-name fix above), `check-hidden-hands/log/mulligans/tops.py` over those six traces: all OK.
+
+**Jump check, before and after.** Before: the release 1.71 recordings. After: the local stack rebuilt with this change, `tools/jumps/jumps.spec.ts` headless (`PROXIC_E2E_CHANNEL=bundled`) on 19 traces, both seats (38 recordings, 24.8 min), then `scripts/check-jumps.py`:
+
+| | Before | After |
+|---|---|---|
+| panglacial-wurm seat 2, board 33 | 1 (faded in on the spot, "came from nowhere") | 0 |
+| agent-of-kotis board 57, seat 1 / seat 2 | 1 (jumped 928 px) / 1 (jumped 978 px) | 0 / 0 |
+| the 17 neighbours (anywhere-citadel, anywhere-fetch, anywhere-unearth, pay-picks-escape, pay-picks-fireblast, piles-stage, piles-think-twice, piles-unearth, sacrifice-edict, spent-clue, spent-rites, spent-treasures, survivors-pyroclasm, tracked-state-marvel, tracked-state-meren, wipes-pestilence, wipes-wrath), both seats | 0 | 0 |
+
+Every board count matched the before run. Recording read (F-0099-C, D): rows of the card drawn at opacity >= 0.15 before its leaving ghost's last row -- agent-of-kotis 57: 27 (seat 1) and 26 (seat 2) before, 0 and 0 after (the fan card first drawn 1,333 ms in, the ghost's last row 1,133 ms); pay-picks-escape 22 (Uro): 1 and 1 before, 0 and 0 after (fan card 983 ms, ghost 717 ms).
+
+**Clips (by eye).** `JUMPS_CLIPS` (the tool's mode: a tenth of the speed, one still per 25 ms of animation):
+
+- panglacial-wurm seat 2 board 33 -- still 001: the Wurm, small, at the Library tile's left edge on Bob's plate; 002-008 it rises up and left onto the table, growing; 010 on it rests where it is paid for. Nothing appears in the middle from nowhere. (Its first frames are partly under the plate's edge, as every rise out of a tile is.)
+- agent-of-kotis seat 1 board 57 -- Bob's Graveyard tile reads 0 on stills 000-040 and 1 from 042 (about 1,050 ms, as the Agent arrives; before the fix it read 1 from the first stills). No faint card on the tile while the Agent folds and flies (000-046). The fan card first shows small and faint on the tile at 048, rises out and stands in the fan beside the plate from 056.
+
+**Real game (F-0099-G, TEST-012).** `frontend/e2e/match-last-jumps.spec.ts`, new deck `protocol/fixtures/last-jumps-deck` (package built by CI, step added in `.github/workflows/ci.yml`), 0098's deal: The host is dealt Forests, three Llanowar Elves and Evolving Wilds; the guest Islands, Swamps, Agent of Kotis and Village Rites. The host cracks the Wilds on turn 5 and really clicks **Yes** to casting the Wurm in the search; the guest casts the Agent, then Village Rites, and really clicks the Agent to pay. Both pages record every frame. Passed three times running (41 s each), headless, bundled Chromium, local stack on :8080:
+
+- Q1: the host's casting Wurm is first drawn at (1776, 935), 1 px from the host's Library tile and 907 px from the middle of the table; the Wurm then reaches the table.
+- Q2, both pages: the leaving Agent drawn from about 205 to 1,010-1,070 ms; the fan Agent drawn at opacity >= 0.15 on **0** frames while it flew, in full view from about 1,630 ms; the Agent's Graveyard tile read 0 until about 1,260 ms, then counted it.
+
+A first run hung for 20 minutes on an unbounded `getAttribute` of a casting card that had just gone (a test fault, fixed: every read in the loop is now `evaluateAll` or bounded).
+
+**Left open.**
+
+- The Graveyard number on the real game went 0 -> 2 at about 1,260 ms on the caster's page (on the other page too in one run of three; the other two showed 0, 1, 2 there): Village Rites resolved while the Agent was still landing, and a resolving spell's own count is held only when its tile is already ticking on that board (its ghost carries the stack id, not the card id -- unchanged by this spec). The dying Agent itself is never counted early. Holding a resolving spell's own number is a small follow-up if the owner wants "the number waits for the card" for spells too.
+- Clips are the tool's tenth-speed stills (`JUMPS_CLIPS` has no normal-speed mode); TEST-013 3 asks for normal-speed clips. The owner's eyes (TEST-006) are still owed.
+- F-0099-F (the full 364-trace jump check) is for the release run, as the spec says.
+
 ## Amendments

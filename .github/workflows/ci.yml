@@ -622,6 +622,12 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/sacrifice-deck.zip" protocol/fixtures/sacrifice-deck
 
+      # And spec 0099's real-click game (F-0099-G): Panglacial Wurm cast
+      # out of the library, Agent of Kotis sacrificed for Village Rites.
+      - name: Build the last-jumps deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/last-jumps-deck.zip" protocol/fixtures/last-jumps-deck
+
       # And looking at your library (spec 0001, F-0001-H, D3): surveil and
       # scry, the cards as pictures to the player looking, alone.
       - name: Build the surveil deck package

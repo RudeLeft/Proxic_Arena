@@ -1059,10 +1059,13 @@ export function GameScreen({
     const zone = castOrigin(card, board, frames.current.previous).zone;
     // Spec 0088 (Q4 C) -- cast from the top of the library (Bolas's
     // Citadel): it rises from the small card on the tile, as from a fan.
+    // Spec 0099 (Q1) -- any other library cast (one found by a search,
+    // Panglacial Wurm) rises from the Library tile, as the other player's
+    // does (`placeOf`'s tile fallback), never from nowhere.
     if (zone === "library")
       return (frames.current.previous?.libraryTop ?? []).some((c) => c.id === card.id)
         ? libraryTopBox(geometry, "viewer")
-        : null;
+        : boxAt(anchors(geometry)["viewer:library"], geometry);
     if (zone !== "graveyard" && zone !== "exile") return null;
     return atRef.current?.(card.id) ?? boxAt(anchors(geometry)[`viewer:${zone}`], geometry);
   };
