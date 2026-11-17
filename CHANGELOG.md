@@ -3,6 +3,21 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.72.0 — 2026-11-17
+
+The last cards that still jumped on the battlefield now move smoothly, and the Graveyard and Exile numbers change only when a card actually arrives.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Cards that no longer jump**
+- A card you cast straight out of your library (Panglacial Wurm while you search) now rises out of your Library on your own screen, as your opponent already saw it. Before, it just appeared in the middle of the table.
+- A creature you sacrifice to pay for a spell (Agent of Kotis for Village Rites) no longer shows a faint copy on your Graveyard before it gets there. A card you can still use from your graveyard stands beside your plate only once it has landed.
+
+**Graveyard and Exile numbers**
+- The Graveyard and Exile numbers now go up when the card lands, not a moment before: for creatures that die, spells that finish or are countered, and cards discarded or milled. Two cards landing one after the other count 1, then 2.
+- A spell that goes to exile instead of the graveyard (a flashback Think Twice, an Adventure, a rebound spell) now flies to the Exile pile. Before, it flew to the Graveyard.
+
 ## 1.71.0 — 2026-11-16
 
 Lands no longer jump when you tap them, and they sit next to your hand. Hovering over a card in your hand shows the whole, readable card. Busy boards are lighter on your computer, and the pop-ups have been cleaned up. Also a fix so a card hidden in your library can't be followed.
