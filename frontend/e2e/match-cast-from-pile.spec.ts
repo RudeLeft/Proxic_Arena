@@ -73,7 +73,7 @@ test("a card you may cast from your graveyard: no window, and a click on it cast
       .filter({ hasText: "Think Twice" });
     const castable = fan.and(panel.locator('[data-choosable="true"]:not([data-unpayable="true"])'));
     const onStack = panel.locator('[data-zone="stack"][aria-label^="Think Twice"]');
-    const exiled = panel.locator('[data-zone-tile="viewer:exile"] .gs-zone-n');
+    const exiled = panel.locator('[data-zone-tile="viewer:exile"] .gs-zone-n:not(.gs-zone-was)');
     const asking = async (page: Page) =>
       (await isAsked(page)) || (await passButton(page).count()) > 0;
     const heading = async (page: Page) =>
