@@ -158,3 +158,84 @@ A first run hung for 20 minutes on an unbounded `getAttribute` of a casting card
 - F-0099-F (the full 364-trace jump check) is for the release run, as the spec says.
 
 ## Amendments
+
+### Amendment 1 -- a spell's graveyard number waits for the spell card (Q3)
+
+**Status:** Approved 2026-11-17 (owner, by prompt: "Approve all" -- the counts wait AND exile-bound spells fly to the Exile tile). Canvas: "Last Two Jumps", section Q3, https://claude.ai/artifact/RonoXEWctBj4ydA3wCrgQQ. Raised by the owner from "Left open" above: every resolving or countered spell's graveyard (or exile) number should wait until the spell card visibly arrives there, the same as a death.
+
+#### Why (researched)
+
+Read from `Board.tsx` and `fromSnapshot.ts` at 12c4a44, the 1.71 traces (`<trace>.jsonl`, both seats, 364 traces) and the 1.71 and post-0099 recordings. **The recordings do not hold the tiles' numbers** (rows are cards, ghosts, casts, flights and the stack; no `data-zone-tile` rows, `n` is always empty), so the number's timing below is reasoned from the source over the traces' moves (SOURCE + INFERENCE), and checked against the one RUN that did read the tile: 0099's real-click game. Where a ghost went was read from the recordings (RUN).
+
+**1. The resolving spell's own +1 is never held unless the tile was already ticking** (SOURCE). A resolving spell's ghost is made at `Board.tsx:7670-7709` with `id: s.id` (the stack id, `stack:22`) and flies to `${side}:graveyard`, starting at `RESOLVE_MS + hold`. Spec 0099's count gate (`Board.tsx:7887-7888`) asks `pileCards?.has(ghost.id)`; `pileCards` holds card ids (`card:100`), so the stack id never matches and the ghost counts only when `ticks.has(tile)`. Every other board, the plate shows the new number the moment the board arrives, about 0.83 s (380 + 450 ms) before the card lands.
+
+How often (traces, every move `stack -> graveyard` with no `why`, both seats): **392 board-seats in 154 traces** resolve a spell into a graveyard that nothing else lands in that board, so its number changes early; 34 are held correctly today because something else landed there too (Faithless Looting's discards, Wrath of God's creatures).
+
+**2. Why the real game showed 0 -> 2, not 1 -> 2** (SOURCE + the RUN in "As built"). In agent-of-kotis the sacrifice and the resolution are **two boards** (trace board 57: Agent to the graveyard, Village Rites on the stack as `stack:22`; board 58: `card:100` from the stack to the graveyard). Board 57 ticks the tile (Q2c): the old "0" is held over the number and the number itself is hidden until the Agent lands. Board 58 arrives while that is still running; it does not tick the tile (cause 1), so React writes "2" into the hidden number and board 57's animation, still running, reveals it when the Agent lands: **0 -> 2 at about 1,260 ms**, exactly what the game read. The page that showed 0, 1, 2 got both changes in one board (the tile was ticking, so the spell counted).
+
+**3. Fixing cause 1 alone would bring the Agent's early count back** (SOURCE). If board 58 ticks the tile, `tickTile` (`Board.tsx:1233-1260`) first removes board 57's held "0" and starts from `now - (this board's changes)` = 2 - 1 = **1**, at once, while the Agent is still flying. A new board's run must carry the previous run's changes that have not happened yet. The jump tool never shows this: it sends the next board only once the page is idle (`tools/jumps/jumps.spec.ts`, top comment), so in the Lab two boards never overlap. In a real game they do: in the traces, **22** of the 392 boards above follow a board that also landed a card in the same graveyard (the Village Rites shape).
+
+**4. A spell that goes to exile on resolution flies to the Graveyard tile** (RUN, recordings). The resolving ghost's destination is always the graveyard (`Board.tsx:7686`); `departures` (`fromSnapshot.ts:788-808`) covers only cards that left the battlefield. Every `stack -> exile` board in the run (15 board-seats, 8 traces), the ghost's last drawn centre (1.71 recordings) is the Graveyard tile (x 1730), not the Exile tile (x about 1850), on both seats:
+
+| Trace, board | Card | Why it goes to exile | Ghost ends at |
+|---|---|---|---|
+| piles-think-twice 59 | Think Twice | flashback | Graveyard tile, both seats |
+| shapes-adventure 53, piles-giant 26 | Bonecrusher Giant (Stomp) | Adventure | Graveyard tile, both seats |
+| shapes-aftermath 101 | Commit // Memory | aftermath | Graveyard tile (seat 1; seat 2 no ghost) |
+| marks-distortion 20 | Distortion Strike | rebound | Graveyard tile, both seats |
+| survivors-ephemerate 16 | Ephemerate | rebound | Graveyard tile, both seats |
+| survivors-teferi 20 | Teferi's Protection | exiles itself | Graveyard tile, both seats |
+| cost-kinds-from-stack 11 | Lightning Bolt | exiled from the stack as Nivmagus Elemental's cost | Graveyard tile, both seats |
+
+So the card lands on the wrong tile and the Exile number changes at once with nothing arriving there. (Spec 0087's Adventure fan card then rises out of the Exile tile, after a guess.)
+
+**Every other route** (traces, every move into a graveyard or exile, both seats; code at the line given):
+
+| Route | Board-seats | Number today | By this amendment |
+|---|---|---|---|
+| Resolved, to a graveyard | 392 alone + 34 | early unless the tile was ticking (cause 1) | fixed |
+| Resolved (or exiled from the stack), to exile | 15 | early, and the card flies to the Graveyard tile (cause 4) | fixed |
+| Countered | 9 | waits: `tick(.., hold + COUNTER_MS, 1)` (`:7453`); its ghost is `own`, never counted twice | unchanged; destination from the game too (a "exile it instead" counter would fly to the Graveyard tile today; none in the Lab) |
+| Did nothing (fizzled) | 6 | waits: `hold + FIZZLE_MS` (`:7597`) | unchanged; destination from the game too |
+| Battlefield -> graveyard / exile (died, destroyed, sacrificed, exiled) | 313 | waits since 0099 Q2c (card id in `pileCards`); tokens never counted | unchanged, but gains the carry-over (cause 3) |
+| Discarded, cycled (hand -> graveyard) | 76 | waits: `delay + DISCARD_MS` (`:5791`, `:5805`, `:6975`) | gains the carry-over |
+| Milled (library -> graveyard) | 59 | waits: `delay + MILL_MS` (`:5855`, `:5864`) | gains the carry-over |
+| Hand or library -> exile (Force of Will's cost, cascade, Hideaway) | 32 | waits (same code, spec 0081) | gains the carry-over |
+| Graveyard -> exile, exile -> graveyard (shown, swept) | 42 | waits: `start + SHOW_MS`, `T + SWEPT_MS` | gains the carry-over |
+| A copy of a spell | -- | never counted (it ceases to exist) | unchanged |
+
+Also found, not in this amendment: Lightning Bolt exiled from the stack by Nivmagus Elemental's cost plays as a resolving spell (glow, and a spark to its target) although it never resolved. Its destination is fixed here; how it leaves the stack is a look question for its own spec (trigger: the owner asks, or the efficiency/error-checking phase).
+
+#### What changes
+
+Page only (`fromSnapshot.ts`, `Board.tsx`). No worker, server or protocol change.
+
+1. **The game says where a spell card went.** `departures` also names, for each spell card that left the stack this board and is now in a graveyard or exile, that pile (`${side(owner)}:graveyard` or `:exile`), as it already does for the battlefield. The resolving ghost (`Board.tsx:7686`), the countered ghost (`:7428`) and the fizzled ghost (`:7580`) fly to that tile; the graveyard stays the default. A copy is unchanged.
+2. **The spell's ghost counts by its card.** The ghost carries its card id (`card: s.card`); the count gate (`:7887-7888`) asks `pileCards.has(ghost.card ?? ghost.id)`, and the tile it counts toward is the departure's tile. A token or copy is never counted (unchanged). The countered and fizzled ticks use the same tile.
+3. **A tile's number carries its unfinished changes into the next board.** `Board` keeps each tile's last run (its changes and when it started, on the board's animation clock, so a click's hurry still applies). A new board's run for that tile starts with the changes that have not yet happened, at their remaining times, before adding its own; a tile the new board does not change keeps its run as it is, and a board whose numbers disagree with what the runs add up to (a reconnect, a move with no animation) simply shows the new number, as today. Reduced motion: unchanged (numbers simply change).
+
+With 1-3, Village Rites on Bob's screen reads 0 while both cards are on their way, 1 as the Agent lands (about 1.2 s), 2 as Village Rites lands; a flashback Think Twice flies into the Exile tile and the Exile number turns as it lands.
+
+#### Acceptance tests
+
+| ID | Test | Evidence |
+|---|---|---|
+| F-0099-H | A spell resolving alone into a graveyard: the number reads the old count until the spell's ghost has landed, then +1 | unit (`fixes0099.test.tsx`, real Board), fails on HEAD |
+| F-0099-I | Two boards: a creature to the graveyard, then (mid-flight) the spell resolving: the number reads 0, then 1 as the creature lands, then 2 as the spell lands; never 1 before the creature lands, never 2 before the spell does | unit, fails on HEAD (HEAD: 0 -> 2); also fails with only change 2 (reads 1 at once) |
+| F-0099-J | A spell exiled on resolution (flashback, Adventure, rebound) flies to the Exile tile and the Exile number waits for it; the Graveyard number does not change | unit; and the recordings: last ghost centre at the Exile tile on the 15 board-seats in the table above (all at the Graveyard tile in 1.71) |
+| F-0099-K | Countered and fizzled spells: still counted exactly once, as they land (no double count with the new gate); a countered spell sent to exile flies there | unit |
+| F-0099-L | The Adventure's fan card (shapes-adventure 53) rises after the spell card has landed on the Exile tile | recording read: no fan row at opacity >= 0.15 before the ghost's last row, both seats |
+| F-0099-M | Real game (TEST-012), below | `match-last-jumps.spec.ts` on the local stack |
+| F-0099-F | No new jumps anywhere | full jump check at release (TEST-013 2), as before |
+
+**TEST-004 (bites).** Each unit test fails with its line removed: the gate back to `ghost.id`; the carry-over dropped; `departures` for stack cards dropped; the countered tick doubled.
+
+**Real-click game (TEST-012).** Extend `match-last-jumps.spec.ts`; no new game. Its Q2 already plays the Village Rites moment for real: record the stack ghosts' frames too (`[data-ghost-of^="stack:"]`) and check, on both pages, that the Graveyard number never shows 2 before Village Rites' ghost has gone and never 1 before the Agent's has, and ends at 2 (this is the RUN that showed 0 -> 2). Optional, for the exile route with a real click: add Think Twice to the guest's deal and have the guest cast it, then click it in the graveyard fan for flashback; check its ghost ends over the guest's Exile tile and the Exile number turns only then. It lengthens the game by about two turns; recommended, since nothing else in a `match-*` game reaches a spell going to exile.
+
+Proportion (TEST-013): the jump check on agent-of-kotis, piles-think-twice, shapes-adventure, piles-giant, shapes-aftermath, marks-distortion, survivors-ephemerate, survivors-teferi, cost-kinds-from-stack and anywhere-unearth (the tile-already-ticking neighbour), both seats; `fixes0074*`/`fixes0079*`/`fixes0087*`/`fixes0099*`; tsc/eslint/prettier/vitest; the extended real-click game three times. Full Lab and full browser suite: CI.
+
+#### Risks
+
+- **Every instant and sorcery changes**: 392 board-seats in the Lab show a graveyard number turning about 0.8 s later than today (when the card lands). That is the point, but it is the most-seen change in this spec.
+- The carry-over (change 3) touches every tile number, including the library's (a draw while a mill is landing). The rule is narrow (only changes not yet reached, on the same clock), and a mismatch falls back to today's "show the new number".
+- The jump tool cannot see change 3 (boards never overlap there); only the unit test and the real game prove it.
