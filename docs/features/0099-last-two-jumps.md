@@ -239,3 +239,57 @@ Proportion (TEST-013): the jump check on agent-of-kotis, piles-think-twice, shap
 - **Every instant and sorcery changes**: 392 board-seats in the Lab show a graveyard number turning about 0.8 s later than today (when the card lands). That is the point, but it is the most-seen change in this spec.
 - The carry-over (change 3) touches every tile number, including the library's (a draw while a mill is landing). The rule is narrow (only changes not yet reached, on the same clock), and a mismatch falls back to today's "show the new number".
 - The jump tool cannot see change 3 (boards never overlap there); only the unit test and the real game prove it.
+
+#### As built
+
+Built 2026-11-17 on main at ff9bb40 (uncommitted at the time of writing). Page only, as specified, plus the real-click game's deck.
+
+**The changes.**
+
+- 1 -- `fromSnapshot.ts`: `departures` also names, for each spell card that left the stack this board and is now in a graveyard or exile, that pile (the game's `stack -> graveyard/exile` move, owner's side). **Found by the real game, not in the spec:** on the other player's page the board that shows their spell on the stack is held (`GameScreen.tsx` spotlight, `HOLD_MS`), and the board drawn after it is a later round's, whose `moves` are empty, so the move was lost and the flashback Think Twice still flew to the Graveyard tile there (and the Graveyard read 2, 1, 2 as its ghost was counted there). So, as the battlefield's departures already do, a spell card gone from the previous board's stack and now in a pile is sent there without the move too.
+- 1 -- `Board.tsx`: the resolving, countered and fizzled ghosts fly to that pile (`pile`, the graveyard when not said); the countered and fizzled ticks count on it.
+- 2 -- `Board.tsx`: the resolving ghost carries `card: s.card`; the count gate asks `pileCards.has(ghost.card ?? ghost.id)`. Tokens and copies are unchanged (a copy never reaches this ghost).
+- 3 -- `Board.tsx`: `tileRuns` keeps each tile's last run (its changes, its newest number's animation, the number it ends on). A new board's run for that tile starts with the changes the last run has not reached (`c.at > run.currentTime`, the animation clock, so a hurry counts), at their remaining times, then its own -- only when the last run's number plus this board's changes is the number now; otherwise it counts from the new number as before. The old run is cancelled. `tickTile` returns the newest number's animation.
+
+**Tests.** `fixes0099.test.tsx` (the real Board; the snapshot reducer for the departures): F-0099-H (a spell alone: 0 until its ghost lands, then 1); F-0099-I (the Agent's board, then 300 ms in the spell's board: 0, 1 as the Agent lands, 2 as the spell lands; and a board whose numbers disagree counts from the new number); F-0099-J (the ghost's last frame on the Exile tile, the Exile number waits, the Graveyard's never moves; the departure from the move alone and from the held-board comparison alone); F-0099-K (countered and fizzled: 0 until it lands, then exactly 1; a countered spell sent to exile flies there).
+
+**Bites (TEST-004), each restored after** (`scratchpad/c99/bite.py`):
+
+| Line of the fix removed | Result |
+|---|---|
+| the gate back to `ghost.id` | 4 fail (H, I twice, J) |
+| the carry-over dropped (`carried` always empty) | F-0099-I fails (reads 1 at once: the spec's "only change 2") |
+| `departures` for stack cards by the move dropped | F-0099-J's "by the move alone" fails |
+| the held-board comparison dropped | F-0099-J's "held board" fails |
+| the resolving ghost's `to` back to the graveyard | F-0099-J's ghost test fails |
+| the countered tick doubled | both countered tests of F-0099-K fail |
+
+**Gates.** `npx tsc -b` clean; `npx eslint . --max-warnings=0` clean; `npx prettier --check src e2e tools` clean; vitest 100 files, 1480 tests passed. No source names the Lab's cards (`Kotis`/`Renew`: none).
+
+**Jump check, before and after** (`tools/jumps/jumps.spec.ts` headless, bundled Chromium, then `scripts/check-jumps.py`; 22 traces, both seats, 44 recordings, 2,147 boards). Before: the post-0099 recordings for agent-of-kotis, panglacial-wurm, piles-think-twice, anywhere-unearth, pay-picks-escape, spent-rites, wipes-wrath, wipes-pestilence, sacrifice-edict, and a fresh run of the HEAD stack for shapes-adventure, piles-giant, shapes-aftermath, marks-distortion, survivors-ephemerate, survivors-teferi, cost-kinds-from-stack, card-actions-counter, thrown-away-countered, copies-fizzle, survivors-pro-red, who-did-it-mindrot, card-actions-mill. After: the local stack rebuilt with this change.
+
+| | Before | After |
+|---|---|---|
+| findings (jumps, pop-ins, unseen moves), all 44 recordings | 0 | 0 |
+| board counts per trace and seat | -- | identical to before |
+| the 15 `stack -> exile` board-seats (flashback, Adventure, aftermath, rebound, Teferi's Protection, exiled from the stack as a cost): ghost's last centre | Graveyard tile (x 1730), all 15 | **Exile tile (x 1850), all 15** |
+| countered (4) and fizzled (4) board-seats | Graveyard tile | Graveyard tile (unchanged; the game sent them there) |
+| F-0099-L: the Adventure's fan card (shapes-adventure 53, piles-giant 26) drawn at opacity >= 0.15 before the ghost's last row | 0 rows (both seats) | 0 rows (both seats): ghost lands +816 ms, the fan card from +983 ms |
+
+**Clips (by eye)** -- `JUMPS_CLIPS` (a tenth of the speed, one still per 25 ms of animation), `scratchpad/c99/clipsrun/clips/`, sheets `sheet-think-twice-s1-b59.jpg`, `zoom-think-twice-landing.jpg`, `sheet-rites-s2-b57.jpg`:
+
+- piles-think-twice seat 1 board 59 (Think Twice's flashback resolving): 000-012 it glows on the stack; 016-023 it drifts down, shrinking and fading, onto the **Exile** tile (the right one of the pair); Graveyard 0 throughout; Exile 0 until it has landed, 1 from about 026.
+- agent-of-kotis seat 2 (Bob's own page) board 57, with board 58 (Village Rites resolving) sent 300 ms in, while the Agent is still on its way: the Graveyard reads 0 through 036, **1** from about 040 (the Agent lands), Village Rites glows (032-044) and drops onto the tile (048-052, still 1), **2** from 056; the fan Agent rises beside the plate from 048. Never 2 early, never a step back. (The Library reads 47 from still 012: Village Rites' two draws are counted as its board arrives -- unchanged, not in this amendment.)
+
+**Real game (F-0099-M, TEST-012).** `frontend/e2e/match-last-jumps.spec.ts` extended: both pages record Village Rites' stack ghost too and the Graveyard number is checked against it; Think Twice joins the guest's deal (deck `protocol/fixtures/last-jumps-deck`: 4 Think Twice for 4 Swamps; the package is now `last-jumps-deck-2.zip`, because a stack that already holds the old package's deck reuses it by name and the deal refused "1 Think Twice, the deck has 0"; CI step renamed). The guest casts Think Twice from the hand, then really clicks it in the graveyard fan for flashback; both pages check its ghost ends on the guest's Exile tile and the Exile number turns only then. Passed **three times running** (57, 57, 56 s), headless, bundled Chromium, local stack on :8080:
+
+- Q3, both pages, every run: the Graveyard read 0, then **1** about 250 ms after the Agent's ghost was last drawn (1,342-1,455 ms), then **2** about 50-100 ms after Village Rites' ghost (3,281-3,389 ms). Never 1 before the Agent, never 2 before Village Rites (the old 0 -> 2 is gone). One run showed one empty frame on the guest's tile at the 0 -> 1 swap (1,404 ms, the two runs changing over).
+- Flashback, both pages, every run: the ghost last drawn 1 px from the guest's Exile tile (119 px from the Graveyard tile); the Exile number turned on that frame. On the caster's page the flashback stack card is named by the other page's id (the caster's own page drew it there only as its casting card landing).
+- Q1 and Q2 as before: the host's Wurm first drawn 1 px from its Library tile; no Agent drawn in the fan while it flew.
+
+**Left open.**
+
+- The other spotlight-held boards (the other player's spell held on the stack, `HOLD_MS`) lose their round's moves for everything else too -- a creature dying or a card discarded in that round flies by the old guesses, and its tile number is not held. The fallback here covers only a spell leaving the stack. Worth its own look (trigger: the efficiency/error-checking phase).
+- The flashback stack card on the caster's own page was not found by its name on the stack in the real game; the ghost is right (same stack id), but why the stack card was not drawn there is not looked into.
+- Draws (the Library number) still change as the board arrives.
+- Clips are tenth-speed stills (as for 0099); the owner's eyes (TEST-006) are owed. F-0099-F (the full jump check) is for the release run.

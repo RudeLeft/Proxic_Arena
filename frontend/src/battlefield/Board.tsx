@@ -1230,20 +1230,22 @@ function tickMany(slot: HTMLElement, start: number, changes: readonly BadgeChang
  * before it is held over it as the page's own copy, shown for its stretch,
  * popping as it starts. One length of time, on the board's animation clock.
  */
-function tickTile(n: HTMLElement, changes: readonly TileChange[]) {
-  if (typeof n.animate !== "function") return;
+function tickTile(n: HTMLElement, changes: readonly TileChange[]): Animation | undefined {
+  if (typeof n.animate !== "function") return undefined;
   const tile = n.parentElement;
-  if (!tile) return;
+  if (!tile) return undefined;
   for (const old of tile.querySelectorAll(":scope > .gs-zone-was")) old.remove();
   const now = Number(n.textContent);
-  if (!Number.isFinite(now)) return;
+  if (!Number.isFinite(now)) return undefined;
   const start = now - changes.reduce((sum, c) => sum + c.by, 0);
   const total = Math.max(...changes.map((c) => c.at));
   const spells = tileSpells(start, changes);
+  /** The newest number's run: the tile's run (spec 0099 Amendment 1 carries it over). */
+  let own: Animation | undefined;
   spells.forEach((spell, i) => {
     const frames = tileFrames(spell, total, i === 0);
     if (i === spells.length - 1) {
-      n.animate(frames, { duration: total, easing: "linear" });
+      own = n.animate(frames, { duration: total, easing: "linear" });
       return;
     }
     const held = document.createElement("span");
@@ -1258,6 +1260,7 @@ function tickTile(n: HTMLElement, changes: readonly TileChange[]) {
     run.onfinish = gone;
     run.oncancel = gone;
   });
+  return own;
 }
 
 interface Ghost extends Drawn {
@@ -1356,6 +1359,11 @@ interface Ghost extends Drawn {
   fxAt?: number;
   /** Spec 0079 -- it is a copy: the gold copy mark is on it. */
   mark?: boolean;
+  /**
+   * Spec 0099 Amendment 1 -- a stack object's ghost (its id the stack's):
+   * the card it is, so its pile's number waits for it as for any card.
+   */
+  card?: string | undefined;
 }
 
 /**
@@ -2958,6 +2966,14 @@ export function Board({
   const playedMerges = useRef<ReadonlyMap<string, Merge> | undefined>(undefined);
   /** Spec 0074: the tile moves already played (each board's are played once). */
   const playedTiles = useRef<readonly TileMove[] | undefined>(undefined);
+  /**
+   * Spec 0099 Amendment 1 (3) -- each plate tile's last number run: its
+   * changes, its newest number's animation (the clock it runs on) and the
+   * number it ends on, so the next board carries what it has not reached.
+   */
+  const tileRuns = useRef(
+    new Map<string, { run: Animation; changes: readonly TileChange[]; end: number }>(),
+  );
   const previous = useRef<{
     viewport: Viewport;
     at: Map<string, { box: Box; origin: { x: number; y: number } }>;
@@ -7379,6 +7395,14 @@ export function Board({
           : null;
         const retOrigin = handBack ? handBack.origin : { x: 0, y: 0 };
         if (ret && retTo) markReturn(s.card!, ret, hold);
+        // Spec 0099 Amendment 1 -- the pile the game sent the spell card to
+        // (exile for flashback, an Adventure, rebound), its graveyard if not said.
+        const sentTo = s.card ? departures?.get(s.card) : undefined;
+        const pile: AnchorId =
+          sentTo && (sentTo.endsWith(":graveyard") || sentTo.endsWith(":exile"))
+            ? sentTo
+            : `${side}:graveyard`;
+        const [pileSide, pileZone] = pile.split(":") as [Side, TileZone];
         // Spec 0074 (F · Struck by the beam): a countered spell never shows a
         // resolve glow or spark; the countering spell's beam strikes it, and
         // it crumbles to grey ash where it is, then goes to its graveyard.
@@ -7425,7 +7449,7 @@ export function Board({
               at,
               counterFrames(
                 poseOf(box, at.origin),
-                tileAt(side, "graveyard"),
+                tileAt(pileSide, pileZone),
                 g.cardW,
                 g.cardH,
                 at.origin,
@@ -7450,7 +7474,7 @@ export function Board({
               },
             ),
           );
-          tick(`${side}:graveyard`, hold + COUNTER_MS, 1);
+          tick(pile, hold + COUNTER_MS, 1);
           continue;
         }
         const stackLook = (): Ghost["stack"] =>
@@ -7577,7 +7601,7 @@ export function Board({
               at,
               fizzleFrames(
                 poseOf(box, at.origin),
-                copy ? null : tileAt(side, "graveyard"),
+                copy ? null : tileAt(pileSide, pileZone),
                 g.cardW,
                 g.cardH,
                 at.origin,
@@ -7594,7 +7618,7 @@ export function Board({
               },
             ),
           );
-          if (!copy) tick(`${side}:graveyard`, hold + FIZZLE_MS, 1);
+          if (!copy) tick(pile, hold + FIZZLE_MS, 1);
           continue;
         }
         // Spec 0079 (Q2 A) -- a copy of a spell resolved: it glows, its spark
@@ -7683,7 +7707,8 @@ export function Board({
           id: s.id,
           box,
           origin: { x: 0, y: 0 },
-          to: retTo ?? (into ? into.box : boxAt(where[`${side}:graveyard`], g)),
+          to: retTo ?? (into ? into.box : boxAt(where[pile], g)),
+          card: s.card ?? undefined,
           toOrigin: ret ? retOrigin : into ? into.origin : { x: 0, y: 0 },
           fade: !ret,
           delay: ret ? hold : RESOLVE_MS + hold,
@@ -7885,7 +7910,9 @@ export function Board({
         // else lands there: the number waits for it, and the fan's card
         // rises after it (`landed` below). A token is gone, never counted.
         if (before.cards.get(ghost.id)?.token === true) continue;
-        if (!ticks.has(tile) && !pileCards?.has(ghost.id)) continue;
+        // Spec 0099 Amendment 1 -- a spell's ghost carries the stack's id;
+        // it is counted by its card.
+        if (!ticks.has(tile) && !pileCards?.has(ghost.card ?? ghost.id)) continue;
         const lead = ghost.fate ? fateMs(ghost.fate) + (ghost.peel ? PEEL_MS : 0) : 0;
         tick(tile, ghost.delay + lead + MOVE_MS, 1);
       }
@@ -7893,7 +7920,26 @@ export function Board({
         const n = ref.current?.querySelector<HTMLElement>(
           `[data-zone-tile="${tile}"] .gs-zone-n:not(.gs-zone-was)`,
         );
-        if (n && changes.some((c) => c.at > 0)) tickTile(n, changes);
+        if (!n || !changes.some((c) => c.at > 0)) continue;
+        // Spec 0099 Amendment 1 (3) -- the last board's changes to this tile
+        // not yet reached (a card still flying to it) come first, at their
+        // remaining times on the animation clock; only when the numbers agree
+        // (the last run's number plus this board's changes is the number now).
+        const was = tileRuns.current.get(tile);
+        const shown = Number(n.textContent);
+        const mine = changes.reduce((sum, c) => sum + c.by, 0);
+        const elapsed = Number(was?.run.currentTime ?? 0);
+        const carried =
+          was && was.run.playState === "running" && was.end + mine === shown
+            ? was.changes
+                .filter((c) => c.at > elapsed)
+                .map((c) => ({ at: c.at - elapsed, by: c.by }))
+            : [];
+        const all = [...carried, ...changes];
+        was?.run.cancel();
+        const run = tickTile(n, all);
+        if (run) tileRuns.current.set(tile, { run, changes: all, end: shown });
+        else tileRuns.current.delete(tile);
       }
       // Spec 0087 -- the fans, once per board: what this board brings
       // (pileFan.ts says which cards, Board draws them at rest).

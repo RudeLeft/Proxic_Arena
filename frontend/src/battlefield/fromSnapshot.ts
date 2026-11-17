@@ -807,6 +807,32 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
         handGrew.get(card.seat) ? `${side(card.seat)}:hand` : `${side(card.seat)}:exile`,
       );
     }
+    // Spec 0099 Amendment 1 -- a spell card that left the stack for a pile
+    // (resolved, countered, did nothing, exiled by flashback or an
+    // Adventure): that pile, as the game says, for its ghost to fly to.
+    for (const move of moves) {
+      if (!move.card || move.from.zone !== "stack" || typeof move.to.seat !== "number") continue;
+      const now =
+        move.to.zone === "graveyard"
+          ? inGraveyard.has(move.card)
+          : move.to.zone === "exile" && inExile.has(move.card);
+      if (!now) continue;
+      departures.set(move.card, `${side(move.to.seat)}:${move.to.zone}` as AnchorId);
+    }
+    // ... and without the move: a board drawn after a held one (the other
+    // player's spell, held on the stack HOLD_MS) carries a later round's
+    // moves. The spell's card gone from the stack and now in a pile: there.
+    const onStackNow = new Set(snapshot.stack.flatMap((e) => (e.source ? [e.source] : [])));
+    for (const entry of previous.stack) {
+      const card = entry.kind === "spell" ? entry.source : null;
+      if (!card || departures.has(card) || onStackNow.has(card)) continue;
+      const pile = inExile.has(card) ? "exile" : inGraveyard.has(card) ? "graveyard" : null;
+      if (!pile) continue;
+      const owner = (pile === "exile" ? snapshot.exile : snapshot.graveyard).find(
+        (c) => c.id === card,
+      )!.seat;
+      departures.set(card, `${side(owner)}:${pile}`);
+    }
   }
 
   // Spec 0080 -- flickers (one move, by way of an exile) and survivors.

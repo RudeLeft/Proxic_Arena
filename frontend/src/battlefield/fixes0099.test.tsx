@@ -9,9 +9,12 @@
 
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Board, type BoardCard } from "./Board";
+import { EMPTY_MATCH, reduceMatch, type Snapshot } from "../match";
+import { Board, type BoardCard, type StackView } from "./Board";
 import { FAN_RISE_MS } from "./FanCards";
-import type { AnchorId } from "./motion";
+import { boardFromSnapshot } from "./fromSnapshot";
+import { geometry } from "./layout";
+import { anchors, type AnchorId } from "./motion";
 import type { FanCard } from "./pileFan";
 const size = { width: 1920, height: 1080 };
 type Call = {
@@ -145,6 +148,9 @@ function draw(
     piles?: Set<string>;
     departures?: Map<string, AnchorId>;
     tiles: Record<string, number>;
+    stack?: StackView[];
+    countered?: Set<string>;
+    fizzled?: Set<string>;
   },
 ) {
   return (
@@ -159,8 +165,9 @@ function draw(
       departures={extra.departures ?? new Map()}
       returns={new Map()}
       tileMoves={[]}
-      countered={new Set()}
-      stack={[]}
+      countered={extra.countered ?? new Set()}
+      fizzled={extra.fizzled ?? new Set()}
+      stack={extra.stack ?? []}
       combat={null}
       damage={null}
       fans={extra.fans ?? []}
@@ -294,5 +301,238 @@ describe("F-0099-E · the Graveyard number waits for the card", () => {
     );
     for (const t of [0, 500, 1500])
       expect(tileAt(view.container, "viewer:graveyard", t)).toEqual(["0"]);
+  });
+});
+
+// --- Amendment 1 (Q3): a spell's own number waits for the spell card --------
+
+const g = geometry(size);
+const where = anchors(g);
+/** Where a transform (translate3d, rotate, scale(s) or scale(sx, sy)) puts a card's centre. */
+function centre(transform: string, origin: string) {
+  const m =
+    /translate3d\(([-\d.e]+)px, ([-\d.e]+)px, 0\) rotate\(([-\d.e]+)deg\) scale\(([-\d.e]+)(?:, ([-\d.e]+))?\)/.exec(
+      transform,
+    )!;
+  const [ox, oy] = origin.split(" ").map((v) => Number(v.replace("px", "")));
+  const a = (Number(m[3]) * Math.PI) / 180;
+  const sx = Number(m[4]);
+  const sy = m[5] !== undefined ? Number(m[5]) : sx;
+  const vx = (g.cardW / 2 - ox!) * sx;
+  const vy = (g.cardH / 2 - oy!) * sy;
+  return {
+    x: ox! + Number(m[1]) + vx * Math.cos(a) - vy * Math.sin(a),
+    y: oy! + Number(m[2]) + vx * Math.sin(a) + vy * Math.cos(a),
+  };
+}
+/** Where a ghost's last frame (of its longest-running moving run) puts it. */
+function endCentre(ghost: HTMLElement) {
+  const run = runsOf(ghost)
+    .filter((r) => r.frames.some((f) => typeof f.transform === "string"))
+    .sort((a, b) => endOf(b) - endOf(a))[0]!;
+  const last = [...run.frames].reverse().find((f) => typeof f.transform === "string")!;
+  return centre(String(last.transform), ghost.style.transformOrigin);
+}
+
+const RITES = "card:100";
+/** A sorcery on the stack, Alice's (never a real card's name). */
+const rites = (extra: Partial<StackView> = {}): StackView => ({
+  id: "stack:22",
+  name: "Grave Rites",
+  kind: "spell",
+  source: null,
+  targets: [],
+  seat: 1,
+  card: RITES,
+  ...extra,
+});
+const ghostOf = (c: HTMLElement, id: string) =>
+  c.querySelector<HTMLElement>(`[data-ghost-of="${id}"]`)!;
+const landsOf = (el: HTMLElement) => Math.max(...runsOf(el).map(endOf));
+const nOf = (c: HTMLElement, tile: string) =>
+  c.querySelector<HTMLElement>(`[data-zone-tile="${tile}"] .gs-zone-n:not(.gs-zone-was)`)!;
+
+/** One board with the spell on the stack, the next with it gone to `to` (and in that pile). */
+function resolves(to?: AnchorId, extra: { countered?: boolean; fizzled?: boolean } = {}) {
+  const forest = card("card:1", 1, "Forest");
+  const tiles0 = { "viewer:graveyard": 0, "viewer:exile": 0 };
+  const view = render(draw([forest], { tiles: tiles0, stack: [rites()] }));
+  calls.length = 0;
+  const pile = to ?? "viewer:graveyard";
+  view.rerender(
+    draw([forest], {
+      piles: new Set([RITES]),
+      departures: new Map<string, AnchorId>(to ? [[RITES, to]] : []),
+      tiles: { ...tiles0, [pile]: 1 },
+      ...(extra.countered ? { countered: new Set([RITES]) } : {}),
+      ...(extra.fizzled ? { fizzled: new Set([RITES]) } : {}),
+    }),
+  );
+  return view.container;
+}
+
+describe("F-0099-H · a spell resolving alone: its graveyard number waits for it", () => {
+  it("reads 0 until the spell's ghost has landed on the tile, then 1", () => {
+    const c = resolves();
+    const lands = landsOf(ghostOf(c, "stack:22"));
+    expect(lands).toBeGreaterThan(500);
+    for (const t of [0, 400, lands - 50]) expect(tileAt(c, "viewer:graveyard", t)).toEqual(["0"]);
+    expect(tileAt(c, "viewer:graveyard", lands + 1)).toEqual(["1"]);
+  });
+});
+
+describe("F-0099-I · two boards: the creature's change carries into the spell's board", () => {
+  it("reads 0, then 1 as the creature lands, then 2 as the spell lands -- never early", () => {
+    const forest = card("card:1", 1, "Forest");
+    const agent = card(AGENT, 1, "Grave Agent");
+    const tiles = (n: number) => ({ "viewer:graveyard": n });
+    const view = render(draw([forest, agent], { tiles: tiles(0), stack: [rites()] }));
+    calls.length = 0;
+    // Board 57: the creature sacrificed (to the graveyard), the spell still on the stack.
+    view.rerender(
+      draw([forest], {
+        stack: [rites()],
+        piles: new Set([AGENT]),
+        departures: new Map([[AGENT, "viewer:graveyard"]]),
+        tiles: tiles(1),
+      }),
+    );
+    const c = view.container;
+    const agentLands = landsOf(ghostOf(c, AGENT));
+    const first = runOf(nOf(c, "viewer:graveyard"))!;
+    // Board 58 arrives 300 ms in, the creature still on its way.
+    const elapsed = 300;
+    (first.animation as unknown as { currentTime: number }).currentTime = elapsed;
+    calls.length = 0;
+    view.rerender(
+      draw([forest], {
+        piles: new Set([AGENT, RITES]),
+        departures: new Map([[AGENT, "viewer:graveyard"]]),
+        tiles: tiles(2),
+      }),
+    );
+    const spellLands = landsOf(ghostOf(c, "stack:22"));
+    const creature = agentLands - elapsed; // on board 58's clock
+    expect(creature).toBeLessThan(spellLands);
+    for (const t of [0, 200, creature - 20])
+      expect(tileAt(c, "viewer:graveyard", t)).toEqual(["0"]);
+    for (const t of [creature + 1, spellLands - 20])
+      expect(tileAt(c, "viewer:graveyard", t)).toEqual(["1"]);
+    expect(tileAt(c, "viewer:graveyard", spellLands + 1)).toEqual(["2"]);
+  });
+
+  it("a board whose numbers disagree (a reconnect) simply counts from the new number", () => {
+    const forest = card("card:1", 1, "Forest");
+    const agent = card(AGENT, 1, "Grave Agent");
+    const view = render(
+      draw([forest, agent], { tiles: { "viewer:graveyard": 0 }, stack: [rites()] }),
+    );
+    view.rerender(
+      draw([forest], {
+        stack: [rites()],
+        piles: new Set([AGENT]),
+        departures: new Map([[AGENT, "viewer:graveyard"]]),
+        tiles: { "viewer:graveyard": 1 },
+      }),
+    );
+    calls.length = 0;
+    // The next board says 5 (cards that came with no animation): 4, then 5 as the spell lands.
+    view.rerender(
+      draw([forest], {
+        piles: new Set([AGENT, RITES]),
+        tiles: { "viewer:graveyard": 5 },
+      }),
+    );
+    const c = view.container;
+    const spellLands = landsOf(ghostOf(c, "stack:22"));
+    expect(tileAt(c, "viewer:graveyard", 0)).toEqual(["4"]);
+    expect(tileAt(c, "viewer:graveyard", spellLands + 1)).toEqual(["5"]);
+  });
+});
+
+describe("F-0099-J · a spell exiled on resolution flies to the Exile tile", () => {
+  it("its ghost ends on the Exile tile; the Exile number waits for it; the Graveyard's never moves", () => {
+    const c = resolves("viewer:exile");
+    const ghost = ghostOf(c, "stack:22");
+    const end = endCentre(ghost);
+    const exile = where["viewer:exile"];
+    const grave = where["viewer:graveyard"];
+    expect(Math.hypot(end.x - exile.x, end.y - exile.y)).toBeLessThan(2);
+    expect(Math.hypot(end.x - grave.x, end.y - grave.y)).toBeGreaterThan(50);
+    const lands = landsOf(ghost);
+    for (const t of [0, lands - 50]) expect(tileAt(c, "viewer:exile", t)).toEqual(["0"]);
+    expect(tileAt(c, "viewer:exile", lands + 1)).toEqual(["1"]);
+    for (const t of [0, lands + 1, 5000]) expect(tileAt(c, "viewer:graveyard", t)).toEqual(["0"]);
+  });
+
+  it("the game's move from the stack names that pile (flashback: exile, not the graveyard)", () => {
+    const snap = (revision: number, state: Record<string, unknown>): Snapshot =>
+      reduceMatch(EMPTY_MATCH, {
+        type: "MATCH_SNAPSHOT",
+        state: {
+          stateRevision: revision,
+          gameEpoch: 1,
+          turn: 4,
+          phase: "MAIN1",
+          activeSeat: 1,
+          seat: 1,
+          players: [
+            { seat: 1, name: "Alice", life: 20, handCount: 0, libraryCount: 50 },
+            { seat: 2, name: "Bob", life: 20, handCount: 3, libraryCount: 50 },
+          ],
+          battlefield: [],
+          hand: [],
+          graveyard: [],
+          exile: [],
+          stack: [],
+          ...state,
+        },
+      }).board!;
+    const spell = {
+      id: "card:8",
+      seat: 1,
+      name: "Grave Thought",
+      tapped: false,
+      faceDown: false,
+      known: true,
+    };
+    const before = snap(1, {
+      stack: [
+        { id: "stack:5", kind: "spell", name: "Grave Thought", source: "card:8", controller: 1 },
+      ],
+    });
+    const after = snap(2, {
+      exile: [spell],
+      moves: [{ card: "card:8", from: { zone: "stack" }, to: { zone: "exile", seat: 1 } }],
+    });
+    expect(boardFromSnapshot(after, before).departures.get("card:8")).toBe("viewer:exile");
+    // By the move alone (a board before it that never drew the spell on the stack).
+    expect(boardFromSnapshot(after, snap(0, {})).departures.get("card:8")).toBe("viewer:exile");
+    // The other player's page: its board with the spell on the stack is held
+    // (HOLD_MS) and the board drawn next is a later round's, with no move.
+    const later = snap(3, { exile: [spell], moves: [] });
+    expect(boardFromSnapshot(later, before).departures.get("card:8")).toBe("viewer:exile");
+  });
+});
+
+describe("F-0099-K · countered and did-nothing spells: counted once, as they land, where they go", () => {
+  for (const kind of ["countered", "fizzled"] as const)
+    it(`${kind}: the number reads 0 until it lands, then exactly 1 (never 2, never -1)`, () => {
+      const c = resolves(undefined, { [kind]: true });
+      const lands = landsOf(ghostOf(c, "stack:22"));
+      for (const t of [0, 300, lands - 50]) expect(tileAt(c, "viewer:graveyard", t)).toEqual(["0"]);
+      for (const t of [lands + 1, 5000]) expect(tileAt(c, "viewer:graveyard", t)).toEqual(["1"]);
+    });
+
+  it("a countered spell sent to exile flies there, and that number waits", () => {
+    const c = resolves("viewer:exile", { countered: true });
+    const ghost = ghostOf(c, "stack:22");
+    const end = endCentre(ghost);
+    const exile = where["viewer:exile"];
+    expect(Math.hypot(end.x - exile.x, end.y - exile.y)).toBeLessThan(2);
+    const lands = landsOf(ghost);
+    expect(tileAt(c, "viewer:exile", lands - 50)).toEqual(["0"]);
+    expect(tileAt(c, "viewer:exile", lands + 1)).toEqual(["1"]);
+    expect(tileAt(c, "viewer:graveyard", lands + 1)).toEqual(["0"]);
   });
 });
