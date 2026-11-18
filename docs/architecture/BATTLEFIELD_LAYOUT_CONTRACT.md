@@ -317,7 +317,7 @@ lines follow (`creature-2`, ...):
   line (`fits`), however well its cards would show: with creatures,
   attackers, other permanents and lands a side needs four lines, which
   the band holds only from the 75% step on (3 lines at 100-80%, 4 at
-  75-70%; `planSide`'s `total`, layout.ts:993), so such a side was drawn
+  75-70%; `planSide`'s `total`, layout.ts:996 (re-pointed 2026-11-18)), so such a side was drawn
   at 75% or smaller
   (found by the browser layout check at 1920x947, where a 90-permanent
   board's "other" line covered its lands by 41 px). Most boards
@@ -338,7 +338,7 @@ lines follow (`creature-2`, ...):
   `SHOW_MIN` (owner 2026-11-07, the canvas's rule): a sharing is taken
   only while the sharing kind's cards do not overlap at all (and every
   card shows at least `SHOW_MIN`); as soon as they would, the next sharing
-  or the next size is tried (code: frontend/src/battlefield/layout.ts:599-606 (re-pointed 2026-11-18),
+  or the next size is tried (code: frontend/src/battlefield/layout.ts:602-609 (re-pointed 2026-11-18),
   `sizeSide`).
   Sharing happens only for want of lines: outside combat (three kinds,
   three lines) nothing changes. The two kinds keep to their own stretches

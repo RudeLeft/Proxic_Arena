@@ -185,6 +185,7 @@ failing line, until it is fixed or quarantined with a reason.
 | Lab `unreachable` (ante) | `timeout 300`, exit 124; worker exit 143 | local Windows machine, 3 scenarios at once | Open -- passed alone in 14 s |
 | `fixes0089screen.test.tsx` "a tenth poison counter: the ring closes…" | one `expect` failed in the whole vitest run (the message was not kept); the test's delays are read against the real clock (`> BREAK_AT - 30`) | local, spec 0102 build 2026-11-18, the whole frontend's eslint running at the same time (1 of 4 whole runs) | Open -- passed alone and in the next two whole runs; most likely more than 30 ms of real time passed under load. Needs the failing line next time |
 | `server` `DeckBuilderApiTest` "each printing of a card wears its own picture" | `AssertionFailedError at DeckBuilderApiTest.kt:429` (inside the `testApplication` block) | local full `:server:test` during spec 0097, while a Docker image build and Lab games ran alongside (1 of 692) | Open -- passed alone at once (the whole class, 52 s); not reproduced; the assertion that failed was not printed, so the next sighting needs the test report's line |
+| `e2e/match-outcomes.spec.ts:188` | "the game ended before the test was done: Your opponent won on turn 108." -- everything else seen, the shield counter's shield not yet (`shielded: false`) | CI 1a4b775 (run 44363909395, added 2026-11-18 by a documentation check) | Open -- the next run (CI e2b9ae3) passed with the spec unchanged; not reproduced |
 
 ## Built: the main build, 2026-10-15 → 2026-10-24
 

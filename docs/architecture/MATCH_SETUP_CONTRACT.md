@@ -21,7 +21,10 @@ separate record from the room on purpose: the room keeps changing,
 and a match must not be launched from a moving target (§5.102).
 
 Phase 5 **never starts Forge** (§5.91). Preparation validates and
-freezes; that is the whole of it.
+freezes; that is the whole of it. (It never starts a *game*: the deck
+check below does start a Forge worker for `BUILD_DECK`, which builds the
+deck and plays nothing -- `MatchPreflight.validate`,
+`CardResolver.buildDeck`; corrected 2026-11-18.)
 
 ---
 
@@ -94,8 +97,11 @@ choosing what to launch.
 ## Validation that has already happened
 
 By the time a setup exists, all of this was checked during
-preparation (§5.92, §5.93) -- in step 1's locked transaction, or by
-Forge in step 2; the transaction that writes it checks only that the
+preparation (§5.92, §5.93) -- in step 1's locked transaction, or in
+step 2 (the Open Format check is Proxic's own, `OpenFormat`, run there
+with Forge's reading of which cards are Contraptions or Attractions;
+the deck build is Forge's -- `MatchPreflight.validate`; corrected
+2026-11-18); the transaction that writes it checks only that the
 revision has not moved (below), and presence does not move the
 revision, so "connected" is as of step 1:
 
@@ -134,7 +140,10 @@ sideboard, so Open Format's bounds cannot be delegated to it. See
 **No §5.97 conflict exists.** The Phase 2 worker answers `BUILD_DECK`
 without starting a game, which is the Forge-side preflight §5.96
 asks for. The cost is a JVM per deck (~611 MB, ~2.8 s, Phase 0A), paid
-once per preparation and outside every database lock.
+once per preparation and outside every database lock -- per distinct
+deck, and not at all for a deck Proxic's own check already refuses
+(`OpenFormat.certainViolations`, before Forge is asked; corrected
+2026-11-18).
 
 ---
 
@@ -153,7 +162,7 @@ A setup is `READY` until something ends it:
 |---|---|---|
 | host cancels (§5.117) | `INVALIDATED` | `OPEN`, readiness reset |
 | a guest leaves, is removed, or is taken out for being away, or a member unticks ready (owner 2026-11-04) | `INVALIDATED` | `OPEN`, readiness reset |
-| host closes the room (§5.79) | `INVALIDATED` | `CLOSED` |
+| host closes the room (§5.79), or leaves it (corrected 2026-11-18: `RoomService` closes a room its host leaves) | `INVALIDATED` | `CLOSED` |
 | the room closes idle or with its host away (spec 0054; was §5.125's expiry) | `INVALIDATED` | `CLOSED` (`EXPIRED` before spec 0054) |
 | an administrator closes the room (Admin page) | `INVALIDATED` | `CLOSED` |
 | the server restarts (`RoomRecovery`) | `INVALIDATED` | `OPEN` |

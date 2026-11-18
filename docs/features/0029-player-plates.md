@@ -69,4 +69,4 @@ under the name, above the Belt, on both plates (code:
 frontend/src/battlefield/GameScreen.tsx:3637-3643). Spec 0031 replaced the
 tile grid above: both plates have Library across the top with Graveyard and
 Exile under it, and the opponent's hand is drawn on the board, not a tile
-(code: frontend/src/battlefield/GameScreen.tsx:3707-3770).*
+(code: frontend/src/battlefield/GameScreen.tsx:3708-3775 (re-pointed 2026-11-18)).*

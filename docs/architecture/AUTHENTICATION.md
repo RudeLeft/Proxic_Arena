@@ -71,10 +71,11 @@ version      1.3 (0x13)
 
 These are the OWASP-recommended Argon2id settings. Measured
 2026-10-16 on the development machine (`PasswordHasher`'s benchmark
-note): **median 99 ms** per hash (89/91/99/100/103 ms); the Unraid host
-is slower, which is the safe direction,
-which is the intended cost — fast enough for a human signing in, slow
-enough that an offline attacker pays for every guess.
+note): **median 99 ms** per hash (89/91/99/100/103 ms), which is the
+intended cost — fast enough for a human signing in, slow enough that an
+offline attacker pays for every guess. The Unraid host is slower, which
+is the safe direction (corrected 2026-11-18: the sentence had two
+"which is" clauses run together).
 
 A hash is stored in the standard **PHC string format**, which carries
 its own parameters:

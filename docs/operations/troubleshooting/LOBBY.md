@@ -234,6 +234,11 @@ Readiness is reset by anything that changes what people agreed to:
 - losing access to your deck (§5.51),
 - your deck failing the preflight (§5.98),
 - the host cancelling a preparation (§5.117),
+- after the game was prepared, the other player leaving or being
+  removed, or anyone unticking ready (everyone's tick clears, and the
+  game has to be prepared again; owner 2026-11-04),
+- a guest being taken out for being offline 10 minutes (everyone's
+  tick clears; spec 0054),
 - **a server restart** (§5.198).
 
 The last one surprises people. "Ready" is a claim about somebody who
@@ -331,8 +336,10 @@ happening while the host is alone, 2 hours with two players, or when the
 host has been offline 10 minutes; a guest offline 10 minutes is taken
 out. The room says so 5 minutes before an idle close, with **Keep it
 open**. Activity is joining, leaving, configuring, selecting a deck,
-readying, a host action (§5.124), sending an invitation, or a lobby chat
-line from one of the room's members.
+readying, a host action (§5.124), pressing **Keep it open**, a game
+starting or ending, and -- at most once a minute -- sending an
+invitation, or a lobby chat line or reaction from one of the room's
+members.
 
 **Holding a socket open is not activity.** A room with a game in it is
 never closed this way. The limits are server settings

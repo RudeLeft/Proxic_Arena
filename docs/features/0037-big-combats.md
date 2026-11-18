@@ -124,6 +124,9 @@ side by side. Identical blocked pairs still stack (a pile of attackers,
 facing it a pile of their blockers), a blocked attacker still has no fire
 line, and a blocker facing its attacker has no block line. F-0037-B is
 now "two blockers stand side by side facing their attacker, covering
-nothing" (`layout.test.ts`); F-0037-A's swarm still draws at most 16 cards
+nothing" (`layout.test.ts`; *as of 2026-11-18, a documentation check:
+the test is titled by its Phase 10 item, "A-12: two blockers stand side
+by side facing their attacker, ...", not by F-0037-B; code:
+frontend/src/battlefield/layout.test.ts:1464*); F-0037-A's swarm still draws at most 16 cards
 a side. The page marks every blocker `data-blocking` / `data-blocks`
 (was `data-rides`). See BATTLEFIELD_LAYOUT_CONTRACT.md §7b.

@@ -187,9 +187,9 @@ GET /api/decks/{deckId}/assets/{assetId}
 ```
 
 Since 1.30.0 (spec 0052) the pages load pictures from
-`GET /api/pictures/{sha}` instead, and pictures no deck or running game
-has used for 30 days are deleted weekly (`PictureCleanup`). The
-per-deck route still answers.
+`GET /api/pictures/{sha}` instead, and a weekly sweep (`PictureCleanup`)
+deletes pictures no deck has held for 30 days, never one a running game
+may show (corrected 2026-11-18). The per-deck route still answers.
 
 `assetId` **is** the content hash. Its shape is validated — 64 hex
 characters — so traversal is impossible whatever is sent, rather

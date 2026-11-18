@@ -36,8 +36,8 @@ The archive filename is **not** meaningful. It is a label.
 ```text
 <DeckName>.txt                            exactly one, at the root
 real_cards/<front face name> [SET].png    zero or more (cards and token cards)
-                                  or .jpg  (spec 0051)
-art_crops/<front face name> [SET].jpg     zero or more (spec 0051)
+                                  or .jpg / .jpeg  (spec 0051)
+art_crops/<front face name> [SET].jpg     zero or more (spec 0051; .jpeg too)
 pictures.json                             optional (spec 0022)
 ```
 
@@ -102,7 +102,7 @@ Cloudflare's 100 MB upload cap and makes sending a deck again quick.
 line     := comment | blank | entry
 comment  := "//" text
 entry    := quantity SP name [ SP "[" set [ ":" collector ] "]" ]
-quantity := integer, 1 or greater
+quantity := integer, 1 to 1000 (corrected 2026-11-18)
 name     := text, may contain " // " for a multi-face card
 ```
 

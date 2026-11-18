@@ -59,7 +59,8 @@ Lab on three (longest scenarios first) plus one for its two timing
 benchmarks, and the browser tests on seven: everything that is not a
 game spec on one, the game specs (`match*.spec.ts`) dealt over six by
 their measured time (`ci/browser-shard.mjs`, times in
-`ci/browser-durations.json`). A green run takes about 13-16 minutes.
+`ci/browser-durations.json`). A green run takes about 18-20 minutes
+(the runs on main of 2026-11-17 and 2026-11-18).
 
 - **A push to main never cancels the run in progress.** It waits; a
   burst of pushes becomes one follow-up run of the newest commit.
@@ -185,7 +186,7 @@ the database needs a word first.
 Rare, and each has a plain cause.
 
 **"Check for Updates" says nothing changed.** Either the run is still
-going — the full gate takes about fifteen minutes — or it failed and
+going — the full gate takes about twenty minutes — or it failed and
 nothing was published, or the push changed only documentation (the
 run says "Documentation only" and publishes nothing; the image is the
 same). The Actions tab on GitHub says which, and a

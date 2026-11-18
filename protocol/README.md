@@ -195,7 +195,9 @@ arrangeForScry            scry N: both steps are kind arrangeForScry,
                           shown in the card tray (W-08): first the
                           cards for the BOTTOM ("... then Done"), then
                           "Which goes on top of your library?" one at
-                          a time
+                          a time. Scry 1 is not arrangeForScry: it asks
+                          willPutCardOnTop (corrected 2026-11-18;
+                          MatchController.java:3532-3535)
 willPutCardOnTop          one card: "Top" or "Bottom"
 ```
 
@@ -418,7 +420,9 @@ playLog                   spec 0064: this round's play log lines for THIS
                           token?, faceDown?, printing?, art?}], life?
                           [{seat, total}], private? (only this seat was told
                           this much)}]. Absent when the round has none, and
-                          never in the public (seat 0) view. The server keeps
+                          never in the public (seat 0) view, which carries
+                          only the public lines (state.playLog (seat 0),
+                          below; corrected 2026-11-18). The server keeps
                           each seat's lines for the match (last 2,000) and
                           puts the whole log in the board it sends a
                           connection that just arrived
@@ -839,7 +843,9 @@ choice the other player's `action` report, a coin flip both players'
 ("Alice flipped a coin and won." / "You flipped a coin and won.", a coin in
 `marks`); the player who chose is told nothing.
 A reveal shown in the report window (`reveal`, `action`) is no "Looking
-at ..." notice either: only a reveal with no window is told in words.
+at ..." notice either; since spec 0097 (item 9) a reveal with no window
+(before a game has begun) is only logged by the worker, never a notice
+(corrected 2026-11-18; MatchController.java:5969-5971).
 Spec 0083 (17): a card revealed from an opening hand before the game
 began (Chancellor of the Annex) is the other player's `reveal`, with `by`,
 `source` (the card) and `said` ("Bob revealed Chancellor of the Annex from
@@ -1117,7 +1123,8 @@ POST /api/matches/test-deal        signed in + CSRF, like every /api/matches rou
 When that match starts, each seat's deal becomes its START_GAME `labDeal`
 and the worker is started with `--lab-deal`; a deal the deck cannot make
 fails the start (`LAB_DEAL_REFUSED`). The e2e helper is `startAMatch(...,
-{ deal: { host, guest } })` (`queueDeal` in `e2e/match-helpers.ts`).
+{ deal: { host, guest } })` (`queueDeal` in `frontend/e2e/match-helpers.ts`;
+path corrected 2026-11-18).
 
 With the switch off (production): the route is not mounted (404, nothing
 queued), the runtime has no store, and the worker has no `--lab-deal`
