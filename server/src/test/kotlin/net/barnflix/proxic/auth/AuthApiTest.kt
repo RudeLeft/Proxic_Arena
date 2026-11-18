@@ -188,6 +188,79 @@ class AuthApiTest {
             )
         }
 
+    // --- changing the password -------------------------------------
+
+    private suspend fun ApplicationTestBuilder.changePassword(
+        signedIn: HttpResponse,
+        current: String,
+        next: String = "another fine passphrase",
+    ): HttpResponse {
+        val session = signedIn.cookie(SESSION_COOKIE)!!
+        val csrf = signedIn.cookie(CSRF_COOKIE)!!
+        return client.post("/api/auth/password") {
+            header(HttpHeaders.Cookie, "$SESSION_COOKIE=$session; $CSRF_COOKIE=$csrf")
+            header(CSRF_HEADER, csrf)
+            contentType(ContentType.Application.Json)
+            setBody("""{"currentPassword":"$current","newPassword":"$next"}""")
+        }
+    }
+
+    @Test
+    fun `wrong current passwords on the password change are throttled like signing in`() =
+        testApplication {
+            // 2026-11-18 (documentation audit): the route checked the
+            // current password through login(), outside LoginThrottle,
+            // so a signed-in session could guess it without limit.
+            seedUser()
+            application { module(config()) }
+            val signedIn = login()
+            assertEquals(HttpStatusCode.OK, signedIn.status)
+
+            val answers = List(15) { changePassword(signedIn, current = "wrong every time") }
+            assertEquals(
+                HttpStatusCode.Unauthorized,
+                answers.first().status,
+                "a wrong current password is still a 401 INVALID_CREDENTIALS",
+            )
+            assertTrue(answers.first().bodyAsText().contains("INVALID_CREDENTIALS"))
+            val throttled = answers.firstOrNull { it.status == HttpStatusCode.TooManyRequests }
+            assertTrue(throttled != null, "wrong current passwords were never throttled: ${answers.map { it.status }}")
+            assertTrue(throttled!!.bodyAsText().contains("TOO_MANY_ATTEMPTS"), throttled.bodyAsText())
+            assertTrue(throttled.headers["Retry-After"] != null, "a throttled answer should say when to retry")
+
+            // Throttled, the right password is refused too -- the limit
+            // is on guesses, and a correct guess is still a guess.
+            assertEquals(HttpStatusCode.TooManyRequests, changePassword(signedIn, current = password).status)
+        }
+
+    @Test
+    fun `a password change opens no session of its own`() =
+        testApplication {
+            // 2026-11-18 (documentation audit): login() opened a
+            // throwaway session row for every successful change.
+            seedUser()
+            application { module(config()) }
+            val signedIn = login()
+
+            fun sessionRows(): Int =
+                Database.connect(config())!!.use { database ->
+                    database.dataSource().connection.use { connection ->
+                        connection.prepareStatement("SELECT count(*) FROM user_session").use { statement ->
+                            statement.executeQuery().use { rows ->
+                                rows.next()
+                                rows.getInt(1)
+                            }
+                        }
+                    }
+                }
+            val before = sessionRows()
+            assertEquals(1, before, "signing in should have opened exactly one session")
+
+            val changed = changePassword(signedIn, current = password)
+            assertEquals(HttpStatusCode.NoContent, changed.status, changed.bodyAsText())
+            assertEquals(before, sessionRows(), "the password change created a session row")
+        }
+
     // --- me, logout -------------------------------------------------
 
     @Test

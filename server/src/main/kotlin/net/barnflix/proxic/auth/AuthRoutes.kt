@@ -114,15 +114,7 @@ fun Route.authRoutes(
                     username = body.username.trim().lowercase(),
                 )
                 signIns?.record(SignInKind.THROTTLED, body.username, source)
-                call.response.headers.append("Retry-After", seconds.toString())
-                return@post call.respond(
-                    HttpStatusCode.TooManyRequests,
-                    ErrorResponse(
-                        "TOO_MANY_ATTEMPTS",
-                        "Too many sign-in attempts. Try again in $seconds seconds.",
-                        null,
-                    ),
-                )
+                return@post call.respondThrottled(seconds)
             }
 
             when (val result = accounts.login(body.username, body.password)) {
@@ -240,7 +232,7 @@ fun Route.authRoutes(
         // function past its complexity threshold: the answer to a
         // route table that has outgrown one function is a second
         // function, not a higher threshold.
-        accountRoutes(config, accounts, sessions, changes, resets)
+        accountRoutes(config, accounts, sessions, throttle, changes, resets)
         // Spec 0021 -- linking a computer (the Deck Builder).
         devices?.let { deviceRoutes(config, sessions, it, throttle) }
     }
@@ -256,6 +248,22 @@ internal fun User.view() =
         // session, every time.
         role = role.name,
     )
+
+/**
+ * §3.46 — the one answer to a throttled password guess, wherever it is
+ * made: signing in, and the Account page's current password (2026-11-18).
+ */
+internal suspend fun ApplicationCall.respondThrottled(seconds: Long) {
+    response.headers.append("Retry-After", seconds.toString())
+    respond(
+        HttpStatusCode.TooManyRequests,
+        ErrorResponse(
+            "TOO_MANY_ATTEMPTS",
+            "Too many sign-in attempts. Try again in $seconds seconds.",
+            null,
+        ),
+    )
+}
 
 /**
  * The client's address, for throttling.

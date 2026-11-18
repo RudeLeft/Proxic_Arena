@@ -311,6 +311,15 @@ because it may be compromised, and leaving other sessions alive would
 defeat the change. The account page says so before it happens, so
 being signed out does not look like a bug.
 
+The change asks for the **current password** even though the caller is
+signed in, so a borrowed session is not enough to take the account. It
+is checked without opening a session, and it is a password guess like
+any other: a wrong one counts against the same (address, username)
+throttle as signing in, and past the limit the route gives sign-in's
+`429 TOO_MANY_ATTEMPTS` with `Retry-After` and logs `LOGIN_THROTTLED`
+(detail `route=password`). Until 2026-11-18 it went through the sign-in
+code, which counted nothing and opened a throwaway session.
+
 `/api/auth/logout-all` is what someone reaches for after using a
 shared computer. It needs a session, because "revoke everything" must
 name *whose* everything and the only trustworthy answer is the

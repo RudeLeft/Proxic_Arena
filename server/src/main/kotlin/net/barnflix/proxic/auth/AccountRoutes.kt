@@ -27,6 +27,8 @@ fun Route.accountRoutes(
     config: ServerConfig,
     accounts: Accounts,
     sessions: Sessions,
+    // §3.45 — the current password is a password guess, counted with sign-in's.
+    throttle: LoginThrottle,
     changes: AccountChanges,
     // Spec 0026 — the "password was changed" and "email was changed" notices.
     resets: ResetDesk? = null,
@@ -46,13 +48,31 @@ fun Route.accountRoutes(
 
         // The current password is re-verified even though the caller
         // is authenticated: a borrowed session must not be enough to
-        // take the account.
-        if (accounts.login(principal.user.username, body.currentPassword) !is LoginResult.Success) {
+        // take the account. It is checked without opening a session,
+        // and every wrong guess counts against the same (address,
+        // username) limit as signing in (2026-11-18: through login()
+        // it was neither, so a session could guess without limit).
+        val source = call.clientSource()
+        val username = principal.user.username
+        throttle.retryAfter(source, username)?.let { seconds ->
+            call.application.log.authEvent(
+                AuthEvent.LOGIN_THROTTLED,
+                AuthResult.REFUSED,
+                username = username,
+                userId = principal.user.userId,
+                sessionId = principal.sessionId,
+                detail = "route=password",
+            )
+            return@post call.respondThrottled(seconds)
+        }
+        if (accounts.verifiedUser(username, body.currentPassword) == null) {
+            throttle.recordFailure(source, username)
             return@post call.respond(
                 HttpStatusCode.Unauthorized,
                 ErrorResponse("INVALID_CREDENTIALS", "That password is not correct.", null),
             )
         }
+        throttle.recordSuccess(source, username)
         PasswordHasher.rejectionReason(body.newPassword)?.let { reason ->
             return@post call.respond(
                 HttpStatusCode.UnprocessableEntity,

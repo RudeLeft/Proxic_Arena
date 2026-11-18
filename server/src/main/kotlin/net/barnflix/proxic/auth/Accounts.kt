@@ -203,30 +203,40 @@ class Accounts(
         username: String,
         password: String,
     ): LoginResult {
-        val normalized = Usernames.normalize(username)
+        val user = verifiedUser(username, password) ?: return LoginResult.Failed
+        val (sessionId, token) = sessions.open(user.userId)
+        return LoginResult.Success(Principal(user, sessionId), token)
+    }
 
+    /**
+     * Check a password WITHOUT opening a session: the user whose
+     * password it is, or null. [login] opens the session; the Account
+     * page's "current password" (§3.35) only checks. Until 2026-11-18
+     * that route called [login], which opened a session row only for
+     * [changePassword] to revoke it.
+     */
+    fun verifiedUser(
+        username: String,
+        password: String,
+    ): User? =
         dataSource.connection.use { connection ->
-            val row = findForLogin(connection, normalized)
+            val row = findForLogin(connection, Usernames.normalize(username))
 
             // §3.44 — do the same work either way. The result is
             // discarded; the TIME is the point.
             val storedHash = row?.passwordHash ?: dummyHash
             val passwordMatches = PasswordHasher.verify(password, storedHash)
 
-            if (row == null || !passwordMatches) return LoginResult.Failed
             // §3.108 — a disabled account fails exactly like a wrong
             // password. Saying "disabled" confirms the name exists.
-            if (row.user.status != AccountStatus.ACTIVE) return LoginResult.Failed
+            if (row == null || !passwordMatches || row.user.status != AccountStatus.ACTIVE) return null
 
             // §3.105 — the only moment the plaintext is available.
             if (PasswordHasher.needsRehash(storedHash)) {
                 updatePasswordHash(connection, row.user.userId, PasswordHasher.hash(password))
             }
-
-            val (sessionId, token) = sessions.open(row.user.userId)
-            return LoginResult.Success(Principal(row.user, sessionId), token)
+            row.user
         }
-    }
 
     /**
      * §3.35, §3.36 — change a password and revoke every session.
@@ -324,46 +334,48 @@ class Accounts(
             }
         }
     }
+}
 
-    private data class LoginRow(val user: User, val passwordHash: String)
+private data class LoginRow(val user: User, val passwordHash: String)
 
-    private fun findForLogin(
-        connection: Connection,
-        normalized: String,
-    ): LoginRow? =
-        connection.prepareStatement(
-            "SELECT user_id, username, display_name, role, status, password_hash " +
-                "FROM app_user WHERE username_normalized = ?",
-        ).use { statement ->
-            statement.setString(1, normalized)
-            statement.executeQuery().use { rows ->
-                if (!rows.next()) return null
-                LoginRow(
-                    user =
-                        User(
-                            userId = rows.getObject(1, UUID::class.java),
-                            username = rows.getString(2),
-                            displayName = rows.getString(3),
-                            role = Role.valueOf(rows.getString(4)),
-                            status = AccountStatus.valueOf(rows.getString(5)),
-                        ),
-                    passwordHash = rows.getString(6),
-                )
-            }
+// Plain queries on a connection the caller holds; outside [Accounts]
+// because they use nothing of it (and detekt counts its functions).
+private fun findForLogin(
+    connection: Connection,
+    normalized: String,
+): LoginRow? =
+    connection.prepareStatement(
+        "SELECT user_id, username, display_name, role, status, password_hash " +
+            "FROM app_user WHERE username_normalized = ?",
+    ).use { statement ->
+        statement.setString(1, normalized)
+        statement.executeQuery().use { rows ->
+            if (!rows.next()) return null
+            LoginRow(
+                user =
+                    User(
+                        userId = rows.getObject(1, UUID::class.java),
+                        username = rows.getString(2),
+                        displayName = rows.getString(3),
+                        role = Role.valueOf(rows.getString(4)),
+                        status = AccountStatus.valueOf(rows.getString(5)),
+                    ),
+                passwordHash = rows.getString(6),
+            )
         }
+    }
 
-    private fun updatePasswordHash(
-        connection: Connection,
-        userId: UUID,
-        hash: String,
-    ) {
-        connection.prepareStatement(
-            "UPDATE app_user SET password_hash = ?, password_changed_at = now() WHERE user_id = ?",
-        ).use {
-            it.setString(1, hash)
-            it.setObject(2, userId)
-            it.executeUpdate()
-        }
+private fun updatePasswordHash(
+    connection: Connection,
+    userId: UUID,
+    hash: String,
+) {
+    connection.prepareStatement(
+        "UPDATE app_user SET password_hash = ?, password_changed_at = now() WHERE user_id = ?",
+    ).use {
+        it.setString(1, hash)
+        it.setObject(2, userId)
+        it.executeUpdate()
     }
 }
 
