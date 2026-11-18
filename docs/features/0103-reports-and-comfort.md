@@ -1,0 +1,98 @@
+# 0103 — Reports and comfort: the window points at the table, reading order, replay, your known library top, "this turn" counts, bigger text
+
+**Status:** Approved 2026-11-17 (owner, by prompt, deep dive 3). Phase 10.
+**Owner decisions** (`Phase 10 deep dive 3 decisions.md`, all approved 2026-11-17; `deep3-reports-comfort-1117.html`):
+Q1 **C** (pointing at a report row dims everything else, using the SAME dim the game already uses when you're choosing cards) · Q2 **A** (gathered rows numbered, then read through once, lighting each card) · Q3 **A** (replay by medallion click or the R key) · Q4 **A** (point at your Library to see the cards you know on top, numbered from the top) · Q5 **B** (small "this turn" counts always on the plate) · Q6 (calmer very busy boards, B11) **dropped by the owner** ("work it out in later phases"; added to the stragglers list) · Q7 **A** (a "Bigger text" switch in the gear menu).
+
+Canvas sections: "Q1" option C, "Q2" option A, "Q3" option A, "Q4" option A, "Q5" option B, "Q7" option A. Research: `Phase 10 deep dive 3.md` B2, B3, B6, B7, B12, B13.
+
+## Why (researched)
+
+Line numbers at HEAD (4a5acfe, 1.72.0). Forge paths under `spikes/forge-phase0a/forge-upstream/forge-game/src/main/java/forge/game/`.
+
+- **The report window** (SOURCE). Reports reach a seat as the snapshot's `action` (`ViewerSnapshot.java:571-576`; reveals `reveal`, 566), the newest open one with older ones under `gathered` (`ActionReports.java:1126-1142`; `ReportBook.java:36` `ROWS = 3`, `reports.ts:70`). Mounted at `GameScreen.tsx:2486-2496` (`<RevealTray …>`). Rows: `ReportRow`, `RevealTray.tsx:171-213` (`.gs-report-row`, one button with `onClick` only; the medallion `.gs-report-row-face` 194-196; one picture of `cards[0]` 182-183, 204-208); rows container 288-299. The full report: `ReportBody` 307-384 (medallion `.gs-reveal-who` 325-326, heading 328-330, pictures `li.gs-reveal-card[data-revealed-id]` 346-352, Peek/Close 373-381). **No pointer handlers on rows or pictures; no numbers; no replay** (grep `replay|playAgain`: comments only). Each report's cards carry ids (`match.ts:445`, 672-695), except cards now hidden from that viewer (`HiddenIds.java`). Table cards carry `data-object-id`, pile tiles `data-zone-tile`.
+- **Keys** (SOURCE). Space = Peek (`GameWindow.tsx:83-95`) and "resolve now" (`GameScreen.tsx:1696`); Escape in several places; any key hurries animations (`Board.tsx:8163`). **No letter key is bound: R is free.**
+- **"The dim the game already uses when you're choosing cards"** (SOURCE): **there is no such dim today.** When a decision is open the board gets `bf-asking` (`Board.tsx:8640`) but no CSS rule uses it (grep `bf-asking` in every `.css`: none). Choosable cards are lit (the breath, `game.css:1553-1569`, 1606-1660), the rest is not dimmed. The dims that exist are: `bf-unpayable` `filter: saturate(0.5) brightness(0.8)` (`game.css:1728`; set `Board.tsx:3212-3216` for cards you could pick but cannot pay), `bf-dim` (tapped) `brightness(0.72) saturate(0.85)` (`battlefield.css:548-550`), the split-second hand dim `brightness(0.45) saturate(0.4)` over 300 ms (`battlefield.css:2658-2662`), `bf-stack-faded` opacity 0.45 (`battlefield.css:1418`), and the fight / merge overlays (`.bf-fight-dim` 0.4, `fights.ts:84`; `.bf-merge-dim` 0.45, `motion.ts:310`). **OPEN: the owner will choose the dim on a dim canvas first** (Decided 1); items 1 and 2 wait for it.
+- **Library top** (SOURCE). `libraryTop` is sent only for a top card Forge lets that viewer see (`LibraryTops.shownTo`, `LibraryTops.java:50-54`: `canBeShownTo` and `canFaceDownBeShownTo`; Courser/Future Sight to all, Citadel/Vizier to the owner) (`ViewerSnapshot.java:391-409`; drawn by `LibraryTop.tsx:211-214`). **Forge does not remember what a player knows about their library after Brainstorm, a scry or a look**: `CardView.canBeShownTo` (`card/CardView.java:628-686`) hides a library card unless `mayPlayerLook` (`Card.updateMayLook`, `card/Card.java:3792-3800`, from static MayLookAt, face-down exile and temporary looks), and the temporary looks are removed after the prompt (`PlayerControllerHuman.tempShowCard`/`endTempShowCards`, forge-gui `PlayerControllerHuman.java:183-207`). Grep `knownCards|lookedAt|getVisibilityRules` in Forge: none. The worker's `SeenHands.java` is the precedent for bookkeeping what a seat was shown (hands only). `docs/architecture/MATCH_STATE_VISIBILITY.md:85` still says "a snapshot's library is a count only" (stale since 0088). So the worker remembers it from the player's own choices, as `SeenHands` does (Decided 2).
+- **"This turn" counts** (SOURCE). Player entries (`ViewerSnapshot.java` ~124-235) send life, pool, counts, counters, designations, command, ring, dungeons: **no spells cast, life gained, permanent left, mana spent or storm**. Forge answers: `Player.getSpellsCastThisTurn()` (`player/Player.java:2302`), `getLifeGainedThisTurn()` (2330), `hasRevolt()` (2091, from `Game.getLeftBattlefieldThisTurn()`, `Game.java:302`), storm `MagicStack.getSpellsCastThisTurn()` (`zone/MagicStack.java:926`). **There is no per-player "mana spent this turn" in Forge** (only per spell, `SpellAbility.getTotalManaSpent`, `AbilityUtils.java:1887`), so that count is dropped (Decided 3). The plate is `SeatBlock` (`GameScreen.tsx:3176`): head, `.gs-seat-who` (3289-3303), life (3304-3348), `PoisonBadge` (3351), the zone tiles (3363ff); small counts exist as `CountBadge` (`playerMarks.tsx:201`, `.gs-count-n` at `--pa-size-xs`, `game.css:5229`).
+- **Settings** (SOURCE). The gear menu `GameMenu` (`GameScreen.tsx:5208`, button 5339-5350, items 5270-5288) holds only Concede and Abandon match. The game has no settings; motion follows `prefers-reduced-motion`. Player preferences are per browser in localStorage (`proxic.sounds`, `sounds.ts:5`, set on the Account page `AccountPage.tsx:291`; `proxic.gameChat.v1.${user}`, `chatPlace.ts:93`); there are no server-side preferences (grep `preferences|user_pref` in `server/`, `database/`: none).
+- **Text sizes** (SOURCE). Power/toughness `.bf-pt` inherits `.bf-bar`'s `calc(var(--card-h) * 0.075)` (`battlefield.css:573, 594`); counter numbers `.bf-badge-n` `calc(var(--card-h) * 0.098)` (1986-1993); the life total `.gs-life` `var(--pa-size-xl)` = 24 px (`game.css:255`; three digits `--pa-size-lg` 18 px, 358-361); the gold square `.bf-mark` border 1.5 px `#e9c46a` (`battlefield.css:2003-2015`).
+
+## What the player sees
+
+Alice is you (bottom), Bob the other player.
+
+1. **The window points at the table (Q1 C; canvas "Q1", option C). Waits on the dim canvas (Decided 1).** Bob cracked Flooded Strand (found an Island), then Polluted Delta (a Swamp), then cast Consider and surveilled Lightning Bolt. Your window holds all three. Point at the Flooded Strand row: everything on the table and the piles dims (with the dim the owner picks on the dim canvas) except that Island on Bob's side; move to the Bolt picture: the dim moves, and Bob's Graveyard tile stays bright. Stop pointing and the table comes back at once. A card you cannot see (one put into a library) lights its pile tile instead.
+2. **Reading order (Q2 A; "Q2", option A). Waits on the dim canvas (Decided 1).** Each report in a gathered window wears its order number in the stack's gold order badge (1 oldest). When the window settles it reads through once: each row lights in turn, its card shown on the table with item 1's dim (everything else dims; not sight corners, Decided 4), about a second each, then stops. Your own moves get no window, as today.
+3. **Replay (Q3 A; "Q3", option A).** Bob's Unsummon returns your Serra Angel. Click the window's medallion (Bob's face) or press **R** and the move plays again on the table at half speed while the medallion's ring fills; the window stays open. The window's foot says "R to replay". Replay is offered **only while the table is unchanged since that report**: once anything else has happened, the medallion stops offering it (no replay sign, a click does nothing) and R does nothing (Decided 5).
+4. **Cards you know on top (Q4 A; "Q4", option A).** You cast Brainstorm, put back Forest and then Lightning Bolt on top. Point at your Library tile: the two cards slide out beside it, face up, numbered from the top (1 = Lightning Bolt, your next draw). Draw one and the list moves up; shuffle and it empties. **Only you** see it: Bob's view of your Library is its count, as today.
+5. **"This turn" counts (Q5 B; "Q5", option B).** On each plate, under the name, three tiny counts: spells cast this turn, life gained this turn, and whether a permanent of yours left the table (mana spent is dropped, Decided 3). You have cast Opt, Bolt and Healing Salve: "3" spells, "+3" life, the left-the-table mark lit (Fatal Push killed your Elves). Pointing at them shows the list in words. Both plates, both players (they are public).
+6. **Bigger text (Q7 A; "Q7", option A).** In the gear menu (bottom left), a "Bigger text" switch, off by default. On: power/toughness, counters and the life totals about 25 % larger and the gold squares' outlines thicker, at once, for the rest of the game and the next ones in this browser.
+
+Not built: Q6 (calmer very busy boards, B11) — dropped by the owner, in the stragglers list with the trigger "later phases".
+
+House rules: no pills, no top notices; windows unchanged in who gets them; no "Forge" in player text.
+
+## Changes
+
+### Worker
+
+- **Item 4 (Decided 2: yes).** A `KnownTops` book like `SeenHands`: when a player's own decision puts cards on top of their library in an order they chose (Brainstorm's put back, scry/surveil kept on top, a look-and-reorder: `MatchController`'s reorder and put-back answers), record `[card ids, top first]` for that player; forget on any shuffle, on any card moved into or within that library other than a draw from the top, and pop on each draw. Send `knownTop: [card…]` **in that player's own snapshot only**; never to the other seat or a spectator. Each card passes `HiddenIds` and is described for its owner. A shuffle of that library clears the list.
+- **Item 5.** Player entries get `thisTurn: {spells, lifeGained, leftBattlefield: boolean}` from `getSpellsCastThisTurn().size()`, `getLifeGainedThisTurn()`, `hasRevolt()`. No mana spent (Decided 3). Public to every viewer.
+
+### Protocol
+
+`protocol/README.md`, `match.ts`: `knownTop` (viewer's own), player `thisTurn`. `docs/architecture/MATCH_STATE_VISIBILITY.md` (edited by the builder with this spec, not before): line 85, "a snapshot's library is a count only", becomes: a snapshot's library is a count, plus `libraryTop` (0088: the top card, only to a viewer Forge's `CardView#canBeShownTo` lets see it) and `knownTop` (0103: the cards the owner put on top in an order they chose, kept by the worker from that player's own answers like `SeenHands`, sent to the owner alone, cleared by a shuffle). The `knownTop` bookkeeping is recorded there as the one place the worker, not Forge, decides a library card may be shown (HID-002 exception, owner-approved 2026-11-17).
+
+### Server
+
+None. `MatchArt` already gives a seat's own cards their pictures; check `knownTop` cards get pictures through the same path as `libraryTop` (`MatchArt`, 0088's change).
+
+### Page
+
+- **Item 1.** `RevealTray.tsx`: pointer enter/leave (and focus/blur) on each row and each `li.gs-reveal-card`, reporting the card ids (all the row's cards, not only `cards[0]`) or, for a card without an id, its `to` pile. `GameScreen.tsx` passes a `pointedReport` set to `Board`, which applies the dim the owner picks on the dim canvas (Decided 1) to every card, tile and plate not in it.
+- **Item 2.** `RevealTray.tsx`: the stack's order badge on each row and on the full report; a one-time read-through on settle (a timer per gathered set, about 1 s per row, cancelled by any pointer over the window, a click or a new report).
+- **Item 3.** `GameScreen.tsx` keeps, per open report, the board pair it arrived with (previous, next; at most the four in the window). Medallion click or R (when no text field has focus and no decision window takes keys) replays that pair through `Board` at half speed on a non-interactive layer over the table, then hands back to the live board; the medallion ring fills over the replay. A report's pair is kept only while it is the newest board change: the next board drops it, the medallion loses its replay sign and click, and R is ignored (Decided 5).
+- **Item 4.** `LibraryTop.tsx` / the viewer's Library tile: on pointing, the `knownTop` cards slide out beside the tile, face up, numbered. Nothing shown at rest.
+- **Item 5.** `SeatBlock`: three `CountBadge`-style counts under the name (`.gs-seat-who`), pointing shows the list (the existing tooltip pattern of the plate).
+- **Item 6.** `GameMenu`: a "Bigger text" switch; stored in **localStorage `proxic.biggerText`** (per browser, like `proxic.sounds`; no server preference exists to put it in). On, the game screen root gets a class that multiplies `.bf-bar`'s, `.bf-badge-n`'s and `.gs-life`'s sizes by 1.25 and sets `.bf-mark`'s border to 2.5 px (one CSS variable, `--bf-text-scale`, so the layout's card sizes do not change).
+
+## Tests that prove it
+
+| ID | Test | Evidence |
+|---|---|---|
+| F-0103-A | Page: pointing at a row dims every card and tile except that row's cards; a hidden card lights its tile; leaving restores all | `fixes0103screen.test.tsx` (real game screen from a real snapshot with `gathered`) |
+| F-0103-B | Page: rows numbered 1..n oldest first; the read-through lights each row once, in order, and stops; a click cancels it | `fixes0103screen.test.tsx` |
+| F-0103-C | Page: R and a medallion click replay the report's move at half speed (the replayed card's frames run twice as long) and the live board is unchanged after; after one more board arrives, neither replays (no replay sign, no frames); R inside the chat box does nothing | `fixes0103screen.test.tsx` |
+| F-0103-D | Worker: Brainstorm put back Forest then Bolt → Alice's `knownTop` [Bolt, Forest]; Bob's snapshot has no `knownTop` for Alice; a draw pops one; a shuffle clears it; a scry to the bottom adds nothing; a card put on top by the **other** player's effect is not added | worker unit; new Lab `check-known-top.py` 3 times |
+| F-0103-D2 | **Hidden information (HID-001..005).** (1) Both seats (HID-003): Alice's snapshot has `knownTop` with names and pictures; Bob's and a spectator's snapshots have no `knownTop` for Alice and no field naming her library cards (whole-frame search for those card ids and names), over the Brainstorm trace and a scry trace. (2) Bob's own `knownTop` reaches only Bob. (3) After a shuffle no seat's frame names them. (4) The ids pass `HiddenIds`; a known card later milled or drawn leaves no stale entry. (5) Presentation (HID-005): on Bob's page no element for Alice's known cards exists in the DOM, before or while pointing at her Library tile, and her tile (size, class, timing) is the same as a library with nothing known. (6) Bite (HID-004): with the per-viewer filter removed, the check fails, proving the guard fires | `check-hidden-tops.py` extended over every `knownTop` trace; worker unit for (1)-(4); the real-click game's guest page for (5); the bite recorded in As built |
+| F-0103-E | Worker: `thisTurn` counts (spells, life gained, left the battlefield; no mana) match Forge's after Opt, Bolt, Salve and a Fatal Push; reset at the next turn | worker unit; Lab (extend `check-numbers.py`) |
+| F-0103-F | Page: the switch stores `proxic.biggerText`, sizes go ×1.25 (measured `getComputedStyle`), card boxes unchanged; works when localStorage throws | `fixes0103.test.tsx` |
+| F-0103-G | Real game (TEST-012), below | `match-reports-comfort.spec.ts` |
+
+**TEST-004 (bites):** one per row above, plus the `knownTop` per-viewer guard (always, HID-004).
+
+**Real-click game (TEST-012).** One game with 0098's deal: the guest cracks two fetch lands and casts Consider; the host **really points** at a row and the test checks the dim; the host **really presses R** and **clicks the medallion** and the test checks the replay ran and the live board is unchanged; the host casts Brainstorm, **really chooses** the put-back order, then **points** at the Library tile and sees the two cards numbered; the guest's page has no such cards in its DOM. The host **really clicks** the gear and the switch, and the life total's computed size rises 25 %. Clips: one normal-speed clip each for items 1-4 (the host's seat); item 4 the guest's seat too (what it may see differs).
+
+## Risks
+
+- **Hidden information (item 4) is the main risk.** It is the only item that sends something new about a hidden zone. It goes to the owner alone, is filtered in the worker (HID-001), and is bookkeeping of what the owner was shown and chose, not Forge's per-viewer answer (HID-002) — owner-approved (Decided 2); F-0103-D2 tests it. Presentation (HID-005): the slide-out must not exist in the other seat's DOM at all.
+- **Replay versus "nothing jumps".** Replay runs only while the table is unchanged since the report (Decided 5), so its end matches the live board; a board arriving mid-replay ends it at once (as a hurry) and the live board shows. The jump tool never replays, so only the page test and the real game prove it.
+- **Speed.** The dim on pointing touches every card: use one class on the board root plus an exempt class on the pointed cards, not a style per card; check `match-speed.spec.ts`'s `gameScreenPerUpdate 2` and `seatPerUpdate 2` are unchanged (pointing must not re-render the seats).
+- **Plate space (item 5).** Three counts under the name on 1920×1080 and at 125-150 % (UI-006): screenshot at those sizes (TEST-007).
+
+## Decided 2026-11-17 (owner, by prompt, via the coordinator)
+
+1. **Which dim (items 1 and 2): OPEN -- "canvas it first".** The owner's words were "the SAME dim the game already uses when you're choosing cards", but the game has no such dim (`bf-asking` has no CSS; pickable cards breathe, nothing else changes). The owner will choose on a dim canvas; the candidates found are `bf-unpayable`'s `saturate(0.5) brightness(0.8)`, the split-second hand dim `brightness(0.45) saturate(0.4)`, and `bf-stack-faded` opacity 0.45. Items 1 and 2 build last, behind that decision, and both use whatever dim is chosen.
+2. **Known library top: YES.** The worker remembers it from the player's own choices, like `SeenHands`; owner-only; a shuffle clears it. Recorded in `MATCH_STATE_VISIBILITY.md` as the HID-002 exception; tested by F-0103-D2.
+3. **Mana spent: DROPPED.** The plate shows spells cast, life gained, and whether a permanent left.
+4. **Reading order's light follows decision 1:** the read-through lights each row with the chosen dim, not with sight corners.
+5. **Replay only while the table is unchanged since that report.** After that the medallion stops offering it, and R does nothing.
+
+## Build order notes
+
+Last of the four: it numbers and replays the report windows that 0101 (countered ability) and 0102 (CONTROL, END_TURN, SKIP, the RESTART hold) add, and "Bigger text" should size the badges 0100 and 0101 add. Items 1 and 2 build **last**, after the owner picks the dim on its canvas (Decided 1). Inside: 6, 5, 4, 3, then (once the dim is chosen) 1, 2.
+
+### Suggested order for the four specs
+
+0100 → 0101 → 0102 → 0103, one build at a time (all four touch `Board.tsx` and `GameScreen.tsx`). 0100 sets the new stack-entry fields and beam code; 0101 changes the stack-leave loop that 0102's Time Stop line and 0100's swing sit beside; 0102's restart hold is the largest `GameScreen.tsx` change; 0103 builds on the report windows the others add.
