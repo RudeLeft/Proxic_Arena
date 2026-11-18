@@ -4,13 +4,26 @@
 // clash (B4). All motion is CSS or SVG animation (nothing per frame in
 // script); with "reduce motion" each is a still picture.
 import type { ReactNode } from "react";
-import { bladePath, pathOf, type Route } from "./effects";
+import { bladePath, pathOf, routeAt, type Route } from "./effects";
 import type { Point } from "./motion";
 
 const f1 = (n: number) => n.toFixed(1);
 
 /** Gold: a spell's beam and its ripple (LINE_THEME.target). */
-const GOLD = { aura: "#f0a830", body: "#f4c25e" } as const;
+const GOLD = { aura: "#f0a830", body: "#f4c25e", flow: "#fffaf0", ring: "#ffe39a" } as const;
+
+/**
+ * Spec 0100, item 7 (combat Q2 A, reworked) -- the other player's beams:
+ * cool blue-violet (beam #8f9cff, flow #e4e8ff), corners #aeb8ff (Sight).
+ */
+const THEIRS = { aura: "#8f9cff", body: "#8f9cff", flow: "#e4e8ff", ring: "#c9d0ff" } as const;
+
+/** Spec 0100, item 3 -- an evoked spell's grey beam to its caster's graveyard (canvas #8d9a92 / #d5dcd8). */
+const GREY = { aura: "#8d9a92", body: "#aab4ae", flow: "#d5dcd8", ring: "#d5dcd8" } as const;
+
+/** A beam's colours: yours, the other player's, or an evoked spell's grey. */
+export type BeamTone = "mine" | "theirs" | "grey";
+const TONES = { mine: GOLD, theirs: THEIRS, grey: GREY } as const;
 
 /**
  * Spec 0069, item 1 (A2 · Molten blade): thick at the attacker, a white-hot
@@ -102,12 +115,15 @@ export function Ripple({
   r,
   w,
   reduced,
+  tone = "mine",
 }: {
   at: Point;
   r: number;
   w: number;
   reduced: boolean;
+  tone?: BeamTone;
 }) {
+  const c = TONES[tone];
   return (
     <g
       className="bf-ripple"
@@ -115,14 +131,14 @@ export function Ripple({
       data-r={f1(r)}
       transform={`translate(${f1(at.x)} ${f1(at.y)})`}
     >
-      <circle r={r} fill="none" stroke={GOLD.body} strokeWidth={w * 0.5} opacity={0.8} />
+      <circle r={r} fill="none" stroke={c.body} strokeWidth={w * 0.5} opacity={0.8} />
       {!reduced &&
         [0, 0.4, 0.8].map((d) => (
           <circle
             key={d}
             r={r}
             fill="none"
-            stroke="#ffe39a"
+            stroke={c.ring}
             strokeWidth={w * 0.55}
             className="bf-ripple-ring"
             style={{ animationDelay: `${d}s` }}
@@ -148,20 +164,94 @@ export function Ripple({
 }
 
 /** Spec 0069 (T4 · Beam): a shining gold beam, light flowing along it toward its end. */
-export function Beam({ d, w }: { d: string; w: number }) {
+export function Beam({ d, w, tone = "mine" }: { d: string; w: number; tone?: BeamTone }) {
+  const c = TONES[tone];
   return (
     <>
       <path
         d={d}
-        stroke={GOLD.aura}
+        stroke={c.aura}
         strokeWidth={w * 2.6}
         className="bf-beam-aura"
         filter="url(#bf-glow)"
       />
-      <path d={d} stroke={GOLD.body} strokeWidth={w * 0.7} className="bf-beam-body" />
-      <path d={d} stroke="#fffaf0" strokeWidth={w * 0.32} pathLength={1} className="bf-beam-flow" />
+      <path d={d} stroke={c.body} strokeWidth={w * 0.7} className="bf-beam-body" />
+      <path d={d} stroke={c.flow} strokeWidth={w * 0.32} pathLength={1} className="bf-beam-flow" />
     </>
   );
+}
+
+/**
+ * Spec 0100, item 7 (combat Q2 A, reworked) -- whose beam it is, by itself:
+ * yours, a slow glint running down it every 2.2 s; theirs, a few soft motes
+ * drifting along it. Drawn only while the beam is up, never with motion
+ * turned down; the grey (evoked) beam has neither.
+ */
+function BeamLife({ d, w, tone }: { d: string; w: number; tone: BeamTone }) {
+  if (tone === "grey") return null;
+  if (tone === "mine")
+    return (
+      <g className="bf-beam-glint" data-glint="true">
+        <circle r={w * 1.1} fill="#fff4d0" className="bf-beam-glint-dot" filter="url(#bf-glow)">
+          <animateMotion
+            dur="2.2s"
+            repeatCount="indefinite"
+            path={d}
+            keyPoints="0;1"
+            keyTimes="0;1"
+            calcMode="spline"
+            keySplines="0.45 0 0.55 1"
+          />
+        </circle>
+      </g>
+    );
+  return (
+    <g className="bf-beam-motes" data-motes="true">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <circle
+          key={i}
+          r={w * 0.55}
+          fill="#f4f5ff"
+          stroke="#8f9cff"
+          strokeWidth={w * 0.25}
+          className="bf-beam-mote"
+          style={{ animationDelay: `${-i * 0.72}s` }}
+        >
+          <animateMotion dur="3.6s" begin={`${-i * 0.72}s`} repeatCount="indefinite" path={d} />
+        </circle>
+      ))}
+    </g>
+  );
+}
+
+/** Spec 0100, item 4 -- a share of divided damage: a gold number standing at the beam's ripple end. */
+function Share({ at, w, n }: { at: Point; w: number; n: number }) {
+  const r = w * 3.4;
+  return (
+    <g className="bf-beam-share" data-share={n} transform={`translate(${f1(at.x)} ${f1(at.y)})`}>
+      <circle r={r} fill="#e9b54a" stroke="#10161b" strokeWidth={w * 0.6} />
+      <circle r={r * 0.82} fill="#f6d68a" opacity={0.55} />
+      <text dy="0.36em" textAnchor="middle" fontSize={r * 1.25} fontWeight={800} fill="#1a1206">
+        {n}
+      </text>
+    </g>
+  );
+}
+
+/** A route moved sideways by `by`: the second strand of a kicked spell's doubled beam. */
+function beside(route: Route, by: number): Route {
+  const a = route[0]!.start;
+  const b = route[route.length - 1]!.end;
+  const len = Math.max(1e-6, Math.hypot(b.x - a.x, b.y - a.y));
+  const nx = (-(b.y - a.y) / len) * by;
+  const ny = ((b.x - a.x) / len) * by;
+  const move = (p: Point) => ({ x: p.x + nx, y: p.y + ny });
+  return route.map((c) => ({
+    start: move(c.start),
+    c1: move(c.c1),
+    c2: move(c.c2),
+    end: move(c.end),
+  }));
 }
 
 /**
@@ -174,16 +264,37 @@ export function TargetBeam({
   aim,
   w,
   reduced,
+  tone = "mine",
+  doubled = false,
+  share,
 }: {
   route: Route;
   aim: { at: Point; r: number } | undefined;
   w: number;
   reduced: boolean;
+  /** Spec 0100, item 7 -- yours gold, the other player's blue-violet; item 3 -- an evoked spell's grey. */
+  tone?: BeamTone;
+  /** Spec 0100, item 3 -- kicked: two strands side by side. */
+  doubled?: boolean;
+  /** Spec 0100, item 4 -- its share of divided damage, standing at its ripple end. */
+  share?: number | undefined;
 }) {
+  const d = pathOf(route);
   return (
-    <g className="bf-beam">
-      <Beam d={pathOf(route)} w={w} />
-      {aim && <Ripple at={aim.at} r={aim.r} w={w} reduced={reduced} />}
+    <g
+      className={`bf-beam bf-beam-${tone}`}
+      data-tone={tone}
+      data-doubled={doubled ? "true" : undefined}
+    >
+      <Beam d={d} w={w} tone={tone} />
+      {doubled && (
+        <g className="bf-beam-strand" data-strand="2">
+          <Beam d={pathOf(beside(route, w * 2.6))} w={w} tone={tone} />
+        </g>
+      )}
+      {!reduced && <BeamLife d={d} w={w} tone={tone} />}
+      {aim && <Ripple at={aim.at} r={aim.r} w={w} reduced={reduced} tone={tone} />}
+      {share !== undefined && <Share at={routeAt(route, 0.88)} w={w} n={share} />}
     </g>
   );
 }

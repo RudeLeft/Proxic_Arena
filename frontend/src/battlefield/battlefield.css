@@ -3276,3 +3276,201 @@ img.bf-makes-pip {
 .bf-veil-hand .bf-ghost[data-ghost-of^="card:"] {
   visibility: hidden;
 }
+
+/* Spec 0100, item 7 (combat Q2 A, reworked) -- the other player's corners:
+   the same shape, blue-violet. */
+.bf-sight-theirs .bf-sight-over {
+  stroke: #aeb8ff;
+}
+/* Item 7 -- yours: a slow glint running down the beam; theirs: soft motes
+   drifting along it. Only opacity animates in CSS; the travel is the SVG's. */
+.bf-beam-glint-dot {
+  opacity: 0;
+  animation: bf-beam-glint 2.2s ease-in-out infinite;
+}
+@keyframes bf-beam-glint {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.bf-beam-mote {
+  opacity: 0;
+  animation: bf-beam-mote 3.6s linear infinite;
+}
+@keyframes bf-beam-mote {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+/* Item 9 (combat Q3 C) -- pointing at a stack card: its source and its
+   targets lift a little and glow gold. Nothing dims. */
+.bf-card.bf-lifted {
+  translate: 0 calc(var(--card-h) * -0.06);
+  scale: 1.05;
+  box-shadow:
+    0 0 0 2px #f4c25e,
+    0 0 calc(var(--card-h) * 0.18) calc(var(--card-h) * 0.04) rgb(240 168 48 / 70%);
+  z-index: 3;
+  transition:
+    translate 180ms ease-out,
+    scale 180ms ease-out,
+    box-shadow 180ms ease-out;
+}
+/* Item 1 (round 2 Q1 B) -- the X medallion: on the stack card's top-right
+   corner at 0.8 the casting card's size (the canvas: 84 px on a 410 px
+   card, 0.8 on the stack). */
+.bf-xmed {
+  position: absolute;
+  z-index: 4;
+  top: calc(var(--card-h) * -0.04);
+  right: calc(var(--card-h) * -0.06);
+  width: calc(var(--card-h) * 0.164);
+  height: calc(var(--card-h) * 0.164);
+  box-sizing: border-box;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font:
+    800 calc(var(--card-h) * 0.055) / 1 Inter,
+    system-ui,
+    sans-serif;
+  color: #1a1206;
+  white-space: nowrap;
+  background: radial-gradient(circle at 40% 35%, #f8dc90, #c8922c);
+  box-shadow:
+    0 0 0 calc(var(--card-h) * 0.006) #121916,
+    0 0 0 calc(var(--card-h) * 0.011) #e9c46a,
+    0 0 calc(var(--card-h) * 0.035) #f2c46aaa,
+    0 calc(var(--card-h) * 0.008) calc(var(--card-h) * 0.02) #000c;
+  pointer-events: none;
+}
+/* On the card leaving the middle for the stack: full size (0.205 of its
+   height), popped on as it is held, then flown with it to the stack card's
+   corner (it rides the card's own flight). */
+.gs-cast-xmed {
+  position: absolute;
+  z-index: 4;
+  top: -4%;
+  right: -9%;
+  width: 29%;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font:
+    800 1.45rem / 1 Inter,
+    system-ui,
+    sans-serif;
+  color: #1a1206;
+  white-space: nowrap;
+  background: radial-gradient(circle at 40% 35%, #f8dc90, #c8922c);
+  box-shadow:
+    0 0 0 3px #121916,
+    0 0 0 5px #e9c46a,
+    0 0 18px #f2c46aaa,
+    0 4px 10px #000c;
+  pointer-events: none;
+  animation: bf-xmed-pop 350ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes bf-xmed-pop {
+  from {
+    scale: 0;
+  }
+}
+/* Item 2 (round 2 Q2 B) -- a modal spell's body: every mode as printed,
+   the chosen lit gold, the others grey and struck through. In place of the
+   art band; long modes shortened to two lines (the close-up has them all). */
+.bf-modes {
+  position: absolute;
+  z-index: 2;
+  left: 5%;
+  right: 5%;
+  top: 17%;
+  bottom: 15%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3.5%;
+  padding: 3% 4%;
+  box-sizing: border-box;
+  /* One line each, from the left (the canvas's), never the card face's centring. */
+  text-align: left;
+  border-radius: calc(var(--card-h) * 0.03);
+  background: rgb(18 24 34 / 92%);
+  pointer-events: none;
+  animation: bf-modes-in 300ms ease-out both;
+}
+@keyframes bf-modes-in {
+  from {
+    opacity: 0;
+  }
+}
+.bf-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--card-h) * 0.022);
+  font: 700 calc(var(--card-h) * 0.052) / 1.1 var(--pa-card);
+  color: #eef2f7;
+  text-shadow: 0 1px 2px #000;
+}
+.bf-mode-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bf-mode-gem {
+  flex: none;
+  margin-top: calc(var(--card-h) * 0.012);
+  width: calc(var(--card-h) * 0.03);
+  height: calc(var(--card-h) * 0.03);
+  rotate: 45deg;
+  background: #f2c46a;
+  box-shadow: 0 0 calc(var(--card-h) * 0.015) #f2c46a;
+}
+.bf-mode-off {
+  color: #6c7686;
+  text-decoration: line-through;
+}
+.bf-mode-off .bf-mode-gem {
+  background: #4a5462;
+  box-shadow: none;
+}
+/* Item 5 (missed Q2 A) -- the card a spell aims at in a pile, peeking out
+   of its tile, face up, with the still corners; it rises out of the tile. */
+.bf-peek {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+.bf-peek-card {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--card-h) * 0.045);
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 70%);
+}
+/* Item 6 (round 2 Q5 A) and item 8: see game.css (the plate's tabs). */
+@media (prefers-reduced-motion: reduce) {
+  .bf-beam-glint,
+  .bf-beam-motes {
+    display: none;
+  }
+  .bf-card.bf-lifted,
+  .bf-modes,
+  .gs-cast-xmed {
+    transition: none;
+    animation: none;
+  }
+}

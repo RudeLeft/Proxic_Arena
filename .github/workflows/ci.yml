@@ -310,7 +310,7 @@ jobs:
               attachments printings face-down costs results \
               tracked-state text-effects coin-flip board-data concede mana-cost \
               library-order mana-pool mulligan unreachable dice unset \
-              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home \
+              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
               'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions) limit=900;; esac;
@@ -629,6 +629,12 @@ jobs:
       - name: Build the last-jumps deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/last-jumps-deck-2.zip" protocol/fixtures/last-jumps-deck
+
+      # And spec 0100's real-click game (F-0100-G): Arc Lightning split 2 / 1,
+      # Spellskite taking a Bolt, Reanimate at a card in a graveyard.
+      - name: Build the spell-choices deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/spell-choices-deck.zip" protocol/fixtures/spell-choices-deck
 
       # And looking at your library (spec 0001, F-0001-H, D3): surveil and
       # scry, the cards as pictures to the player looking, alone.

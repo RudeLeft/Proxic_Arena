@@ -38,6 +38,8 @@ import { GameChat } from "./GameChat";
 import { avatarOf, holdsBelt, rankOf } from "../lobbyView";
 import { BeltMark } from "../BeltMark";
 import { FitName } from "../FitName";
+import { Sight } from "./Sight";
+import { extraWords } from "./SpellMarks";
 import {
   EMPTY_MATCH,
   concessionText,
@@ -53,6 +55,7 @@ import {
   type SnapshotCard,
   type SnapshotPlayer,
   type SnapshotReveal,
+  targetKey,
 } from "../match";
 import { abandonMatch, type MatchView } from "../lobby";
 import {
@@ -69,7 +72,7 @@ import {
   serverWasUpdated,
   targetWords,
 } from "../matchText";
-import { Board, CardFace, counterWords, figure, lookOf, shortType } from "./Board";
+import { Board, CardFace, counterWords, figure, lookOf, shortType, type PiledCard } from "./Board";
 import { boardFromSnapshot, exilePile, keepCards, type BoardData } from "./fromSnapshot";
 import { fanCards, pileGlows } from "./pileFan";
 import { preparedMarkBox } from "./copies";
@@ -233,6 +236,22 @@ import "./game.css";
 const RESPONSE_WINDOW_MS = 5000;
 /** How long an opponent's spell nobody could answer stays on screen (owner 2026-10-22). */
 const HOLD_MS = 1500;
+/**
+ * Spec 0100, item 8 (owner 2026-11-18) -- the longest a board whose spell
+ * changed target is held for its beam's swing (the stack card in front
+ * resolving, 380 ms, then the 400 ms swing; the Board says when it lands).
+ */
+const SWING_HOLD_MS = 1500;
+
+/** Spec 0100, item 8 -- a stack entry on both boards aims at something new (as many targets, one changed). */
+export function retargeted(was: Snapshot, now: Snapshot): boolean {
+  return now.stack.some((entry) => {
+    const before = was.stack.find((b) => b.id === entry.id);
+    if (!before || entry.targets.length === 0 || before.targets.length !== entry.targets.length)
+      return false;
+    return entry.targets.some((t, i) => targetKey(t) !== targetKey(before.targets[i]!));
+  });
+}
 
 export function GameScreen({
   match,
@@ -383,7 +402,35 @@ export function GameScreen({
     const timer = window.setTimeout(() => setTurning(0), SWITCH_SIDES_MS);
     return () => window.clearTimeout(timer);
   }, [turning]);
-  const shownBoard = held && !askedNow ? held : latest;
+  // Spec 0100, item 8 (owner 2026-11-18) -- a spell's target changed: that
+  // board is held until its beam has swung (the Board says when it lands),
+  // so the swing is on screen before the spell resolves on the next board.
+  // At most SWING_HOLD_MS; never with motion turned down (no swing then).
+  const [swingHeld, setSwingHeld] = useState<Snapshot | null>(null);
+  const lastLatest = useRef<Snapshot | null>(null);
+  useEffect(() => {
+    const was = lastLatest.current;
+    lastLatest.current = latest;
+    if (was && latest && !motionOff() && retargeted(was, latest)) {
+      // It is newer than any board still held for a spell to be seen.
+      setHeld(null);
+      setSwingHeld(latest);
+    }
+  }, [latest]);
+  const swingStarted = useRef(false);
+  const onSwinging = useCallback((on: boolean) => {
+    if (on) swingStarted.current = true;
+    else if (swingStarted.current) {
+      swingStarted.current = false;
+      setSwingHeld(null);
+    }
+  }, []);
+  useEffect(() => {
+    if (!swingHeld) return undefined;
+    const timer = window.setTimeout(() => setSwingHeld(null), SWING_HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [swingHeld]);
+  const shownBoard = swingHeld ?? (held && !askedNow ? held : latest);
   const board = useMemo(
     () => turnedRound(shownBoard, watching && flipped),
     [shownBoard, watching, flipped],
@@ -424,6 +471,45 @@ export function GameScreen({
     () => new Set(board ? [...board.graveyard, ...board.exile].map((card) => card.id) : []),
     [board],
   );
+  // Spec 0100, item 5 -- where each of those lies, and its picture: a spell
+  // aiming at one draws its beam to the tile, the card peeking out of it.
+  const piled = useMemo(() => {
+    const out = new Map<string, PiledCard>();
+    if (!board) return out;
+    for (const [zone, cards] of [
+      ["graveyard", board.graveyard],
+      ["exile", exilePile(board)],
+    ] as const) {
+      for (const card of cards)
+        out.set(card.id, {
+          id: card.id,
+          seat: card.seat,
+          zone,
+          name: card.name,
+          art: card.art,
+          crop: card.crop ?? null,
+          faceDown: card.faceDown && !card.known,
+          look: card.kind,
+        });
+    }
+    return out;
+  }, [board]);
+  // Spec 0100, item 9 -- the stack entry whose beams show (the Board says):
+  // the life shields follow it, not the front of the stack.
+  const [stackFocusId, setStackFocusId] = useState<string | null>(null);
+  // Spec 0100, item 5 -- what it aims at in the piles: the opened pile's
+  // cards wear its corners.
+  const aimedInPiles = useMemo(() => {
+    if (!board) return null;
+    const entry = board.stack.find((e) => e.id === stackFocusId) ?? board.stack[0];
+    if (!entry) return null;
+    const ids = new Set(
+      entry.targets.flatMap((t) => ("object" in t && pileCards.has(t.object) ? [t.object] : [])),
+    );
+    if (ids.size === 0) return null;
+    const mine = board.spectator ? -1 : board.seat;
+    return { ids, theirs: entry.controller !== null && entry.controller !== mine };
+  }, [board, stackFocusId, pileCards]);
   // Spec 0064 -- the play log only as far as the board on the table: a line
   // that came with a board still held back (a spell shown for a moment) waits
   // for it (HID-005: never ahead of the table).
@@ -2200,6 +2286,9 @@ export function GameScreen({
             }
             fans={data.fans}
             pileCards={pileCards}
+            piled={piled}
+            onStackFocus={setStackFocusId}
+            onSwinging={onSwinging}
             flyingOnto={flyingOnto}
             handLeft={
               theirOrigin?.zone === "hand" && theirOrigin.side === "opponent"
@@ -2276,6 +2365,7 @@ export function GameScreen({
             }
             rail={
               <Rail
+                stackFocus={stackFocusId}
                 theirAway={theirAway}
                 end={end}
                 board={board}
@@ -2480,6 +2570,7 @@ export function GameScreen({
                           reveal={flight.reveal}
                           hidden={flight.hidden}
                           landing={flyingOnto !== null && !onStack}
+                          x={onStack?.x}
                         />
                       );
                     })()}
@@ -2668,6 +2759,7 @@ export function GameScreen({
             onInspect={setInspecting}
             nameable={nameable}
             onName={nameCard}
+            aimed={aimedInPiles}
             onClose={() => setViewer(null)}
           />
         )}
@@ -3185,7 +3277,10 @@ function SeatBlock({
   busy,
   onPick,
   onView,
+  stackFocus = null,
 }: {
+  /** Spec 0100, item 9 -- the stack entry whose beams show: its targets light the shield. */
+  stackFocus?: string | null;
   player: SnapshotPlayer;
   board: Snapshot;
   mine: boolean;
@@ -3212,11 +3307,11 @@ function SeatBlock({
   const choosable = Boolean(question?.onBoard.has(id) || aim?.has(id));
   // Amendment 17: already chosen as a target of the spell being cast.
   const chosenTarget = question?.chosen.includes(id) ?? false;
-  // The spell resolving next targets this player: their life total glows
-  // (owner 2026-10-21), as a targeted card does on the board.
-  const targeted = (board.stack[0]?.targets ?? []).some(
-    (t) => "player" in t && t.player === player.seat,
-  );
+  // The stack entry in focus targets this player: their life total glows
+  // (owner 2026-10-21), as a targeted card does on the board. Spec 0100,
+  // item 9: the entry pointed at (the Board's focus), else the front one.
+  const focused = board.stack.find((e) => e.id === stackFocus) ?? board.stack[0];
+  const targeted = (focused?.targets ?? []).some((t) => "player" in t && t.player === player.seat);
   // Said to a screen reader only (owner 2026-10-28: the medallion shows
   // just the name and the Belt; the gold ring on the life says whose turn).
   // Spec 0067 -- a spectator is nobody's "you" or "opponent".
@@ -3269,6 +3364,8 @@ function SeatBlock({
       data-end={end ? `${end.role}:${end.how}` : undefined}
     >
       <span ref={runRef} className="gs-seat-run" aria-hidden="true" />
+      {/* Spec 0100, item 6 (round 2 Q5 A) -- the Curses on this player. */}
+      <CurseTabs board={board} seat={player.seat} />
       {end?.role === "won" && <span ref={flareRef} className="gs-seat-flare" aria-hidden="true" />}
       <span className="pa-visually-hidden">
         {player.name} ({role}): {life} life
@@ -3419,6 +3516,112 @@ function SeatBlock({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Spec 0100, item 6 (round 2 Q5 A) -- an Aura on a player (a Curse) stays
+ * among its controller's cards; a small mirror picture tab of it unfolds on
+ * the left of the cursed player's plate (0085's held-card tab look), and a
+ * gold thread runs once from the card to the tab (about 1 s, then fades).
+ * When a trigger from that card rises, the tab glows with it. Several
+ * Curses, several tabs. Nothing here is a card on view: the card is on the
+ * table; the tab is its mirror (no object id, nothing to click).
+ */
+function CurseTabs({ board, seat }: { board: Snapshot; seat: number }) {
+  const curses = board.battlefield.filter((card) => card.attachedToPlayer === seat);
+  if (curses.length === 0) return null;
+  return (
+    <span className="gs-curse-tabs" data-curses={curses.length}>
+      {curses.map((card) => (
+        <CurseTab
+          key={card.id}
+          card={card}
+          glowing={
+            board.stack.find((e) => e.kind === "trigger" && e.source === card.id)?.id ?? null
+          }
+        />
+      ))}
+    </span>
+  );
+}
+
+function CurseTab({ card, glowing }: { card: SnapshotCard; glowing: string | null }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [thread, setThread] = useState<string | null>(null);
+  // It unfolds once, as the Curse arrives, and the thread runs once.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || typeof el.animate !== "function" || stillMotion()) return undefined;
+    const open = el.animate(
+      [
+        { transform: "scaleX(0)", opacity: 0 },
+        { transform: "scaleX(1)", opacity: 1 },
+      ],
+      {
+        duration: 300,
+        easing: "ease-out",
+      },
+    );
+    // The thread, in the tab column's own units (the rail may be scaled):
+    // from the Curse's card on the table to the middle of the tab.
+    const from = document.querySelector(`.bf-board [data-object-id="${card.id}"]`);
+    const box = el.parentElement;
+    const a = from?.getBoundingClientRect();
+    const c = box?.getBoundingClientRect();
+    if (a && c && box && a.width > 0 && box.offsetWidth > 0) {
+      const k = c.width / box.offsetWidth || 1;
+      const sx = (a.x + a.width / 2 - c.x) / k;
+      const sy = (a.y + a.height - c.y) / k;
+      const ex = el.offsetLeft + el.offsetWidth / 2;
+      const ey = el.offsetTop + el.offsetHeight / 2;
+      setThread(
+        `M${sx.toFixed(1)} ${sy.toFixed(1)} C ${sx.toFixed(1)} ${((sy + ey) / 2).toFixed(1)}, ${(ex - 160).toFixed(1)} ${(ey - 160).toFixed(1)}, ${ex.toFixed(1)} ${ey.toFixed(1)}`,
+      );
+    }
+    return () => open.cancel();
+  }, [card.id]);
+  // The tab glows as a trigger from its card rises.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!glowing || !el || typeof el.animate !== "function") return undefined;
+    const glow = el.animate(
+      [
+        { boxShadow: "-1px 0 3px rgb(0 0 0 / 50%)" },
+        { boxShadow: "0 0 16px 5px rgb(241 195 106 / 90%)", offset: 0.5 },
+        { boxShadow: "-1px 0 3px rgb(0 0 0 / 50%)" },
+      ],
+      { duration: 600, easing: "ease-in-out" },
+    );
+    return () => glow.cancel();
+  }, [glowing]);
+  return (
+    <>
+      <span
+        ref={ref}
+        className={`gs-curse-tab${glowing ? " gs-curse-tab-glow" : ""}`}
+        data-curse={card.id}
+        data-glowing={glowing ? "true" : undefined}
+        title={card.name}
+      >
+        <span
+          className="gs-curse-pic"
+          style={card.art ? { backgroundImage: `url(${pictureUrl(card.art)})` } : undefined}
+        />
+        <span className="gs-curse-name">{card.name}</span>
+      </span>
+      {thread && (
+        <svg
+          className="gs-curse-thread"
+          data-thread-of={card.id}
+          aria-hidden="true"
+          onAnimationEnd={() => setThread(null)}
+        >
+          <path d={thread} className="gs-curse-thread-glow" />
+          <path d={thread} className="gs-curse-thread-core" pathLength={1} />
+        </svg>
+      )}
+    </>
   );
 }
 
@@ -3671,7 +3874,10 @@ function Rail({
   placing = null,
   discard = null,
   onDiscard,
+  stackFocus = null,
 }: {
+  /** Spec 0100, item 9 -- the stack entry whose beams show (the Board's focus). */
+  stackFocus?: string | null;
   board: Snapshot;
   question: Question | null;
   /** W-14 -- what the selected creatures can be pointed at. */
@@ -3998,6 +4204,7 @@ function Rail({
         <SeatBlock
           key={`seat-${them.seat}`}
           player={them}
+          stackFocus={stackFocus}
           board={board}
           mine={false}
           away={theirAway ?? null}
@@ -4022,6 +4229,7 @@ function Rail({
         <SeatBlock
           key={`seat-${me.seat}`}
           player={me}
+          stackFocus={stackFocus}
           board={board}
           mine
           end={plateEnd(end, me.seat)}
@@ -4912,13 +5120,17 @@ export function StackInspect({
     entry.controller === mySeat
       ? "Yours"
       : (board.players.find((p) => p.seat === entry.controller)?.name ?? "Theirs");
-  const targets = entry.targets.map((t) =>
-    "player" in t
-      ? t.player === mySeat
-        ? "you"
-        : (board.players.find((p) => p.seat === t.player)?.name ?? "a player")
-      : nameOf(board, t.object),
-  );
+  const targets = entry.targets.map((t) => {
+    const name =
+      "player" in t
+        ? t.player === mySeat
+          ? "you"
+          : (board.players.find((p) => p.seat === t.player)?.name ?? "a player")
+        : nameOf(board, t.object);
+    // Spec 0100, item 4 -- its share of the damage the caster divided.
+    const share = entry.shares?.[targetKey(t)];
+    return share !== undefined ? `${name} (${share} damage)` : name;
+  });
   const kind =
     entry.kind === "trigger" ? "Triggered ability" : entry.kind === "ability" ? "Ability" : "Spell";
   return (
@@ -4950,13 +5162,51 @@ export function StackInspect({
           </h2>
           <p className="gs-inspect-types">{kind}, on the stack</p>
           <dl className="gs-inspect-facts">
-            {/* A spell's rules text is not in the snapshot: its words are
-                its card's. A trigger's and an ability's are Forge's own. */}
+            {/* A trigger's and an ability's words are the game's own. */}
             {entry.kind !== "spell" && (
               <>
                 <dt>Does</dt>
                 <dd>
                   <ManaText text={stackWords(entry.description, entry.name)} />
+                </dd>
+              </>
+            )}
+            {/* Spec 0100 -- a spell: what its caster chose (X, the modes,
+                the extra costs), in words. */}
+            {entry.x !== undefined && (
+              <>
+                <dt>X</dt>
+                <dd data-close-x={entry.x}>X is {entry.x}</dd>
+              </>
+            )}
+            {entry.modes && entry.modes.length > 0 && (
+              <>
+                <dt>Modes</dt>
+                <dd>
+                  <ul className="gs-inspect-modes">
+                    {entry.modes.map((mode, i) => (
+                      <li
+                        key={i}
+                        className={mode.chosen ? "gs-mode-on" : "gs-mode-off"}
+                        data-mode={mode.chosen ? "chosen" : "not-chosen"}
+                      >
+                        {mode.chosen ? (
+                          ""
+                        ) : (
+                          <span className="pa-visually-hidden">Not chosen: </span>
+                        )}
+                        {mode.text}
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </>
+            )}
+            {extraWords(entry.extra, entry.kicks).length > 0 && (
+              <>
+                <dt>Cast</dt>
+                <dd data-close-extra={entry.extra?.join(" ")}>
+                  {extraWords(entry.extra, entry.kicks).join(", ")}
                 </dd>
               </>
             )}
@@ -5025,10 +5275,17 @@ export function ZoneViewer({
   onClose,
   nameable = null,
   onName,
+  aimed = null,
 }: {
   board: Snapshot;
   seat: number;
   zone: ZoneName;
+  /**
+   * Spec 0100, item 5 -- the cards here the stack entry in focus aims at
+   * (they wear its corners, as on the table), and whether it is the other
+   * player's.
+   */
+  aimed?: { ids: ReadonlySet<string>; theirs: boolean } | null;
   /** W-12: while a card is being named, the cards here it may name, and naming one. */
   nameable?: ReadonlySet<string> | null;
   onName?: (id: string) => void;
@@ -5123,6 +5380,7 @@ export function ZoneViewer({
                 <button
                   type="button"
                   className={`gs-viewer-card gs-ztray-card${nameable?.has(card.id) ? " gs-nameable" : ""}`}
+                  data-aimed={aimed?.ids.has(card.id) ? "true" : undefined}
                   aria-label={[
                     `${card.name}${copies > 1 ? ` ×${copies}` : ""}`,
                     card.types,
@@ -5143,6 +5401,7 @@ export function ZoneViewer({
                     </span>
                   )}
                   {copies > 1 && <span className="gs-ztray-many">×{copies}</span>}
+                  {aimed?.ids.has(card.id) && <Sight theirs={aimed.theirs} />}
                 </button>
                 {notes.length > 0 && <span className="gs-ztray-note">{notes.join(" · ")}</span>}
               </li>

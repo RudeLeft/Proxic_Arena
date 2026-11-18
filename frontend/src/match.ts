@@ -507,6 +507,8 @@ export interface SnapshotCard {
   keywords: string[];
   /** The card this is attached to, for auras and equipment. */
   attachedTo: string | null;
+  /** Spec 0100, item 6 -- the seat an Aura on a player (a Curse) enchants. */
+  attachedToPlayer?: number | null;
   /** The Ring-bearer (the Ring's abilities are its alone). Public. */
   ringBearer: boolean;
   /** Un-sets (public): a creature's sector (Alpha, Beta, Gamma), else null. */
@@ -741,6 +743,32 @@ export interface StackEntry {
   cantBeCountered?: boolean | undefined;
   /** Spec 0086, Amendment 1 -- a trigger that is the monarch's or the initiative's own. */
   from?: "monarch" | "initiative" | undefined;
+  /** Spec 0100, item 1 -- the X its caster paid. */
+  x?: number | undefined;
+  /** Spec 0100, item 2 -- every mode, as printed, the chosen ones marked. */
+  modes?: SpellMode[] | undefined;
+  /** Spec 0100, item 3 -- the extra costs paid ("kicked", "overloaded", "evoked", "entwined", "escalated"). */
+  extra?: string[] | undefined;
+  /** Spec 0100, item 3 -- multikicker: how many times. */
+  kicks?: number | undefined;
+  /** Spec 0100, item 3 -- an overloaded spell: the permanents it would affect now ("card:N"). */
+  hits?: string[] | undefined;
+  /**
+   * Spec 0100, item 4 -- divided damage: each target's share, by its key
+   * (the target's `object`, or "player:N"), when the caster chose the split.
+   */
+  shares?: Record<string, number> | undefined;
+}
+
+/** Spec 0100, item 2 -- one mode of a modal spell. */
+export interface SpellMode {
+  text: string;
+  chosen: boolean;
+}
+
+/** Spec 0100 -- the key a target's share is kept under. */
+export function targetKey(t: TargetRef): string {
+  return "object" in t ? t.object : `player:${t.player}`;
 }
 
 /** Combat, while there is one — §7.61 B4. Forge's record. */
@@ -1715,6 +1743,7 @@ function asCards(value: unknown): SnapshotCard[] {
       counters: asCounters(row["counters"]),
       keywords: asNotices(row["keywords"]),
       attachedTo: asString(row["attachedTo"]),
+      attachedToPlayer: asNumber(row["attachedToPlayer"]),
       ringBearer: row["ringBearer"] === true,
       sector: asString(row["sector"]),
       sprocket: typeof row["sprocket"] === "number" ? row["sprocket"] : null,
@@ -1821,6 +1850,41 @@ function asManaPool(value: unknown): Record<string, number> {
     if (n !== null && n > 0 && /^[WUBRGC]$/.test(colour)) pool[colour] = n;
   }
   return pool;
+}
+
+/** Spec 0100 -- a stack entry's x, modes, extra, kicks, hits and per-target shares. */
+function spellChoices(row: Record<string, unknown>): Partial<StackEntry> {
+  const out: Partial<StackEntry> = {};
+  const x = asNumber(row["x"]);
+  if (x !== null) out.x = x;
+  if (Array.isArray(row["modes"])) {
+    const modes = row["modes"].flatMap((m) => {
+      if (typeof m !== "object" || m === null) return [];
+      const r = m as Record<string, unknown>;
+      const text = asString(r["text"]);
+      return text ? [{ text, chosen: r["chosen"] === true }] : [];
+    });
+    if (modes.length > 0) out.modes = modes;
+  }
+  const extra = asNotices(row["extra"]);
+  if (extra.length > 0) out.extra = extra;
+  const kicks = asNumber(row["kicks"]);
+  if (kicks !== null && kicks > 0) out.kicks = kicks;
+  const hits = asNotices(row["hits"]).filter((id) => id.startsWith("card:"));
+  if (hits.length > 0) out.hits = hits;
+  if (Array.isArray(row["targets"])) {
+    const shares: Record<string, number> = {};
+    for (const t of row["targets"] as unknown[]) {
+      const ref = asTarget(t);
+      const amount =
+        typeof t === "object" && t !== null
+          ? asNumber((t as Record<string, unknown>)["amount"])
+          : null;
+      if (ref && amount !== null) shares[targetKey(ref)] = amount;
+    }
+    if (Object.keys(shares).length > 0) out.shares = shares;
+  }
+  return out;
 }
 
 /** A target as the server writes it, or null. Never parsed out of a label. */
@@ -2017,6 +2081,8 @@ function asStack(value: unknown): StackEntry[] {
       targets: Array.isArray(row["targets"])
         ? (row["targets"] as unknown[]).map(asTarget).filter((t): t is TargetRef => t !== null)
         : [],
+      // Spec 0100 -- what its caster chose; all optional (an older worker sends none).
+      ...spellChoices(row),
     });
   }
   return items;

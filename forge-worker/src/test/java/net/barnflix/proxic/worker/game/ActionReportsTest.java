@@ -137,4 +137,29 @@ class ActionReportsTest {
         assertEquals("Bob's Lightning Bolt did nothing: its target could no longer be chosen.",
                 ActionReports.fizzleSentence("Bob", "Lightning Bolt", false, false, false));
     }
+
+    // --- spec 0100, item 8: a beam that changes target -------------------------------
+
+    @Test
+    void bobsSpellskiteOnYourBoltIsToldToYouOnly() {
+        // F-0100-B: Bob (actor) changed Alice's (subject) Bolt: Alice, the caster, is told.
+        assertTrue(ActionReports.tells(ActionReports.Kind.RETARGET, ALICE, BOB, ALICE, BOB));
+        // Bob, who did it, gets no window.
+        assertFalse(ActionReports.tells(ActionReports.Kind.RETARGET, BOB, BOB, ALICE, BOB));
+    }
+
+    @Test
+    void redirectingYourOwnSpellTellsNobody() {
+        // F-0100-B: Alice's own Deflecting Swat on her own Bolt.
+        assertFalse(ActionReports.tells(ActionReports.Kind.RETARGET, ALICE, ALICE, ALICE, ALICE));
+        assertFalse(ActionReports.tells(ActionReports.Kind.RETARGET, BOB, ALICE, ALICE, ALICE));
+    }
+
+    @Test
+    void theRetargetSentenceIsTheSpecs() {
+        assertEquals("Bob changed your Lightning Bolt's target to Spellskite.",
+                ActionReports.retargetWords("Bob", "Lightning Bolt", "Spellskite"));
+        assertEquals("Bob changed your Lightning Bolt's target to you.",
+                ActionReports.retargetWords("Bob", "Lightning Bolt", "you"));
+    }
 }

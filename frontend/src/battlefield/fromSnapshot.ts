@@ -380,6 +380,8 @@ function toBoardCard(
     keywords: card.keywords,
     counters: card.counters,
     attachedTo: card.attachedTo,
+    // Spec 0100, item 6 -- a Curse: the seat it enchants.
+    ...(card.attachedToPlayer ? { attachedToPlayer: card.attachedToPlayer } : {}),
     ...(card.enteredAt !== null ? { enteredAt: card.enteredAt } : {}),
     token: card.token,
     ringBearer: card.ringBearer,
@@ -656,6 +658,14 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     // Spec 0083 (18 B) -- what the spell is: its gold squares.
     ...(entry.splitSecond ? { splitSecond: true } : {}),
     ...(entry.cantBeCountered ? { cantBeCountered: true } : {}),
+    // Spec 0100 -- what its caster chose: X, the modes, the extra costs, an
+    // overload's reach, each target's share.
+    ...(entry.x !== undefined ? { x: entry.x } : {}),
+    ...(entry.modes ? { modes: entry.modes } : {}),
+    ...(entry.extra ? { extra: entry.extra } : {}),
+    ...(entry.kicks ? { kicks: entry.kicks } : {}),
+    ...(entry.hits ? { hits: entry.hits } : {}),
+    ...(entry.shares ? { shares: entry.shares } : {}),
     id: entry.id,
     name: entry.name,
     art: entry.art,

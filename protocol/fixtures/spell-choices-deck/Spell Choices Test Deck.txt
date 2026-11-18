@@ -1,0 +1,7 @@
+24 Mountain
+16 Swamp
+4 Gray Ogre
+4 Arc Lightning
+4 Lightning Bolt
+4 Spellskite
+4 Reanimate

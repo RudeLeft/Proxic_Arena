@@ -8,6 +8,7 @@
 // the gap) on the board's clock, so a click hurries it (A-00).
 
 import { Breath } from "./Breath";
+import { Sight } from "./Sight";
 import type { CSSProperties, ReactNode } from "react";
 import type { Box } from "./layout";
 import type { FanCard, FanZone } from "./pileFan";
@@ -74,10 +75,13 @@ export function FanCardView({
   face,
   className,
   breathes = false,
+  sight = null,
   label,
   data,
   handlers,
 }: {
+  /** Spec 0100, item 5 -- a spell or ability on the stack aims at it: the corners (whose). */
+  sight?: "mine" | "theirs" | null;
   card: FanCard;
   box: Box;
   /** The card's face (Board's CardFace, as the hand draws it). */
@@ -126,6 +130,7 @@ export function FanCardView({
         {face}
       </button>
       {breathes && <Breath />}
+      {sight && <Sight theirs={sight === "theirs"} />}
       <span
         className={`bf-fan-sign bf-fan-sign-${card.zone}`}
         data-sign={card.zone}

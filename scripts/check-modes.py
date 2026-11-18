@@ -18,6 +18,10 @@ all, how many at least, which are chosen so far, each mode's paw prints
 and the budget spent, and escalate's cost -- so the window can count
 ("Choose two · 1 of 2") and the player can tick them all at once.
 
+Spec 0100 (F-0100-A): escalate, cryptic and entwine also read the
+spell's stack entry off both seats -- every mode as printed, the chosen
+ones marked, and the extra cost paid (escalated, entwined).
+
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its card.
 """
@@ -74,6 +78,35 @@ def pick(frame, text):
 def resolved(g, seat, name, before):
     """One more copy of `name` in the graveyard than `before`, nothing on the stack."""
     return len(g.zone(seat, "graveyard", owner=seat, name=name)) > before and not g.state.get(seat, {}).get("stack")
+
+
+def watch(g, st, name):
+    """Spec 0100 -- each seat's first sight of `name`'s spell entry on the stack."""
+    for seat in (1, 2):
+        for e in g.state.get(seat, {}).get("stack") or []:
+            if e.get("name") == name and e.get("kind") == "spell":
+                st.setdefault("seen", {}).setdefault(seat, {k: e.get(k) for k in ("modes", "extra", "x")})
+    return True
+
+
+def choices(st, count, chosen, extra):
+    """Spec 0100, F-0100-A: every mode in printed order, the chosen ones
+    marked, the extra costs paid -- identical for both seats."""
+    seen = st.get("seen") or {}
+    if set(seen) != {1, 2}:
+        return [f"both seats should see the spell on the stack: {sorted(seen)}"]
+    problems = []
+    if seen[1] != seen[2]:
+        problems.append(f"both seats get identical choices: {seen[1]} / {seen[2]}")
+    modes = seen[1].get("modes") or []
+    if len(modes) != count:
+        problems.append(f"{count} modes, as printed: {modes}")
+    lit = [m.get("text") for m in modes if m.get("chosen")]
+    if len(lit) != len(chosen) or any(not any(c in (t or "") for t in lit) for c in chosen):
+        problems.append(f"the chosen modes {chosen}: {lit}")
+    if (seen[1].get("extra") or []) != extra:
+        problems.append(f"extra should be {extra}: {seen[1].get('extra')}")
+    return problems
 
 
 def result(problems, ok, found):
@@ -139,7 +172,8 @@ def escalate():
             return f["options"][0]["actionId"]
         return DEFAULT
 
-    g.run(policy, until=lambda g: st["cast"] and resolved(g, 1, "Collective Brutality", st["before"]["grave"])
+    g.run(policy, until=lambda g: watch(g, st, "Collective Brutality") and st["cast"]
+          and resolved(g, 1, "Collective Brutality", st["before"]["grave"])
           and g.zone(1, "graveyard", owner=2, name="Grizzly Bears"), max_turn=28)
     b = st["before"] or {}
     found = {"modes": st["modes"], "before": b, "after": {
@@ -154,6 +188,7 @@ def escalate():
     if len(st["modes"]) != 2:
         problems.append(f"two modes should have been chosen: {st['modes']}")
     problems += counted(st, 3, 1, "-2/-2", escalate="Discard")
+    problems += choices(st, 3, ["-2/-2", "loses 2 life"], ["escalated"])
     if not found["bears_dead"]:
         problems.append("the creature did not die to -2/-2")
     if (b.get("me"), b.get("them")) != (a["me"] - 2, a["them"] + 2):
@@ -198,7 +233,8 @@ def cryptic():
             return next((o["actionId"] for o in f["options"] if "Grizzly" in o["label"]), f["options"][0]["actionId"])
         return DEFAULT
 
-    g.run(policy, until=lambda g: st["cast"] and resolved(g, 1, "Cryptic Command", st["before"]["grave"]),
+    g.run(policy, until=lambda g: watch(g, st, "Cryptic Command") and st["cast"]
+          and resolved(g, 1, "Cryptic Command", st["before"]["grave"]),
           max_turn=28)
     b = st["before"] or {}
     found = {"modes": st["modes"], "before": b, "after": {
@@ -211,6 +247,7 @@ def cryptic():
     if len(st["modes"]) != 2:
         problems.append(f"two modes should have been chosen: {st['modes']}")
     problems += counted(st, 2, 2, "Return target permanent")
+    problems += choices(st, 4, ["Return target permanent", "Draw a card"], [])
     if a["bears"] != b["bears"] - 1 or a["their_hand"] != b["their_hand"] + 1:
         problems.append(f"the creature was not returned to its owner's hand: {b} -> {a}")
     if a["hand"] != b["hand"]:  # -1 the spell, +1 drawn
@@ -250,7 +287,8 @@ def entwine():
             return bears[0] if bears else None
         return DEFAULT
 
-    g.run(policy, until=lambda g: st["cast"] and resolved(g, 1, "Tooth and Nail", st["before"]["grave"]),
+    g.run(policy, until=lambda g: watch(g, st, "Tooth and Nail") and st["cast"]
+          and resolved(g, 1, "Tooth and Nail", st["before"]["grave"]),
           max_turn=46)
     b = st["before"] or {}
     found = {"entwined": st["entwined"], "before": b, "after_bears": len(g.mine(1, name="Grizzly Bears")),
@@ -260,6 +298,7 @@ def entwine():
     problems = [found["stopped"]] if found["stopped"] else []
     if not st["entwined"]:
         problems.append("entwine was not offered as an optional cost")
+    problems += choices(st, 2, ["Search", "Put"], ["entwined"])
     if found["after_bears"] - b.get("bears", 0) != 2:
         problems.append(f"two creatures should have entered from hand: {b.get('bears')} -> {found['after_bears']}")
     return result(problems, "entwine paid: creatures searched for, and two put onto the battlefield", found)

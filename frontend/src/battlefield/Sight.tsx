@@ -16,10 +16,19 @@ export const SIGHT_OUT = 15 / 135;
 /** Each corner's arm, of the card's height. */
 export const SIGHT_ARM = 24 / 135;
 
-/** The four corners, drawn over the card's slot (absolute, outside its edges). */
-export function Sight() {
+/**
+ * The four corners, drawn over the card's slot (absolute, outside its edges).
+ * Spec 0100, item 7 -- `theirs`: aimed by the other player's spell or
+ * ability, the corners are blue-violet (#aeb8ff), the same shape.
+ */
+export function Sight({ theirs = false }: { theirs?: boolean } = {}) {
   return (
-    <span className="bf-sight" aria-hidden="true" data-sight="true">
+    <span
+      className={`bf-sight${theirs ? " bf-sight-theirs" : ""}`}
+      aria-hidden="true"
+      data-sight="true"
+      data-sight-tone={theirs ? "theirs" : "mine"}
+    >
       {(["tl", "tr", "br", "bl"] as const).map((corner) => (
         <svg key={corner} className={`bf-sight-${corner}`} viewBox="0 0 24 24" focusable="false">
           <path d="M3 21V3H21" className="bf-sight-under" />

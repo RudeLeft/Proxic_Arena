@@ -5,14 +5,16 @@
 The page's dial and split tray build on what the worker sends with each
 question; these games read it off the protocol and check the board after:
 
-  x        Fireball: arrange.number.values is each option's number, in
+  x        Fireball (spec 0100: waits on the stack; its entry says the X
+           paid to both seats, and no per-target share): arrange.number.values is each option's number, in
            order; canMake is sent; each option costs "{X}{R}" with X
            filled in; an option is unpayable exactly when its cost is more
            than canMake. The X answered is the X then owed.
   kicker   Everflowing Chalice: multikicker {2} -- values, keyword
            "Multikicker", each "{2}", costs {0}, {2}, {4}...; kicked once,
            one charge counter.
-  split    Arc Lightning at Bob and a Gray Ogre: no share is asked until
+  split    Arc Lightning at Bob and a Gray Ogre (spec 0100: each stack
+           target carries its share, for both seats): no share is asked until
            both targets are chosen (the targets first, rule 601.2d); then
            one question, its arrange.divide the whole split (3 damage, the
            two targets in order, the Ogre needing 2, values [1, 2]); 1 to
@@ -90,6 +92,15 @@ def outcome(problems, ok, found):
     return ("wrong", "; ".join(problems), found) if problems else ("ok", ok, found)
 
 
+def watch(g, st, name):
+    """Spec 0100 -- each seat's first sight of `name`'s spell entry on the stack."""
+    for seat in (1, 2):
+        for e in g.state.get(seat, {}).get("stack") or []:
+            if e.get("name") == name and e.get("kind") == "spell":
+                st.setdefault("seen", {}).setdefault(seat, {"x": e.get("x"), "targets": e.get("targets")})
+    return len(st.get("seen") or {}) == 2
+
+
 def number_layout(f):
     return ((f.get("arrange") or {}).get("number")) or {}
 
@@ -145,9 +156,11 @@ def fireball():
             return None
         return DEFAULT
 
-    g.run(policy, until=lambda g: st["owing"] is not None, max_turn=14)
+    # Spec 0100: on until Fireball waits on the stack (Bob holds priority)
+    # and both seats have seen its entry.
+    g.run(policy, until=lambda g: watch(g, st, "Fireball") and st["owing"] is not None, max_turn=14)
     f = st["asked"]
-    found = {"stopped": g.stopped_badly(), "owing": st["owing"],
+    found = {"stopped": g.stopped_badly(), "owing": st["owing"], "seen": st.get("seen"),
              "chosen": st["chosen"] and st["chosen"]["actionId"],
              "layout": f and number_layout(f),
              "options": f and [(o["actionId"], o.get("cost"), o.get("payable", True)) for o in f["options"]]}
@@ -162,6 +175,14 @@ def fireball():
         problems.append(f"X = 2 should cost {{2}}{{R}}: {costs.get('number:2')}")
     if st["chosen"].get("cost") != st["owing"]:
         problems.append(f"the X chosen costs {st['chosen'].get('cost')}, but {st['owing']} was owed")
+    # Spec 0100, F-0100-A: the stack entry says the X paid, to both seats;
+    # Fireball's even split has no per-target share (Decided 2).
+    x = int(st["chosen"]["actionId"][7:])
+    seen = st.get("seen") or {}
+    if set(seen) != {1, 2} or any(e.get("x") != x for e in seen.values()):
+        problems.append(f"Fireball's stack entry says x {x} to both seats: {seen}")
+    elif any(t.get("amount") is not None for e in seen.values() for t in e.get("targets") or []):
+        problems.append(f"no share per target for Fireball's even split: {seen}")
     return outcome(problems, f"Fireball: X = {st['chosen']['actionId'][7:]} at {st['owing']}, "
                              f"can make {layout.get('canMake')}", found)
 
@@ -247,6 +268,7 @@ def arc_lightning():
         return DEFAULT
 
     def until(g):
+        watch(g, st, "Arc Lightning")
         return st["split"] is not None and not g.state.get(1, {}).get("stack") \
             and not any(c["id"] == st["ogre"] for c in g.zone(1, "battlefield"))
 
@@ -273,6 +295,11 @@ def arc_lightning():
         problems.append(f"1 to Bob: {found['bob']}")
     if not found["ogre_gone"]:
         problems.append("2 to the Ogre: it should have died")
+    # Spec 0100, F-0100-A: each target's share, on the stack entry, to both seats.
+    seen = st.get("seen") or {}
+    want = sorted(map(str, [{"player": 2, "amount": 1}, {"object": st["ogre"], "amount": 2}]))
+    if set(seen) != {1, 2} or any(sorted(map(str, e.get("targets") or [])) != want for e in seen.values()):
+        problems.append(f"Arc Lightning's targets carry their shares (Bob 1, the Ogre 2) for both seats: {seen}")
     return outcome(problems, "Arc Lightning: both targets, then one split question; Bob -1, the Ogre died", found)
 
 

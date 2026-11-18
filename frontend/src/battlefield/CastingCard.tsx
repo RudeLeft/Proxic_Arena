@@ -603,7 +603,14 @@ export function CastingFlight({
   landing = false,
   back = null,
   fromOffset = null,
+  x,
 }: {
+  /**
+   * Spec 0100, item 1 (round 2 Q1 B) -- the X its caster paid: a gold X
+   * medallion pops on the card's top-right corner and flies with it onto
+   * the stack card's corner (where the stack card keeps it).
+   */
+  x?: number | undefined;
   /**
    * Spec 0091 Amendment 1 -- it was held aside (its step) when its spell
    * left the stack: it sets off at once from where it is, not the middle.
@@ -802,6 +809,11 @@ export function CastingFlight({
         <Back />
       ) : (
         <Face card={card} artUrl={artUrl} />
+      )}
+      {x !== undefined && !back && !hidden && (
+        <span className="gs-cast-xmed" data-x={x} aria-hidden="true">
+          X={x}
+        </span>
       )}
     </div>
   );

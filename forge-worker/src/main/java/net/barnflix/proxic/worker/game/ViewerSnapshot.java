@@ -499,6 +499,12 @@ final class ViewerSnapshot {
                         entry.addProperty("cantBeCountered", true);
                     }
                 }
+                // Spec 0100 -- what its caster chose as they cast it (X, the
+                // modes, the extra costs, an overload's reach). Public once
+                // cast; never for a face-down spell this viewer may not know.
+                if (instance.isSpell()) {
+                    SpellChoices.mark(entry, game, instance.getSpellAbility(), hidden);
+                }
             }
             Player by = instance.getActivatingPlayer();
             entry.addProperty("controller", by == null ? 0 : seatOf.getOrDefault(by, 0));
@@ -724,6 +730,9 @@ final class ViewerSnapshot {
                 if (artOwner != null) {
                     entry.addProperty("artOwner", seatOf.getOrDefault(artOwner, 0));
                 }
+                // Spec 0100 -- a copy carries the choices it copied.
+                SpellChoices.mark(entry, game, sa, source.isFaceDown()
+                        && !(source.getView().canBeShownTo(viewing) && source.getView().canFaceDownBeShownTo(viewing)));
             }
         }
         Player by = sa.getActivatingPlayer();
@@ -758,6 +767,11 @@ final class ViewerSnapshot {
             if (chosen == null) {
                 continue;
             }
+            // Spec 0100, item 4 -- the share of divided damage the caster
+            // chose for each target (Arc Lightning's 2 and 1): Forge's own
+            // TargetChoices#getDividedValue, only where the caster divides
+            // it (DividedAsYouChoose; Fireball's even split has none).
+            boolean divided = part.isDividedAsYouChoose();
             for (Card card : chosen.getTargetCards()) {
                 // "Counter target spell" targets the CARD on the stack
                 // (Forge's own model): name the stack entry it is, or the
@@ -765,13 +779,15 @@ final class ViewerSnapshot {
                 // by check-board-data.py (Counterspell on a Bolt).
                 forge.game.spellability.SpellAbilityStackInstance onStack = card.isInZone(ZoneType.Stack)
                         ? stackEntryOf(game, card) : null;
-                add(out, seen, "object", onStack != null ? "stack:" + onStack.getId() : "card:" + card.getId());
+                JsonObject t = add(out, seen, "object", onStack != null ? "stack:" + onStack.getId() : "card:" + card.getId());
+                amount(t, divided ? chosen.getDividedValue(card) : null);
             }
             for (Player player : chosen.getTargetPlayers()) {
                 JsonObject t = new JsonObject();
                 int seat = seatOf.getOrDefault(player, 0);
                 if (seen.add("player:" + seat)) {
                     t.addProperty("player", seat);
+                    amount(t, divided ? chosen.getDividedValue(player) : null);
                     out.add(t);
                 }
             }
@@ -796,11 +812,21 @@ final class ViewerSnapshot {
         return null;
     }
 
-    private static void add(JsonArray out, java.util.Set<String> seen, String key, String id) {
+    /** Adds one target, once; the new entry, or null when it was already there (it keeps its first amount). */
+    private static JsonObject add(JsonArray out, java.util.Set<String> seen, String key, String id) {
         if (seen.add(id)) {
             JsonObject t = new JsonObject();
             t.addProperty(key, id);
             out.add(t);
+            return t;
+        }
+        return null;
+    }
+
+    /** Spec 0100, item 4 -- a target's share of divided damage, when there is one. */
+    private static void amount(JsonObject target, Integer amount) {
+        if (target != null && amount != null) {
+            target.addProperty("amount", amount);
         }
     }
 
@@ -1144,6 +1170,11 @@ final class ViewerSnapshot {
         CardView attachedTo = view.getAttachedTo();
         if (attachedTo != null) {
             entry.addProperty("attachedTo", "card:" + attachedTo.getId());
+        }
+        // Spec 0100, item 6 -- an Aura on a PLAYER (a Curse): the seat it
+        // enchants. Public: it is on the battlefield, attached in view.
+        if (card.getEntityAttachedTo() instanceof Player enchanted) {
+            entry.addProperty("attachedToPlayer", seatOf.getOrDefault(enchanted, 0));
         }
 
         // Spec 0058, item 8 -- the cards of a mutated creature, top first

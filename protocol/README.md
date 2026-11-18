@@ -300,6 +300,19 @@ survived                  spec 0080: this round's survivors: [{card
                           Aura whose umbra armor was destroyed instead (the
                           replacement Forge chose: its keyword record,
                           never a name); absent when none. Public
+action (RETARGET)         spec 0100, item 8: a change-targets effect
+                          (Forge's ApiType.ChangeTargets: Spellskite,
+                          Deflecting Swat, Redirect) resolved and a stack
+                          entry's targets differ from before: "Bob changed
+                          your Lightning Bolt's target to Spellskite." ("...
+                          to you." for a player), told to that spell's
+                          controller only, never to the one who changed it
+                          (so nobody, for your own spell); its cards: the
+                          spell, then its new target when that is a card,
+                          each under the report's own ids. Public
+card.attachedToPlayer     spec 0100, item 6: an Aura on a player (a Curse):
+                          the seat it enchants (Card#getEntityAttachedTo);
+                          `attachedTo` stays a card's id only. Public
 action (PHASE)            spec 0080: the other player's permanents phased out
                           (or yours, by them): "Bob's permanents phased out
                           until Bob's next turn." (named cards when not all);
@@ -808,6 +821,31 @@ stack[]             B2  per entry, besides id and description:
                         description is "Face-down spell" when its source
                                     is a face-down card this viewer may not
                                     identify (it began with the card's name)
+                        Spec 0100 -- what its caster chose, announced as
+                        it was cast (CR 601.2b-c), so public; only on a
+                        spell (copies too, in `copying`), and never for one
+                        this viewer may not identify (a face-down spell):
+                        x           the X paid (SpellAbility#getXManaCostPaid),
+                                    when its cost has X
+                        modes       [{text, chosen}], every mode of a modal
+                                    spell in printed order (its "Choices"),
+                                    chosen = chained onto it as Forge's
+                                    CharmEffect#chainAbilities does
+                        extra       ["kicked" | "overloaded" | "evoked" |
+                                    "entwined" | "escalated", ...]; escalated
+                                    = the keyword Escalate and more than one
+                                    mode chosen (Forge has no isEscalate)
+                        kicks       multikicker's count, when kicked
+                        hits        an overloaded spell: ["card:N", ...], the
+                                    permanents its overloaded effect's own
+                                    `Defined` filter affects now, asked each
+                                    snapshot (none when the filter has X)
+                        targets[].amount  divided damage: the share the
+                                    caster chose for that target
+                                    (TargetChoices#getDividedValue), only for
+                                    a spell divided as its caster chooses (Arc
+                                    Lightning, not Fireball's even split)
+                        All optional: an older worker sends none.
 copying             spec 0082: the copies on their way onto the stack
                         (storm's, Fork's, a Resonator's), shaped as stack
                         entries, top first: id "copying:N", source, name,

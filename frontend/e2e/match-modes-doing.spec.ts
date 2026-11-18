@@ -5,7 +5,10 @@
 //    the page then answers the game's one-mode-at-a-time questions itself,
 //    in the order ticked, and says "no more" when the ticks run out;
 //  - the other player's waiting line says what they are doing
-//    ("Splitting the cards"), never "May respond" when they aren't.
+//    ("Splitting the cards"), never "May respond" when they aren't;
+//  - spec 0100, item 2 (round 2 Q2 B): Cryptic Command on the stack shows
+//    all four modes as its text, the two chosen lit, the other two struck
+//    through (the board the server sends, said again with the spell on it).
 //
 // What the game sends was proven by the Mechanics Lab (check-modes: the
 // count on every mode question; the server's AskingWordsTest: the word
@@ -42,6 +45,7 @@ test("several modes are ticked then Done, and the page answers the rest; the wai
 
   let client: WebSocketRoute | null = null;
   let lastAsk = "";
+  let lastSnap = "";
   let seat = 0;
   let catching = false;
   const answers: Frame[] = [];
@@ -52,6 +56,7 @@ test("several modes are ticked then Done, and the page answers the rest; the wai
       if (typeof m === "string" && m.includes('"DECISION_REQUEST"')) lastAsk = m;
       if (typeof m === "string" && m.includes('"MATCH_SNAPSHOT"')) {
         seat = (JSON.parse(m) as { state: { seat: number } }).state.seat;
+        lastSnap = m;
       }
       if (catching && typeof m === "string" && /"(DECISION_|MATCH_ASKING)/.test(m)) return;
       ws.send(m);
@@ -124,6 +129,40 @@ test("several modes are ticked then Done, and the page answers the rest; the wai
     await expect(panel.locator(".gs-waiting")).toContainText("Splitting the cards");
     await expect(panel.locator(".gs-waiting")).not.toContainText("May respond");
     await guest.screenshot({ path: "test-results/seen/a21-splitting.png" });
+
+    // Spec 0100, item 2: the other player's Cryptic Command lands on the
+    // stack with its modes -- every one as printed, two chosen.
+    const snap = JSON.parse(lastSnap) as { state: Record<string, unknown> };
+    snap.state["stateRevision"] = Number(snap.state["stateRevision"]) + 1;
+    snap.state["stack"] = [
+      {
+        id: "stack:900",
+        kind: "spell",
+        name: "Cryptic Command",
+        description: "Return target permanent to its owner's hand. Draw a card.",
+        controller: 3 - seat,
+        owner: 3 - seat,
+        manaCost: "{1}{U}{U}{U}",
+        targets: [],
+        modes: MODES.map((text, i) => ({ text, chosen: i === 1 || i === 3 })),
+      },
+    ];
+    send(snap);
+    const lines = guest.locator('.bf-stack-slot [data-object-id="stack:900"] .bf-mode');
+    await expect(lines).toHaveCount(4);
+    expect(await lines.allTextContents()).toEqual(MODES);
+    expect(await lines.evaluateAll((els) => els.map((e) => e.getAttribute("data-mode")))).toEqual([
+      "not-chosen",
+      "chosen",
+      "not-chosen",
+      "chosen",
+    ]);
+    // Struck through and grey, the ones not chosen: as the page draws them.
+    const struck = await lines.evaluateAll((els) =>
+      els.map((e) => getComputedStyle(e).textDecorationLine.includes("line-through")),
+    );
+    expect(struck).toEqual([true, false, true, false]);
+    await guest.screenshot({ path: "test-results/seen/spell-choices-cryptic-modes.png" });
   } finally {
     await hostContext.close();
     await guestContext.close();

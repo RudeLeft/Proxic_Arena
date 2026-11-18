@@ -5504,3 +5504,104 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
     0 0 16.8px rgb(242 196 106 / 56%),
     inset 0 0 11.2px rgb(240 190 90 / 25%);
 }
+
+/* Spec 0100, item 6 (round 2 Q5 A) -- the Curses on a player: small mirror
+   picture tabs of them on the left of the plate (0085's held-card tab look),
+   unfolding from the plate's edge; a gold thread runs once from the card. */
+.gs-curse-tabs {
+  position: absolute;
+  right: 100%;
+  top: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 6;
+  pointer-events: none;
+}
+.gs-curse-tab {
+  position: relative;
+  width: 22px;
+  height: 118px;
+  box-sizing: border-box;
+  writing-mode: vertical-rl;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 0;
+  border: 1px solid color-mix(in srgb, #ece2c4 45%, transparent);
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  background: #231f14;
+  color: #ece2c4;
+  font-family: var(--pa-card);
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  transform-origin: 100% 50%;
+  box-shadow: -1px 0 3px rgb(0 0 0 / 50%);
+}
+.gs-curse-pic {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  border: 1px solid #e9c46a;
+  background: linear-gradient(160deg, #6a2a3a, #1a0a12) center / cover;
+}
+.gs-curse-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: rotate(180deg);
+}
+.gs-curse-thread {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+  animation: gs-curse-thread 1.2s ease-out forwards;
+}
+.gs-curse-thread path {
+  fill: none;
+  stroke-linecap: round;
+}
+.gs-curse-thread-glow {
+  stroke: #f2c46a;
+  stroke-width: 7;
+  opacity: 0.28;
+}
+.gs-curse-thread-core {
+  stroke: #ffe2a0;
+  stroke-width: 2.4;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: gs-curse-draw 0.4s ease-out forwards;
+}
+@keyframes gs-curse-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes gs-curse-thread {
+  0%,
+  65% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* Spec 0100, item 5 -- a card a spell aims at, in the opened pile: the corners. */
+.gs-ztray-card[data-aimed] {
+  position: relative;
+  --card-h: 223px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-curse-thread {
+    display: none;
+  }
+}

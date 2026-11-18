@@ -131,7 +131,7 @@ import {
   type AnchorId,
   type Point,
 } from "./motion";
-import { AttackBlade, SwordsMark, TargetBeam } from "./Arrows";
+import { AttackBlade, SwordsMark, TargetBeam, type BeamTone } from "./Arrows";
 import {
   beamToBanner,
   centreOf,
@@ -309,7 +309,8 @@ import {
   followStarted,
   pauseFlyers,
 } from "./breathMotion";
-import { Sight } from "./Sight";
+import { Sight, SIGHT_ARM, SIGHT_OUT } from "./Sight";
+import { ModeLines, XMedallion } from "./SpellMarks";
 import {
   ALIVE_BACK_MS,
   ALIVE_PULSE_MS,
@@ -557,6 +558,18 @@ export interface StackView {
   splitSecond?: boolean;
   /** Spec 0083 (18 B) -- can't be countered: the gold seal square. */
   cantBeCountered?: boolean;
+  /** Spec 0100, item 1 -- the X its caster paid: the gold X medallion. */
+  x?: number;
+  /** Spec 0100, item 2 -- every mode as printed, the chosen ones lit, the rest struck through. */
+  modes?: readonly { text: string; chosen: boolean }[];
+  /** Spec 0100, item 3 -- the extra costs paid: "kicked" (a doubled beam), "overloaded" (the fan to `hits`), "evoked" (a grey beam to its caster's graveyard). */
+  extra?: readonly string[];
+  /** Spec 0100, item 3 -- multikicker's count. */
+  kicks?: number;
+  /** Spec 0100, item 3 -- an overloaded spell: what it would hit now. */
+  hits?: readonly string[];
+  /** Spec 0100, item 4 -- each target's share of divided damage, by target key ("card:N", "player:N"). */
+  shares?: Readonly<Record<string, number>>;
 }
 
 /** Damage just dealt, one wave (one combat damage step, or one spell):
@@ -769,6 +782,20 @@ export interface BoardProps {
   fans?: readonly FanCard[];
   /** Spec 0087 -- every card now in a graveyard or an exile (one leaving a fan but staying there sinks into its tile). */
   pileCards?: ReadonlySet<string>;
+  /**
+   * Spec 0100, item 5 -- each card in a graveyard or an exile this viewer
+   * may see, where it lies: a spell aiming at one draws its beam to the
+   * tile, and the card peeks out of it.
+   */
+  piled?: ReadonlyMap<string, PiledCard>;
+  /** Spec 0100, item 9 -- the stack entry whose beams show now (pointed at, else the front). */
+  onStackFocus?: (id: string | null) => void;
+  /**
+   * Spec 0100, item 8 (owner 2026-11-18) -- a beam is swinging to a new
+   * target (true), or has landed (false): the game screen holds the next
+   * board until it has.
+   */
+  onSwinging?: (swinging: boolean) => void;
   /** The right-hand column's contents, drawn inside the rail. */
   rail?: ReactNode;
   /** The top bar (turn and step), drawn over the play area. */
@@ -793,6 +820,18 @@ const GLYPH: Record<Look, string> = {
   artifact: "M12 4 V20 M4 12 H20 M6.5 6.5 L17.5 17.5 M17.5 6.5 L6.5 17.5",
   walker: "M12 3 L19 9 V17 L12 21 L5 17 V9 Z",
 };
+
+/** Spec 0100, item 5 -- a card lying in a pile, for its peek out of the tile. */
+export interface PiledCard {
+  id: string;
+  seat: number;
+  zone: "graveyard" | "exile";
+  name: string;
+  art: string | null;
+  crop?: string | null;
+  faceDown: boolean;
+  look: string;
+}
 
 /** Spec 0028 — the stack object whose line shows: the pointed one, else the front. */
 function stackFocus(stack: readonly StackView[] | undefined, pointed: string | null | undefined) {
@@ -1837,6 +1876,233 @@ interface Effect {
 /** Spec 0063 -- how long a line takes to fade out when it goes (battlefield.css bf-line-out). */
 const LINE_OUT_MS = 160;
 
+/** Spec 0100, item 8 (combat Q4 A) -- a beam's end swinging to its new target: 0.4 s. */
+const SWING_MS = 400;
+/** Spec 0100, item 3 -- an overloaded spell's fan: at most this many beams drawn (the canvas's 6); corners on all. */
+const HITS_DRAWN = 6;
+
+/** Spec 0100, item 5 -- the peek card's size, of a table card (the canvas's 0.8). */
+export const PEEK_SCALE = 0.8;
+
+/**
+ * Spec 0100, item 5 (missed Q2 A) -- the card a spell aims at in a pile,
+ * peeking out of its tile: 0.8 of a table card (the canvas's PEEK, owner
+ * 2026-11-18: its name readable), face up, lifted up and out to
+ * the table side of the tile (the canvas's PEEK: left of the tile, a little
+ * above its middle). The tiles are in the rail, right of the table, so
+ * it stands just left of the rail, wholly on the table.
+ */
+export function peekBox(tile: Point, g: Geometry): Box {
+  const h = g.cardH * PEEK_SCALE;
+  const w = g.cardW * PEEK_SCALE;
+  return {
+    x: g.rail.x - w - w * 0.25,
+    y: tile.y - h * 0.62,
+    w,
+    h,
+    scale: PEEK_SCALE,
+    rotation: 0,
+    z: 0,
+  };
+}
+
+/**
+ * Spec 0100, item 5 -- the peek card: it rises a little out of its tile
+ * (from the tile's middle, small, to its place, 450 ms -- a Web Animation,
+ * so a click hurries it), face up, wearing the four still corners while the
+ * spell aims at it. With motion turned down it is simply there.
+ */
+function PeekCard({
+  card,
+  box,
+  tile,
+  theirs,
+  artUrl,
+  z,
+}: {
+  card: PiledCard;
+  box: Box;
+  tile: Point;
+  theirs: boolean;
+  artUrl: (art: string) => string;
+  z: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || typeof el.animate !== "function" || reducedMotion()) return undefined;
+    const dx = tile.x - (box.x + box.w / 2);
+    const dy = tile.y - (box.y + box.h / 2);
+    const rise = el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(0.45)`, opacity: 0.4 },
+        {
+          transform: `translate(${dx * 0.4}px, ${dy * 0.4 - box.h * 0.12}px) scale(0.8)`,
+          opacity: 1,
+          offset: 0.55,
+        },
+        { transform: "translate(0, 0) scale(1)", opacity: 1 },
+      ],
+      { duration: 450, easing: "cubic-bezier(.3,.7,.3,1)" },
+    );
+    return () => rise.cancel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as it comes out
+  }, [card.id]);
+  return (
+    <div
+      ref={ref}
+      className="bf-peek"
+      data-peek-of={card.id}
+      data-peek-zone={card.zone}
+      style={{
+        left: box.x,
+        top: box.y,
+        width: box.w,
+        height: box.h,
+        zIndex: z,
+        ["--card-h" as string]: `${box.h}px`,
+      }}
+      aria-hidden="true"
+    >
+      <Sight theirs={theirs} />
+      <div className="bf-peek-card">
+        <CardFace
+          name={card.name}
+          look={lookOf(card.look, "")}
+          type=""
+          pt=""
+          art={card.art ? artUrl(card.art) : null}
+          crop={card.crop ? artUrl(card.crop) : null}
+          faceDown={false}
+          known
+          cost={null}
+          fit
+        />
+      </div>
+    </div>
+  );
+}
+
+/** The four sight corners round a box, in the lines' own coordinates (Sight's numbers). */
+function cornerPaths(box: Box): string {
+  const out = box.h * SIGHT_OUT;
+  const arm = box.h * SIGHT_ARM;
+  const x0 = box.x - out;
+  const y0 = box.y - out;
+  const x1 = box.x + box.w + out;
+  const y1 = box.y + box.h + out;
+  return [
+    `M${x0} ${y0 + arm}V${y0}H${x0 + arm}`,
+    `M${x1 - arm} ${y0}H${x1}V${y0 + arm}`,
+    `M${x1} ${y1 - arm}V${y1}H${x1 - arm}`,
+    `M${x0 + arm} ${y1}H${x0}V${y1 - arm}`,
+  ].join(" ");
+}
+
+/**
+ * Spec 0100, item 8 (combat Q4 A) -- a beam whose spell changed target:
+ * its end swings from where it pointed to the new target in one motion
+ * (SWING_MS, lifted on the way as the canvas's), its corners riding with
+ * it; then it is the beam at rest. The motion is a Web Animation's clock,
+ * so a click hurries it (A-00); one element throughout.
+ */
+function SwingBeam({
+  look,
+  route,
+  aim,
+  routeTo,
+  w,
+  onDone,
+}: {
+  look: BeamLook & { swing: NonNullable<BeamLook["swing"]> };
+  route: Route;
+  aim: { at: Point; r: number } | undefined;
+  routeTo: (end: Point) => Route;
+  w: number;
+  onDone: (id: string) => void;
+}) {
+  const ref = useRef<SVGGElement>(null);
+  const [q, setQ] = useState(0);
+  const done = useRef(onDone);
+  done.current = onDone;
+  const id = look.swing.id;
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || typeof el.animate !== "function") {
+      setQ(1);
+      done.current(id);
+      return undefined;
+    }
+    const clock = el.animate([{ opacity: 1 }, { opacity: 1 }], { duration: SWING_MS });
+    let frame = 0;
+    const step = () => {
+      const t = Number(clock.currentTime ?? SWING_MS) / SWING_MS;
+      setQ(Math.min(1, t));
+      if (t < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    clock.onfinish = () => {
+      setQ(1);
+      done.current(id);
+    };
+    return () => {
+      cancelAnimationFrame(frame);
+      clock.cancel();
+    };
+  }, [id]);
+  const tip = route[route.length - 1]!.end;
+  const from = look.swing.from;
+  const e = q < 0.5 ? 2 * q * q : 1 - (-2 * q + 2) ** 2 / 2;
+  const lift =
+    Math.min(110, 0.55 * Math.hypot(tip.x - from.x, tip.y - from.y)) * Math.sin(Math.PI * e);
+  const end = { x: from.x + (tip.x - from.x) * e, y: from.y + (tip.y - from.y) * e - lift };
+  const a = look.swing.box;
+  const b = look.swing.to;
+  const corners =
+    q < 1 && a && b
+      ? cornerPaths({
+          ...b,
+          x: a.x + (b.x - a.x) * e,
+          y: a.y + (b.y - a.y) * e - lift,
+          w: a.w + (b.w - a.w) * e,
+          h: a.h + (b.h - a.h) * e,
+        })
+      : null;
+  return (
+    <g ref={ref} data-swing={id} data-swing-at={q.toFixed(2)}>
+      <TargetBeam
+        route={q >= 1 ? route : routeTo(end)}
+        aim={q >= 1 ? aim : undefined}
+        w={w}
+        reduced={false}
+        tone={look.tone}
+        doubled={!!look.doubled}
+        share={q >= 1 ? look.share : undefined}
+      />
+      {corners && (
+        <g className="bf-swing-sight" data-sight-tone={look.tone === "theirs" ? "theirs" : "mine"}>
+          <path
+            d={corners}
+            fill="none"
+            stroke="#0b0f0d"
+            strokeWidth={a!.h * SIGHT_ARM * (8 / 24)}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d={corners}
+            fill="none"
+            stroke={look.tone === "theirs" ? "#aeb8ff" : "#ffd98a"}
+            strokeWidth={a!.h * SIGHT_ARM * (4 / 24)}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </g>
+      )}
+    </g>
+  );
+}
+
 /** Spec 0028 — how long a resolving stack card glows, its spark travelling, before it leaves. */
 const RESOLVE_MS = 380;
 
@@ -1852,6 +2118,19 @@ interface Line {
   count: number;
   /** Spec 0069 -- a target pointer's crosshair: where it locks on, and how big. */
   aim?: { at: Point; r: number };
+  /** Spec 0100 -- how a target beam looks: whose (item 7), kicked (item 3), its share (item 4). */
+  look?: BeamLook;
+}
+
+/** Spec 0100 -- a target beam's look. */
+interface BeamLook {
+  tone: BeamTone;
+  doubled?: boolean;
+  share?: number;
+  /** Item 8 -- its end swinging from where it pointed before (that end, and the card's box there). */
+  swing?: { from: Point; box: Box | null; to: Box | null; id: string };
+  /** Item 8 -- the beam from its stack card to any point (the swing's path on the way). */
+  routeTo?: (end: Point) => Route;
 }
 
 const refKey = (ref: TargetRef) => ("player" in ref ? `player:${ref.player}` : ref.object);
@@ -1953,6 +2232,8 @@ interface Marks {
   marks: number;
   chosen: boolean;
   targeted: boolean;
+  /** Spec 0100, item 7 -- targeted by the other player's spell or ability. */
+  theirs: boolean;
   pay: PayMark | undefined;
   breathing: boolean;
   still: boolean;
@@ -2033,7 +2314,7 @@ function tableCard(k: TableCardKey): { drawn: Drawn; content: ReactNode } {
     content: (
       <>
         {/* Spec 0088 (Q5 C) -- targeted: four still gold corners just outside it. */}
-        {k.act.targeted && <Sight />}
+        {k.act.targeted && <Sight theirs={k.act.theirs} />}
         {flies(lead) && (
           <span
             className={`bf-fly-shadow${k.crowded ? " bf-fly-bob" : ""}`}
@@ -2859,6 +3140,9 @@ export function Board({
   asking,
   fans = NO_FANS,
   pileCards,
+  piled,
+  onStackFocus,
+  onSwinging,
   rail,
   top,
   overlay,
@@ -2875,6 +3159,20 @@ export function Board({
   // Spec 0028 — the stack card the player points at: its line shows
   // instead of the front card's, and the rest of the stack fades.
   const [pointedOnStack, setPointedOnStack] = useState<string | null>(null);
+  // Spec 0100, item 8 -- a beam swinging to a new target: that target's
+  // corners wait until it lands (they ride the beam's end meanwhile).
+  const [swinging, setSwinging] = useState<{ id: string; to: string } | null>(null);
+  /** What each stack entry aimed at, and where each target beam ended, on the last board. */
+  const aimsBefore = useRef(new Map<string, string[]>());
+  const tipsBefore = useRef(new Map<string, Point>());
+  const linesSeen = useRef<{ aims: Map<string, string[]>; tips: Map<string, Point> }>({
+    aims: new Map(),
+    tips: new Map(),
+  });
+  /** A beam that swung keeps its first key: its new key -> that key. */
+  const swungKeys = useRef(new Map<string, string>());
+  /** The swings under way (and done), by stack entry and new target. */
+  const swings = useRef(new Map<string, NonNullable<BeamLook["swing"]> & { done: boolean }>());
   // Phase 9 W-20 -- the stack readable (the whole card, close-up size),
   // except while something is to be chosen on the table under it -- and
   // (spec 0066, item 5) while "Still to pay" is shown, held a moment after
@@ -3190,15 +3488,43 @@ export function Board({
    * them, §7.58), else as its lead.
    */
   // What the stack's shown objects target glows (owner 2026-10-21).
+  // Spec 0100, item 3 -- an overloaded spell's corners go on all it would hit.
+  // Item 8 -- a target the beam is still swinging to gets its corners when it lands.
   const targeted = useMemo(
     () =>
       new Set(
         (stack ?? [])
           .filter((s) => s.id === stackFocus(stack, pointedOnStack ?? pointedStack))
-          .flatMap((s) => s.targets.flatMap((t) => ("object" in t ? [t.object] : []))),
+          .flatMap((s) => [
+            ...s.targets.flatMap((t) => ("object" in t ? [t.object] : [])),
+            ...(s.hits ?? []),
+          ])
+          .filter((id) => id !== swinging?.to),
       ),
-    [stack, pointedStack, pointedOnStack],
+    [stack, pointedStack, pointedOnStack, swinging],
   );
+  // Spec 0100, item 7 -- whose the focused entry is: the corners on its
+  // targets are the other player's blue-violet, or your gold.
+  const focusTheirs = useMemo(() => {
+    const s = (stack ?? []).find((e) => e.id === stackFocus(stack, pointedOnStack ?? pointedStack));
+    return s?.seat !== undefined && s.seat !== viewerSeat;
+  }, [stack, pointedStack, pointedOnStack, viewerSeat]);
+  // Spec 0100, item 9 -- the game screen's life shields follow the entry in focus.
+  const focusNow = stackFocus(stack, pointedOnStack ?? pointedStack);
+  useEffect(() => {
+    onStackFocus?.(focusNow);
+  }, [focusNow, onStackFocus]);
+  // Spec 0100, item 9 (combat Q3 C) -- pointing at a stack card lifts its
+  // source and its targets a little, glowing gold; nothing dims.
+  const lifted = useMemo(() => {
+    if (pointedOnStack === null) return new Set<string>();
+    const s = (stack ?? []).find((e) => e.id === pointedOnStack);
+    if (!s) return new Set<string>();
+    return new Set([
+      ...(s.source ? [s.source] : []),
+      ...s.targets.flatMap((t) => ("object" in t ? [t.object] : [])),
+    ]);
+  }, [stack, pointedOnStack]);
   const act = useMemo(() => {
     const pickOf = (ids: readonly string[]) => ids.find((id) => choosable?.has(id)) ?? ids[0]!;
     return (ids: readonly string[], inHand = false) => {
@@ -3216,6 +3542,7 @@ export function Board({
         : !canChoose && ids.some((one) => unpayable?.has(one));
       const isSelected = ids.some((one) => one === selected);
       const isTargeted = ids.some((one) => targeted.has(one));
+      const isLifted = ids.some((one) => lifted.has(one));
       const isChosen = ids.some((one) => chosenTargets?.has(one));
       const isLit = ids.some((one) => lit?.has(one));
       // W-14: how many of these are selected for the attack or block.
@@ -3223,7 +3550,7 @@ export function Board({
       const isPicked = ids.some((one) => picked?.has(one));
       const pay = ids.map((one) => payPicks?.get(one)).find((mark) => mark !== undefined);
       return {
-        className: `${canChoose && !dim ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${isChosen ? " bf-chosen-target" : ""}${marks ? " bf-marked" : ""}${isLit ? " bf-lit" : ""}${isPicked ? " bf-picked" : ""}${pay ? ` bf-pay-picked bf-pay-${pay.tone}` : ""}`,
+        className: `${canChoose && !dim ? " bf-choosable" : ""}${isSelected ? " bf-selected" : ""}${dim ? " bf-unpayable" : ""}${isTargeted ? " bf-targeted" : ""}${isLifted ? " bf-lifted" : ""}${isChosen ? " bf-chosen-target" : ""}${marks ? " bf-marked" : ""}${isLit ? " bf-lit" : ""}${isPicked ? " bf-picked" : ""}${pay ? ` bf-pay-picked bf-pay-${pay.tone}` : ""}`,
         words: [
           isPicked ? "picked to discard" : "",
           pay ? payWords(pay) : "",
@@ -3239,6 +3566,8 @@ export function Board({
         chosen: isChosen,
         // Spec 0088 (Q5 C) -- the sight corners go on it.
         targeted: isTargeted,
+        // Spec 0100, item 7 -- in the other player's blue-violet.
+        theirs: isTargeted && focusTheirs,
         pay,
         // Spec 0090 (2) -- it breathes "you can pick this" (the soft layer,
         // Breath): choosable and not dimmed (a tab, always then). A card
@@ -3255,6 +3584,7 @@ export function Board({
           "data-lit": isLit ? "true" : undefined,
           "data-picked": isPicked ? "true" : undefined,
           "data-pay-picked": pay ? pay.word : undefined,
+          "data-lifted": isLifted ? "true" : undefined,
         },
         /** Spec 0096 -- the one a click picks (a pile's first choosable member, else its lead). */
         pickId: id,
@@ -3271,6 +3601,8 @@ export function Board({
     payPicks,
     lit,
     targeted,
+    focusTheirs,
+    lifted,
     onPick,
     onInspect,
   ]);
@@ -8201,6 +8533,35 @@ export function Board({
     lastLines.current = now;
   });
 
+  // Spec 0100, item 8 -- after each drawing: what the stack aimed at and
+  // where its beams ended, for the next board; a swing starting withholds
+  // its new target's corners (they ride the beam's end) until it lands.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every drawing, on purpose; it sets state only when the swing changes
+  useLayoutEffect(() => {
+    const seen = linesSeen.current;
+    aimsBefore.current = seen.aims;
+    tipsBefore.current = seen.tips;
+    for (const [id] of swings.current) {
+      if (!seen.aims.has(id.split(":").slice(0, 2).join(":"))) swings.current.delete(id);
+    }
+    for (const [own, first] of swungKeys.current) {
+      if (!seen.tips.has(first)) swungKeys.current.delete(own);
+    }
+    const active = [...swings.current.values()].find((s) => !s.done);
+    const want = active ? { id: active.id, to: active.id.split(":").slice(2).join(":") } : null;
+    if ((want?.id ?? null) !== (swinging?.id ?? null)) setSwinging(want);
+  });
+  // Spec 0100, item 8 -- the game screen holds the next board while it swings.
+  const swingingNow = swinging !== null;
+  useEffect(() => {
+    onSwinging?.(swingingNow);
+  }, [swingingNow, onSwinging]);
+  const swingDone = useCallback((id: string) => {
+    const swing = swings.current.get(id);
+    if (swing) swing.done = true;
+    setSwinging((now) => (now?.id === id ? null : now));
+  }, []);
+
   // Spec 0090 (2, 3) -- after every drawing, and after every other effect has
   // started its animations: each glow layer plays its card's movements; the
   // flyers bob in step (more than FLY_SYNC_AT), or not at all while the tab
@@ -8356,12 +8717,36 @@ export function Board({
     to: string,
     route: Route | null,
     aim?: { at: Point; r: number },
+    look?: BeamLook,
   ) => {
     if (!route) return;
-    const key = `${kind}:${drawn(from)}:${to.startsWith("player:") ? to : drawn(to)}`;
+    const own = `${kind}:${drawn(from)}:${to.startsWith("player:") || to.startsWith("pile:") ? to : drawn(to)}`;
+    // Spec 0100, item 8 -- a beam that swung to a new target keeps its
+    // element (its first key) for as long as it points there.
+    const key = swungKeys.current.get(own) ?? own;
     const same = byKey.get(key);
     if (same) same.count += 1;
-    else byKey.set(key, { key, kind, from, to, route, count: 1, ...(aim ? { aim } : {}) });
+    else
+      byKey.set(key, {
+        key,
+        kind,
+        from,
+        to,
+        route,
+        count: 1,
+        ...(aim ? { aim } : {}),
+        ...(look ? { look } : {}),
+      });
+  };
+  // Spec 0100, item 5 (missed Q2 A) -- a target lying in a graveyard or an
+  // exile: its tile, and the card peeking out of it face up (none for a
+  // face-down exiled card: the beam ends on the tile).
+  const peekOf = (id: string): { tile: Point; box: Box | null } | null => {
+    const card = piled?.get(id);
+    if (!card) return null;
+    const tile = where[`${card.seat === viewerSeat ? "viewer" : "opponent"}:${card.zone}`];
+    if (!tile) return null;
+    return { tile, box: card.faceDown ? null : peekBox(tile, g) };
   };
   // Spec 0069 -- where a pointer's ripple is: round a player's life shield
   // (never over the number); on a card, on its picture.
@@ -8505,6 +8890,27 @@ export function Board({
   const landedTotal = landed.reduce((n, s) => n + (s.count ?? 1), 0);
   const focus = stackFocus(stack, pointedOnStack ?? pointedStack);
   const shown = (stack ?? []).filter((s) => s.id === focus);
+  // Spec 0100, item 5 -- the cards the focused entry aims at in a pile,
+  // peeking out of their tiles (face up only), with their corners.
+  const peeks = shown
+    .filter((s) => !stackWaiting(s))
+    .flatMap((s) =>
+      s.targets.flatMap((t) => {
+        if (!("object" in t) || positions.has(t.object) || fanBoxesNow.has(t.object)) return [];
+        const pile = peekOf(t.object);
+        const card = piled?.get(t.object);
+        return pile?.box && card
+          ? [
+              {
+                card,
+                box: pile.box,
+                tile: pile.tile,
+                theirs: s.seat !== undefined && s.seat !== viewerSeat,
+              },
+            ]
+          : [];
+      }),
+    );
   // Spec 0066, item 1 -- the stack card whose arrows show, once it has arrived.
   let studAt = -1;
   for (const s of shown) {
@@ -8526,6 +8932,17 @@ export function Board({
           badges: stackBadgeRects(spot, g.cardH),
         }
       : undefined;
+    // Spec 0100, item 7 -- whose it is, by its beam: yours gold, theirs blue-violet.
+    const tone: BeamTone = s.seat !== undefined && s.seat !== viewerSeat ? "theirs" : "mine";
+    // Item 3 -- kicked: a doubled beam.
+    const doubled = !!s.extra?.includes("kicked");
+    // Item 8 -- the one target that changed since the last board: its end swings.
+    const before = aimsBefore.current.get(s.id);
+    const nowKeys = s.targets.map(refKey);
+    const changed =
+      before && before.length === nowKeys.length && !reducedMotion()
+        ? nowKeys.filter((k, i) => k !== before[i])
+        : [];
     for (const t of s.targets) {
       // Spec 0069, item 4 -- something on the stack (a counterspell's
       // target): the ripple beside that stack card's name, left of its
@@ -8533,13 +8950,121 @@ export function Board({
       const onStack = "object" in t && !positions.has(t.object) ? spotIndex(t.object) : -1;
       if (onStack >= 0) {
         const beam = stackBeam(spot, start.at, onStack, g.cardH, gap);
-        add("target", s.id, refKey(t), beam.route, beam.aim);
+        add("target", s.id, refKey(t), beam.route, beam.aim, { tone });
+        continue;
+      }
+      const share = s.shares?.[refKey(t)];
+      const look: BeamLook = {
+        tone,
+        ...(doubled ? { doubled } : {}),
+        ...(share !== undefined ? { share } : {}),
+      };
+      // Spec 0100, item 5 -- a card in a graveyard or a face-up exile: the
+      // beam runs to its tile, to the card peeking out of it.
+      // A card standing in its pile's fan (0087): the beam runs to it there.
+      const fanBox =
+        "object" in t && !positions.has(t.object) ? fanBoxesNow.get(t.object) : undefined;
+      if (fanBox) {
+        const route = arc(
+          start,
+          { x: fanBox.x + fanBox.w / 2, y: fanBox.y - gap },
+          g.cardH,
+          undefined,
+          clear,
+        );
+        add(
+          "target",
+          s.id,
+          refKey(t),
+          route,
+          {
+            at: { x: fanBox.x + fanBox.w / 2, y: fanBox.y + fanBox.h * 0.42 },
+            r: fanBox.h * 0.1,
+          },
+          look,
+        );
+        continue;
+      }
+      const pile = "object" in t && !positions.has(t.object) ? peekOf(t.object) : null;
+      if (pile) {
+        const box = pile.box;
+        const route = box
+          ? arc(start, { x: box.x + box.w / 2, y: box.y - gap }, g.cardH, undefined, clear)
+          : arcToRing(start, pile.tile, g.cardH * 0.12, g.cardH, clear, plates);
+        const aim = box
+          ? { at: { x: box.x + box.w / 2, y: box.y + box.h * 0.42 }, r: box.h * 0.18 }
+          : { at: pile.tile, r: g.cardH * 0.12 };
+        add("target", s.id, refKey(t), route, aim, look);
         continue;
       }
       const route = onto(start, t, clear, spot[index]);
-      add("target", s.id, refKey(t), route, aimOf(t, route));
+      // Item 8 -- swung: the line keeps the element it had, its end moving.
+      const k = refKey(t);
+      const swingId = `${s.id}:${k}`;
+      if (changed.length === 1 && changed[0] === k && route && !swings.current.has(swingId)) {
+        const from = before![nowKeys.indexOf(k)]!;
+        const fromKey = `target:${drawn(s.id)}:${from.startsWith("player:") ? from : drawn(from)}`;
+        const oldKey = swungKeys.current.get(fromKey) ?? fromKey;
+        // Where its beam ended last board; or, when it was not shown then
+        // (another entry was in front: Spellskite's ability, waiting above
+        // it), where it would have ended -- the old target's top edge.
+        const old = positions.get(from);
+        const fromTip =
+          tipsBefore.current.get(oldKey) ??
+          (old
+            ? topOf(old.box, old.origin, gap)
+            : from.startsWith("player:")
+              ? playerPoint(Number(from.slice(7)), viewerSeat, where)
+              : undefined);
+        if (fromTip) {
+          swungKeys.current.set(
+            `target:${drawn(s.id)}:${k.startsWith("player:") ? k : drawn(k)}`,
+            oldKey,
+          );
+          const was = positions.get(from);
+          const now = "object" in t ? positions.get(t.object) : undefined;
+          swings.current.set(swingId, {
+            from: fromTip,
+            box: was ? was.box : null,
+            to: now ? now.box : null,
+            id: swingId,
+            done: false,
+          });
+        }
+      }
+      const swing = swings.current.get(swingId);
+      if (swing && !swing.done) {
+        look.swing = swing;
+        look.routeTo = (end: Point) => arc(start, end, g.cardH, undefined, clear);
+      }
+      add("target", s.id, k, route, aimOf(t, route), look);
     }
-    if (s.targets.length > 0) studAt = index;
+    // Spec 0100, item 3 -- overloaded (it targets nothing): a beam fanned to
+    // every card it would hit now; at most HITS_DRAWN beams, corners on all.
+    if (s.extra?.includes("overloaded"))
+      for (const id of (s.hits ?? []).filter((h) => positions.has(h)).slice(0, HITS_DRAWN)) {
+        const t = { object: id };
+        const route = onto(start, t, clear, spot[index]);
+        add("target", s.id, id, route, aimOf(t, route), { tone });
+      }
+    // Item 3 -- evoked: a grey beam to its caster's own graveyard tile.
+    if (s.extra?.includes("evoked") && s.seat !== undefined) {
+      const tile = where[`${s.seat === viewerSeat ? "viewer" : "opponent"}:graveyard`];
+      if (tile) {
+        const route = arcToRing(start, tile, g.cardH * 0.12, g.cardH, clear, plates);
+        add(
+          "target",
+          s.id,
+          `pile:${s.seat}:graveyard`,
+          route,
+          { at: tile, r: g.cardH * 0.12 },
+          {
+            tone: "grey",
+          },
+        );
+      }
+    }
+    if (s.targets.length > 0 || s.hits?.length || s.extra?.includes("evoked")) studAt = index;
   }
   // Spec 0082 -- a card of copies on its way aims from where it waits,
   // once it has peeled on (the target being picked shows no line yet).
@@ -8573,6 +9098,27 @@ export function Board({
     add("source", s.source, s.id, arc(from, to, g.cardH, g.cardH * 0.19));
   }
   const lines = [...byKey.values()];
+  // Spec 0100, item 8 -- what each stack entry aimed at and where each beam
+  // ended, for the next board to see what changed.
+  // An entry whose beams were not drawn this board (another one in front:
+  // Spellskite's ability above the Bolt, then resolving) keeps what it aimed
+  // at when they last were, so its beam swings once it is drawn again.
+  const beamsDrawn = new Set(lines.filter((l) => l.kind === "target").map((l) => l.from));
+  linesSeen.current = {
+    aims: new Map(
+      (stack ?? []).map((s) => [
+        s.id,
+        beamsDrawn.has(s.id)
+          ? s.targets.map(refKey)
+          : (aimsBefore.current.get(s.id) ?? s.targets.map(refKey)),
+      ]),
+    ),
+    tips: new Map(
+      lines
+        .filter((l) => l.kind === "target")
+        .map((l) => [l.key, l.route[l.route.length - 1]!.end]),
+    ),
+  };
   // Spec 0063 (R2) -- each player attacked by unblocked attackers: how many.
   const underAttack: { seat: number; at: Point; count: number; hot: boolean }[] = [];
   for (const a of combat?.attackers ?? []) {
@@ -8681,6 +9227,7 @@ export function Board({
               box={box}
               className={a.className}
               breathes={a.breathing && !a.pay && !a.still}
+              sight={a.targeted ? (a.theirs ? "theirs" : "mine") : null}
               label={[fanWords(card, whose), ...a.words].filter(Boolean).join(", ")}
               data={a.data}
               handlers={a.handlers}
@@ -8747,7 +9294,8 @@ export function Board({
               : s.seat === viewerSeat
                 ? " bf-stack-mine"
                 : " bf-stack-theirs";
-          const faded = pointedOnStack !== null && pointedOnStack !== s.id;
+          // Spec 0100, item 9 (combat Q3 C) -- pointing at one no longer fades
+          // the others: nothing dims; its source and targets lift instead.
           // W-20: the whole card, readable, when it has a picture this
           // viewer may see; a trigger or ability with its own words on it.
           const whole = box.scale >= STACK_READ_SCALE && !!s.art && s.name !== "Face-down";
@@ -8764,7 +9312,7 @@ export function Board({
                   stackEls.current.delete(rk);
                 }
               }}
-              className={`bf-slot bf-stack-slot${faded ? " bf-stack-faded" : ""}${waiting ? " bf-stack-waiting" : ""}`}
+              className={`bf-slot bf-stack-slot${waiting ? " bf-stack-waiting" : ""}`}
               data-waiting={waiting ? "true" : undefined}
               data-rising={rose.current.has(s.id) ? "true" : undefined}
               style={{
@@ -8790,7 +9338,7 @@ export function Board({
               }}
             >
               {/* Spec 0088 (Q5 C) -- a spell a spell targets (Counterspell's) wears the corners too. */}
-              {a.targeted && <Sight />}
+              {a.targeted && <Sight theirs={a.theirs} />}
               <button
                 type="button"
                 className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${whose}${a.className}${a.breathing && !a.pay && !a.still ? " bf-breathes" : ""}`}
@@ -8865,6 +9413,9 @@ export function Board({
                     fit
                   />
                 )}
+                {/* Spec 0100, item 2 (round 2 Q2 B) -- a modal spell's body: every
+                    mode as printed, the chosen lit gold, the rest struck through. */}
+                {s.modes && s.modes.length > 0 && <ModeLines modes={s.modes} />}
                 {s.copy && <CopyMark />}
                 {/* Spec 0083 (18 B) -- what the spell is: split second's
                     stopwatch, can't be countered's seal. */}
@@ -8873,6 +9424,9 @@ export function Board({
                 )}
               </button>
               {a.breathing && !a.pay && !a.still && <Breath />}
+              {/* Spec 0100, item 1 (round 2 Q1 B) -- the X its caster paid, a gold
+                  medallion on the card's top-right corner while it is on the stack. */}
+              {s.x !== undefined && <XMedallion x={s.x} />}
               {/* Spec 0083 (18 B) -- split second: a gold ring closes round
                   the card while it is on the stack (nobody may answer). */}
               {s.splitSecond && !waiting && (
@@ -8966,6 +9520,17 @@ export function Board({
             <span className="bf-attacked-count">{u.count} attacking</span>
           </div>
         ))}
+        {peeks.map((p) => (
+          <PeekCard
+            key={`peek:${p.card.id}`}
+            card={p.card}
+            box={p.box}
+            tile={p.tile}
+            theirs={p.theirs}
+            artUrl={artUrl}
+            z={Z_LINES - 201}
+          />
+        ))}
         <svg
           ref={linesRef}
           className="bf-lines"
@@ -9053,7 +9618,27 @@ export function Board({
                 ) : line.kind === "target" ? (
                   // Spec 0069, items 2-4 (T4 · Beam, L3 · Ripple and sparks):
                   // the beam stops at the card's top edge, never over its name.
-                  <TargetBeam route={route} aim={line.aim} w={w} reduced={still} />
+                  line.look?.swing && line.look.routeTo ? (
+                    // Spec 0100, item 8 -- its end swinging to the new target.
+                    <SwingBeam
+                      look={{ ...line.look, swing: line.look.swing }}
+                      route={route}
+                      aim={line.aim}
+                      routeTo={line.look.routeTo}
+                      w={w}
+                      onDone={swingDone}
+                    />
+                  ) : (
+                    <TargetBeam
+                      route={route}
+                      aim={line.aim}
+                      w={w}
+                      reduced={still}
+                      tone={line.look?.tone ?? "mine"}
+                      doubled={!!line.look?.doubled}
+                      share={line.look?.share}
+                    />
+                  )
                 ) : (
                   // Spec 0066 -- the thread back to an ability's source:
                   // faint and dotted, a dot where it meets the stack card.

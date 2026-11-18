@@ -132,6 +132,8 @@ export interface LayoutCard {
   keywords: readonly string[];
   counters: readonly { name: string; count: number }[];
   attachedTo: string | null;
+  /** Spec 0100, item 6 -- an Aura on a player (a Curse): the seat it enchants. */
+  attachedToPlayer?: number;
   /** Forge's entry timestamp (§7.61 B11). Absent until the worker sends
    * it; the snapshot's own order (Forge's zone order) is used instead. */
   enteredAt?: number;

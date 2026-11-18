@@ -108,6 +108,9 @@ final class ActionReports {
          * could not pay for: the mana it cost ("{1}"); null for a fizzled spell.
          */
         String unpaid;
+        /** Spec 0100, item 8 -- the spell whose target changed, and its new target (a Card, a Player or a SpellAbility). */
+        String retargeted;
+        Object newTarget;
 
         Report(long key, Player actor, String source, Kind kind, Player subject, int count, List<Move> moves,
                 java.util.Map<Integer, String> where, boolean shuffled, int top, int bottom) {
@@ -161,7 +164,13 @@ final class ActionReports {
          * Spec 0097, item 4 -- a player restarted the game (Karn Liberated):
          * told to the other player only, with the card that did it.
          */
-        RESTART }
+        RESTART,
+        /**
+         * Spec 0100, item 8 -- a change-targets effect (Spellskite, Deflecting
+         * Swat, Redirect) moved a spell's target: told to that spell's
+         * controller only, never to the one who did it.
+         */
+        RETARGET }
 
     /**
      * Spec 0074, Amendment 1 -- the kinds that hide nothing Forge shows (a
@@ -275,10 +284,13 @@ final class ActionReports {
                 surveilKept = surveil.toLibrary();
                 surveilAway = surveil.toGraveyard();
             } else if (event instanceof forge.game.event.GameEventSpellResolved resolved) {
+                // Spec 0100, item 8 -- a change-targets effect: whose target moved.
+                retargeted(Copies.resolved(game, resolved));
                 // Spec 0079 -- a spell that fizzled did nothing: that is its report.
                 if (!(resolved.hasFizzled() && fizzled(resolved))) {
                     finish();
                 }
+                noteTargets();
                 return;
             } else if (event instanceof forge.game.event.GameEventTurnPhase phase
                     && phase.phase() == forge.game.phase.PhaseType.COMBAT_BEGIN) {
@@ -299,7 +311,103 @@ final class ActionReports {
                     || event instanceof forge.game.event.GameEventCardChangeZone) {
                 noteAims();
             }
+            if (event instanceof forge.game.event.GameEventSpellAbilityCast) {
+                noteTargets();
+            }
         }
+    }
+
+    /**
+     * Spec 0100, item 8 -- every stack entry's targets as last seen: when
+     * something is put on the stack and after each resolution, so never in
+     * the middle of the change-targets effect that moves them.
+     */
+    private final java.util.Map<SpellAbility, List<Object>> aimedAt = new java.util.IdentityHashMap<>();
+
+    private void noteTargets() {
+        aimedAt.clear();
+        for (forge.game.spellability.SpellAbilityStackInstance each : game.getStack()) {
+            SpellAbility sa = each.getSpellAbility();
+            if (sa != null) {
+                aimedAt.put(sa, targetsNow(sa));
+            }
+        }
+    }
+
+    /** What [sa] aims at, through its sub-abilities: cards, players, spells, once each, in order. */
+    static List<Object> targetsNow(SpellAbility sa) {
+        List<Object> out = new ArrayList<>();
+        for (SpellAbility part = sa; part != null; part = part.getSubAbility()) {
+            if (part.getTargets() == null) {
+                continue;
+            }
+            for (Object each : part.getTargets()) {
+                if (!out.contains(each)) {
+                    out.add(each);
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Spec 0100, item 8 -- [by] resolved; when it is a change-targets effect
+     * (Forge's ApiType.ChangeTargets), each stack entry whose targets now
+     * differ from before is told to its controller: "Bob changed your
+     * Lightning Bolt's target to Spellskite.", with the spell and its new
+     * target as pictures. The one who changed it is not told (tells).
+     */
+    private void retargeted(SpellAbility by) {
+        if (by == null || by.getActivatingPlayer() == null || by.getHostCard() == null) {
+            return;
+        }
+        boolean changes = false;
+        for (SpellAbility part = by; part != null; part = part.getSubAbility()) {
+            changes |= part.getApi() == ApiType.ChangeTargets;
+        }
+        if (!changes) {
+            return;
+        }
+        for (forge.game.spellability.SpellAbilityStackInstance each : game.getStack()) {
+            SpellAbility sa = each.getSpellAbility();
+            List<Object> before = sa == null || sa == by ? null : aimedAt.get(sa);
+            if (before == null || sa.getHostCard() == null || sa.getActivatingPlayer() == null) {
+                continue;
+            }
+            List<Object> now = targetsNow(sa);
+            if (now.equals(before)) {
+                continue;
+            }
+            Object fresh = now.stream().filter(o -> !before.contains(o)).findFirst().orElse(null);
+            if (fresh == null) {
+                continue;
+            }
+            Card spell = sa.getHostCard();
+            List<Move> shown = new ArrayList<>();
+            shown.add(new Move(spell.getId(), spell.getOwner(), ZoneType.Stack, ZoneType.Stack, spell.isFaceDown()));
+            if (fresh instanceof Card card && card.getZone() != null) {
+                ZoneType zone = card.getZone().getZoneType();
+                shown.add(new Move(card.getId(), card.getOwner(), zone, zone, card.isFaceDown()));
+            }
+            Report report = new Report(keys.incrementAndGet(), by.getActivatingPlayer(), by.getHostCard().getName(),
+                    Kind.RETARGET, sa.getActivatingPlayer(), shown.size(), shown, new java.util.HashMap<>(), false,
+                    -1, 0);
+            report.chooser = by.getActivatingPlayer();
+            report.retargeted = spell.isFaceDown() ? "face-down spell" : spell.getName();
+            report.newTarget = fresh;
+            for (Move move : shown) {
+                Card card = game.findById(move.cardId());
+                if (card != null) {
+                    report.cards.put(card.getId(), card);
+                }
+            }
+            tell(report);
+        }
+    }
+
+    /** Spec 0100, item 8 -- the sentence, to the spell's controller ("Bob changed your Lightning Bolt's target to Spellskite."). */
+    static String retargetWords(String actor, String spell, String target) {
+        return actor + " changed your " + spell + "'s target to " + target + ".";
     }
 
     /**
@@ -1241,6 +1349,11 @@ final class ActionReports {
             }
             // Spec 0097, item 4: the card that restarted the game was on the
             // table as it did -- shown as it was, never where it is now.
+            // Spec 0100, item 8: the spell on the stack and its new target were
+            // in view as it changed (a face-down one stays a back).
+            if (report.kind == Kind.RETARGET && card != null && !move.faceDown()) {
+                wasPublic = true;
+            }
             if (report.kind == Kind.RESTART) {
                 card = report.cards.get(move.cardId());
                 wasPublic = card != null;
@@ -1414,6 +1527,8 @@ final class ActionReports {
                     r.savedBy == w.reader ? null : (r.savedBy == null ? r.actor : r.savedBy).getName(), r.savedName);
             // Spec 0097, item 4, the canvas's words.
             case RESTART -> restartWords(r.actor == w.reader ? null : r.actor.getName(), r.count);
+            // Spec 0100, item 8, the spec's words.
+            case RETARGET -> retargetWords(who, r.retargeted, targetWords(r.newTarget, w));
         };
     }
 
@@ -1476,6 +1591,20 @@ final class ActionReports {
                 + creature + ".";
     }
 
+    /** Spec 0100, item 8 -- a new target in the reader's words: "you", "Bob", "Spellskite". */
+    private static String targetWords(Object target, Words w) {
+        if (target instanceof Player p) {
+            return p == w.reader ? "you" : p.getName();
+        }
+        if (target instanceof Card c) {
+            return c.isFaceDown() ? "a face-down card" : c.getName();
+        }
+        if (target instanceof SpellAbility sa && sa.getHostCard() != null) {
+            return sa.getHostCard().getName();
+        }
+        return "a new target";
+    }
+
     /** Spec 0080 -- "Bob's life can't change." ("Your ..." to that player). */
     static String lifeWords(String player) {
         return (player == null ? "Your" : player + "'s") + " life can't change.";
@@ -1520,6 +1649,8 @@ final class ActionReports {
             case UMBRA -> reader != actor;
             // Spec 0097, item 4 (owner): a restart is told to the other player only.
             case RESTART -> reader != actor;
+            // Spec 0100, item 8 (owner): the changed spell's controller, never the one who changed it.
+            case RETARGET -> reader == subject && reader != actor;
             // Spec 0097, item 7 (owner): never a window for the one who did it.
             case MILL, COUNTER, RETURN, PHASE -> reader != actor;
             default -> reader != chooser;
