@@ -222,8 +222,8 @@ a host reboot.
 ```text
 package               12.4 MB, 12 entries, 11 images
 images                745x1040, 370 KB - 1.77 MB
-derivatives           384 px, 338-555 KB
-deck art on disk      12.1 MB original + 4.9 MB display
+derivatives           384 px, 338-555 KB (PNG copies, before spec 0051's JPEG)
+deck art on disk      12.1 MB original + 4.9 MB display (the same)
 import time           ~4 s, dominated by Forge's first load
 ```
 

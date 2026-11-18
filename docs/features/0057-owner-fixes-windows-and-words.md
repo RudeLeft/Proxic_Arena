@@ -146,6 +146,12 @@ pay" (spec 0043) keeps Skip / Pay.
 the card's height (were 6%), words 9% (were 4.5%), a 2px #ffd36b edge with
 a glow; the words over the symbols, since at this size both no longer fit
 across a stack card.
+*As of 2026-11-18 (a documentation check):* spec 0062 changed what the
+pill holds, not its size: it keeps every symbol of the cost (a grey pip
+per generic mana), each lit in the colour of the mana that paid it, instead
+of only the symbols still owed; the other player sees it too while its
+balls fly (code: frontend/src/battlefield/Board.tsx:3051-3056 `OwePill`,
+frontend/src/battlefield/battlefield.css:1335-1371).
 
 **Item 5.** Worker: for each card in hand with an option that discards it
 (cycling, typecycling -- landcycling and the rest --, or any activated

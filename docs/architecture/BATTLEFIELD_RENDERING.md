@@ -223,7 +223,8 @@ rather than teleports.
    and piles ("×N" on the arrow) too. Attack, block, target and source
    lines leave a card's edge facing the middle (on the frame, not inside
    the picture), turn into the strip along the middle of the table, ride
-   it, and land straight on their end (`effects.ts` `ride`): a life circle
+   it, and land straight on their end (`effects.ts` `ride`, since
+   removed): a life circle
    from the table's side, a card's edge facing the middle; no lanes. The
    attach line keeps the old curve, inside the picture; the stolen and
    chain tethers are unchanged. Lines draw in, glow included, over 300 ms

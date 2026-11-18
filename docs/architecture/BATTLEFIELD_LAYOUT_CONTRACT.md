@@ -317,7 +317,7 @@ lines follow (`creature-2`, ...):
   line (`fits`), however well its cards would show: with creatures,
   attackers, other permanents and lands a side needs four lines, which
   the band holds only from the 75% step on (3 lines at 100-80%, 4 at
-  75-70%; `planSide`'s `total`, layout.ts:991), so such a side was drawn
+  75-70%; `planSide`'s `total`, layout.ts:993), so such a side was drawn
   at 75% or smaller
   (found by the browser layout check at 1920x947, where a 90-permanent
   board's "other" line covered its lands by 41 px). Most boards

@@ -69,6 +69,7 @@ to `/login` itself.
 | **every** `/api/decks` route | a signed-in user, and then the deck's own rule: its owner, or a player it is shared with (below) |
 | `GET /api/pictures/{sha}` (spec 0052) | any signed-in user |
 | `GET /ws/user` | any signed-in user |
+| `GET /ws/matches/{matchId}` | a signed-in player seated in that match; anyone else signed in may watch it while it is running here (specs 0047, 0067); otherwise closed `VIOLATED_POLICY` "not a participant" (`match/MatchSocket.kt`) |
 
 Two decisions shape this table:
 
@@ -153,11 +154,11 @@ Where a later phase would attach, and what already exists for it:
   `DECK_DEPOT.md`).
 - **Admin HTTP surface.** Built in PHASE_07 (§7.67) on
   `call.requireAdmin(sessions)`; see "Admin-only operations" above.
-- **Per-match authorization** (Phase 6). Seat and priority rules
-  belong to the match, not to the role. The rule that holds now —
-  the server decides, the client never asserts — is what those rules
-  will attach to.
+- **Per-match authorization.** Built in Phase 6: seat and priority
+  rules belong to the match, not to the role. The game socket finds
+  the caller's seat from the match's participants, never from the
+  client (`match/MatchSocket.kt`); see `MATCH_RUNTIME.md`.
 - **Hidden information** (Phase 6, and AGENTS.md). Authorization here
   is about endpoints; a player seeing only their own hand is a
   separate guarantee enforced where state is serialized, not by a
-  role check.
+  role check (`MATCH_STATE_VISIBILITY.md`).

@@ -174,8 +174,10 @@ End of stream or process death raises `WorkerEvent.Stopped` →
 `FAILED_RUNTIME` (MATCH_RUNTIME.md). Forge's own diagnostics go to the
 match log; a question Forge asks that the adapter does not implement
 **fails the match loudly** with the method named (`UnsupportedOperation
-Exception: Forge asked for X`) and the counts of questions asked and
-declined -- never a silent default (AGENTS STUB-002).
+Exception: Forge asked for X`), and `GAME_ENDED` carries the counts of
+questions asked and of unbuilt controller and cost methods reached
+(`asked`, `stubsReached`, `costsReached`; `WorkerMain.addCounters`) --
+never a silent default (AGENTS STUB-002).
 
 ## Temporary directories
 

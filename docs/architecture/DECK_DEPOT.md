@@ -69,7 +69,7 @@ behaviour change to a live endpoint, not a new feature.
 A share is a row, not a copy (§4.19):
 
 ```text
-deck_share: deck_id, shared_with_user_id, created_by_user_id, created_at
+deck_share: share_id, deck_id, shared_with_user_id, created_by_user_id, created_at
             UNIQUE (deck_id, shared_with_user_id)
 ```
 

@@ -60,6 +60,15 @@ pin. See `forge_patches/README.md`.
 `forge_patches/0002-replacement-last-state-index.patch`, is approved and
 applied the same way; `forge_patches/README.md` lists both.
 
+*As of 2026-11-18 (a documentation check):* "no reflection" held for
+Phase 0A only. The worker now makes two reflective reads of Forge
+internals, each owner-approved in its spec and each failing soft (the
+detail is simply not told): `CostAdjustment.checkRequirement`, to name
+cost changes (spec 0058; code: forge-worker/.../game/MatchController.java:448),
+and `ReplacementHandler.replaceDamageList`, for prevented damage (spec
+0080; code: forge-worker/.../game/Survivors.java:212). AGENTS VEND-004's
+record of them is in those two specs.
+
 ## Forge adapter strategy
 
 **Strategy A — a Proxic-owned `PlayerController`**, on `forge-core` +

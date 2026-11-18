@@ -56,9 +56,9 @@ left of the column, on the board's edge, so it never covers the ladder.
 *As of 2026-11-18 (a documentation check):* the opponent's turn reads
 "Opponent's turn", not "Pat's turn" (owner 2026-10-29; only a spectator
 sees a name, spec 0047) (code:
-frontend/src/battlefield/GameScreen.tsx:2835-2841). Spec 0034 drew the
+frontend/src/battlefield/GameScreen.tsx:2927-2933). Spec 0034 drew the
 steps as gems on a rail, the glowing gem sweeping to the current step
-(GameScreen.tsx:2762-2767), and spec 0083 added a sun/moon medallion
+(GameScreen.tsx:2854-2859), and spec 0083 added a sun/moon medallion
 beside the steps; the "· Day"/"· Night" word stays on the Turn line
-(GameScreen.tsx:2859, 2881). The gear menu no longer keeps stops: spec
+(GameScreen.tsx:2951, 2973; line numbers corrected 2026-11-18). The gear menu no longer keeps stops: spec
 0035 removed them (see spec 0013's note).

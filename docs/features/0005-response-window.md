@@ -94,3 +94,10 @@ Out: any change to the opponent's stops; per-card or remembered choices
 **Note (2026-11-04, a documentation check).** Amendment 1's
 `check-stops.py window-skipped` no longer exists: "Skip to end of turn"
 was removed by spec 0035, and the scenario with it.
+
+*As of 2026-11-18 (a documentation check):* the window lasts 5 seconds
+(spec 0035), and while it runs the other player does not see "Waiting for
+<name>": since Phase 9 W-25 their line reads "<name>’s move" with what
+the player is doing under it (code:
+frontend/src/battlefield/GameScreen.tsx:236;
+frontend/src/battlefield/stops.ts:185-232).

@@ -53,8 +53,8 @@ snapshots (P6-BK).
 A card keeps its id for the whole match, across zones (Phase 0A), so an
 id is a handle on the card wherever it goes. **No snapshot carries the id
 of a card now in a zone hidden from its viewer** -- every library, every
-hand but the viewer's own, less what Forge shows in `otherHands` -- under
-any key. The board's lists never did; the history sent with them did: the
+hand but the viewer's own, less what Forge shows in `otherHands` or
+`libraryTop` -- under any key. The board's lists never did; the history sent with them did: the
 round's `moves`, the last 24 `payments` (`for`, a mana's `from`), `rolls`,
 `action`, `damage`, the play log. Found by CI on Krark, the Thumbless (a
 lost flip returned Alice's Lightning Bolt from the stack to her hand; Bob
@@ -75,6 +75,12 @@ Bolt bounced to the other player's hand still flies there as a back
 (`fromSnapshot` `withLeavers`). `scripts/check-hidden-hands.py` now looks
 at every string that is a card id, under any key.
 
+*Since 2026-11-16:* a stack entry's `source` no longer counts as the card
+on view (Sensei's Divining Top, gone to the top of the library under two
+of its own abilities, kept its id there), and a "(N)" id inside Forge's
+own text (a stack entry's `description`) is cut out too, for a card that
+is hidden (`HiddenIds.BOARD`, `HiddenIds.untext`).
+
 Not covered: a card seen while public and seen again once public (cast
 from the hand it was bounced to) has the same id both times, so a page
 that remembers ids can tell it is the same card. That is the Phase 0A
@@ -90,6 +96,13 @@ reveal notice (below), and an `action` report, which names a card going
 to a library only to a reader who owns it or saw it revealed (Goblin
 Ringleader's revealed cards going to the bottom, below). A searched card
 is followed by id from the library to its destination (P6-H, P6-K).
+
+The one exception, since spec 0088 (Q4 C): a library's **top card** is
+sent, in `libraryTop`, to a viewer Forge lets see it -- every player
+under Courser of Kruphix or Future Sight, its owner alone under Bolas's
+Citadel or Vizier of the Menagerie (Forge's `CardView#canBeShownTo`,
+`LibraryTops`, `ViewerSnapshot.java`). Nobody else is sent it, and the
+list is absent when there is none.
 
 ## Reveals and known hidden cards
 

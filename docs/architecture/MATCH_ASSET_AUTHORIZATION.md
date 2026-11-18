@@ -53,7 +53,9 @@ ways:
 2. **by name**, as a fallback.
 
 The snapshot's printing is tried first, then the name. A printing match
-is used **only for the card's front face** (below).
+is used **only for the card's front face** (below). A spell on the stack
+(and a copy on its way there) is looked up by name only, never by
+printing (`MatchArt.stackArt`).
 
 ### Match-scoped reference
 

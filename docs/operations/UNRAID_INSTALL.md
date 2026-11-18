@@ -13,7 +13,8 @@ by the project instead of by a person.
 
 **Everything requires a sign-in** (since 2026-10-24, the version and
 the health checks too -- those answer only from inside the container),
-and accounts are created by hand. Between
+and the first account is created by hand (everyone after it is
+invited from the Admin page). Between
 the stack starting and Step 5 below, the site shows a login nobody
 can get past. That is expected, not a fault.
 
@@ -125,7 +126,8 @@ arena-server   pulls ghcr.io/rudeleft/proxic_arena:latest, then starts
 ```
 
 - **`pull_policy: always`** is why there is no build step. GitHub
-  Actions builds on every push to `main`; the host only ever pulls.
+  Actions builds on every push to `main` that changes code (a
+  documentation-only push publishes nothing); the host only ever pulls.
   Updates afterwards are two clicks — `UPDATING.md`.
 - **`init-data`** is why there is no `chown` step. Docker creates a
   missing bind-mount source as `root`, the server runs as uid 100,

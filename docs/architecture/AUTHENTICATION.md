@@ -48,7 +48,7 @@ is `"ı"`, so the server's locale would otherwise decide whether two
 usernames collide.
 
 A username is 3 to 32 characters of ASCII letters, digits, dot,
-underscore and hyphen (`[A-Za-z0-9._-]`, `Accounts.rejectionReason`).
+underscore and hyphen (`[A-Za-z0-9._-]`, `Usernames.rejectionReason`, `auth/Accounts.kt`).
 
 ---
 

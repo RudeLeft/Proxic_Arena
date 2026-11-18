@@ -77,3 +77,12 @@ the board, pictures kept between matches) is a later spec.
 ## Amendments
 
 None.
+
+*As of 2026-11-18 (a documentation check):* spec 0079 added one case
+before the owner: a copy (a Clone of Bob's Serra Angel, Alice's Fork of
+Bob's Bolt) wears the picture of what it copies, from THAT card's owner's
+deck; the worker sends `artOwner` only when it differs from the copy's own
+owner, and the server tries `artOwner`, then `owner`, then `seat` /
+`controller` (code:
+server/src/main/kotlin/net/barnflix/proxic/match/MatchArt.kt:202-206 and
+:300).

@@ -104,3 +104,12 @@ Out (and why):
 **As built (2026-11-04, a documentation check).** The message reads
 `You already have this deck: "Burn".` (the name in quotes, with a full
 stop).
+
+*As of 2026-11-18 (a documentation check):* spec 0052 (one picture
+address) changed where the Depot's pictures come from. A deck's cards, and
+their back faces, now name `/api/pictures/{sha}` (with `?size=full` for the
+zoom), which any signed-in player may fetch once they know the address
+(owner D1 of 0052); the deck asset address with `mayViewAsset` and
+`deck_face_art` still exists but the deck page no longer uses it (code:
+server/src/main/kotlin/net/barnflix/proxic/deck/DeckRoutes.kt:455-458,
+server/src/main/kotlin/net/barnflix/proxic/deck/PictureRoutes.kt:13-35).

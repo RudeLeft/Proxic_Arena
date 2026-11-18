@@ -119,3 +119,11 @@ only; the film is Lab boards replayed into the real page.
 film a whole payment; `payments` is part of a board's signature):
 Nekrataal paid Forest + 3 Swamps, Sol Ring's two grey balls, and the
 other player's view.
+
+*As of 2026-11-18 (a documentation check):* spec 0070 moved when convoke
+and improvise are recorded: the creatures or artifacts tapped are written
+into the payment once the picking is over, not as each is picked (a pick
+can now be taken back, and per-pick steps showed the other player each
+convoked creature early); their balls still fly when the cost is paid
+(code:
+forge-worker/src/main/java/net/barnflix/proxic/worker/game/MatchController.java:3968-3983).

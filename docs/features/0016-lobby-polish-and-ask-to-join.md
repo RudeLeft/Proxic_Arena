@@ -115,3 +115,13 @@ and the lobby keeps only the rings on players' pictures and the Belt
 holder's "Defend your belt by ..." reminder (code:
 frontend/src/LobbyPage.tsx:65 imports only `remindHolder` and `shortDate`
 from `hall`, used at :584-591; frontend/src/HallPage.tsx).
+
+*As of 2026-11-18 (a documentation check):* spec 0050 (one look for every
+notice) replaced item 9's top-bar notices and the Lobby's own pop-ups with
+one list of notices drawn at the top right of every signed-in page, the
+Lobby included (the game screen draws it on the table). The invitation
+there is titled "RudeLeft invited you to Friday night" and a request reads
+"Pat would like to join your room", each with Decline and Accept; the room
+card in the list still says "RudeLeft has invited you to join Friday
+night" (code: frontend/src/shell/PageNotices.tsx:1-8, 176-215;
+frontend/src/LobbyPage.tsx:735).

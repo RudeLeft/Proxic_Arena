@@ -86,7 +86,7 @@ None.
 
 *As of 2026-11-18 (a documentation check):* spec 0035 removed the stop
 options: the gear menu holds Concede and Abandon match only (code:
-frontend/src/battlefield/GameScreen.tsx:5274, 5282). Spectators exist
+frontend/src/battlefield/GameScreen.tsx:5533, 5541; corrected 2026-11-18). Spectators exist
 since spec 0047; they have no game chat (spec 0067 gives them the public
 play log only). Spec 0064 made the chat a window with Chat and Play log
 tabs that can be undocked (frontend/src/battlefield/GameChat.tsx:1-12).

@@ -85,3 +85,12 @@ All taken 2026-10-29 (see the top).
 ## Amendments
 
 None.
+
+*As of 2026-11-18 (a documentation check):* the tray holds less than it
+did. Poison is a badge by the life shield, not a chip in the tray (spec
+0077), and the monarch and the initiative are marks on the player's face
+picture (spec 0086); both are still in the list a click on the tray
+opens. Energy, experience, rad, tickets, the city's blessing and the
+Ring's count are round badges in the tray now (spec 0086) (code:
+frontend/src/battlefield/StatusTray.tsx:175-177, 221-280;
+playerMarks.tsx:618).

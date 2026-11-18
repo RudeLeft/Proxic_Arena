@@ -53,7 +53,7 @@ answer** (§4.65). The caller must not be able to tell them apart.
 | --- | --- | --- | --- |
 | `mayView()` — detail, entries, artwork | yes | yes | no |
 | `mayUse()` — play it (§4.47) | yes | yes | no |
-| `mayManage()` — share, revoke, delete | yes | no | no |
+| `mayManage()` — share, revoke, delete; and rename and change its icon (`DeckRenameRoutes.kt`, `DeckIconRoutes.kt`, which test for `OWNER` directly) | yes | no | no |
 
 Three states rather than a boolean, because "may view" and "may
 delete" have different answers for a recipient, and a boolean forces
@@ -71,6 +71,7 @@ drift apart.
 | deck that does not exist | `404` | identical, deliberately |
 | recipient tries to delete | `403` | §4.66 — they can see it, so `404` would be a lie they could disprove |
 | recipient tries to share | `403` | §4.24 |
+| recipient tries to rename it or change its icon | `403` | as delete |
 | recipient asks who else holds it | `403`, no names | §4.99 |
 | asset not in that deck | `404` | §4.68 |
 
@@ -136,6 +137,13 @@ Two things it deliberately does **not** decide:
 When Phase 6 needs match-scoped asset access (§6.122), the rule here
 is the one to extend rather than replace: a second, parallel answer
 to "may you see this image" is how the two drift apart.
+
+*As of 2026-11-18 (a documentation check): Phase 6 built match-scoped
+asset access as a separate rule on purpose, not an extension of this
+one: a match serves only the pictures its snapshots showed that viewer
+(`MatchArt.mayFetch`, `GET /api/matches/{matchId}/assets/{sha}`), and
+seeing an opponent's card grants nothing here. See
+`MATCH_ASSET_AUTHORIZATION.md`.*
 
 ---
 

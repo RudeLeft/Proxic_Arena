@@ -203,7 +203,7 @@ Anything else is answered `ERROR` / `UNKNOWN_TYPE`.
 | `JOIN_ASK_SENT` | your request reached the host (`roomId`, `roomName`, `host`); again on reconnect | the asker |
 | `ROOM_CHECKING` | the host pressed Start and both decks are being checked (`roomId`, `checking: true`), or the check ended without a match (`false`) — spec 0019 | the room's members |
 | `ROOMS` | on connect (every tab of that user), and on any room change | everyone |
-| `MATCH` | your match moved (`matchId`, `status`, `failureCode?`, seats, the result at the end; PHASE_06 §6.17) | each participant, **individually** |
+| `MATCH` | your match moved (`matchId`, `status`, `failureCode?`, `participants` -- `userId`, `seatNumber`, and `deckName` on your own seat only -- and the result at the end; PHASE_06 §6.17) | each participant, **individually** |
 | `PLAYERS` | on connect; again when an account's name or picture changes, or an administrator creates, disables or enables one | every tab of that user; everybody when it changes |
 | `STANDINGS` | on connect; again when a game finishes with a result, or an account changes (spec 0011) | every tab of that user; everybody when it changes |
 | `SETUP_PROBLEM` | your deck blocked preparation | **that player only** |
@@ -369,7 +369,7 @@ or a reaction that is not one of the six.
 }
 
 // to EACH affected player, over their own socket
-{ "type": "SETUP_PROBLEM", "errorCode": "DECK_REQUIRED", "detail": "Choose a deck." }
+{ "type": "SETUP_PROBLEM", "roomId": "…", "errorCode": "DECK_REQUIRED", "detail": "Choose a deck." }
 ```
 
 Every member appears in `seats`, so the answer does not reveal the

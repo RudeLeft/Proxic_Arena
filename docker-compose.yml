@@ -78,8 +78,9 @@ services:
     # It skipped the last step more than once, which is how a host
     # ran old code while reporting success.
     #
-    # Now GitHub Actions builds on every push to main and publishes
-    # here, so a server only ever PULLS. That also makes the Unraid
+    # Now GitHub Actions builds on every push to main that changes
+    # code (a documentation-only push runs the checks alone) and
+    # publishes here, so a server only ever PULLS. That also makes the Unraid
     # Compose plugin's "Check for Updates" work on this service: it
     # reads registries, and said "not checked" for a locally built
     # image because there was nothing to read.

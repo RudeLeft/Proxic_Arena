@@ -243,7 +243,9 @@ Client vocabulary: `PING`, `INVITE`, `INVITE_ACCEPT`,
 
 Chat is AMENDMENT 3: one global ephemeral channel, memory only,
 bounded length, rate limited, sender identity from the session.
-Nothing stores it and nothing survives a restart.
+Nothing stores it and nothing survives a restart. Since spec 0013 a
+line or reaction marked `scope: "game"` goes only to the players of the
+sender's game, on the same socket and under the same limits.
 
 ---
 
@@ -264,6 +266,8 @@ Nothing stores it and nothing survives a restart.
                                              (PHASE_06; nothing in the lobby changes it)
 
    OPEN or READY_FOR_MATCH ──── idle, or host away ───► CLOSED   (spec 0054)
+   OPEN or READY_FOR_MATCH ──── host closes / host leaves ───► CLOSED
+   any active room ──── an administrator closes it ───► CLOSED   (§7.67; a game in it is abandoned first)
 ```
 
 `CLOSED` (and `EXPIRED`, which rooms closed by the old 24-hour rule
@@ -306,7 +310,7 @@ PostgreSQL, always (§5.118). The authoritative room is never only in
 memory.
 
 ```text
-room                  identity, host, preset, count, status, revision, activity
+room                  identity, name, host, preset, count, status, revision, activity
 room_member           seat, selected deck, ready
 match_setup           the frozen snapshot (see MATCH_SETUP_CONTRACT.md)
 match_setup_player    its seats
@@ -327,8 +331,9 @@ happening while the host is alone, **2 hours** once a second player is
 in it; a host offline **10 minutes** closes it, a guest offline 10
 minutes is taken out; the room warns its members **5 minutes** before an
 idle close. A room with a game in it is never closed this way. All four
-are server settings (`PROXIC_ROOM_ALONE_MINUTES` and friends,
-`RoomTimeouts`).
+are server settings (`PROXIC_ROOM_ALONE_MINUTES`,
+`PROXIC_ROOM_TOGETHER_MINUTES`, `PROXIC_AWAY_MINUTES`,
+`PROXIC_ROOM_WARNING_MINUTES`; `ServerConfig`, `RoomTimeouts`).
 
 Activity is joining, leaving, configuring, selecting a deck, readying,
 a host action (§5.124), "Keep it open", and -- at most once a minute --

@@ -142,3 +142,9 @@ Wording:
   the database rule).
 - The Account page shows the current avatar and **Choose an avatar (132)**;
   the set opens in its own scrolling box and folds again after a pick.
+
+*As of 2026-11-18 (a documentation check):* the invitation box's words
+changed with spec 0050 (one look for every notice). It now reads "One seat
+is held for you. Close this and you can still accept from the room list in
+the Lobby.", with Decline and Accept (code:
+frontend/src/shell/PageNotices.tsx:176-195).

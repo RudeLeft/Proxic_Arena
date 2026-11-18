@@ -38,6 +38,11 @@ resting fan's highest point, layout.ts HAND_BASELINE) + `REPORT_HAND_GAP`
 and place in the middle. With a question window open it still goes to the
 top (`.gs-reveal-top`; no bottom set then). A pointed-at hand card still
 lifts above it, as before.
+*As of 2026-11-18 (a documentation check): since spec 0094 a pointed-at
+hand card rises only 0.1 of its height (`HAND_RISE`, about the same as the
+10 px gap), so it no longer reaches over the report; the whole card is
+shown by the 2.6x reading card above the fan instead (code:
+frontend/src/battlefield/motion.ts:43-47, 864-866).*
 
 **2. Point to see their revealed cards.** Board: a face-up card in the
 other player's hand (seen, or shown) slides to `opponentRevealBox`

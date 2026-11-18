@@ -293,16 +293,21 @@ A legitimate package expands at a ratio of **1.0001** — PNGs are
 already compressed — so a high ratio is direct evidence of a bomb
 rather than something inferred from size.
 
-Then content:
+Then content, in this order (`DeckImporter.runImport`):
 
 | Check | Refusal |
 | --- | --- |
+| Package not already imported by this account (per owner since `V005`) | `DUPLICATE_PACKAGE` |
 | Every line parses | `INVALID_DECK_LIST` |
-| Open Format legality | `DECK_NOT_LEGAL` |
+| Open Format legality, the part that needs no Forge | `DECK_NOT_LEGAL` |
+| The deck's name is not one this account already uses | `DECK_NAME_TAKEN` |
+| Open Format legality, the rest (after Forge) | `DECK_NOT_LEGAL` |
 | Every card resolves in Forge | `CARDS_NOT_RESOLVED` |
 | Every image decodes as a PNG or a JPEG, of a reasonable size | `INVALID_ARTWORK` |
 | Every picture `pictures.json` names is in one of the sender's decks | `PICTURE_NOT_HELD` |
-| Package not already imported by this account (per owner since `V005`) | `DUPLICATE_PACKAGE` |
+
+(Corrected 2026-11-18: the duplicate check runs first, straight after
+the structural checks, and the name check was missing.)
 
 Open Format: **60–100 cards (60–65 before spec 0051), at most 4 copies of any card, basic
 lands unlimited, no sideboard.** Contraptions and Attractions, as Forge

@@ -131,4 +131,4 @@ All taken 2026-10-29 (see the top).
    spell still aims at it (spec 0079), and a card holding exiled cards
    (spec 0085).
    A blocked attacker no longer always stands alone: identical blocked
-   pairs stack (spec 0037) (code: frontend/src/battlefield/layout.ts:410-465).
+   pairs stack (spec 0037) (code: frontend/src/battlefield/layout.ts:412-467; corrected 2026-11-18).

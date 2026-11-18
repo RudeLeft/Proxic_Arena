@@ -295,6 +295,9 @@ a card a viewer may not identify is listed for them only for a public reason
 (an effect, foretold, plotted), never by what it is. The other players'
 pile cards a player may use (Gonti's, Hostage Taker's) are now offered too
 (FMT-003).
+Spec 0088: `libraryTop`, a library's top card, sent only to a viewer Forge
+lets see it (Courser of Kruphix, Future Sight: every player; Bolas's
+Citadel, Vizier of the Menagerie: its owner alone), with its picture.
 Spec 0086: a player's floating mana names the card that made each run
 (`manaFrom`, Forge's own record), each command-zone piece has its id
 (`commandIds`), `emblems` lists every emblem with the card that made it (the

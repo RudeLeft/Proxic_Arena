@@ -205,3 +205,12 @@ corrected 2026-11-18), and a stack card's line to a
 player is `beamToBanner`, not `studRound`. Built item 6: "Cycled",
 "Discarded: too many cards" and "Countered by ..." no longer stay -- specs
 0074/0075 removed those notices and 0097 the last word tags (`Moves.java`).
+
+*As of 2026-11-18 (a documentation check):* one more part of item 3 is
+spec 0069's now: an attack at a planeswalker or battle no longer comes
+down onto the card's top. It runs from the attacker's edge facing the
+middle to the target's edge facing it (a soft S), or round to the
+target's side edge when the two stand face to face across the middle
+(code: frontend/src/battlefield/Board.tsx:8641-8685 `attackOnto`). A
+stack card's beam to a card, and an attack at a player (`arcToRing`),
+still follow item 3.

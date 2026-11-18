@@ -195,4 +195,4 @@ down as before. Spec 0093 is the authority; its As built has the numbers.
 since Phase 10 A-12 (spec 0037's Amendment 3) a blocker stands facing its
 attacker in its own front line, so no card sits 2000 above the lines; a
 battlefield card's z is 10 + (its line's index × 100 + its place) × 4 (code:
-frontend/src/battlefield/layout.ts:1425; `TAPPED_TILT` is 5 at :79).
+frontend/src/battlefield/layout.ts:1427; `TAPPED_TILT` is 5 at :79; corrected 2026-11-18).

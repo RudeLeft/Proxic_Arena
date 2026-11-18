@@ -67,4 +67,4 @@ None.
 cards stack, not only tokens, and spec 0037 stacks a blocked attacker with
 its twins when twins of its blockers block them (identical pairs stack);
 an attacker blocked by a different card still stands alone (code:
-frontend/src/battlefield/layout.ts:438-465, `pileKey`).
+frontend/src/battlefield/layout.ts:440-467, `pileKey`; line numbers corrected 2026-11-18).
