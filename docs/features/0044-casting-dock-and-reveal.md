@@ -70,5 +70,5 @@ Spec 0072 makes the other player's back rise from his hand (or the pile
 it is cast from) to that spot, and spec 0097 item 8 removed the
 "RudeLeft is casting a spell…" caption; only the card's screen-reader
 label says it. The flip when committed is kept (code:
-frontend/src/battlefield/stepAside.ts:26 `castingBox`,
+frontend/src/battlefield/stepAside.ts:25 `castingBox`,
 frontend/src/battlefield/CastingCard.tsx:352-358 and :523).

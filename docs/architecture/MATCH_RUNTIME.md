@@ -115,6 +115,11 @@ stops the worker (`destroyForcibly`, 10 s); releases the room; tells
 both players. Both pages show the result from their own side ("You won
 on turn 9." / "Your opponent won on turn 9.") and the final board stays
 visible (P6-BA, P6-AP).
+*As of 2026-11-18 (a documentation check):* since Phase 9 W-24 those
+sentences are what a screen reader hears; the banner itself shows "You
+won" or "Pat won" (the winner's name), why, and "Turn 9" (code:
+frontend/src/battlefield/stops.ts `gameOverWords`,
+frontend/src/battlefield/GameScreen.tsx `ResultBanner`).
 
 ## Runtime failure
 

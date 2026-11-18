@@ -39,7 +39,10 @@ Multi-stage `Dockerfile`, `worker` stage (Maven, Temurin 17):
    apply fails the build);
 3. `mvn install` forge-core, forge-game and forge-ai (the last for two
    checks, "can this be paid now?" and each spell's current cost,
-   PHASE_07 §7.61 B8);
+   PHASE_07 §7.61 B8; *as of 2026-11-18, a documentation check:* three,
+   since 2026-11-08 also which creatures and artifacts could pay a
+   convoke or improvise cost while it is only checked --
+   `PHASE_00_ACCEPTED_DECISIONS.md`, "Forge packaging model");
 4. `mvn package` the worker -- one shaded jar.
 
 The runtime image carries `/app/forge/forge-worker.jar` and Forge's
@@ -81,7 +84,8 @@ what it answers), and a frame the worker sends on its own
 server → worker                 worker → server
 PING                            PONG
 VERSION                         WORKER_READY  forgeCommit, forgeRelease, workerVersion,
-                                              javaVersion, pid, resourcesUsable
+                                              javaVersion, pid, resourcesUsable,
+                                              resourceProblems? (only when not usable)
 VERIFY_RESOURCES                RESOURCES
 RESOLVE_CARDS                   CARDS_RESOLVED      (import, Phase 2); printingMatters? on a
                                                     card whose printing changes it (spec 0024)

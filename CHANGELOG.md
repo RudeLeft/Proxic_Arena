@@ -1678,7 +1678,8 @@ stops a game for want of a question.
 
 **For whoever runs the server**
 - The database gains and drops one small column on start (priority
-  settings); nothing to do.
+  settings), and gains one for the card a stopped game names; nothing
+  to do.
 - Phase 8's papers are in `docs/history/phases/phase-08/`; who applies
   each Magic rule, and the proof, is `docs/architecture/RULES_COVERAGE.md`.
 

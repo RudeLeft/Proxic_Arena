@@ -55,7 +55,7 @@ In order of likelihood:
 
 1. **You are signed in as somebody else.** The library is per
    account. Your Account page (`/account`) shows your username, and the
-   Status page says "Signed in as …".
+   Status page says "Signed in as" and your display name.
 2. **It is under the other heading.** A deck someone shared with you
    appears in **Shared with me**, never in **My decks** (§4.60).
 3. **The import did not finish.** A failed import leaves nothing at

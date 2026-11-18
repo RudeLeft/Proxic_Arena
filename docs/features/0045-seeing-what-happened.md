@@ -100,3 +100,13 @@ the other player's tray only; the player who revealed them sees them on the
 table. A reveal shown to one player alone (a peek) is unchanged, and so is
 one whose cards go back into the library (the other player then knows the
 top card, so the revealer is shown it too). See `0097-popups-cleanup.md`.
+
+*As of 2026-11-18 (a documentation check):* two looks above have changed
+since. The counter chip ("+1/+1") is now a round picture badge per kind of
+counter (spec 0076); pointing at it still says where the last ones came
+from ("2 +1/+1 counters, the last from ..."). And the reveal tray no
+longer sits on your hand: it sits just above it (spec 0071, item 1), and
+still goes to the top when a question's window holds the bottom (code:
+frontend/src/battlefield/Board.tsx:448-460 `counterWords`,
+frontend/src/battlefield/CardBadges.tsx:503,
+frontend/src/battlefield/RevealTray.tsx:59 `reportBottom`).

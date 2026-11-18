@@ -120,7 +120,8 @@ it each card).
   cards really pointed at -- the old 2x zoom stayed under the pointer and
   skipped its neighbours -- and (2) the reading card's own small parts
   (ReadingCard, SharpCard and its sharp copy arriving, the glow, the sign)
-  for each card. Not measured apart; no extra Board render per pointing.- Clip: `Arrow videos/0094/0094-reading-card-slide-and-cast.webm`, the
+  for each card. Not measured apart; no extra Board render per pointing.
+- Clip: `Arrow videos/0094/0094-reading-card-slide-and-cast.webm`, the
   player's seat, normal speed: sliding along the hand, the Forest, the cast.
   The local stack's card pictures are plain coloured stand-ins, so the clip
   shows the reading card's place and size, not real printed text.

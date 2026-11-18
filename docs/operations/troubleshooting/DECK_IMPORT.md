@@ -186,8 +186,8 @@ Check readiness first:
 docker compose exec arena-server wget -qO- http://127.0.0.1:8080/api/health/ready
 ```
 
-It prints the JSON only when every check passes; a `503` means one
-failed. The signed-in Status page shows the database and the Forge
+It prints the JSON only when every check passes (`unconfigured` does
+not count as failing); a `503` means one failed. The signed-in Status page shows the database and the Forge
 worker; it has no data-folder indicator, so a 503 with both "Ready"
 there is `dataRoot` (below; `FOUNDATION.md`).
 

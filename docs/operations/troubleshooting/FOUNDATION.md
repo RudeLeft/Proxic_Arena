@@ -11,8 +11,9 @@ status endpoints are built not to lie. They answer only from inside
 the container: `docker compose exec arena-server wget -qO-
 http://127.0.0.1:8080/api/health/ready` is faster than guessing.
 
-That command prints the JSON only when every check passes. When one
-fails the server answers 503, and the image's wget (BusyBox) prints
+That command prints the JSON only when every check passes (a check
+that reads `unconfigured`, such as no database on a bare development
+run, does not count as failing). When one fails the server answers 503, and the image's wget (BusyBox) prints
 just `wget: server returned error: HTTP/1.1 503 Service Unavailable`,
 not the body. Sign in and open the **Status** page (`/status`): it
 reads `/api/system/status`, which answers 200 even when a check fails,

@@ -89,6 +89,7 @@ you were asked to do, stop and say so.
 | `docs/features/` | One spec per feature (`README.md` has the template). An owner-approved spec is the authority for its feature, as a locked phase was. |
 | `docs/history/phases/phase-NN/` | **Frozen.** The main build's phase documents (specifications, amendments, deliverables, audits, exit gates, research). Never edited (PHASE-002). The code cites them by section, e.g. "PHASE_06 §6.17". Phase 0's **rules** still bind (`PHASE_00_..._SUPERSEDED.md`); Phase 0B's deferred-question triggers still apply (PHASE-004). |
 | `docs/operations/` | Installing, updating and rolling back on Unraid; `troubleshooting/` when something misbehaves. |
+| `docs/decisions/` | Lasting decision records (one so far: `0001-phase1-toolchain-conflict.md`). |
 | `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` | **The locked architecture.** Read before any production code. |
 | `docs/architecture/OPEN_FORMAT.md` | The only supported play mode. Read before anything format-related. |
 | `docs/architecture/RULES_COVERAGE.md` | Who applies each Magic rule (Forge), what Arena enforces on Forge's behalf, every answer Arena gives without asking, and the proof of each. Change it with any change to how a rule is applied. |

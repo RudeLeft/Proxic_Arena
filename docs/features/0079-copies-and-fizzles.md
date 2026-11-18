@@ -67,7 +67,13 @@ Built as approved (Q1 A, Q2 A, Q3 B, Q4 A, the held spot); unreleased then (rele
   gained protection) reads "its target could no longer be chosen"; the play
   log keeps "its target was gone" for both. The storm copies all arrive in
   one board (Forge asks each copy's target before any is on the stack), so
-  the x N counts up as the copies peel on in that one update. The held spot
+  the x N counts up as the copies peel on in that one update. *As of
+  2026-11-18 (a documentation check): since spec 0082 the copies on their
+  way are sent in the snapshot's `copying` list while each is asked its
+  target, so the x N peels off beside the original and counts up 1 to N
+  across those boards, split targets making a card of their own (code:
+  forge-worker/src/main/java/net/barnflix/proxic/worker/game/Copies.java,
+  frontend/src/battlefield/copies.ts).* The held spot
   goes when its outline has broken up, on the board's animation clock (a
   click hurries it; slow motion slows it) -- found filming: a wall-clock
   release closed the gap under the quarter-speed beam.
