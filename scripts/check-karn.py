@@ -19,11 +19,16 @@ to make the old game unreachable on its own. Checked:
   stale ids     the last answer of game 1, sent again, is refused;
                 a game-1 action id sent against a game-2 question is
                 refused -- nothing from before can act on what is now
+  the book      spec 0102, item 1 (Decided 1): a report game 1 left open
+                (Bob's Enlightened Tutor, told to Alice, never closed) is
+                gone at the restart -- every game-2 window, either seat's,
+                holds the RESTART report only, nothing gathered with it
 
 A focused deck (Layer B): Plains and Karns. Seat 1 plays lands,
 casts Karn at seven, +4 twice (6 -> 10 -> 14), then -14. Karn's +4
 targets seat 2, who exiles a card from hand each time; seat 2 plays
-lands and nothing else. Not Open Format; the worker does not check.
+lands and casts one Enlightened Tutor (finding nothing: a report to
+seat 1, left open). Not Open Format; the worker does not check.
 
 Exit 0 when every property held, 1 when one did not, 2 when the game
 never reached the scenario.
@@ -37,6 +42,9 @@ import uuid
 JAR, RES = sys.argv[1], sys.argv[2]
 TRACE = sys.argv[3] if len(sys.argv) > 3 else None
 DECK = [("Plains", 40), ("Karn Liberated", 20)]
+# Spec 0102: Bob's deck -- one Enlightened Tutor leaves a game-1 report open.
+DECK2 = [("Plains", 40), ("Enlightened Tutor", 20)]
+TUTOR = "Enlightened Tutor"
 KARN = "Karn Liberated"
 MAX_TURN = 30
 
@@ -45,6 +53,7 @@ MAX_TURN = 30
 # the first game instead of waiting on Forge's shuffle.
 DEAL = {
     1: {"hand": ["Karn Liberated", "Plains", "Plains", "Plains", "Plains", "Plains", "Plains"], "top": ["Plains", "Plains", "Plains", "Plains", "Plains", "Plains", "Plains", "Plains"]},
+    2: {"hand": ["Enlightened Tutor", "Plains", "Plains", "Plains", "Plains", "Plains", "Plains"], "top": ["Plains"] * 8},
 }
 
 proc = subprocess.Popen(
@@ -83,6 +92,9 @@ found = {
     "question_epochs": [],   # every distinct epoch on questions
     "stale_answer": None,    # the gate's verdict on game 1's last answer
     "stale_action": None,    # ... on a game 1 action id, against a game 2 question
+    "game1_reports": [],     # spec 0102: report keys game 1's boards carried (either seat)
+    "game2_others": [],      # spec 0102: any game-2 report other than the restart's
+    "tutor": False,          # spec 0102: Bob cast his Enlightened Tutor
 }
 probing = None               # which stale probe is outstanding
 returned = set()             # every card seen on seat 1's battlefield in game 2
@@ -113,7 +125,8 @@ for line in proc.stdout:
         send({"protocolVersion": 1, "type": "START_GAME",
               "messageId": str(uuid.uuid4()), "matchId": str(uuid.uuid4()),
               "players": [{"displayName": "Alice", "seatNumber": 1, "cards": deck, "labDeal": DEAL[1]},
-                          {"displayName": "Bob", "seatNumber": 2, "cards": deck}]})
+                          {"displayName": "Bob", "seatNumber": 2, "labDeal": DEAL[2],
+                           "cards": [{"name": n, "quantity": q} for n, q in DECK2]}]})
         continue
 
     if kind == "MATCH_SNAPSHOT":
@@ -129,6 +142,17 @@ for line in proc.stdout:
             returned.update(c["id"] for c in s.get("battlefield", []) if c.get("seat") == 1)
         if epoch not in found["epochs_seen"]:
             found["epochs_seen"].append(epoch)
+        # Spec 0102, item 1 -- game 1's reports, and anything but the
+        # restart's in game 2's windows (nothing may gather into it).
+        report = s.get("action") or {}
+        for one in ([report] if report else []) + list(report.get("gathered") or []):
+            said = one.get("said") or ""
+            if epoch == 1 and one.get("key") not in found["game1_reports"]:
+                found["game1_reports"].append(one.get("key"))
+            if epoch == 2 and "restarted the game" not in said and said not in found["game2_others"]:
+                found["game2_others"].append(said)
+            if epoch == 2 and report.get("gathered"):
+                found.setdefault("game2_gathered", True)
         # Spec 0097, item 4 -- the restart's report window, by seat.
         if epoch == 2:
             report = s.get("action") or {}
@@ -214,12 +238,26 @@ for line in proc.stdout:
             pick = land[0] if land else (cast[0] if cast and not karns else None)
     elif dkind == "chooseSpellAbilityToPlay" and seat == 2:
         land = [o for o, label in zip(options, labels) if "Play land" in label]
-        pick = land[0] if land else None
+        hand = {c["id"] for c in state.get(2, {}).get("hand", []) if c.get("name") == TUTOR}
+        tutor = [o for o in options if card_of(o["actionId"]) in hand and "Play land" not in (o.get("label") or "")]
+        untapped = [c for c in state.get(2, {}).get("battlefield", [])
+                    if c.get("seat") == 2 and c.get("name") == "Plains" and not c.get("tapped")]
+        stack = state.get(2, {}).get("stack") or []
+        if land:
+            pick = land[0]
+        elif tutor and untapped and not stack and not found["tutor"] and epoch == 1:
+            pick = tutor[0]
+            found["tutor"] = True
+        else:
+            pick = None
     elif dkind == "chooseTargetsFor" and seat == 1:
         # Karn's +4: the opponent exiles a card.
         pick = next((o for o, label in zip(options, labels) if "Bob" in label), options[0] if options else None)
     elif seat == 2 and dkind in ("chooseSingleEntityForEffect", "chooseEntitiesForEffect", "chooseCardsForZoneChange"):
-        pick = options[0] if options else None
+        # A permanent card (a Plains), never the Tutor: only permanent cards
+        # come back with Karn.
+        plains = {c["id"] for c in state.get(2, {}).get("hand", []) if c.get("name") == "Plains"}
+        pick = next((o for o in options if card_of(o["actionId"]) in plains), options[0] if options else None)
         if pick:
             found["exiled_by_karn"].append(card_of(pick["actionId"]))
     elif dkind in ("declareAttackers", "declareBlockers"):
@@ -261,6 +299,11 @@ else:
         problems.append(f"seat 1, who restarted it, got a window: {found['restart_told']}")
     if found.get("restart_notices"):
         problems.append(f"a grey restart notice was still sent: {found['restart_notices']}")
+    # Spec 0102, item 1 (Decided 1): game 1's open reports are cleared.
+    if not found["game1_reports"]:
+        problems.append("game 1 left no report open (Bob's Tutor), so the clear was not tested")
+    if found["game2_others"] or found.get("game2_gathered"):
+        problems.append(f"game 1's reports gathered into game 2's window: {found['game2_others']}")
 if found["epochs_seen"][:1] != [1] or 2 not in found["epochs_seen"]:
     problems.append(f"snapshots did not go from game 1 to game 2: {found['epochs_seen']}")
 if 2 not in found["question_epochs"]:
@@ -272,4 +315,5 @@ if found["stale_action"] in (None, "ACCEPTED"):
 if problems:
     print("WRONG:", "; ".join(problems))
     sys.exit(1)
-print("OK: Forge restarted the game, game 2 is a new epoch, and nothing from game 1 can act in it")
+print("OK: Forge restarted the game, game 2 is a new epoch, nothing from game 1 can act in it, "
+      "and game 1's open reports are gone (spec 0102)")

@@ -445,6 +445,11 @@ export interface SnapshotCard {
   /** Typed (`card:51`), and the SAME id a decision uses (§6.47). */
   id: string;
   /**
+   * Whose card it is (`seat` is who controls it, on the table): public.
+   * Spec 0102 -- a restart sweeps each card into its OWNER's library.
+   */
+  owner?: number | undefined;
+  /**
    * §6.123 — a server-issued reference to this card's artwork, or
    * absent.
    *
@@ -601,6 +606,13 @@ export interface SnapshotPlayer {
   life: number;
   /** Spec 0101, row 7 -- "prevent the next N damage" waiting for this player (Forge's total). */
   preventNext?: number | undefined;
+  /**
+   * Spec 0102, item 2 -- another player controls this one now (Mindslaver):
+   * that seat (Forge's Player#getControllingPlayer); absent otherwise.
+   */
+  controlledBy?: number | undefined;
+  /** Spec 0102, item 2 -- the card that made it so ("card:N"), when this viewer may see it. */
+  controlledFrom?: string | undefined;
   /** Counts, because a hand's SIZE is public and its contents are not. */
   handCount: number;
   libraryCount: number;
@@ -1091,6 +1103,9 @@ export function mergePlayLog(log: PlayLogLine[], incoming: PlayLogLine[]): PlayL
 /** "reconnecting": dropped and being retried on its own; "closed": refused, reload. */
 export type MatchConnection = "connecting" | "open" | "reconnecting" | "closed";
 
+/** Fixed while building spec 0102 -- the boards kept for carry.ts (a hold is never longer). */
+const RECENT_KEPT = 30;
+
 export interface MatchState {
   connection: MatchConnection;
   /** Your own seat, as the server greeted you (§6.110). */
@@ -1117,6 +1132,12 @@ export interface MatchState {
    * for a moment.
    */
   spotlight: Snapshot | null;
+  /**
+   * Fixed while building spec 0102 (carry.ts) -- the last boards this seat
+   * was sent, in order: one never drawn (skipped while another was held)
+   * gives its one-time moments to the board that is drawn.
+   */
+  recent?: Snapshot[];
   /**
    * PHASE_07 §7.55 — a concession: "SENT" once the server has passed
    * it to Forge (the game's end follows), or why it was not taken.
@@ -1259,7 +1280,12 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
         (entry) =>
           entry.controller !== null && entry.controller !== board.seat && !before.has(entry.id),
       );
-      return { ...state, board, spotlight: fresh ? board : state.spotlight };
+      return {
+        ...state,
+        board,
+        spotlight: fresh ? board : state.spotlight,
+        recent: [...(state.recent ?? []).slice(-(RECENT_KEPT - 1)), board],
+      };
     }
 
     case "MATCH_STEP": {
@@ -1677,6 +1703,8 @@ function asPlayers(value: unknown): SnapshotPlayer[] {
       life: asNumber(row["life"]) ?? 0,
       preventNext:
         (asNumber(row["preventNext"]) ?? 0) > 0 ? asNumber(row["preventNext"])! : undefined,
+      controlledBy: asNumber(row["controlledBy"]) ?? undefined,
+      controlledFrom: asString(row["controlledFrom"]) ?? undefined,
       handCount: asNumber(row["handCount"]) ?? 0,
       libraryCount: asNumber(row["libraryCount"]) ?? 0,
       graveyardCount: asNumber(row["graveyardCount"]) ?? 0,
@@ -1766,6 +1794,7 @@ function asCards(value: unknown): SnapshotCard[] {
     cards.push({
       id,
       seat,
+      owner: asNumber(row["owner"]) ?? undefined,
       name: asString(row["name"]) ?? "Face-down",
       tapped: row["tapped"] === true,
       faceDown: row["faceDown"] === true,

@@ -249,7 +249,16 @@ import {
   type ShowTo,
   type TileChange,
 } from "./graves";
-import type { Moments, Opening, ShowFrom, Survive, TileMove, TileZone } from "./fromSnapshot";
+import type {
+  Moments,
+  Opening,
+  RestartSweep,
+  ShowFrom,
+  Survive,
+  TileMove,
+  TileZone,
+} from "./fromSnapshot";
+import { sweepBeat, sweepDone, sweepLanded } from "./restart";
 import {
   DEAL_MS,
   DEAL_NUMBER_AT,
@@ -704,6 +713,14 @@ export interface BoardProps {
   veilHand?: boolean;
   /** Spec 0089 (Q2 A) -- the opening's movements wait this long (the loading screen still up). */
   openingDelay?: number;
+  /**
+   * Spec 0102, item 1 -- the game restarted: every card drawn on the last
+   * board sweeps into its owner's library, the piles empty into theirs, and
+   * both libraries riffle. `onRestartSwept` is told when it is over (the
+   * deal may begin).
+   */
+  restart?: RestartSweep | null;
+  onRestartSwept?: (key: string) => void;
   /** Spec 0084 -- this update's spent cards, library shuffles and crews, as the game says. */
   moments?: Moments | null;
   /**
@@ -3126,6 +3143,183 @@ function OwePill({ pips }: { pips: readonly PayPip[] }) {
   );
 }
 
+/**
+ * Spec 0102, item 1 (canvas deep3-missed-1117 "Q6" A) -- the restart's sweep,
+ * from what the last board drew: every card on the table and in both hands
+ * glides home into its OWNER's library tile, one after another (SWEEP_BEAT_MS,
+ * the whole within SWEEP_SPAN_MS), turning face down (A-14's Lift and glide;
+ * the other player's hidden cards are backs all the way, HID-005); a token
+ * fades where it stood; each graveyard and exile pile empties into its
+ * library; each library's number rises as they land (the game's counts); then
+ * both libraries riffle. `done`: when the deal may begin.
+ */
+function restartSweep({
+  restart,
+  before,
+  where,
+  g,
+}: {
+  restart: RestartSweep;
+  before: {
+    at: Map<string, { box: Box; origin: { x: number; y: number } }>;
+    drawn: Map<string, Drawn>;
+    mounted: Set<string>;
+    itemOf: Map<string, string>;
+    members: Map<string, number>;
+    stack: { s: StackView; box: Box }[];
+  };
+  where: Record<AnchorId, Point>;
+  g: Geometry;
+}): { ghosts: Ghost[]; marks: ReturnMark[]; ticks: Map<string, TileChange[]>; done: number } {
+  const idsOf = new Map<string, string[]>();
+  for (const [card, item] of before.itemOf) idsOf.set(item, [...(idsOf.get(item) ?? []), card]);
+  const back: Drawn = {
+    name: "",
+    look: "artifact",
+    type: "",
+    pt: "",
+    art: null,
+    faceDown: true,
+    side: "opponent",
+  };
+  type Leg = {
+    id: string;
+    look: Drawn;
+    from: { box: Box; origin: { x: number; y: number } };
+    side: Side;
+    n: number;
+    token: boolean;
+    hidden: boolean;
+    pile?: string;
+  };
+  const table: Leg[] = [];
+  const hands: Leg[] = [];
+  for (const item of before.mounted) {
+    if (item.startsWith("held:")) continue;
+    const look = before.drawn.get(item);
+    const ids = idsOf.get(item) ?? [item];
+    const at = before.at.get(item) ?? before.at.get(ids[0]!);
+    if (!look || !at) continue;
+    const hidden = item.startsWith("hidden-hand:");
+    // Each card its own glide home (a pile of lands, one after another), by
+    // its own id, to its own owner's library.
+    for (const id of hidden ? [item] : ids) {
+      (look.table ? table : hands).push({
+        id,
+        look: hidden ? back : look,
+        from: at,
+        side: hidden ? "opponent" : (restart.owners.get(id) ?? look.side),
+        n: 1,
+        token: restart.tokens.has(id),
+        hidden,
+      });
+    }
+  }
+  // The table from the top of the screen down (the other player's side
+  // first, as the canvas), then the hands.
+  table.sort((a, b) => a.from.box.y - b.from.box.y || a.from.box.x - b.from.box.x);
+  const legs = [...table, ...hands];
+  for (const pile of restart.piles) {
+    const at = {
+      box: boxAt(where[`${pile.side}:${pile.zone}` as AnchorId], g),
+      origin: { x: 0.5, y: 0.5 },
+    };
+    // Each card of the pile by its id (public there), as a back; any the
+    // board did not list (the count says more) go with the last.
+    const ids = pile.ids.length > 0 ? pile.ids : [`${pile.side}:${pile.zone}`];
+    ids.forEach((id, i) =>
+      legs.push({
+        id,
+        look: back,
+        from: at,
+        side: pile.side,
+        n: i === ids.length - 1 ? Math.max(1, pile.n - (ids.length - 1)) : 1,
+        token: false,
+        hidden: true,
+        pile: `${pile.side}:${pile.zone}`,
+      }),
+    );
+  }
+  // What was on the stack (the ability that restarted it, for whoever did)
+  // fades where it stood: it resolved, and goes nowhere.
+  const stackGhosts: Ghost[] = before.stack.map(({ s: e, box }) => ({
+    ...back,
+    name: e.name,
+    faceDown: false,
+    look: "artifact" as const,
+    side: "viewer" as const,
+    id: e.id,
+    box,
+    origin: { x: 0, y: 0 },
+    to: box,
+    toOrigin: { x: 0, y: 0 },
+    fade: true,
+    delay: 0,
+  }));
+  const beat = sweepBeat(legs.length);
+  const ghosts: Ghost[] = [...stackGhosts];
+  const ticks = new Map<string, TileChange[]>();
+  const tick = (tile: string, at: number, by: number) =>
+    ticks.set(tile, [...(ticks.get(tile) ?? []), { at, by }]);
+  const landed = new Map<Side, number>();
+  legs.forEach((leg, i) => {
+    const delay = i * beat;
+    if (leg.token) {
+      ghosts.push({
+        ...leg.look,
+        id: leg.id,
+        box: leg.from.box,
+        origin: leg.from.origin,
+        to: leg.from.box,
+        toOrigin: leg.from.origin,
+        fade: true,
+        delay,
+      });
+      return;
+    }
+    ghosts.push({
+      ...leg.look,
+      id: leg.id,
+      box: leg.from.box,
+      origin: leg.from.origin,
+      to: boxAt(where[`${leg.side}:library`], g),
+      toOrigin: { x: 0.5, y: 0.5 },
+      fade: true,
+      delay,
+      returning: { zone: "library", seen: "sink", back: !leg.hidden && !leg.look.faceDown },
+      ...(leg.hidden && !leg.pile ? { turn: "back" as const } : {}),
+      ...(leg.pile ? { faint: true } : {}),
+    });
+    if (leg.pile) tick(leg.pile, delay, -leg.n);
+    tick(`${leg.side}:library`, delay + RETURN_MS, leg.n);
+    landed.set(leg.side, (landed.get(leg.side) ?? 0) + leg.n);
+  });
+  // The game's counts: what lands is what the library gained.
+  const end = sweepLanded(legs.length);
+  for (const [side, n] of restart.landing) {
+    const off = n - (landed.get(side) ?? 0);
+    if (off !== 0) tick(`${side}:library`, end, off);
+  }
+  const marks: ReturnMark[] = [];
+  const w = g.cardW * AT_ZONE_SCALE;
+  const h = g.cardH * AT_ZONE_SCALE;
+  for (const side of ["opponent", "viewer"] as const) {
+    if ((restart.landing.get(side) ?? 0) === 0 && !legs.some((leg) => leg.side === side)) continue;
+    const pile = where[`${side}:library`];
+    for (let i = 0; i < RIFFLE_CARDS; i++)
+      marks.push({
+        key: `riffle:${restart.key}:${side}:${i}`,
+        kind: "riffle",
+        style: { left: pile.x, top: pile.y, width: w, height: h },
+        frames: riffleFrames(i, h / 56, side === "opponent"),
+        duration: RIFFLE_MS,
+        delay: end + i * RIFFLE_BEAT_MS,
+        of: `library:${side}`,
+      });
+  }
+  return { ghosts, marks, ticks, done: sweepDone(legs.length) };
+}
+
 export function Board({
   battlefield,
   hand,
@@ -3147,6 +3341,8 @@ export function Board({
   opening = null,
   veilHand = false,
   openingDelay = 0,
+  restart = null,
+  onRestartSwept,
   moments = null,
   flyingOnto = null,
   handLeft = null,
@@ -3224,6 +3420,8 @@ export function Board({
   const [sweep, setSweep] = useState<number | null>(null);
   /** Spec 0089 (Q2 A) -- the opening update last played. */
   const playedOpening = useRef<string | null>(null);
+  /** Spec 0102, item 1 -- the restart last swept. */
+  const playedRestart = useRef<string | null>(null);
   /** Phase 10 A-08: the gold lines pulling stolen creatures across. */
   const [tethers, setTethers] = useState<{ key: string; from: Point; to: Point }[]>([]);
   /** Phase 10 A-10: the merges' bursts. */
@@ -6167,7 +6365,30 @@ export function Board({
       delete cardsRef.current.dataset.instant;
     }
 
-    if (before && !resized && !still) {
+    // Spec 0102, item 1 -- the game restarted: the sweep alone. The table now
+    // drawn is the empty one between the games; nothing on it is compared
+    // with game 1's (ids are kept across a restart).
+    const restartNow = restart !== null && playedRestart.current !== restart.key;
+    if (restartNow) playedRestart.current = restart.key;
+    if (restartNow && before && !resized && !still) {
+      const swept = restartSweep({ restart, before, where, g });
+      if (swept.ghosts.length > 0) setGhosts((list) => [...list, ...swept.ghosts]);
+      if (swept.marks.length > 0) setReturnMarks((list) => [...list, ...swept.marks]);
+      for (const [tile, changes] of swept.ticks) {
+        const n = ref.current?.querySelector<HTMLElement>(
+          `[data-zone-tile="${tile}"] .gs-zone-n:not(.gs-zone-was)`,
+        );
+        if (!n) continue;
+        tileRuns.current.get(tile)?.run.cancel();
+        const run = tickTile(n, changes);
+        if (run) tileRuns.current.set(tile, { run, changes, end: Number(n.textContent) });
+      }
+      const key = restart.key;
+      timers.current.push(window.setTimeout(() => onRestartSwept?.(key), swept.done));
+    } else if (restartNow) {
+      const key = restart.key;
+      timers.current.push(window.setTimeout(() => onRestartSwept?.(key), 0));
+    } else if (before && !resized && !still) {
       // Phase 10 A-14 (owner 2026-11-06, Amendment 17): back to a hand, onto
       // or into a library -- "D · Lift and glide". Shuffled in, the riffle
       // once it has landed: one per destination, however many cards went
@@ -8707,6 +8928,8 @@ export function Board({
   }, [
     opening,
     openingDelay,
+    restart,
+    onRestartSwept,
     fans,
     fanBoxesNow,
     pileCards,

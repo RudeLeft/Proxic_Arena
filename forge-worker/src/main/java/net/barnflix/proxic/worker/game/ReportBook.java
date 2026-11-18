@@ -97,6 +97,15 @@ final class ReportBook<P, R> {
         entries.removeIf(each -> each.key() <= upTo);
     }
 
+    /**
+     * Spec 0102, item 1 (owner, Decided 1) -- the game restarted (Karn
+     * Liberated): every report is forgotten, for every reader. What each
+     * reader closed is kept (stamps keep rising), so nothing comes back.
+     */
+    synchronized void clear() {
+        entries.clear();
+    }
+
     synchronized int size() {
         return entries.size();
     }

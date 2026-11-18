@@ -189,4 +189,41 @@ class ActionReportsTest {
         assertEquals("Bob changed your Lightning Bolt's target to you.",
                 ActionReports.retargetWords("Bob", "Lightning Bolt", "you"));
     }
+
+    @Test
+    void aControlledTurnIsToldToTheControlledPlayerOnly() {
+        // F-0102-B: Bob sacrificed Mindslaver; Alice's turn -- Alice only.
+        assertTrue(ActionReports.tells(ActionReports.Kind.CONTROL, ALICE, BOB, ALICE, BOB));
+        assertFalse(ActionReports.tells(ActionReports.Kind.CONTROL, BOB, BOB, ALICE, BOB));
+        assertEquals("Bob is playing your turn.", ActionReports.controlWords("Bob"));
+    }
+
+    @Test
+    void anEndedTurnIsToldToEveryoneButWhoEndedIt() {
+        // F-0102-D: Bob's Time Stop on Alice's Bolt -- Alice only.
+        assertTrue(ActionReports.tells(ActionReports.Kind.END_TURN, ALICE, BOB, BOB, BOB));
+        assertFalse(ActionReports.tells(ActionReports.Kind.END_TURN, BOB, BOB, BOB, BOB));
+        assertEquals("Bob ended the turn: the spells on the stack were exiled.",
+                ActionReports.endTurnWords("Bob", true));
+        assertEquals("Bob ended the turn.", ActionReports.endTurnWords("Bob", false));
+    }
+
+    @Test
+    void aSkipIsToldAsItsEffectResolvesInTheSpecsWords() {
+        // F-0102-D (Decided 2): told to everyone but the one who did it.
+        assertTrue(ActionReports.tells(ActionReports.Kind.SKIP, ALICE, BOB, ALICE, BOB));
+        assertFalse(ActionReports.tells(ActionReports.Kind.SKIP, BOB, BOB, ALICE, BOB));
+        // Meditate: Bob skips his own turn, told to Alice.
+        assertTrue(ActionReports.tells(ActionReports.Kind.SKIP, ALICE, BOB, BOB, BOB));
+        assertEquals("Bob's spell: you skip your next turn.", ActionReports.skipWords("Bob", null, null, 1));
+        assertEquals("Bob's spell: you skip your combat.", ActionReports.skipWords("Bob", null, "combat", 0));
+        assertEquals("Bob's spell: Bob skips their next turn.", ActionReports.skipWords("Bob", "Bob", null, 1));
+        assertEquals("Bob's spell: you skip your next 2 turns.", ActionReports.skipWords("Bob", null, null, 2));
+        // What Forge's effect card skips, in the player's words.
+        assertEquals("combat", Skips.stepWords("BeginCombat"));
+        assertEquals("draw step", Skips.stepWords("Draw"));
+        assertEquals("main phase", Skips.stepWords("Main"));
+        assertEquals(2, Skips.turns("Number$2"));
+        assertEquals(1, Skips.turns(null));
+    }
 }

@@ -132,6 +132,13 @@ final class ViewerSnapshot {
             if (preventNext > 0) {
                 entry.addProperty("preventNext", preventNext);
             }
+            // Spec 0102, item 2 -- another player controls this one now
+            // (Mindslaver; Forge's Player#getControllingPlayer): that seat.
+            // Public, as whose turn it is and who acts in it are.
+            Player controller = player.getControllingPlayer();
+            if (controller != null && controller != player) {
+                entry.addProperty("controlledBy", seatOf.getOrDefault(controller, 0));
+            }
         // §7.61 B6 -- mana floating in the pool, by colour; absent when
         // the pool is empty. Public: mana in a pool is on the table.
         JsonObject pool = manaPool(player);

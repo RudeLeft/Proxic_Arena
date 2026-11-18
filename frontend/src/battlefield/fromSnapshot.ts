@@ -29,6 +29,7 @@ import type { AnchorId, Fate } from "./motion";
 import { sameTrigger, stackWords } from "./triggers";
 import { copyKey, copyThing, joinsAimed, sameCopy } from "./copies";
 import { fanCards, onTheirWay, type FanCard } from "./pileFan";
+import { isBetweenGames, isRestart } from "./restart";
 
 export interface BoardData {
   battlefield: BoardCard[];
@@ -76,6 +77,87 @@ export interface BoardData {
   fans: FanCard[];
   /** Spec 0089 (Q2 A) -- before the first turn: each hand's deal, mulligan and put-back; null for none. */
   opening?: Opening | null;
+  /** Spec 0102, item 1 -- the game restarted: the sweep from game 1's table to the empty one; null for none. */
+  restart?: RestartSweep | null;
+}
+
+/**
+ * Spec 0102, item 1 -- the sweep of a restart (Karn Liberated), from the
+ * board drawn (game 1's last) to the empty table between the games: whose
+ * library each card on the table goes home to (its owner's, public), the
+ * tokens (they cease to exist), how many cards land in each library (the
+ * game's counts), and how many leave each graveyard and exile pile for it.
+ * A new key is a new restart (a board plays it once).
+ */
+export interface RestartSweep {
+  key: string;
+  owners: Map<string, "viewer" | "opponent">;
+  tokens: Set<string>;
+  landing: Map<"viewer" | "opponent", number>;
+  piles: { side: "viewer" | "opponent"; zone: "graveyard" | "exile"; n: number; ids: string[] }[];
+}
+
+/** Spec 0102, item 1 -- the restart's sweep, from [previous] (game 1's last board) to [snapshot] (the empty table). */
+export function restartOf(snapshot: Snapshot, previous: Snapshot): RestartSweep {
+  const viewer = snapshot.seat;
+  const side = (seat: number): "viewer" | "opponent" => (seat === viewer ? "viewer" : "opponent");
+  const owners = new Map<string, "viewer" | "opponent">();
+  const tokens = new Set<string>();
+  for (const card of previous.battlefield) {
+    owners.set(card.id, side(card.owner ?? card.seat));
+    if (card.token) tokens.add(card.id);
+  }
+  for (const card of previous.hand) owners.set(card.id, side(card.owner ?? card.seat));
+  for (const card of previous.otherHands) owners.set(card.id, side(card.owner ?? card.seat));
+  const landing = new Map<"viewer" | "opponent", number>();
+  const piles: RestartSweep["piles"] = [];
+  for (const now of snapshot.players) {
+    const was = previous.players.find((p) => p.seat === now.seat);
+    if (!was) continue;
+    landing.set(side(now.seat), Math.max(0, now.libraryCount - was.libraryCount));
+    const stays = new Set(snapshot.graveyard.map((c) => c.id));
+    const gy = was.graveyardCount - now.graveyardCount;
+    if (gy > 0)
+      piles.push({
+        side: side(now.seat),
+        zone: "graveyard",
+        n: gy,
+        ids: previous.graveyard
+          .filter((c) => c.seat === now.seat && !stays.has(c.id))
+          .map((c) => c.id),
+      });
+    const kept = new Set(snapshot.exile.map((c) => c.id));
+    const leaving = previous.exile.filter((c) => c.seat === now.seat && !kept.has(c.id));
+    if (leaving.length > 0)
+      piles.push({
+        side: side(now.seat),
+        zone: "exile",
+        n: leaving.length,
+        ids: leaving.map((c) => c.id),
+      });
+  }
+  return {
+    key: `restart:${previous.gameEpoch}:${previous.stateRevision}:${snapshot.stateRevision}`,
+    owners,
+    tokens,
+    landing,
+    piles,
+  };
+}
+
+/** Spec 0102, item 1 -- both lives back to the starting life, as rising numbers (the game's numbers). */
+function restartLife(snapshot: Snapshot, previous: Snapshot): LifeChanges | null {
+  const changes: LifeChanges["changes"] = [];
+  for (const now of snapshot.players) {
+    const was = previous.players.find((p) => p.seat === now.seat);
+    if (!was || was.life === now.life) continue;
+    changes.push({
+      player: now.seat,
+      kind: now.life > was.life ? "gain" : "loss",
+      amount: Math.abs(now.life - was.life),
+    });
+  }
+  return changes.length > 0 ? { key: `restart-life:${snapshot.stateRevision}`, changes } : null;
 }
 
 /**
@@ -101,7 +183,12 @@ export interface OpeningSide {
 
 /** Spec 0089 (Q2 A) -- the update's opening moves (null after the first turn, or none). */
 export function openingOf(snapshot: Snapshot, previous: Snapshot | null): Opening | null {
-  if (snapshot.turn !== 0 || !previous || previous.gameEpoch !== snapshot.gameEpoch) return null;
+  if (snapshot.turn !== 0 || !previous) return null;
+  // Spec 0102, item 1 -- game 2's deal after a restart: its board follows the
+  // sweep's empty table, one epoch before it. Any other change of epoch: none.
+  const dealtAfterRestart =
+    snapshot.gameEpoch === previous.gameEpoch + 1 && isBetweenGames(previous);
+  if (previous.gameEpoch !== snapshot.gameEpoch && !dealtAfterRestart) return null;
   const viewer = snapshot.seat;
   const sides = new Map<"viewer" | "opponent", OpeningSide>();
   const of = (seat: number) => {
@@ -585,6 +672,16 @@ function withLeavers(
  * it, or null on the first one (nothing animates in from anywhere).
  */
 export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null): BoardData {
+  // Spec 0102, item 1 -- the restart's sweep: game 1's table to the empty one
+  // between the games. Nothing is inferred across it (ids are kept across a
+  // restart, so a card's "move" would be game 1's to game 2's): the table is
+  // drawn at rest, and the sweep carries every card home.
+  if (previous && isRestart(previous, snapshot) && isBetweenGames(snapshot))
+    return {
+      ...boardFromSnapshot(snapshot, null),
+      life: restartLife(snapshot, previous),
+      restart: restartOf(snapshot, previous),
+    };
   const viewer = snapshot.seat;
   const side = (seat: number) => (seat === viewer ? "viewer" : "opponent");
   const onBoard = new Set(snapshot.battlefield.map((c) => c.id));

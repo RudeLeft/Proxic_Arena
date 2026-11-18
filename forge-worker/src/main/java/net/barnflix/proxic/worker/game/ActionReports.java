@@ -111,6 +111,10 @@ final class ActionReports {
         /** Spec 0100, item 8 -- the spell whose target changed, and its new target (a Card, a Player or a SpellAbility). */
         String retargeted;
         Object newTarget;
+        /** Spec 0102, item 3 -- a skip: the step or phase skipped ("combat"), or null for whole turns ({@code count}). */
+        String skipped;
+        /** Spec 0102, item 3 -- the card whose effect it was (Time Stop's own exile is not "the spells"). */
+        int hostId = -1;
 
         Report(long key, Player actor, String source, Kind kind, Player subject, int count, List<Move> moves,
                 java.util.Map<Integer, String> where, boolean shuffled, int top, int bottom) {
@@ -176,7 +180,28 @@ final class ActionReports {
          * Pyromancer's ping): it has no card move, so it is told here, to the
          * ability's controller only, never to the one who countered it.
          */
-        COUNTER_ABILITY }
+        COUNTER_ABILITY,
+        /**
+         * Spec 0102, item 2 -- a player's turn began and another player
+         * controls them (Mindslaver): "Bob is playing your turn.", told to the
+         * controlled player only, with the card that did it.
+         */
+        CONTROL,
+        /**
+         * Spec 0102, item 3 -- an end-the-turn effect resolved (Time Stop,
+         * Sundial of the Infinite): "Bob ended the turn: the spells on the
+         * stack were exiled.", told at once to every player but its
+         * controller, the exiled stack as its cards.
+         */
+        END_TURN,
+        /**
+         * Spec 0102, item 3 (owner, Decided 2) -- a skip effect resolved (a
+         * turn skipped: Meditate; a step or phase: Fatespinner, Moment of
+         * Silence): "Bob's spell: you skip your next turn.", told when the
+         * effect resolves (Forge says nothing when the turn or step is later
+         * skipped), to every player but its controller.
+         */
+        SKIP }
 
     /**
      * Spec 0074, Amendment 1 -- the kinds that hide nothing Forge shows (a
@@ -223,6 +248,18 @@ final class ActionReports {
     }
 
     /**
+     * Spec 0102, item 1 (owner, Decided 1) -- the game restarted (Karn
+     * Liberated): game 1's reports are forgotten for every reader, before the
+     * RESTART report is made, so they never gather into its window.
+     */
+    void forgetAll() {
+        book.clear();
+        latest = null;
+        reset();
+        controlsFrom.clear();
+    }
+
+    /**
      * Spec 0088 (Q3 C) -- [reader] closed the report window, which showed
      * reports up to [upTo] (its newest stamp): they are gone for that reader,
      * and the ones every reader has closed are forgotten.
@@ -265,6 +302,15 @@ final class ActionReports {
                     if (card != null) {
                         moves.add(new Move(card.getId(), card.getOwner(), moved.from().zoneType(), moved.to().zoneType(),
                                 moved.card().isFaceDown()));
+                    }
+                }
+                // Spec 0102, item 3 -- a skip effect resolving puts its effect
+                // card (a turn or step replacement) into the command zone.
+                if (resolving != null && moved.card() != null && moved.to() != null
+                        && moved.to().zoneType() == ZoneType.Command) {
+                    Card effect = game.findById(moved.card().getId());
+                    if (effect != null && Skips.of(effect) != null && !skipEffects.contains(effect)) {
+                        skipEffects.add(effect);
                     }
                 }
             } else if (event instanceof forge.game.event.GameEventShuffle shuffle) {
@@ -314,6 +360,11 @@ final class ActionReports {
                 reset();
                 // Spec 0086 (10 B) -- unless it is an extra turn: that is told now.
                 extraTurn();
+                // Spec 0102, item 2 -- a turn another player plays (Mindslaver).
+                controlled();
+            } else if (event instanceof forge.game.event.GameEventPlayerControl) {
+                // Spec 0102, item 2 -- control that came once the turn began.
+                controlled();
             }
             noteDungeons();
             if (event instanceof forge.game.event.GameEventSpellAbilityCast
@@ -573,6 +624,7 @@ final class ActionReports {
         surveilAway = 0;
         values.clear();
         phasedOut.clear();
+        skipEffects.clear();
     }
 
     private Player playerOf(forge.game.player.PlayerView view) {
@@ -594,7 +646,18 @@ final class ActionReports {
             }
             noteExtraTurns(sa);
             noteExtraCombats(sa);
+            noteControls(sa);
             Report report = build(sa);
+            // Spec 0102, item 3 -- a skip effect: told now, as it resolves
+            // (with the choices that made it, when it is nothing else).
+            Report skip = skipped(sa);
+            if (skip != null) {
+                if (report == null) {
+                    report = skip;
+                } else {
+                    tell(skip);
+                }
+            }
             // Spec 0075 -- the choices and flips Forge told while it resolved
             // ride with its report, or are the report (Voice of All).
             if (!values.isEmpty()) {
@@ -662,6 +725,19 @@ final class ActionReports {
             }
             subject = mine.stream().map(Move::owner).filter(owner -> owner != actor).findFirst().orElse(actor);
         }
+        // Spec 0102, item 3 -- nothing was exiled with it (Sundial of the
+        // Infinite's ability on an empty stack): the card that did it, as it is.
+        if (kind == Kind.END_TURN && mine.isEmpty()) {
+            Card now = game.findById(host.getId());
+            Card card = now != null ? now : host;
+            ZoneType zone = card.getZone() == null ? ZoneType.Battlefield : card.getZone().getZoneType();
+            Report report = new Report(keys.incrementAndGet(), actor, host.getName(), kind, actor, 0,
+                    List.of(new Move(card.getId(), card.getOwner(), zone, zone, card.isFaceDown())),
+                    new java.util.HashMap<>(), false, -1, 0);
+            report.chooser = actor;
+            report.cards.put(card.getId(), card);
+            return report;
+        }
         if (mine.isEmpty() && (kind == Kind.SEARCH || kind == Kind.DISCARD || kind == Kind.CHOOSE_DISCARD
                 || kind == Kind.MILL || kind == Kind.PUT_BACK || kind == Kind.DIG || kind == Kind.REVEAL_TOP)) {
             // Searched and found nothing, or nothing moved: say the look.
@@ -697,6 +773,7 @@ final class ActionReports {
         Report report = new Report(keys.incrementAndGet(), actor, host.getName(), kind, subject, count,
                 List.copyOf(mine), where, shuffled.contains(subject), scryTop, scryBottom);
         report.drew = drew;
+        report.hostId = host.getId();
         report.chooser = kind == Kind.DISCARD ? subject : actor;
         report.emptyHand = (kind == Kind.CHOOSE_DISCARD || kind == Kind.LOOK_HAND) && mine.isEmpty()
                 && subject != null && subject.getCardsIn(ZoneType.Hand).isEmpty();
@@ -916,6 +993,140 @@ final class ActionReports {
             report.cards.put(host.getId(), host);
         }
         tell(report);
+    }
+
+    /**
+     * Spec 0102, item 2 -- the cards that will make another player control
+     * each player (Mindslaver), the newest last: kept as each ControlPlayer
+     * effect resolves, for the players it targets, with who played it.
+     */
+    private final java.util.Map<Player, java.util.Deque<Gift>> controlsFrom = new java.util.HashMap<>();
+    /** Spec 0102, item 2 -- the card that made each controlled player's controller, while it lasts. */
+    private final java.util.Map<Player, Card> controlSources = new java.util.concurrent.ConcurrentHashMap<>();
+    /**
+     * The controlled player last told, while that control lasts (once per
+     * controlled turn: Forge gives control as the turn changes hands, a moment
+     * before the turn's number moves on and GameEventTurnBegan fires).
+     */
+    private Player controlToldFor;
+
+    private void noteControls(SpellAbility root) {
+        for (SpellAbility each = root; each != null; each = each.getSubAbility()) {
+            if (each.getApi() != ApiType.ControlPlayer || each.getTargets() == null) {
+                continue;
+            }
+            for (Player target : each.getTargets().getTargetPlayers()) {
+                controlsFrom.computeIfAbsent(target, p -> new java.util.ArrayDeque<>())
+                        .addLast(new Gift(root.getHostCard(), root.getActivatingPlayer()));
+            }
+        }
+    }
+
+    /**
+     * Spec 0102, item 2 -- the card that made [player] controlled by another
+     * player now (Mindslaver, where it is now), or null: for the chain round
+     * that player's plate.
+     */
+    Card controlSource(Player player) {
+        if (player == null || !player.isControlled()) {
+            return null;
+        }
+        Card card = controlSources.get(player);
+        if (card == null) {
+            return null;
+        }
+        Card now = game.findById(card.getId());
+        return now != null ? now : card;
+    }
+
+    /**
+     * Spec 0102, item 2 (owner, missed Q7 A) -- the turn that began (or the
+     * control that came during it) is played by another player (Forge's
+     * Player#isControlled): "Bob is playing your turn.", to the controlled
+     * player only, with the card that did it as it was. Once a turn.
+     */
+    private void controlled() {
+        forge.game.phase.PhaseHandler phases = game.getPhaseHandler();
+        Player active = phases.getPlayerTurn();
+        if (active == null || !active.isControlled()) {
+            controlToldFor = null;
+            return;
+        }
+        if (controlToldFor == active) {
+            return;
+        }
+        controlToldFor = active;
+        Player controller = active.getControllingPlayer();
+        java.util.Deque<Gift> from = controlsFrom.get(active);
+        Gift gift = from == null || from.isEmpty() ? null : from.pollLast();
+        Card host = gift == null ? null : gift.card();
+        List<Move> shown = new ArrayList<>();
+        if (host != null) {
+            controlSources.put(active, host);
+            shown.add(new Move(host.getId(), host.getOwner(), ZoneType.Battlefield, ZoneType.Battlefield, false));
+        }
+        Report report = new Report(keys.incrementAndGet(), controller, host == null ? "" : host.getName(),
+                Kind.CONTROL, active, 0, shown, new java.util.HashMap<>(), false, -1, 0);
+        report.chooser = controller;
+        if (host != null) {
+            report.cards.put(host.getId(), host);
+        }
+        tell(report);
+    }
+
+    /** Spec 0102, item 2 -- "Bob is playing your turn." ([player] null: the reader, who never reads it). */
+    static String controlWords(String player) {
+        return (player == null ? "You are" : player + " is") + " playing your turn.";
+    }
+
+    /** Spec 0102, item 3 -- the effect cards of skips made while this effect resolved. */
+    private final List<Card> skipEffects = new ArrayList<>();
+
+    /**
+     * Spec 0102, item 3 (owner, Decided 2) -- a skip effect resolved: Forge
+     * put a turn or step replacement into the skipping player's command zone
+     * (SkipTurnEffect, SkipPhaseEffect). "Bob's spell: you skip your next
+     * turn.", "Bob's spell: you skip your combat." (Fatespinner), told now, to
+     * every player but its controller; the card that did it as its picture.
+     */
+    private Report skipped(SpellAbility sa) {
+        if (skipEffects.isEmpty()) {
+            return null;
+        }
+        Card effect = skipEffects.get(0);
+        Skips.Skip what = Skips.of(effect);
+        if (what == null) {
+            return null;
+        }
+        Player actor = sa.getActivatingPlayer();
+        Card host = sa.getHostCard();
+        ZoneType zone = host.getZone() == null ? ZoneType.Stack : host.getZone().getZoneType();
+        List<Move> shown = List.of(new Move(host.getId(), host.getOwner(), zone, zone, host.isFaceDown()));
+        Report report = new Report(keys.incrementAndGet(), actor, host.isFaceDown() ? "a face-down card" : host.getName(),
+                Kind.SKIP, effect.getOwner(), what.turns(), shown, new java.util.HashMap<>(), false, -1, 0);
+        report.chooser = actor;
+        report.skipped = what.step();
+        report.cards.put(host.getId(), host);
+        return report;
+    }
+
+    /**
+     * Spec 0102, item 3 -- "Bob's spell: you skip your next turn." To another
+     * reader: "Bob's spell: Alice skips their combat." ([player] null: the
+     * reader; [step] null: a whole turn, [turns] of them).
+     */
+    static String skipWords(String actor, String player, String step, int turns) {
+        String what = step != null ? step
+                : turns > 1 ? "next " + turns + " turns" : "next turn";
+        return actor + "'s spell: " + (player == null ? "you skip your " : player + " skips their ") + what + ".";
+    }
+
+    /**
+     * Spec 0102, item 3 -- "Bob ended the turn: the spells on the stack were
+     * exiled." ([spells] false: nothing else was on the stack).
+     */
+    static String endTurnWords(String actor, boolean spells) {
+        return actor + " ended the turn" + (spells ? ": the spells on the stack were exiled." : ".");
     }
 
     /** Spec 0089 (Q4 B) -- umbras chosen to be destroyed instead, not yet gone: aura id -> {aura, creature}. */
@@ -1151,7 +1362,8 @@ final class ActionReports {
             Kind kind = kindOf(each);
             // Spec 0075: a bounce is reported to the one it happened to and hides
             // nothing Forge shows (Chaos Warp's revealed card) -- the report is the bounce's.
-            if (kind == Kind.BOUNCE) {
+            // Spec 0102, item 3: ending the turn hides nothing either.
+            if (kind == Kind.BOUNCE || kind == Kind.END_TURN) {
                 return false;
             }
             // Spec 0074, Amendment 1: a mill, a counter, a return hide nothing Forge shows.
@@ -1188,6 +1400,8 @@ final class ActionReports {
             case Discard -> "RevealYouChoose".equals(sa.getParam("Mode")) ? Kind.CHOOSE_DISCARD : Kind.DISCARD;
             case Mill -> Kind.MILL;
             case Counter -> Kind.COUNTER;
+            // Spec 0102, item 3: Time Stop, Sundial of the Infinite.
+            case EndTurn -> Kind.END_TURN;
             default -> null;
         };
     }
@@ -1225,7 +1439,8 @@ final class ActionReports {
         java.util.Set<Integer> seen = new java.util.HashSet<>();
         List<Move> out = new ArrayList<>();
         for (Move move : moves) {
-            boolean anyOwner = kind == Kind.COUNTER || kind == Kind.RETURN || kind == Kind.BOUNCE;
+            boolean anyOwner = kind == Kind.COUNTER || kind == Kind.RETURN || kind == Kind.BOUNCE
+                    || kind == Kind.END_TURN;
             if (!anyOwner && move.owner() != subject) {
                 continue;
             }
@@ -1241,6 +1456,8 @@ final class ActionReports {
                 case PUT_BACK -> move.from() == ZoneType.Hand && move.to() == ZoneType.Library;
                 case CHOOSE_DISCARD, DISCARD -> move.from() == ZoneType.Hand && move.to() == ZoneType.Graveyard;
                 case MILL, SURVEIL -> move.from() == ZoneType.Library && move.to() == ZoneType.Graveyard;
+                // Spec 0102, item 3: every spell exiled off the stack (Time Stop itself too).
+                case END_TURN -> move.from() == ZoneType.Stack && move.to() == ZoneType.Exile;
                 default -> false;
             };
             if (keep && seen.add(move.cardId())) {
@@ -1414,7 +1631,13 @@ final class ActionReports {
             if (report.kind == Kind.RETARGET && card != null && !move.faceDown()) {
                 wasPublic = true;
             }
-            if (report.kind == Kind.RESTART) {
+            // Spec 0102, items 2 and 3: the card that ended the turn, made a
+            // skip, or made a player controlled was in view as it did (a
+            // face-down one stays a back).
+            if ((report.kind == Kind.END_TURN || report.kind == Kind.SKIP) && card != null && !move.faceDown()) {
+                wasPublic = true;
+            }
+            if (report.kind == Kind.RESTART || report.kind == Kind.CONTROL) {
                 card = report.cards.get(move.cardId());
                 wasPublic = card != null;
                 to = null;
@@ -1590,6 +1813,12 @@ final class ActionReports {
             // Spec 0100, item 8, the spec's words.
             case RETARGET -> retargetWords(who, r.retargeted, targetWords(r.newTarget, w));
             case COUNTER_ABILITY -> abilityCounteredWords(who, r.retargeted, r.source);
+            // Spec 0102, items 2 and 3, the spec's words.
+            case CONTROL -> controlWords(r.actor == w.reader ? null : r.actor.getName());
+            case END_TURN -> endTurnWords(who,
+                    r.moves.stream().anyMatch(m -> m.from() == ZoneType.Stack && m.cardId() != r.hostId));
+            case SKIP -> skipWords(r.actor.getName(), r.subject == w.reader ? null : r.subject.getName(), r.skipped,
+                    r.count);
         };
     }
 
@@ -1714,6 +1943,10 @@ final class ActionReports {
             case RETARGET -> reader == subject && reader != actor;
             // Spec 0101, item 2 (owner, missed Q5 A): the countered ability's controller only.
             case COUNTER_ABILITY -> reader == subject && reader != actor;
+            // Spec 0102, item 2 (owner, missed Q7 A): the controlled player only.
+            case CONTROL -> reader == subject && reader != actor;
+            // Spec 0102, item 3 (owner, missed Q8 A): every player but the one who did it.
+            case END_TURN, SKIP -> reader != actor;
             // Spec 0097, item 7 (owner): never a window for the one who did it.
             case MILL, COUNTER, RETURN, PHASE -> reader != actor;
             default -> reader != chooser;

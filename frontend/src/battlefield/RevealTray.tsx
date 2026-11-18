@@ -220,7 +220,13 @@ export function RevealTray({
   onClose,
   who,
   whoOf,
+  drainMs = null,
 }: {
+  /**
+   * Spec 0102, item 1 (round 2 Q6 B) -- the window holds the table (Karn's
+   * restart) this long at most: a thin bar along its foot drains over it.
+   */
+  drainMs?: number | null;
   /** Phase 9 Amendment 12 -- a report's acting player: their picture and name. */
   who?: { name: string; face: ReactNode } | null;
   /** Spec 0088 (Q3 C) -- any report's acting player, by seat (the rows' smaller medallions). */
@@ -299,6 +305,13 @@ export function RevealTray({
         </div>
       )}
       <ReportBody report={full} who={fullWho} artUrl={artUrl} bodyRef={fullRef} onClose={onClose} />
+      {drainMs !== null && (
+        <span
+          className="gs-reveal-drain"
+          aria-hidden="true"
+          style={{ animationDuration: `${drainMs}ms` }}
+        />
+      )}
     </div>
   );
 }

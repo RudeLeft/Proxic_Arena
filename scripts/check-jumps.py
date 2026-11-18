@@ -72,7 +72,26 @@ def where(s):
     return at
 
 
+def restarted(a, b):
+    """Spec 0102, item 1 -- [b] starts a restart after [a] (Karn): a new game
+    (the epoch rose), or the moment between the two games (the same epoch,
+    the turn count back to 0 from a game under way). Card ids are kept across
+    a restart, so a card's place in game 2 is not a move from game 1's: it is
+    swept home (the restart's sweep) and dealt or put out again."""
+    if (b.get("gameEpoch") or 1) > (a.get("gameEpoch") or 1):
+        return True
+    return (b.get("gameEpoch") or 1) == (a.get("gameEpoch") or 1) and b.get("turn") == 0 and (a.get("turn") or 0) > 0
+
+
 def events(a, b):
+    if restarted(a, b):
+        # Spec 0102 -- every card leaves for home, as the sweep shows it; the
+        # kinds say "restart:" so the report scores the restart board apart.
+        return [("restart: " + k, i, n) for k, i, n in plain_events(a, b)]
+    return plain_events(a, b)
+
+
+def plain_events(a, b):
     A, B = where(a), where(b)
     ev = []
     for i, x in A.items():
@@ -252,7 +271,7 @@ def analyse(file, trace, seat):
         # from a graveyard) -- only a pile's number changed.
         seen_any = set(before) | set(appeared) | set(vanished) | set(steps) | set(vis())
         for e in ev:
-            if e[1] and "->" in e[0] and e[1] not in seen_any and e[0] != "hidden (library or a hand)->hand":
+            if e[1] and "->" in e[0] and e[1] not in seen_any and not e[0].endswith("hidden (library or a hand)->hand"):
                 found.append(("not shown at all", e[1], e[0]))
         # Spec 0083 (15 A): a Room unlocking a door is renamed, and only that
         # door swings open on it (the card itself does not move or turn).

@@ -22,6 +22,19 @@ class ReportBookTest {
     }
 
     @Test
+    void aRestartForgetsEveryReportForEveryReader() {
+        // F-0102-D (Decided 1): game 1's open reports never gather into the
+        // RESTART window: the book is cleared, then the RESTART report made.
+        ReportBook<String, String> book = new ReportBook<>();
+        book.add(3, null, "Bob scried 1");
+        book.add(4, ALICE, "You looked at Bob's hand. It has no cards.");
+        book.clear();
+        book.add(9, null, "Bob restarted the game. This is game 2.");
+        assertEquals(List.of("Bob restarted the game. This is game 2."), open(book, ALICE));
+        assertEquals(List.of("Bob restarted the game. This is game 2."), open(book, BOB));
+    }
+
+    @Test
     void aReportStaysUntilItsReaderClosesIt() {
         // F-0088-B: Bob's Opt in Alice's end step, then Bob's turn begins.
         ReportBook<String, String> book = new ReportBook<>();

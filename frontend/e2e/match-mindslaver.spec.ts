@@ -8,10 +8,16 @@
 // controlled player. This proves the whole chain to the pages:
 //
 //   routed     during the guest's controlled turn, the HOST's page is
-//              asked the guest's questions, under "Playing for seat 2"
+//              asked the guest's questions, under "Playing for <guest>"
+//              (spec 0102, item 2: the player's name, never a seat)
 //   withheld   the guest's page is asked nothing
 //   sight      the host's page shows the guest's hand, labelled as
 //              the guest's -- and did not before
+//   told       spec 0102, item 2: the guest's page gets the window "<host>
+//              is playing your turn." and a gold chain round its plate (the
+//              host's page shows the chain round the guest's plate, and no
+//              window); the host really clicks a land for the guest, and it
+//              lands on the guest's side on both pages
 //
 // The deck is protocol/fixtures/mindslaver-deck. CI builds it; locally:
 //
@@ -53,7 +59,9 @@ test("under Mindslaver the controller answers for the other player and sees thei
     const deckName = await sharedDeck(host, guest, slaverPackage);
     await startAMatch(host, guest, deckName, { settle: false });
 
-    const controlling = matchPanel(host).getByRole("heading", { name: /Playing for seat 2/ });
+    const controlling = matchPanel(host).getByRole("heading", {
+      name: new RegExp(`Playing for ${secondUser}`),
+    });
     // Spec 0031: the opponent's hand is fanned along the top of the board;
     // a card shown to you is face up, and clicking it opens the hand.
     const theirHand = matchPanel(host)
@@ -144,6 +152,54 @@ test("under Mindslaver the controller answers for the other player and sees thei
       host.getByRole("dialog", { name: `${secondUser}'s hand, as far as you may see it` }),
     ).toBeVisible();
     await host.getByRole("dialog").getByRole("button", { name: "Close" }).click();
+
+    // Spec 0102, item 2 -- never a seat number in a heading.
+    await expect(matchPanel(host).getByText(/Playing for seat/)).toHaveCount(0);
+    // The controlled player's page: the window, and the chain round its plate.
+    const told = matchPanel(guest)
+      .locator(".gs-reveal")
+      .filter({ hasText: "is playing your turn." });
+    await expect(told).toBeVisible({ timeout: 30_000 });
+    await expect(told).toContainText("Mindslaver");
+    await expect(matchPanel(guest).locator(".gs-seat-viewer .gs-control")).toBeVisible();
+    await expect(matchPanel(host).locator(".gs-seat-opponent .gs-control")).toBeVisible();
+    await expect(
+      matchPanel(host).locator(".gs-reveal").filter({ hasText: "is playing your turn." }),
+    ).toHaveCount(0);
+    // The host really clicks a land for the guest (Forge's "Play land" for
+    // the guest, in the host's window headed "Playing for <guest>").
+    const theirLands = (page: Page, side: "viewer" | "opponent") =>
+      cardCount(
+        matchPanel(page)
+          .locator(`.bf-cards button[data-controller="${side}"][data-object-id]`)
+          .filter({ hasText: "Mountain" }),
+      );
+    const before = await theirLands(host, "opponent");
+    let played = false;
+    const until = Date.now() + 120_000;
+    // While the guest's turn is played by the host (the chain on its plate).
+    const chained = matchPanel(guest).locator(".gs-seat-viewer .gs-control");
+    while (!played && Date.now() < until && (await chained.count()) > 0) {
+      // Played: the land is on the guest's side (a click on a list the game
+      // had already moved past is refused, and is clicked again).
+      if ((await theirLands(host, "opponent")) > before) {
+        played = true;
+        break;
+      }
+      const options = await choices(host);
+      const labels = await options.allTextContents();
+      const land = labels.findIndex((label) => /Play land/.test(label));
+      if (land >= 0) {
+        if (await answer(options.nth(land))) await host.waitForTimeout(1_500);
+      } else if ((await matchPanel(host).getByRole("button", { name: "Pass" }).count()) > 0) {
+        await answer(matchPanel(host).getByRole("button", { name: "Pass" }));
+      } else {
+        await host.waitForTimeout(100);
+      }
+    }
+    expect(played, "the host was never offered a land to play for the guest").toBe(true);
+    await expect.poll(() => theirLands(host, "opponent"), { timeout: 30_000 }).toBe(before + 1);
+    await expect.poll(() => theirLands(guest, "viewer"), { timeout: 30_000 }).toBe(before + 1);
     await host.screenshot({ path: "test-results/seen/mindslaver-host.png", fullPage: true });
     await guest.screenshot({ path: "test-results/seen/mindslaver-guest.png", fullPage: true });
   } finally {

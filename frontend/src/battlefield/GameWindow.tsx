@@ -56,8 +56,8 @@ export function WindowFactLines({ title }: { title?: string }) {
   const { notice, actingFor } = useContext(WindowFacts);
   return (
     <>
-      {/* Not when the window's own title already says it (the general window). */}
-      {actingFor && !(title ?? "").startsWith("Playing for seat") && (
+      {/* Not when the window's own title already says it (the general window; spec 0102: "Playing for Alice"). */}
+      {actingFor && title !== actingFor && (
         <p className="gs-win-prompt gs-win-acting">{actingFor}</p>
       )}
       {notice && (

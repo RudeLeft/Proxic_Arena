@@ -22,6 +22,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   type ReactNode,
@@ -138,6 +139,17 @@ import {
 } from "./QuestionWindows";
 import { RevealTray } from "./RevealTray";
 import { openReports } from "./reports";
+import { carryMoments } from "./carry";
+import {
+  RESTART_HOLD_MS,
+  RESTART_WAIT_MS,
+  afterSweep,
+  betweenGames,
+  heldBoard,
+  isRestart,
+  restartedBy,
+  sweepDone,
+} from "./restart";
 import { LibraryTop, libraryTopBox } from "./LibraryTop";
 import { StatusTray } from "./StatusTray";
 import { PlayerFlights } from "./flights";
@@ -430,7 +442,91 @@ export function GameScreen({
     const timer = window.setTimeout(() => setSwingHeld(null), SWING_HOLD_MS);
     return () => window.clearTimeout(timer);
   }, [swingHeld]);
-  const shownBoard = swingHeld ?? (held && !askedNow ? held : latest);
+  // Spec 0102, item 1 (owner, round 2 Q6 B) -- Karn restarted the game. Game
+  // 1's last board is kept drawn (its restarting ability resolved) while the
+  // other player's report window is open -- at most RESTART_HOLD_MS -- and
+  // only then does the sweep play: to the empty table between the games (the
+  // worker's own board of it when it sent one, else game 2's board with its
+  // hands and piles back in the libraries). Then game 2's board, with its
+  // deal. Whoever restarted it (no window) sweeps at once. Never with motion
+  // turned down: the window, and game 2's table as it is.
+  const restartRef = useRef<RestartHold | null>(null);
+  const plainRef = useRef<Snapshot | null>(null);
+  const [, restartBump] = useReducer((n: number) => n + 1, 0);
+  if (
+    !restartRef.current &&
+    latest &&
+    plainRef.current &&
+    latest !== plainRef.current &&
+    !motionOff() &&
+    isRestart(plainRef.current, latest)
+  ) {
+    const from = plainRef.current;
+    restartRef.current = {
+      from,
+      held: heldBoard(from),
+      restarter: from.spectator === true || restartedBy(from) === from.seat,
+      mid: null,
+      first2: null,
+      go: false,
+      windowAt: null,
+      sweep: null,
+      started: Date.now(),
+    };
+  }
+  const restarting = restartRef.current;
+  if (restarting) {
+    if (latest && latest.gameEpoch === restarting.from.gameEpoch && latest.turn === 0)
+      restarting.mid = latest;
+    const game2 = latest && latest.gameEpoch > restarting.from.gameEpoch ? latest : null;
+    if (game2 && !restarting.first2) restarting.first2 = game2;
+    // Game 2's own moves (its deal, Karn's cards out of exile) came with its
+    // first board; a board after it while held carries none.
+    if (!restarting.sweep && (restarting.restarter || restarting.go))
+      restarting.sweep =
+        game2 && restarting.first2
+          ? betweenGames({ ...game2, moves: restarting.first2.moves ?? [] })
+          : restarting.mid;
+  } else {
+    plainRef.current = latest;
+  }
+  const latestRef = useRef(latest);
+  latestRef.current = latest;
+  /** Spec 0102, item 1 -- game 2's board after the sweep, with its first board's moves (the deal). */
+  const dealRef = useRef<{ of: Snapshot; board: Snapshot } | null>(null);
+  const restartDone = useCallback(() => {
+    const now = restartRef.current;
+    if (!now?.sweep) return;
+    const last = latestRef.current;
+    dealRef.current =
+      now.first2 &&
+      last &&
+      last !== now.first2 &&
+      last.turn === 0 &&
+      last.gameEpoch === now.first2.gameEpoch
+        ? { of: last, board: { ...last, moves: now.first2.moves ?? [] } }
+        : null;
+    restartRef.current = null;
+    plainRef.current = null;
+    restartBump();
+  }, []);
+  if (dealRef.current && dealRef.current.of !== latest) dealRef.current = null;
+  // The sweep's end is the Board's word (onRestartSwept); this is only in
+  // case it never comes (a hidden tab, no animation clock).
+  const sweepShown = restarting?.sweep ?? null;
+  useEffect(() => {
+    if (!sweepShown) return undefined;
+    const cards =
+      (restartRef.current?.from.battlefield.length ?? 0) +
+      (restartRef.current?.from.hand.length ?? 0) +
+      (restartRef.current?.from.players.reduce((n, p) => n + p.handCount, 0) ?? 0) +
+      6;
+    const timer = window.setTimeout(restartDone, sweepDone(cards) + 1500);
+    return () => window.clearTimeout(timer);
+  }, [sweepShown, restartDone]);
+  const shownBoard = restarting
+    ? (restarting.sweep ?? restarting.held)
+    : (dealRef.current?.board ?? swingHeld ?? (held && !askedNow ? held : latest));
   const board = useMemo(
     () => turnedRound(shownBoard, watching && flipped),
     [shownBoard, watching, flipped],
@@ -455,13 +551,30 @@ export function GameScreen({
     // Spec 0067 -- a spectator's table turned round is not a move: nothing
     // flies from where it was drawn on the other side (the turn is a fade).
     const turned = frames.current.current !== null && frames.current.current.seat !== board.seat;
-    frames.current = { current: board, previous: turned ? null : frames.current.current };
+    // Spec 0102, item 1 -- game 2's board after the sweep's empty table is
+    // compared as game 2's start (its deal, Karn's cards out of exile).
+    frames.current = {
+      current: board,
+      previous: turned ? null : afterSweep(frames.current.current, board),
+    };
   }
+  // Fixed while building spec 0102 (carry.ts) -- the boards this seat was
+  // sent: one never drawn (skipped while another was held) gives its
+  // one-time moments to the board that is.
+  const received = useRef<readonly Snapshot[]>([]);
+  received.current = game.recent ?? [];
   // Spec 0096 -- the cards nothing happened to stay the same objects (keepCards).
   const dataBefore = useRef<BoardData | null>(null);
   const data = useMemo(() => {
     if (!board) return null;
-    const next = keepCards(boardFromSnapshot(board, frames.current.previous), dataBefore.current);
+    const before = frames.current.previous;
+    const skipped = received.current.filter(
+      (s) => !before || s.gameEpoch !== before.gameEpoch || s.stateRevision > before.stateRevision,
+    );
+    const next = keepCards(
+      boardFromSnapshot(carryMoments(board, skipped), before),
+      dataBefore.current,
+    );
     dataBefore.current = next;
     return next;
   }, [board]);
@@ -601,7 +714,10 @@ export function GameScreen({
     return ids;
   }, [board]);
 
-  const decision = finished ? null : game.decision;
+  // Spec 0102, item 1 -- no question over a held or sweeping table: game 2's
+  // first questions (the mulligan) wait for its board and deal (PROTO-002 is
+  // kept: the state is there, only drawn late).
+  const decision = finished || restarting ? null : game.decision;
   const question = useMemo(
     () => (decision ? questionOf(decision, visible) : null),
     [decision, visible],
@@ -1858,7 +1974,14 @@ export function GameScreen({
   // report up to it is gone from the window at once (the worker drops them
   // from the next boards too). Kept for the match's game across a reload,
   // since the server replays the last board it sent.
-  const closedKey = `proxic:reports-closed:${match.matchId}:${board?.gameEpoch ?? 1}`;
+  // Spec 0102, item 1 -- while game 1's table is held, the window is game
+  // 2's (the restart's report comes with game 2's board).
+  const restartGame2 =
+    restarting && !restarting.sweep && latest && latest.gameEpoch > restarting.from.gameEpoch
+      ? latest
+      : null;
+  const reportBoard = restartGame2 ?? board;
+  const closedKey = `proxic:reports-closed:${match.matchId}:${reportBoard?.gameEpoch ?? 1}`;
   const [closedUpTo, setClosedUpTo] = useState<{ key: string; upTo: number }>({
     key: "",
     upTo: 0,
@@ -1880,13 +2003,14 @@ export function GameScreen({
     (trayOf(decision) === "split" || trayOf(decision) === "piles" || trayOf(decision) === "hidden");
   // Spec 0088 (Q3 C) -- the reports not closed yet: the newest, and the
   // older ones gathered with it (each its own stamp).
-  const openAction = openReports(board?.action ?? null, closedNow);
+  const openAction = openReports(reportBoard?.action ?? null, closedNow);
   // Phase 9 Amendment 12 -- a report of who did what, or a plain reveal:
   // whichever came last.
   const latestTray =
-    openAction && (!board?.reveal || (openAction.stamp ?? 0) >= (board.reveal.stamp ?? 0))
+    openAction &&
+    (!reportBoard?.reveal || (openAction.stamp ?? 0) >= (reportBoard.reveal.stamp ?? 0))
       ? openAction
-      : (board?.reveal ?? null);
+      : (reportBoard?.reveal ?? null);
   const latestReveal =
     latestTray &&
     latestTray.key !== closedReveal &&
@@ -1897,6 +2021,35 @@ export function GameScreen({
       : null;
   // Spec 0085 Amendment 1 (owner, 2026-11-14) -- the report comes up at once; no wait for the board.
   const reveal = latestReveal;
+  // Spec 0102, item 1 -- the restart's window holds the table until it is
+  // closed, or RESTART_HOLD_MS (then the sweep plays; the window stays).
+  const holdingWindow = restartGame2 && reveal ? reveal.key : null;
+  if (restarting && holdingWindow && restarting.windowAt === null) restarting.windowAt = Date.now();
+  useEffect(() => {
+    const now = restartRef.current;
+    if (!now || now.sweep || now.restarter) return undefined;
+    const go = () => {
+      now.go = true;
+      restartBump();
+    };
+    if (!restartGame2) {
+      // Game 2's board has not come yet (the restarter is answering Forge).
+      const timer = window.setTimeout(
+        go,
+        Math.max(0, RESTART_WAIT_MS - (Date.now() - now.started)),
+      );
+      return () => window.clearTimeout(timer);
+    }
+    if (!holdingWindow) {
+      go();
+      return undefined;
+    }
+    const timer = window.setTimeout(
+      go,
+      Math.max(0, RESTART_HOLD_MS - (Date.now() - (now.windowAt ?? Date.now()))),
+    );
+    return () => window.clearTimeout(timer);
+  }, [restartGame2, holdingWindow]);
   /** Spec 0088 (Q3 C) -- closing the window clears the gathered set, here and in the game. */
   const closeReports = (shown: SnapshotReveal) => {
     setClosedReveal(shown.key);
@@ -2068,7 +2221,7 @@ export function GameScreen({
       notice: game.notice,
       heading:
         decision.actedForSeat !== mine?.seatNumber
-          ? `Playing for seat ${decision.actedForSeat}`
+          ? playingFor(board, decision.actedForSeat)
           : decision.kind === "chooseOptionalCosts"
             ? optionalCostTitle(decision)
             : (payTitle(decision) ??
@@ -2270,6 +2423,8 @@ export function GameScreen({
             survive={data.survive}
             opening={data.opening ?? null}
             openingDelay={vortex.show ? BURST_MS : 0}
+            restart={data.restart ?? null}
+            onRestartSwept={restartDone}
             veilHand={
               !!board &&
               ((board.turn === 0 &&
@@ -2385,7 +2540,7 @@ export function GameScreen({
                         heading:
                           decision.actedForSeat === mine?.seatNumber
                             ? headingFor(decision.kind)
-                            : `Playing for seat ${decision.actedForSeat}`,
+                            : playingFor(board, decision.actedForSeat),
                         ...combatWords(decision.kind, board, board.seat),
                         // W-14: "All attack" selects; you then point.
                         onAll:
@@ -2584,6 +2739,7 @@ export function GameScreen({
                       atTop={windowed}
                       artUrl={artUrl}
                       onClose={() => closeReports(reveal)}
+                      drainMs={holdingWindow === reveal.key ? RESTART_HOLD_MS : null}
                     />
                   )}
                   {/* Amendment 22: every window shows a refusal, and who it answers for. */}
@@ -2592,11 +2748,7 @@ export function GameScreen({
                       notice: game.notice,
                       actingFor:
                         decision && mine && decision.actedForSeat !== mine.seatNumber
-                          ? `Playing for seat ${decision.actedForSeat}${
-                              board?.players.find((p) => p.seat === decision.actedForSeat)?.name
-                                ? ` (${board.players.find((p) => p.seat === decision.actedForSeat)!.name})`
-                                : ""
-                            }`
+                          ? playingFor(board, decision.actedForSeat)
                           : null,
                     }}
                   >
@@ -2736,6 +2888,7 @@ export function GameScreen({
             onAnswer={answer}
             onSearch={search}
             artUrl={pictureUrl}
+            players={board}
           />
         )}
 
@@ -3367,6 +3520,8 @@ function SeatBlock({
       <span ref={runRef} className="gs-seat-run" aria-hidden="true" />
       {/* Spec 0100, item 6 (round 2 Q5 A) -- the Curses on this player. */}
       <CurseTabs board={board} seat={player.seat} />
+      {/* Spec 0102, item 2 (owner, missed Q7 A) -- another player plays this turn. */}
+      <ControlChain player={player} board={board} />
       {end?.role === "won" && <span ref={flareRef} className="gs-seat-flare" aria-hidden="true" />}
       <span className="pa-visually-hidden">
         {player.name} ({role}): {life} life
@@ -4247,6 +4402,83 @@ function Rail({
 
 // --- the question ----------------------------------------------------------------------
 
+/** Spec 0102, item 1 -- a restart in progress, from game 1's last board. */
+interface RestartHold {
+  from: Snapshot;
+  /** Game 1's last board as the window holds it (its restarting ability resolved). */
+  held: Snapshot;
+  /** This page restarted it (or watches): no window, the sweep at once. */
+  restarter: boolean;
+  /** The moment between the games, as the worker sent it (turn 0, the same epoch). */
+  mid: Snapshot | null;
+  /** Game 2's first board: its moves are the deal. */
+  first2: Snapshot | null;
+  /** The window has been closed or held long enough: sweep. */
+  go: boolean;
+  windowAt: number | null;
+  /** The empty table being swept to; null while held. */
+  sweep: Snapshot | null;
+  started: number;
+}
+
+/**
+ * Spec 0102, item 2 (owner, missed Q7 A, canvas deep3-missed-1117 "Q7" A) --
+ * while another player controls this one (Mindslaver: `controlledBy`), a thin
+ * gold chain runs round the plate, the card that did it in a gold-rimmed
+ * square at its top-left corner (`controlledFrom`, when this viewer sees it).
+ * It comes in as the turn begins and goes when control ends (CSS, so reduce
+ * motion simply shows it).
+ */
+function ControlChain({ player, board }: { player: SnapshotPlayer; board: Snapshot }) {
+  if (player.controlledBy === undefined) return null;
+  const by = board.players.find((p) => p.seat === player.controlledBy)?.name ?? "another player";
+  const from = player.controlledFrom
+    ? [...board.graveyard, ...board.exile, ...board.battlefield].find(
+        (card) => card.id === player.controlledFrom,
+      )
+    : undefined;
+  const art = from?.crop ?? from?.art ?? null;
+  return (
+    <span className="gs-control" data-controlled-by={player.controlledBy}>
+      <svg className="gs-control-chain" aria-hidden="true">
+        <rect className="gs-control-under" x="0" y="0" width="100%" height="100%" rx="10" />
+        <rect className="gs-control-links" x="0" y="0" width="100%" height="100%" rx="10" />
+        <rect className="gs-control-shine" x="0" y="0" width="100%" height="100%" rx="10" />
+      </svg>
+      {from && (
+        <span className="gs-control-sign" aria-hidden="true" data-card={from.id}>
+          {art && <img src={pictureUrl(art)} alt="" draggable={false} />}
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 3 L20 7 V17 L12 21 L4 17 V7 Z"
+              fill="none"
+              stroke="#fff"
+              strokeWidth="1.8"
+            />
+            <circle cx="12" cy="12" r="3" fill="#fff" />
+          </svg>
+        </span>
+      )}
+      <span className="pa-visually-hidden">
+        {by} is playing this turn{from ? ` (${from.name})` : ""}.
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Spec 0102, item 2 (owner, missed Q7 A) -- the heading of a window you
+ * answer for another player (Mindslaver): their name, "Playing for Alice",
+ * never a seat number no player knows.
+ */
+export function playingFor(
+  board: { players: readonly { seat: number; name: string }[] } | null | undefined,
+  seat: number,
+): string {
+  const name = board?.players.find((p) => p.seat === seat)?.name;
+  return `Playing for ${name ?? "the other player"}`;
+}
+
 function QuestionBar({
   decision,
   question,
@@ -4256,10 +4488,13 @@ function QuestionBar({
   onAnswer,
   onSearch,
   artUrl,
+  players,
 }: {
   decision: NonNullable<MatchState["decision"]>;
   question: Question;
   mySeat: number | null;
+  /** Spec 0102, item 2 -- the players, for "Playing for Alice". */
+  players: { players: readonly { seat: number; name: string }[] } | null;
   busy: boolean;
   notice: string | null;
   onAnswer: (actionId: string | null) => void;
@@ -4284,7 +4519,7 @@ function QuestionBar({
         <h2 className="gs-question-title pa-visually-hidden">
           {decision.actedForSeat === mySeat
             ? headingFor(decision.kind)
-            : `Playing for seat ${decision.actedForSeat}`}
+            : playingFor(players, decision.actedForSeat)}
         </h2>
       </div>
     );
@@ -4305,7 +4540,7 @@ function QuestionBar({
   const heading =
     decision.actedForSeat === mySeat
       ? headingFor(decision.kind)
-      : `Playing for seat ${decision.actedForSeat}`;
+      : playingFor(players, decision.actedForSeat);
   // Spec 0001 D3 (owner 2026-10-22): a scry's or a surveil's cards, shown
   // to you alone as pictures, and clicked like the board. A card no
   // option is about is only shown -- or, while others are still being

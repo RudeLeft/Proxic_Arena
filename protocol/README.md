@@ -336,6 +336,35 @@ action (COUNTER_ABILITY)  spec 0101, item 2: an ability countered (Stifle;
                           ability's controller only, never to the one who
                           countered it; its card: the ability's source card
                           where it is now. Public
+action (CONTROL)          spec 0102, item 2: a player's turn began (or
+                          control came during it) and another player
+                          controls them (Mindslaver; Forge's
+                          Player#isControlled): "Bob is playing your turn.",
+                          told to the controlled player only, once per
+                          controlled turn; its card: the card that did it
+                          as it was. Public
+action (END_TURN)         spec 0102, item 3: an end-the-turn effect resolved
+                          (ApiType.EndTurn: Time Stop, Sundial of the
+                          Infinite): "Bob ended the turn: the spells on the
+                          stack were exiled." ("Bob ended the turn." when
+                          nothing else was on the stack), told at once to
+                          every seat but its controller; its cards: every
+                          spell exiled off the stack, Time Stop too, each
+                          `to: "exile"`. Public
+action (SKIP)             spec 0102, item 3: a skip effect resolved (Forge
+                          puts a BeginTurn or BeginPhase replacement into the
+                          skipping player's command zone: Meditate,
+                          Fatespinner, Moment of Silence): "Bob's spell: you
+                          skip your next turn." / "... you skip your combat."
+                          ("Bob's spell: Bob skips their next turn." to
+                          another reader), told when the effect resolves --
+                          Forge fires nothing when the turn or step is later
+                          skipped -- to every seat but its controller; its
+                          card: the card that did it. Public
+action (RESTART)          spec 0102, item 1: at the restart every open report
+                          is forgotten for every seat before the RESTART
+                          report is made, so game 1's reports never gather
+                          into its window
 card.attachedToPlayer     spec 0100, item 6: an Aura on a player (a Curse):
                           the seat it enchants (Card#getEntityAttachedTo);
                           `attachedTo` stays a card's id only. Public
@@ -631,6 +660,14 @@ card.preventNext          spec 0101: "prevent the next N damage" waiting on
                           the permanent (Forge's total,
                           GameEntityView#getPreventNextDamage); absent when
                           none. Also on players[i]. Public
+players[i].controlledBy   spec 0102, item 2: another player controls this one
+                          now (Mindslaver; Forge's
+                          Player#getControllingPlayer): that seat; absent
+                          otherwise. Public
+players[i].controlledFrom spec 0102, item 2: with controlledBy, the card that
+                          made it so ("card:N", where it lies now); stripped
+                          like any id of a card the viewer cannot see now
+                          (HiddenIds). Public
 card.gained               spec 0085: on the battlefield, the keywords it has
                           that its face does not print (Forge's titles, as
                           `keywords` sends them: Run Amok's "Trample", Heroic

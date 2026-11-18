@@ -1529,6 +1529,36 @@ public final class GameHost {
         }
     }
 
+    /**
+     * Spec 0102, item 2 -- on each controlled player's entry, the card that
+     * made it so (Mindslaver, where it lies now): "controlledFrom": "card:N",
+     * for the square on the chain round that player's plate. HiddenIds strips
+     * it like any id of a card the viewer cannot see now.
+     */
+    private void addControlSources(com.google.gson.JsonObject snapshot, Game current) {
+        ActionReports reports = actions();
+        if (reports == null || !snapshot.has("players")) {
+            return;
+        }
+        java.util.Map<forge.game.player.Player, Integer> seats = seatsByPlayer(current);
+        for (com.google.gson.JsonElement each : snapshot.getAsJsonArray("players")) {
+            com.google.gson.JsonObject entry = each.getAsJsonObject();
+            if (!entry.has("controlledBy") || !entry.has("seat")) {
+                continue;
+            }
+            int seat = entry.get("seat").getAsInt();
+            for (forge.game.player.Player player : current.getRegisteredPlayers()) {
+                if (seats.getOrDefault(player, 0) != seat) {
+                    continue;
+                }
+                forge.game.card.Card source = reports.controlSource(player);
+                if (source != null) {
+                    entry.addProperty("controlledFrom", "card:" + source.getId());
+                }
+            }
+        }
+    }
+
     private final class EpochCounter {
         @com.google.common.eventbus.Subscribe
         public void on(forge.game.event.GameEvent event) {
@@ -1545,6 +1575,10 @@ public final class GameHost {
                 // it knows (0086 A4's rule). No grey line.
                 ActionReports reports = actions();
                 if (reports != null) {
+                    // Spec 0102, item 1 (owner, Decided 1) -- game 1's reports
+                    // are cleared for every reader, so the RESTART window
+                    // shows alone (they never gather into it).
+                    reports.forgetAll();
                     reports.restarted(restarted.whoRestarted(), now);
                 }
             }
@@ -1713,6 +1747,7 @@ public final class GameHost {
                 snapshot.add("life", life.deepCopy());
             }
             addHandCosts(snapshot, player);
+            addControlSources(snapshot, current);
             // Spec 0061 -- how many notices this seat was told in all.
             snapshot.addProperty("noticesTotal", noticesTotal(seat));
             // Spec 0097, item 2 -- this seat's own turn is being passed for
@@ -1785,6 +1820,7 @@ public final class GameHost {
             if (life != null) {
                 everyone.add("life", life.deepCopy());
             }
+            addControlSources(everyone, current);
             everyone.add("rolls", rollsSoFar());
             everyone.add("payments", payments.forViewer(null));
             if (!moved.isEmpty()) {

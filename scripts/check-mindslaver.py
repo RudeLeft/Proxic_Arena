@@ -16,6 +16,13 @@ make all decisions for the player.)" Checked off the protocol:
   sight      seat 1 sees seat 2's hand during that turn -- and not
              before it: Forge says who may see, card by card
   return     after that turn, seat 2 answers its own questions again
+  control    spec 0102, item 2: while seat 2's turn is controlled, both
+             seats' snapshots say Bob's entry is controlledBy 1, with the
+             card that did it (controlledFrom, Mindslaver); never before
+             it and never after the turn
+  window     spec 0102, item 2: seat 2 (Bob) gets one report window,
+             "Alice is playing your turn.", with Mindslaver's picture;
+             seat 1 (Alice) gets none for it
   one view   every snapshot round sends each seat ONE snapshot, its
              own, and the controlled seat keeps receiving its own
              during the controlled turn. The first run of this found
@@ -86,6 +93,8 @@ found = {
 }
 probing = None                    # a controlled question being probed
 per_revision = {}                 # (seat, stateRevision) -> snapshots sent
+marks = []                        # spec 0102: (seat, turn, activeSeat, controlledBy, controlledFrom) of Bob's entry
+told = {1: [], 2: []}             # spec 0102: each seat's "playing your turn" windows
 seat2_during = 0                  # snapshots seat 2 got while controlled
 controlled_turn = None
 
@@ -116,6 +125,14 @@ for line in proc.stdout:
         per_revision[key] = per_revision.get(key, 0) + 1
         if frame.get("seat") != s.get("seat"):
             per_revision[("mislabelled", key)] = 1
+        bob = next((p for p in s.get("players") or [] if p.get("seat") == 2), {})
+        marks.append((s.get("seat"), s.get("turn"), s.get("activeSeat"), bob.get("controlledBy"),
+                      bob.get("controlledFrom")))
+        action = s.get("action") or {}
+        for a in [action] + list(action.get("gathered") or []):
+            keys = [t.get("key") for t in told.get(s.get("seat"), [])]
+            if "playing your turn" in (a.get("said") or "") and a.get("key") not in keys:
+                told[s.get("seat")].append(a)
         if s.get("seat") == 2 and controlled_turn is not None and not found["after"]:
             seat2_during += 1
         if s.get("seat") == 1:
@@ -216,7 +233,28 @@ if seat2_during == 0:
     problems.append("the controlled player received no snapshots of their own during control")
 if not found["after"]:
     problems.append("seat 2 never answered its own question again after the controlled turn")
+# Spec 0102, item 2 -- controlledBy on Bob's entry: during his controlled turn
+# only, on both seats' boards, with the card that did it.
+during = [m for m in marks if m[1] == controlled_turn and m[2] == 2]
+for seat in (1, 2):
+    mine = [m for m in during if m[0] == seat]
+    if not mine or any(m[3] != 1 for m in mine):
+        problems.append(f"seat {seat}: Bob's entry says controlledBy 1 all his controlled turn: {[m[3] for m in mine]}")
+    if not any(m[4] for m in mine):
+        problems.append(f"seat {seat}: Bob's entry names the card that did it: {[m[4] for m in mine]}")
+stray = [m for m in marks if m[3] is not None and not (m[1] == controlled_turn and m[2] == 2)]
+if stray:
+    problems.append(f"controlledBy outside the controlled turn: {stray[:3]}")
+said = {seat: [(a.get("said"), [c.get("name") for c in a.get("cards") or []]) for a in told[seat]] for seat in (1, 2)}
+print(json.dumps(said))
+if len(told[2]) != 1 or told[2][0].get("said") != "Alice is playing your turn.":
+    problems.append(f"seat 2: one window, 'Alice is playing your turn.': {said[2]}")
+elif not any(c.get("name") == SLAVER for c in told[2][0].get("cards") or []):
+    problems.append(f"seat 2: the window shows Mindslaver: {said[2]}")
+if told[1]:
+    problems.append(f"seat 1: Alice is the one playing it: no window for her: {said[1]}")
 if problems:
     print("WRONG:", "; ".join(problems))
     sys.exit(1)
-print("OK: Forge's controller answers, the controlled player cannot, and sight follows control")
+print("OK: Forge's controller answers, the controlled player cannot, and sight follows control; "
+      "controlledBy and the window (spec 0102) to the controlled player only")
