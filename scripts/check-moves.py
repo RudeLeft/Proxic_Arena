@@ -1,6 +1,7 @@
 """Phase 10 A-00 -- every card's move, as Forge made it (Mechanics Lab).
 
     python -I scripts/check-moves.py <worker.jar> <res-root> [trace] [scenario...]
+    python -I scripts/check-moves.py --self-test    (no game: the saved CI boards below)
 
 The board used to guess where a card went by comparing two snapshots (a
 card put into a library was drawn going to exile). Now each snapshot round
@@ -24,7 +25,10 @@ carries `moves`: where from, where to, and why a card left the battlefield.
   lapse      Memory Lapse on Bob's Bears spell: from the STACK to the top of
              his library.
              A card that went into a library is named to nobody (a library
-             is hidden from its owner too): the place, never the card.
+             is hidden from its owner too): the place, never the card --
+             unless the same snapshot's board shows it (Chaos Warp's
+             reveal put the shuffled Bears itself back onto the
+             battlefield, about 1 game in 52; CI 3cde118).
   hidden     over every snapshot of all the games: a move the seat can't see
              at either end (the other player drawing) never names the card;
              one whose card is now where the seat can see it always does --
@@ -43,7 +47,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lab import DEFAULT, Game  # noqa: E402
 
-JAR, RES = sys.argv[1], sys.argv[2]
+SELF_TEST = sys.argv[1:2] == ["--self-test"]
+JAR, RES = ("", "") if SELF_TEST else (sys.argv[1], sys.argv[2])
 ARG = sys.argv[3] if len(sys.argv) > 3 else ""
 TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
@@ -90,6 +95,41 @@ class Watch:
 
     def moves(self, seat):
         return [m for s in self.snaps[seat] for m in s.get("moves") or []]
+
+
+# The snapshot lists that ARE the board (the worker's HiddenIds.BOARD): a
+# card in one of them is on view, so a move this round may name it even
+# though the move went into a library -- Chaos Warp shuffled the Bears in,
+# then revealed the top card, the Bears itself (about 1 in 52), and put it
+# back onto the battlefield (CI 3cde118). Not `stack`: an entry's `source`
+# there is a reference, not the card on view.
+BOARD = ("battlefield", "hand", "otherHands", "casting", "graveyard", "exile", "command", "libraryTop")
+
+
+def on_board(snap):
+    """Every card id the snapshot's board lists carry (any `id` or `source` inside them)."""
+    out = set()
+
+    def collect(node):
+        if isinstance(node, list):
+            for child in node:
+                collect(child)
+        elif isinstance(node, dict):
+            for key, value in node.items():
+                if key in ("id", "source") and isinstance(value, str) and value.startswith("card:"):
+                    out.add(value)
+                collect(value)
+
+    for zone in BOARD:
+        collect(snap.get(zone))
+    return out
+
+
+def names_hidden(m, snap, sees):
+    """The move names its card although the seat cannot see where it went
+    (`sees`: its destination is on view to the seat) and the same snapshot's
+    board does not show it either."""
+    return not sees and "card" in m and m["card"] not in on_board(snap)
 
 
 def names(snaps):
@@ -226,6 +266,27 @@ def sacrifice():
 # --- back to a hand, onto / into a library (Phase 10 A-14) ---------------------
 
 
+def told_problems(seat, pairs):
+    """Named only to a seat that can see where it went: its owner's own
+    hand. A library, or the other player's hand, gets no card (HID-003:
+    both halves -- the owner must still be told which one) -- unless the
+    same snapshot's board shows the card (it came back out this round).
+    [pairs]: (move, the snapshot it came in)."""
+    problems = []
+    for m, snap in pairs:
+        sees = m["to"]["zone"] == "hand" and m["to"].get("seat") == seat
+        if sees and "card" not in m:
+            problems.append(f"seat {seat}: a card back in its own hand is not named: {m}")
+        if names_hidden(m, snap, sees):
+            problems.append(f"seat {seat}: names {m['card']}, now in a zone hidden from it: {m}")
+    return problems
+
+
+def into_library_named(m, snap):
+    """A move into a library names its card, and the snapshot's board does not show it."""
+    return m["to"]["zone"] == "library" and names_hidden(m, snap, False)
+
+
 def sends_back(name, seat1, spell, mana, wants, mine=None, respond=False):
     """Seat 1 casts `spell` (needing `mana` untapped lands) at Bob's Grizzly
     Bears -- on the battlefield, or, with `respond`, as a spell on the stack.
@@ -273,9 +334,13 @@ def sends_back(name, seat1, spell, mana, wants, mine=None, respond=False):
                 return o["actionId"]
         return DEFAULT
 
+    def told_in(seat):
+        """Each such move with the snapshot it came in."""
+        return [(m, s) for s in w.snaps[seat] for m in s.get("moves") or []
+                if m["to"]["zone"] in ("hand", "library") and m["from"]["zone"] in ("battlefield", "stack")]
+
     def told(seat):
-        return [m for m in w.moves(seat) if m["to"]["zone"] in ("hand", "library")
-                and m["from"]["zone"] in ("battlefield", "stack")]
+        return [m for m, _ in told_in(seat)]
 
     def until(g):
         w.see()
@@ -295,15 +360,7 @@ def sends_back(name, seat1, spell, mana, wants, mine=None, respond=False):
         want = sorted((owner, zone, where) for owner, (zone, where) in wants.items())
         if got != want:
             problems.append(f"seat {seat} should be told {want}: {found[f'seat{seat}']}")
-        # Named only to a seat that can see where it went: its owner's own
-        # hand. A library, or the other player's hand, gets no card (HID-003:
-        # both halves -- the owner must still be told which one).
-        for m in found[f"seat{seat}"]:
-            sees = m["to"]["zone"] == "hand" and m["to"].get("seat") == seat
-            if sees and "card" not in m:
-                problems.append(f"seat {seat}: a card back in its own hand is not named: {m}")
-            if not sees and "card" in m:
-                problems.append(f"seat {seat}: names {m['card']}, now in a zone hidden from it: {m}")
+        problems += told_problems(seat, told_in(seat))
         # A stack entry's id is not its card's (stack:N): the spell is the
         # one Bears spell anyway.
         named = {m.get("card") for m in found[f"seat{seat}"]} - {None}
@@ -378,7 +435,7 @@ def hidden():
                             wrong.append(("should name the card", seat, m))
                     if a is False and b is False and "card" in m:
                         wrong.append(("must not name the card", seat, m))
-                    if m["to"]["zone"] == "library" and "card" in m:
+                    if into_library_named(m, snap):
                         wrong.append(("names a card now in a library", seat, m))
                     if m.get("card") in their_hand:
                         wrong.append(("names a card now in the other player's hand", seat, m))
@@ -398,10 +455,62 @@ def hidden():
                   found)
 
 
+# --- self-test ----------------------------------------------------------------
+
+# CI run 44333352848 (3cde118), Lab `moves` shuffled, round 134 -- an excerpt
+# of each seat's snapshot (the board lists' ids, names and seats; the moves
+# as sent). Chaos Warp put card:72, Bob's Bears, into his library; the
+# revealed top card was card:72 itself, put back onto the battlefield.
+def _card(i, name, seat):
+    return {"id": f"card:{i}", "name": name, "seat": seat}
+
+
+_WARPED = [{"card": "card:72", "from": {"zone": "battlefield", "seat": 2}, "to": {"zone": "library", "seat": 2},
+            "last": {"power": 2, "toughness": 2}, "where": "shuffled"},
+           {"card": "card:72", "from": {"zone": "library", "seat": 2}, "to": {"zone": "battlefield", "seat": 2}},
+           {"card": "card:33", "from": {"zone": "stack"}, "to": {"zone": "graveyard", "seat": 1}}]
+_FIELD = [_card(4, "Mountain", 1), _card(30, "Mountain", 1), _card(5, "Mountain", 1), _card(115, "Forest", 2),
+          _card(116, "Forest", 2), _card(102, "Forest", 2), _card(86, "Grizzly Bears", 2),
+          _card(72, "Grizzly Bears", 2)]
+_HANDS = {1: [_card(16, "Mountain", 1), _card(57, "Chaos Warp", 1), _card(48, "Chaos Warp", 1),
+              _card(3, "Mountain", 1), _card(2, "Mountain", 1), _card(7, "Mountain", 1)],
+          2: [_card(120, "Forest", 2), _card(88, "Grizzly Bears", 2), _card(106, "Forest", 2),
+              _card(76, "Grizzly Bears", 2)]}
+ROUND_134 = {seat: {"stateRevision": 134, "seat": seat, "moves": _WARPED, "battlefield": _FIELD,
+                    "hand": _HANDS[seat], "otherHands": [], "casting": [], "stack": [],
+                    "graveyard": [_card(33, "Chaos Warp", 1)], "exile": []}
+             for seat in (1, 2)}
+
+
+def self_test():
+    """The round-134 boards pass both checks; the same boards with card:72
+    gone from the battlefield (a Bears left in the library, still named)
+    fail both (TEST-004, HID-004: the guard fires). Exit 0 when all held."""
+    failures = []
+    for label, snaps, want_wrong in (
+            ("round 134 (the Bears came back out)", ROUND_134, False),
+            ("control: card:72 not on the battlefield",
+             {seat: dict(s, battlefield=[c for c in s["battlefield"] if c["id"] != "card:72"])
+              for seat, s in ROUND_134.items()}, True)):
+        for seat, snap in snaps.items():
+            pairs = [(m, snap) for m in snap["moves"]
+                     if m["to"]["zone"] in ("hand", "library") and m["from"]["zone"] in ("battlefield", "stack")]
+            for check, wrong in (("shuffled", bool(told_problems(seat, pairs))),
+                                 ("hidden", any(into_library_named(m, snap) for m in snap["moves"]))):
+                said = "WRONG" if wrong else "OK"
+                print(f"{label}, seat {seat}, {check}: {said}")
+                if wrong != want_wrong:
+                    failures.append(f"{label}, seat {seat}, {check}: {said}")
+    print("self-test: " + ("FAILED: " + "; ".join(failures) if failures else "OK"))
+    return 1 if failures else 0
+
+
 SCENARIOS = {"destroy": destroy, "sacrifice": sacrifice, "bounce": bounce, "top": top, "bottom": bottom,
              "shuffled": shuffled, "lapse": lapse, "hidden": hidden}
 
 if __name__ == "__main__":
+    if SELF_TEST:
+        sys.exit(self_test())
     worst = 0
     for name, scenario in SCENARIOS.items():
         if ONLY and name not in ONLY:
