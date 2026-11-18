@@ -41,8 +41,12 @@ visibility.
 At launch the server loads each seat's imported deck art (Phase 2's
 import stores every image by content hash). A card's picture comes from
 the deck of the seat that **owns** it, not the one controlling it (spec
-0049: a creature taken with Control Magic wears its owner's picture),
-keyed two ways:
+0049: a creature taken with Control Magic wears its owner's picture).
+A copy looks like what it copied (spec 0079): a Clone of Bob's Serra
+Angel, or Alice's Fork of Bob's Bolt on the stack, wears the picture
+from the copied card's owner's deck (`artOwner` in the snapshot, sent
+only when that is not the copy's own owner). Pictures are keyed two
+ways:
 
 1. **by printing** -- `printing:SET/NUMBER|name`, the exact printing
    Forge built the card from (`card.printing`, P6-BD);
@@ -113,7 +117,9 @@ Spec 0022 amends §6.128: a deck may bring token pictures (its decklist's
 token picture with its name, or its name without " Token" ("Ape Token"
 matches "Ape"), from its controller's deck first, then the other
 player's; only a token picture, never a card's or a face's of that name.
-A token is on the table for everyone, so its picture reveals nothing
+The one exception (spec 0079): a token that is a **copy** of a card
+(Cackling Counterpart's Serra Angel) wears that card's picture first,
+and a token picture of its name otherwise (`MatchArt.kt`). A token is on the table for everyone, so its picture reveals nothing
 hidden, and a viewer may fetch it once shown, as for any card. With no
 match there is still no `art`, and the board shows the token as a named
 chip (P6-BG). There is still no lookup outside the match.

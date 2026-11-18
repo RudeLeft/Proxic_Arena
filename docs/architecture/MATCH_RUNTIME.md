@@ -20,7 +20,10 @@ Related: `MATCH_PROTOCOL.md` (the wire), `FORGE_WORKER_RUNTIME.md`
    `SETUP_NOT_FOUND`.
 2. Only the room's host may launch (`403 MATCH_HOST_REQUIRED`), asked
    before anything else so a non-host does not learn whether a setup is
-   launchable.
+   launchable. Then, with **Update waiting** on, `UPDATE_WAITING`
+   (spec 0056, below), before the claim so the setup is kept; a setup
+   already consumed is `MATCH_ALREADY_LAUNCHED`, and one no longer
+   `READY` (or a room no longer `READY_FOR_MATCH`) is `SETUP_NOT_READY`.
 3. Revalidate everything §6.12 lists -- the preset still offered, every
    seat's deck still exists and is still usable by that player, every
    account still active (`LAUNCH_REVALIDATION_FAILED`). A seat's failure

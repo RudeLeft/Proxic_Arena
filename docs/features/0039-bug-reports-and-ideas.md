@@ -74,6 +74,10 @@ words, written to be handed to Claude, pointing at the moment in the
 logs), `report.json`, `screen.png`, `browser-log.jsonl`,
 `game-record.jsonl.gz`, `server-log.txt`, `engine-errors.txt`.
 
+*As of 2026-11-18 (a documentation check):* spec 0086 Amendment 2 sends
+the screen as a JPEG, kept and zipped as `screen.jpg`; a PNG picture is
+still `screen.png` (code: server/src/main/kotlin/net/barnflix/proxic/report/Reports.kt:318-325).
+
 ## How
 
 - **The page's log**: a ring of the last 15 minutes (bounded in size) on

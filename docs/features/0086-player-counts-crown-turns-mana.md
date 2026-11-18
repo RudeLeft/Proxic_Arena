@@ -70,7 +70,7 @@ Decided with spec 0089's extra combat (owner): "The player who played the card d
 
 ### As built (2026-11-14)
 
-Built as approved (7 B, 8 the recommended set, 10 C + B, 11 A) with Amendment 1; unreleased.
+Built as approved (7 B, 8 the recommended set, 10 C + B, 11 A) with Amendment 1; unreleased then (released in 1.69.0; noted 2026-11-18).
 
 **Worker** (`PlayerMarks.java`, `ViewerSnapshot.java`, `ActionReports.java`). All public, read from Forge's state, never a card name or rules text; every id is stripped per seat by HiddenIds when its card is somewhere that seat cannot see.
 - `player.manaFrom`: the floating mana by colour and the card that made it, in the pool's order (Forge's `Mana#getSourceCard`): a Swamp's black is a run of 1, Dark Ritual's three a run of 3.

@@ -184,3 +184,7 @@ Builder half.**
 **As built (2026-11-04, a documentation check).** "`POOL_REVISION` goes up"
 was one bump, 2 to 3, shared with spec 0023 (built together, 21deb17); it
 is 3 today (`DeckRules.kt`), not a second bump to 4.
+
+*As of 2026-11-18 (a documentation check):* spec 0053 (1.32.0) lifted the
+"two printings of one card in one deck" limit under Out: each printing now
+keeps its own picture (see `0053-each-printing-its-own-picture.md`).

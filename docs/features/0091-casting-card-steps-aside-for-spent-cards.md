@@ -33,7 +33,7 @@ This amends 0068 item 1 ("no sliding aside") for one case only (see 0068 Amendme
 
 ### As built (2026-11-15)
 
-Built as approved (C · the casting card steps aside); unreleased. Page only: no worker or server change.
+Built as approved (C · the casting card steps aside); unreleased then (released in 1.70.0; noted 2026-11-18). Page only: no worker or server change.
 
 **Page.**
 - **One rule, shared** (`stepAside.ts`, new): where the casting card is (`castingBox`, moved here from CastingCard.tsx unchanged, so the board can use it), what it hides (`castCoverBox`: the card and the line under it, its cost pips or "… is casting a spell"), when a card counts as under it (a fifth or more of it covered), which way and how far it steps (`asideOffset`), and where it is at any moment of a step (`AsideRun`, `offsetAt`). The board, the mana balls and the card all read the same answers.

@@ -35,7 +35,7 @@ Phase 10 items A-15 (copies) and the rest of A-21 (spells copied, fizzled).
 
 ### As built (2026-11-12)
 
-Built as approved (Q1 A, Q2 A, Q3 B, Q4 A, the held spot); unreleased.
+Built as approved (Q1 A, Q2 A, Q3 B, Q4 A, the held spot); unreleased then (released in 1.64.0; noted 2026-11-18).
 
 - **Worker.** A card that is a copy carries `copy` and `copyOf` (Forge's
   clone state's origin; for a token copy, the target of the ability that

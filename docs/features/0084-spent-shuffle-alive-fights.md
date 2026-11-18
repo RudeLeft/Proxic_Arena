@@ -49,7 +49,7 @@ Phase 10 A-22, from the deep dive "Phase 10 graphical gaps.md" (2026-11-13), ite
 
 ### As built (2026-11-13)
 
-Built as approved (1 A, 5 A, 6 B, 9 A); unreleased.
+Built as approved (1 A, 5 A, 6 B, 9 A); unreleased then (released in 1.68.0; noted 2026-11-18).
 
 **Worker** (`Spent.java`, `GameHost.java`, `Moves.java`).
 - **Spent or killed, from the game's own record (never a card name).** Forge fires its "sacrificed" event inside the sacrifice, just before the move. At that moment a sacrifice is **spent** when Forge is paying a cost (its cost-payment stack is not empty: a Treasure, Clue, Food, fetch land, Evolving Wilds, Village Rites' or Fling's creature, a sacrifice outlet's fodder), when the spell or ability resolving IS the sacrificed card (Ball Lightning's end step, a failed echo), or when nothing resolves and no cost is paid and the card is a Saga (the rules ending it). Anything else is not spent: Diabolic Edict, Innocent Blood, Liliana's −2, annihilator (another card's effect made its controller sacrifice it). The move off the battlefield then says `spent: true` (with the card only). This is how the review's concern ("the game cannot tell a cost from an edict") was answered: Forge does record it, in the cost-payment stack; no case was found where the record cannot tell. If reading it ever fails, the answer is "not spent" and the defeated look stays.

@@ -25,7 +25,7 @@ Nothing looks different; no new jumps.
 
 ### As built (2026-11-16)
 
-Built; unreleased. Page only (no worker or server change). Nothing looks different. **All numbers are headless** (Microsoft Edge through Playwright's `msedge` channel, the repo config's default, as 0095's budgets were set; headed Edge was not run).
+Built; unreleased then (released in 1.71.0; noted 2026-11-18). Page only (no worker or server change). Nothing looks different. **All numbers are headless** (Microsoft Edge through Playwright's `msedge` channel, the repo config's default, as 0095's budgets were set; headed Edge was not run).
 
 **What was built** (`fromSnapshot.ts`, `GameScreen.tsx`, `layout.ts`, `Board.tsx`, `sameProps.ts`).
 1. **The cards nothing happened to keep their objects** (`keepCards`, in `fromSnapshot.ts`, called by the game screen on every board): each battlefield card, hand card and card in the other hand equal by contents to the one with its id last time is that object; a list none of whose cards changed is the list before; an unchanged combat is the combat before. So an update that touches no card (a priority pass, the stack moving) gives the board the same lists, and its layout and drawings are not made again at all.

@@ -97,7 +97,7 @@ play a real game of Magic, run by Forge, on a graphical battlefield in
 the style of MTG Arena — cards clicked to play, target, attack and
 block, each player seeing only what Forge lets them see — with every
 page built: sign in, Lobby, Deck Depot, Account, Admin. What each of
-the nine phases proved is in `docs/history/phases/`; what changed in
+the ten phases (0A and 1-9) proved is in `docs/history/phases/`; what changed in
 each release is `CHANGELOG.md`; what is next, and how new features are
 specified and approved, is `ROADMAP.md`.
 

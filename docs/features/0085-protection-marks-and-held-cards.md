@@ -50,7 +50,7 @@ The owner reviewed the 0085 clips and chose "Approve, but no wait" by prompt: th
 
 ### As built (2026-11-13)
 
-Built as approved (2 B, protection never folds first, 4 A) with Amendment 1; unreleased.
+Built as approved (2 B, protection never folds first, 4 A) with Amendment 1; unreleased then (released in 1.69.0; noted 2026-11-18).
 
 **Worker** (`Marks.java`, `ViewerSnapshot.java`, `PlayLog.java`). All public, on a battlefield permanent the viewer may identify; read from Forge's state, never a card name or rules text.
 - `gained`: the keywords it has now that its face does not print (Forge's titles, as `keywords`; the face's intrinsic keywords are the printed ones). Run Amok's "Trample", Heroic Intervention's "Hexproof" and "Indestructible", Mother of Runes' "Protection from red", Assault Strobe's "Double Strike" (Lab).

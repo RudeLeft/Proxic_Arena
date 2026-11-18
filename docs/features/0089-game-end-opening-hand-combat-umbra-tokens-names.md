@@ -62,7 +62,7 @@ Approved with one change (owner): "The player who played the card doesn't need t
 
 ### As built (2026-11-14)
 
-Built as approved (Q1 A, Q2 A, Q3 A, Q4 B with variant b, Q5 B, Q6 A); unreleased.
+Built as approved (Q1 A, Q2 A, Q3 A, Q4 B with variant b, Q5 B, Q6 A); unreleased then (released in 1.70.0; noted 2026-11-18).
 
 **Worker** (`Survivors.java`, `GameHost.java`, `ActionReports.java`). All public; never from a card's name or rules text.
 - **Umbra saves (Q4).** Forge asks a controller which replacement to apply (`MatchController#chooseSingleReplacementEffect`, the hook 0080's prevention uses). When the chosen one is umbra armor -- Forge's own keyword record on the effect (`CardTraitBase#isKeyword(Keyword.UMBRA_ARMOR)`, set by `CardFactoryUtil` for the keyword) on a Destroy event (`Survivors#umbraSave`) -- the round's `survived` gains {card: the creature, how "umbra", by: the Aura} (the Aura and what it enchants as the effect is chosen), and `ActionReports#umbraSaved` keeps it until the Aura has gone, then tells a report to every player but the Aura's controller: "Hyena Umbra was destroyed instead of Alice's Grizzly Bears." ("... of your Grizzly Bears." to the creature's controller), the Aura's picture with "to graveyard".

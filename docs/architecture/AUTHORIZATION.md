@@ -56,7 +56,7 @@ to `/login` itself.
 | the app's page (any address that is not a file) | anyone -- it is the sign-in screen |
 | the built files the sign-in screen needs (named by the build manifest) | anyone |
 | every other built file (`/assets/…`) | the signed-in user (`private` cache) |
-| `GET /api/health/live`, `/ready` | the server's own container only (127.0.0.1); 404 from anywhere else |
+| `GET /api/health/live`, `/ready` | the server's own container only (a loopback peer: 127.0.0.1 or ::1); 404 from anywhere else |
 | `POST /api/auth/login`, `/logout` | anyone; logout with a session needs the CSRF token and the origin check (403 otherwise), and is a quiet 204 without one |
 | `POST /api/auth/join`, `/join/peek` (spec 0014), `/reset`, `/reset/peek` (spec 0026), `/device-link` (spec 0021) | anyone -- each checks its own one-time link or code |
 | `GET /api/deck-rules` (spec 0021) | a signed-in user or a linked computer's device token; the route checks it |

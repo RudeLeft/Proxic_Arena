@@ -108,3 +108,9 @@ a time (one at a time, both ways, as Amendment 11 set for invitations).
 | F-0016-E | The Hall strip: four equal trophies, "Won 6 of 9 games", no title | unit + screenshot |
 | F-0016-F | Room cards and their order, Held for, Ask to join, decline pop-ups both ways | browser + screenshots |
 | F-0016-O | The owner approves the look ("finish it and push when green", 2026-10-26) | owner |
+
+*As of 2026-11-18 (a documentation check):* spec 0018 removed the lobby's
+Hall strip (items 11-13): the trophies are on the Hall of Champions page,
+and the lobby keeps only the rings on players' pictures (code:
+frontend/src/LobbyPage.tsx imports only the Belt reminder from `hall`;
+frontend/src/HallPage.tsx).

@@ -332,6 +332,12 @@ lines follow (`creature-2`, ...):
   (`SHARE_SHOW`), they **share the line of creatures not in combat**
   (behind the front line) the same way; only when neither shows every
   card at least half does the side step down a size (and tries again).
+  *As of 2026-11-18 (a documentation check):* `SHARE_SHOW` is 1, not
+  `SHOW_MIN` (owner 2026-11-07, the canvas's rule): a sharing is taken
+  only while the sharing kind's cards do not overlap at all (and every
+  card shows at least `SHOW_MIN`); as soon as they would, the next sharing
+  or the next size is tried (code: frontend/src/battlefield/layout.ts:597-604,
+  `sizeSide`).
   Sharing happens only for want of lines: outside combat (three kinds,
   three lines) nothing changes. The two kinds keep to their own stretches
   of the line (`Line.rect` is each kind's stretch, `shared: true`); when

@@ -47,6 +47,7 @@ All under `/api`. Every one requires a session.
 | `PUT` | `/rooms/{roomId}/my-deck` | members | `200` + room |
 | `PUT` | `/rooms/{roomId}/ready` | members | `200` + room |
 | `PUT` | `/rooms/{roomId}/player-count` | host | `200` + room |
+| `POST` | `/rooms/{roomId}/keep-open` | members | `200` + room; starts the idle clock again (spec 0054, below) |
 
 **There is no join route.** AMENDMENT 1 removed join codes; the way in
 is over the socket -- an invitation accepted, or a request to join

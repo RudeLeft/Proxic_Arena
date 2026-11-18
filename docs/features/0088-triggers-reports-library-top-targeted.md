@@ -45,7 +45,7 @@ Approved with one change: "Approve, keep only 3 rows". The gathered report windo
 
 ### As built (2026-11-14)
 
-Built as approved (Q1 A, Q2 A, Q3 C, Q4 C, Q5 C); unreleased.
+Built as approved (Q1 A, Q2 A, Q3 C, Q4 C, Q5 C); unreleased then (released in 1.70.0; noted 2026-11-18).
 
 **Worker** (`ReportBook.java`, `ActionReports.java`, `LibraryTops.java`, `ViewerSnapshot.java`, `HiddenIds.java`, `GameHost.java`, `WorkerMain.java`).
 - **Reports stay (Q2 A).** Forge's turn-began event no longer clears the report (`ActionReports` dropped `latest = null` there): a report stays until its reader closes the window. Only what was being gathered for an effect still resolving is reset, as before.

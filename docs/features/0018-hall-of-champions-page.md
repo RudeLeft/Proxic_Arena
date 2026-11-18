@@ -86,3 +86,8 @@ record yet (life totals); showing the opponent's deck inside a room
 | F-0018-C | The page: band, board, tabs; no Hall in the lobby | unit + browser |
 | F-0018-D | No scroll at 1280×720, 1280×800, 1920×1080; a phone stacks | browser + screenshots |
 | F-0018-O | The owner approves the look ("finish it and push when green", 2026-10-27) | owner |
+
+*As of 2026-11-18 (a documentation check):* spec 0048 changed H7's 14 days
+to 7, and added an admin Reset the Belt, after which nobody holds it until
+the next game's winner (code:
+server/src/main/kotlin/net/barnflix/proxic/hall/Belt.kt:12-16, 145-146).

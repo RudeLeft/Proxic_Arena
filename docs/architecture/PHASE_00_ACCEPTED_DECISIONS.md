@@ -32,7 +32,11 @@ patched POM. **Since 2026-10-21 also `forge-ai`** (owner decision,
 PHASE_07 §7.61 B8), for one check alone: Forge's "can this be paid
 now?" (`ComputerUtilMana.canPayManaCost` in test mode), so the board
 can dim what cannot be afforded. (As built, 2026-11-04: two -- also
-`ComputerUtilMana.calculateManaCost`, each spell's current cost.) No computer player is created or
+`ComputerUtilMana.calculateManaCost`, each spell's current cost.)
+*As of 2026-11-18 (a documentation check):* three -- since 2026-11-08
+also `ComputerUtilMana.getConvokeOrImproviseFromList`, which creatures
+and artifacts could pay a convoke or improvise cost while it is only
+checked (code: forge-worker/.../game/MatchController.java:4018). No computer player is created or
 used, and Strategy A's line -- no `forge-gui`, which is Swing -- is
 unchanged: `forge-ai` has no GUI coupling. It brings one library,
 Apache Commons Math 3.6.1. Ship only produced artifacts at runtime; no Forge source
@@ -59,8 +63,8 @@ applied the same way; `forge_patches/README.md` lists both.
 ## Forge adapter strategy
 
 **Strategy A — a Proxic-owned `PlayerController`**, on `forge-core` +
-`forge-game` (and, since 2026-10-21, `forge-ai` for two checks -- see
-the packaging amendment above). Scored 53, against 24 for reusing Forge's network
+`forge-game` (and, since 2026-10-21, `forge-ai` for a few checks of
+what can be paid -- see the packaging amendment above). Scored 53, against 24 for reusing Forge's network
 layer and 30 for a hybrid.
 
 Forge's own network layer is remote invocation of **GUI** methods over

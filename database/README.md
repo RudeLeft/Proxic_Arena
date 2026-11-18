@@ -19,7 +19,9 @@ is exactly the trap described above.
 If you are adding a migration:
 
 1. Create it in `server/src/main/resources/db/migration/`.
-2. Name it `V00N__short_description.sql`, continuing the sequence.
+2. Name it `V0NN__short_description.sql` (three digits), continuing the
+   sequence: the last is `V039__room_watchable_dropped.sql`, so the next
+   is `V040__...` (V034 was never used).
 3. Never edit a migration that has already been applied anywhere —
    Flyway records a checksum and will refuse the next run. Add a new
    one instead.

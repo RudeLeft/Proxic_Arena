@@ -270,6 +270,13 @@ Work through it as a cookie problem first (above), because the socket
 authenticates with the same cookie as everything else: if `/api/decks`
 works in that browser, the socket will too.
 
+The one refusal that is not about the cookie: since a 2026-10-22
+review the upgrade's `Origin` must pass the same check as a mutating
+request (`BAD_ORIGIN` below), and a foreign one closes with
+`VIOLATED_POLICY` and the reason `unexpected origin` rather than
+`authentication required`. The game socket (`/ws/matches/...`) checks
+the same way.
+
 A connection that opens and then **closes within 30 seconds** is a
 different thing, and usually correct: the revalidation loop found the
 session revoked, disabled or expired. Something ended that session —

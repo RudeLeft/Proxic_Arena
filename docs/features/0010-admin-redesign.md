@@ -87,3 +87,13 @@ Out (and why):
   activity, records) pass through the new tabs; Manage menu actions;
   a reload keeps the tab.
 - Screenshots at 1280, 1600 and on a phone before it ships.
+
+*As of 2026-11-18 (a documentation check):* later specs grew the page. The
+tabs are now Accounts, Rooms, Games, Reports (spec 0039), Sign-ins,
+Computers (spec 0027), Email account (spec 0014 Amendment 1), Belt and
+records (spec 0048) and Server (code: frontend/src/AdminPage.tsx:64-78).
+"+ New account" became "+ Invite" (spec 0014; AdminPage.tsx:377). Manage
+has no Set password: it holds Send password reset (spec 0026), Change
+display name (spec 0041 Amendment 3), Linked computers (spec 0027), Sign
+out everywhere, Make admin / Make player and Disable / Enable
+(AdminPage.tsx:556-655).

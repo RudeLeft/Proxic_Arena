@@ -93,3 +93,8 @@ Out (and why):
    `imported_deck.colors` (NULL until Forge has been asked, which is
    what "colors_checked" was for) and `imported_deck.icon`; there is no
    `deck_entry.color_identity` column.
+
+*As of 2026-11-18 (a documentation check):* since spec 0022 a deck arrives
+from the Deck Builder, so no "Choose an icon" opens after an import: the
+suggestion shows until one is picked from Change icon (code:
+frontend/src/DecksPage.tsx:208, 343).

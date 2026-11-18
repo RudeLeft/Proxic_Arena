@@ -117,7 +117,7 @@ MATCH_ENDED             spec 0067, to spectators only: the game is over --
                         the socket is then closed (1000 "game over")
 DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
                         mandatory, prompt?, options: [{actionId, label,
-                        objectId?, payable?, cost?, types?}], searchable?,
+                        objectId?, payable?, cost?, types?, use?}], searchable?,
                         optionCount?,
                         unavailable?: {objectId: reason}  -- why each of your
                         cards NOT offered cannot act now (PHASE_07 B7),
@@ -133,6 +133,8 @@ DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
                         (spec 0061),
                         owing?: "{1}{R}" -- mana still due on a payment
                         (Phase 9 Amendment 13),
+                        refused?: "..." -- why the game refused the last
+                        answer, on the question asked again (spec 0097),
                         arrange?: how a window lays the question out -- a
                         card tray (to, first, shuffle, zone, split, piles),
                         combat damage, a number (values, canMake, keyword,
@@ -153,9 +155,12 @@ DECISION_REFUSED        decisionId, reason
 DECISION_CLEARED        nothing is waiting on you
 MATCH_ASKING            seat: the seat being asked now, or null -- nobody is,
                         the rules engine is working. To every participant,
-                        on every change and on connect (spec 0002)
+                        on every change and on connect (spec 0002);
+                        doing?: a fixed word for what that seat is doing
+                        ("Choosing blockers"), none at priority (Phase 9
+                        Amendment 21)
 DECISION_OPTIONS        decisionId, query, total, options   (search results; each
-                        with cost? and types?, Phase 9 W-12)
+                        with cost? and types?, Phase 9 W-12, and use?)
 DECISION_SEARCH_REFUSED decisionId, reason
 CONCEDE_ACCEPTED        the concession went to Forge; the end follows (PHASE_07 §7.55)
 CONCEDE_REFUSED         reason: NOT_A_PLAYER, UNREACHABLE, NOT_STARTED, GAME_OVER

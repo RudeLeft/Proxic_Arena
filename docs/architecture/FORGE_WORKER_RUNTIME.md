@@ -56,6 +56,11 @@ One process per match (§6.162), started by the server
 java -jar /app/forge/forge-worker.jar /app/forge/res
 ```
 
+Only when the server runs with `PROXIC_TEST_DEALS=true` (the local and CI
+stacks, spec 0098) is `--lab-deal` added, which lets `START_GAME` carry a
+seat's `labDeal`; a worker started without it refuses one with
+`ERROR LAB_DEAL_REFUSED` (`workerCommand` in `TestDeals.kt`).
+
 stdout is the protocol; stderr goes to
 `<dataRoot>/match-logs/<matchId>.log`. The worker opens **no network
 socket** -- verified in its code and inside the production container

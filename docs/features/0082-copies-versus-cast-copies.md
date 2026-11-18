@@ -51,7 +51,7 @@ Phase 10, A-15/A-21 follow-up: the 13 "popped in" findings left after 0081 (copi
 
 ### As built (2026-11-13)
 
-Built as approved (C); unreleased.
+Built as approved (C); unreleased then (released in 1.67.0; noted 2026-11-18).
 
 **Causes confirmed** (RUN, Lab traces `copies-storm`, `shapes-prepare`, and a worker built from the commit before):
 

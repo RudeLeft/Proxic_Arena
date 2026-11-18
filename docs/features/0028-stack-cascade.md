@@ -66,3 +66,10 @@ As built (2026-11-04, a documentation check): past what fits, the oldest
 objects are not drawn rather than compressed to name bars, and the
 caption says ", N not shown" (built so in b696952; `effects.ts`). Every
 object that fits is drawn; F-0028-A holds for those.
+
+*As of 2026-11-18 (a documentation check):* the response clock is 5
+seconds, not 2: spec 0035 lengthened the countdown on your own spell or
+trigger, and the ring round the front card runs the full 5 s with the
+button's (code: frontend/src/battlefield/GameScreen.tsx:233
+`RESPONSE_WINDOW_MS`). The caption's ", N not shown" is written in
+`Board.tsx` (:822); `effects.ts` decides how many fit.

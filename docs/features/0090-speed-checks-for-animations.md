@@ -39,7 +39,7 @@ No new looks. What the player sees does not change, except smoother frames.
 
 ### As built (2026-11-15)
 
-Built as approved; unreleased. Page only: no worker or server change.
+Built as approved; unreleased then (released in 1.70.0; noted 2026-11-18). Page only: no worker or server change.
 
 **Bench scenes (F-0090-A)** (`benchScenes.ts`, `benchBudgets.ts`, `DevBenchPage.tsx`, `e2e/bench-scenes.spec.ts`).
 - `/dev/bench?scene=<name>` draws a scene's first board ("Show board"), then "Play" sends the moment's boards at their times and records every frame interval over the moment's length (`window.__bench.scene`). The real Board draws them, with the game screen's own styles (`game.css`) and pictures the size of the server's 384-wide copies; the report window is the real `RevealTray`. The scenes: **wipe** (31 creatures, 16 yours and 15 theirs, none piled, all to their graveyards in one update: the flash, Shatter, Glide); **tokens** (64 Goblins in one update after Krenko's ability: eight waves of 8, 0089); **combat** (5 attackers, 5 blockers; a first-strike wave in which three blockers die, then the regular wave 0.4 s later, played after it); **flyers** (20 that fly, 10 a side, 3 s of hovering); **wash** (day to night over 40 permanents); **army** (30 of your creatures, 6 of them flyers, all "you can pick this"); **storm** (Grapeshot x10: the worker's own board shapes through the page's own parser, `boardFromSnapshot`: copies counting up beside it, landing as x10, three resolving); **reports** (five reports, one every 0.6 s, gathering as rows, 0088). The row re-centring speed test (`/dev/bench` without `scene`) is unchanged.

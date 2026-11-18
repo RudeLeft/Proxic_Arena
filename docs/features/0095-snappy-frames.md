@@ -40,7 +40,7 @@ It runs in CI's browser tests and in the once-per-release local run.
 
 ### As built (2026-11-16)
 
-Built; unreleased. Page only (no worker or server change), plus a deck fixture and a CI step for the new browser test. **All numbers are headless** (Microsoft Edge through Playwright's `msedge` channel, the repo config's default; headed Edge was not run, and headed bundled Chromium does not start on this PC).
+Built; unreleased then (released in 1.71.0; noted 2026-11-18). Page only (no worker or server change), plus a deck fixture and a CI step for the new browser test. **All numbers are headless** (Microsoft Edge through Playwright's `msedge` channel, the repo config's default; headed Edge was not run, and headed bundled Chromium does not start on this PC).
 
 **The fixes** (`lifeTicks.ts`, `flights.tsx`, `breathMotion.ts`, `Board.tsx`, `game.css`, `LibraryTop.tsx`, `sizeTicks.ts`, the new `sameProps.ts`, and memo wrappers in `CardBadges.tsx`, `SizeFigure.tsx`, `ManaCost.tsx`, `StatusTray.tsx`, `playerMarks.tsx`, `PoisonBadge.tsx`, `GameScreen.tsx`).
 1. **Game end**: `useLifeLanded` no longer redraws the game screen each frame while the last hit lands. A frame loop only *looks* at the clocks and redraws once, the frame the hit lands; the clocks' own start and end redraw it only when the answer changed, and only while it is watched (a game ending).

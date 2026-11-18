@@ -281,6 +281,13 @@ POST /api/auth/logout-all     ends EVERY session this user holds
 GET  /api/auth/me             who am I (204, empty, if nobody)
 POST /api/auth/password       change password; revokes EVERY session
 POST /api/auth/display-name   change display name
+POST /api/auth/avatar         change avatar (spec 0006)
+GET  /api/auth/email          your email address (spec 0026)
+POST /api/auth/email          change it; the old address is told
+POST /api/auth/join/peek      open: is this invitation still live (spec 0014)
+POST /api/auth/join           open: an invitation -> an account and a session
+POST /api/auth/reset/peek     open: is this reset link still live (spec 0026)
+POST /api/auth/reset          open: a reset link -> a new password and a session
 POST /api/auth/device-codes   a one-time code to link a computer (spec 0021)
 GET  /api/auth/devices        your linked computers
 DELETE /api/auth/devices/{id} unlink one
@@ -335,7 +342,8 @@ reads it from stdin instead, which is the automation path.
 - A password **given as an argument is refused**, not used with a
   warning (§3.58): a warned-about password is still in shell history
   and in process listings, and the account would exist with a
-  compromised password. The guard matches `--password` exactly, after
+  compromised password. The guard matches `--password` and
+  `--password=<value>` only, after
   the first version of it refused `--password-stdin` — the very
   automation path it was meant to leave open.
 - `set-password` and `revoke-sessions` both end every session for
@@ -383,9 +391,13 @@ the lifetime of the process.
 
 - The **session cookie authenticates the upgrade**. No cookie, an
   unknown token and a revoked token are all closed identically with
-  `VIOLATED_POLICY`.
-- The `HELLO` frame carries `userId`, `username` and `displayName` —
-  identity only. Never the token, and never a statement of what the
+  `VIOLATED_POLICY`. Before the cookie, the upgrade's `Origin` must
+  pass the same check as a mutating request (since a 2026-10-22
+  review); a foreign one is closed with `VIOLATED_POLICY` too
+  (`socketPrincipal`, `auth/AuthGates.kt`, which the game socket
+  uses as well).
+- The `HELLO` frame carries `connectionId`, `userId`, `username` and
+  `displayName` — identity only. Never the token, and never a statement of what the
   user may do: authorization is decided server-side per action, never
   read back from a client.
 - **Authorised at connect is not authorised now.** The receive loop's

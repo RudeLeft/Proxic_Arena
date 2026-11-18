@@ -101,3 +101,12 @@ Out (and why):
 ## Amendments
 
 None.
+
+*As of 2026-11-18 (a documentation check):* spec 0018 replaced this panel.
+The trophies left the lobby for their own Hall of Champions page (`/hall`,
+frontend/src/HallPage.tsx), and the four places are ranked by the season's
+rating, not all-time wins; the rings in the lobby mark this season's
+places (code:
+server/src/main/kotlin/net/barnflix/proxic/lobby/Standings.kt:16-17,
+34-35). `STANDINGS` also carries `belt` (spec 0019) and `beltDefendBy`
+(spec 0048) (Standings.kt:105-108).

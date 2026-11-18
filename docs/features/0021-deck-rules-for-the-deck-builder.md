@@ -118,3 +118,10 @@ All four made 2026-10-27 (R1-R4, above).
   from the worker's own list, not a Scryfall sample: `CardPoolTest`
   resolves every 25th listed printing (over 3,000) and requires
   `RESOLVED`, and checks that a printing it leaves out is refused.
+
+*As of 2026-11-18 (a documentation check):* spec 0051 raised the deck size
+to 60-100 cards, so `format` now says 60-100, not 60-65 (code:
+server/src/main/kotlin/net/barnflix/proxic/deck/OpenFormat.kt:41-42). Spec
+0022 lets the device token open three Deck Builder routes as well as the
+deck rules
+(server/src/main/kotlin/net/barnflix/proxic/auth/SignedInGate.kt:96-104).

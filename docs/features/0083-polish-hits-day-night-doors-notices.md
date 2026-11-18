@@ -45,7 +45,7 @@ Phase 10 A-22 (graphical improvements), from the deep dive "Phase 10 graphical g
 
 ### As built (2026-11-13)
 
-Built as approved (13 B, 14 C, 15 A, 16 A, 17 split, 18 B, L1-L3 fixed); unreleased.
+Built as approved (13 B, 14 C, 15 A, 16 A, 17 split, 18 B, L1-L3 fixed); unreleased then (released in 1.68.0; noted 2026-11-18).
 
 **Worker.**
 - Stack entries carry `splitSecond` (Forge's own keyword check, the one `MagicStack#isSplitSecondOnStack` reads) and `cantBeCountered` (Forge's `Spell#isCounterableBy`, asked with no countering spell), for a spell the viewer may identify (`Polish.java`).

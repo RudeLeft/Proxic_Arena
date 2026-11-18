@@ -62,3 +62,9 @@ Out (and why):
 ## Amendments
 
 None.
+
+*As of 2026-11-18 (a documentation check):* spec 0036 lets any identical
+cards stack, not only tokens, and spec 0037 stacks a blocked attacker with
+its twins when twins of its blockers block them (identical pairs stack);
+an attacker blocked by a different card still stands alone (code:
+frontend/src/battlefield/layout.ts:438-465, `pileKey`).
