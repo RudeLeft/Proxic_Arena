@@ -1,6 +1,7 @@
 # 0095 — Snappy frames: less work per game update, and a real-game speed test
 
 **Status:** Approved 2026-11-16 (owner, by prompt, after the frame-rate deep dive of 2026-11-16; no look changes, so no canvas).
+**Released:** in 1.71.0 (CHANGELOG 1.71.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decision:** **fix causes 1-6 and 7 (the bigger one), plus a real-game speed test**.
 
 From the owner's list of 2026-11-16, item 3: "I have noticed some frame rate drops since the last couple of updates … the game needs to be very snappy."

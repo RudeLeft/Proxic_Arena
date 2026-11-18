@@ -326,7 +326,7 @@ Spec 0100: a spell on the stack says what its caster chose as it was cast
 evoked, entwined, escalated), multikicker's `kicks`, an overloaded spell's
 `hits`, and each divided target's `amount`; an Aura on a player says which
 (`attachedToPlayer`); a change of a spell's targets is an `action` report
-(RETARGET) to that spell's controller. Spec 0101: `survived` also names a
+(RETARGET) to that spell's controller, unless that player changed it. Spec 0101: `survived` also names a
 shield counter used ("shield"), a prevented hit says `by` ("shield",
 "prevent-next"), `preventNext` rides on a permanent or player, a stack
 entry says `ward`, the round's `left` lists stack entries that left without

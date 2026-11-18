@@ -44,6 +44,8 @@ missing, and the defaults had gaps:
 
 **No stop options.** The game menu has Concede and Abandon only.
 
+*As of 2026-11-18 (a documentation check): the gear menu now also holds spec 0103's "Bigger text" switch, above Concede and Abandon match; it still has no stop options (code: frontend/src/battlefield/GameScreen.tsx:5883-5912).*
+
 **One rule.** The game stops for you only when you hold something you
 could really play right then (tapping a land alone never counts), and
 only at these moments:

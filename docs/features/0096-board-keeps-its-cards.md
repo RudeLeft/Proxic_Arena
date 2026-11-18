@@ -1,6 +1,7 @@
 # 0096 — The board keeps its cards between game updates
 
 **Status:** Approved 2026-11-16 (owner, by prompt: "Commit now, follow-up later", after 0095's measurements; no look changes, so no canvas). To build after 0093 and 0094.
+**Released:** in 1.71.0 (CHANGELOG 1.71.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 
 The follow-up to 0095. From the owner's list of 2026-11-16, item 3 ("the game needs to be very snappy").
 

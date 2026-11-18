@@ -72,6 +72,11 @@ A third shared face, `--pa-mono`, names the one monospace use (the
    that is not a token (the board's card-relative sizes excepted by
    name), so the scale cannot drift.
 
+   *As of 2026-11-18 (a documentation check): spec 0103's "Bigger text" switch
+   multiplies some game-screen sizes by `--bf-text-scale` (1.25 when on); the
+   gate accepts a scale step times that factor and nothing else (code:
+   frontend/src/typeScale.test.ts:33).*
+
 ## Acceptance tests
 
 | ID | Test | Evidence |

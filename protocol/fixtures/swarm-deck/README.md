@@ -1,9 +1,10 @@
 # The swarm test deck
 
 A legal 60-card Open Format deck that floods the board with identical
-1/1 Goblin tokens, for big combats (specs 0036 and 0037): stacks of
-identical tokens, blockers riding on their attackers, and blocking a
-stack with a stack ("block many at once").
+1/1 Goblin tokens, for big combats (specs 0036 and 0037, Phase 9 W-14,
+Phase 10 A-12): stacks of identical tokens, blocking a stack with a
+stack (one blocker on each attacker), and each blocker standing facing
+the attacker it blocks.
 
 ```text
 Swarm Test Deck.txt   36 Mountain

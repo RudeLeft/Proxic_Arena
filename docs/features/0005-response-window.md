@@ -100,4 +100,7 @@ was removed by spec 0035, and the scenario with it.
 <name>": since Phase 9 W-25 their line reads "<name>’s move" with what
 the player is doing under it (code:
 frontend/src/battlefield/GameScreen.tsx:252 (re-pointed 2026-11-18);
-frontend/src/battlefield/stops.ts:185-232).
+frontend/src/battlefield/stops.ts:185-294, re-pointed 2026-11-18). The button
+reads "Resolves in 5", with "Your <card> · click to resolve now" under it,
+not "Resolving in 2…" (spec 0034; code:
+frontend/src/battlefield/GameScreen.tsx:4320-4323; added 2026-11-18).

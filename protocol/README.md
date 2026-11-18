@@ -617,7 +617,9 @@ action.cards[i].table     spec 0103, items 1-2 (owner option A, 2026-11-18):
                           list (battlefield, hand, otherHands, casting,
                           graveyard, exile, command, libraryTop): never a
                           card only on the stack, never one in a hidden zone,
-                          never on a card hidden from the reader
+                          never on a card hidden from the reader, and
+                          only on a card this reader may identify
+                          (`known`: a face-down card on view stays a back)
                           (HiddenIds.keepTableLinks, then HiddenIds.strip);
                           absent otherwise. In `gathered` reports too
 action.marks              spec 0075: pictures that are not cards, in
@@ -663,9 +665,10 @@ snapshot.knownTop         spec 0103, item 4: the cards THIS viewer put on top
                           snapshot only -- never another seat's, never the
                           public view's. Each card described as shown to its
                           owner, under a stand-in id "known:SEAT:I" (never the
-                          card's own; HiddenIds). A draw pops the first; any
-                          other card moved into or within that library, or a
-                          shuffle, clears it. Absent when nothing is known
+                          card's own; HiddenIds). The top known card leaving
+                          (a draw, a mill) pops it; another known card
+                          leaving, any other card moved into or within that
+                          library, or a shuffle, clears it. Absent when nothing is known
 players[i].thisTurn       spec 0103, item 5: {spells, lifeGained,
                           leftBattlefield}: spells this player cast this
                           turn, life it gained this turn, and whether a
@@ -917,8 +920,9 @@ stack[]             B2  per entry, besides id and description:
                                     (Forge's keyword origin, Keyword.WARD)
                         cantBeCountered spec 0083: true on a spell Forge's
                                     Spell#isCounterableBy says no counterspell
-                                    can counter (Abrupt Decay). Both only for
-                                    a spell this viewer may identify
+                                    can counter (Abrupt Decay). splitSecond and
+                                    cantBeCountered only for a spell this
+                                    viewer may identify
                         description is "Face-down spell" when its source
                                     is a face-down card this viewer may not
                                     identify (it began with the card's name)
@@ -1105,7 +1109,7 @@ POST /api/matches/test-deal        signed in + CSRF, like every /api/matches rou
   204   queued for the NEXT match between exactly these two accounts
         (taken once; forgotten after 10 minutes)
   400   not two different players, more than 7 for a hand, 60 for the top,
-        or a blank name
+        or a blank or over-200-character card name
   403   NOT_YOUR_MATCH -- the caller is not one of the two
   422   NO_SUCH_PLAYER
 ```

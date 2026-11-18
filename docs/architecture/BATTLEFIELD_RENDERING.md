@@ -249,7 +249,11 @@ rather than teleports.
    stops at its target card's top edge, with a ripple and sparks on the
    target (a card's picture, a player's life shield -- `beamToBanner`, one
    arc from the stack card's top edge or bottom corner -- or a card on the
-   stack); a block is a fixed-size shield-and-steel mark on the attacker's
+   stack); *as of 2026-11-18 (a documentation check): since spec 0100 only
+   your own beams are gold, with a slow glint; the other player's are
+   blue-violet (#8f9cff) with soft motes, an evoked spell's beam is grey, a
+   kicked spell's is doubled, and a beam whose target changes swings to the
+   new one (code: frontend/src/battlefield/Arrows.tsx:19, 25-26, 186);* a block is a fixed-size shield-and-steel mark on the attacker's
    picture (one per blocker, four or more one mark with the number); there
    is no attach line at all (the `attaching` chain is removed); and while
    targets are chosen `AimPointer.tsx` draws the beam from the card being

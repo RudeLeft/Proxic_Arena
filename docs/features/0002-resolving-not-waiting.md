@@ -80,4 +80,4 @@ with what the screen shows them doing under it ("Choosing blockers", "May
 respond to your Lightning Bolt", or the step and whose turn it is), and
 "One moment" while nobody else is being asked. "Resolving…" with the
 card's name is as Amendment 1 says (code:
-frontend/src/battlefield/stops.ts:185-232).
+frontend/src/battlefield/stops.ts:185-294, re-pointed 2026-11-18).

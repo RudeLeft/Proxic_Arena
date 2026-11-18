@@ -1,6 +1,7 @@
 # 0101 — Outcomes: survive statuses, "didn't happen", combat abilities
 
 **Status:** Approved 2026-11-17 (owner, by prompt, deep dive 3). Phase 10.
+**Built:** 2026-11-18, unreleased (commit 1a4b775; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions** (`Phase 10 deep dive 3 decisions.md`, all approved 2026-11-17):
 combat Q6 **version 3 approved as shown** (seven survive rows; owner rule: "every survive status needs a badge and a graphic when used up"; every shield up about 0.15 s before the hit; a grey number rises) · missed Q3 **A** (shield counter: the silver shield cracks) · combat Q5 **A** (didn't happen: always 0074's grey crumble, never the resolved glow or a spark) · missed Q5 **A** (a countered ability crumbles, and a window to the ability's controller) · combat Q1 **A** (printed combat abilities as gold squares from the attack through damage, each popping as it works).
 

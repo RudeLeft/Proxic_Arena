@@ -242,6 +242,14 @@ Forge's messages to a player -- reveals, coin flips ("You win the flip" /
 in Forge's wording (`MessageUtil`), and checked never to name a card
 only in an opponent's hand (P6-G).
 
+*As of 2026-11-18 (a documentation check): coin flips and chosen values
+have been report windows since spec 0075 and a game restart a RESTART
+report since spec 0097 (item 4); the only notice the worker still sends
+(`GameHost.note`) is the ante line "Every copy of … was taken out of your
+deck before the game: ante is not played." (code:
+forge-worker/src/main/java/net/barnflix/proxic/worker/game/MatchController.java:6097-6107,
+5903; GameHost.java:386).*
+
 **Naming a card (PHASE_09 Amendment 16).** The name-a-card question lists
 the cards its player may click to name (`arrange.name.objects`): only
 cards that player can already see -- on the battlefield, in a graveyard,

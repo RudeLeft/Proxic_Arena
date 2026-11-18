@@ -62,3 +62,11 @@ waiting line, and the dot's row made the name hop as priority passed.
 The row under the name now holds only the Belt. The plate's hidden
 summary for screen readers says ", has priority" instead. See
 `docs/features/0092-dot-mana-windows-zs.md`.
+
+*As of 2026-11-18 (a documentation check): spec 0103 (item 5) added three small
+"this turn" counts (spells cast, life gained, a permanent left the table)
+under the name, above the Belt, on both plates (code:
+frontend/src/battlefield/GameScreen.tsx:3637-3643). Spec 0031 replaced the
+tile grid above: both plates have Library across the top with Graveyard and
+Exile under it, and the opponent's hand is drawn on the board, not a tile
+(code: frontend/src/battlefield/GameScreen.tsx:3707-3770).*

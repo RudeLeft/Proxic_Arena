@@ -82,7 +82,10 @@ Out (and why):
   small and need no download.
 - **The game screen's chat drawer.** It shows the same lobby lines and
   keeps its plain look; reactions, events and the divider are the lobby
-  panel's.
+  panel's. *As of 2026-11-18 (a documentation check): spec 0013 gave the game its own
+  chat, separate from the lobby's, with the lobby panel's look, reactions
+  and "New" marker; spec 0064 made it a window with Chat and Play log tabs
+  (code: frontend/src/battlefield/GameChat.tsx:1-12, 343-354).*
 
 ## Rules and boundaries
 

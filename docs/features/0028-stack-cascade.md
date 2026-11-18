@@ -73,3 +73,5 @@ trigger, and the ring round the front card runs the full 5 s with the
 button's (code: frontend/src/battlefield/GameScreen.tsx:252 (re-pointed 2026-11-18)
 `RESPONSE_WINDOW_MS`). The caption's ", N not shown" is written in
 `Board.tsx` (:904; line numbers corrected 2026-11-18; re-pointed 2026-11-18); `effects.ts` decides how many fit.
+
+*As of 2026-11-18 (a documentation check): pointing at another stack card still shows its line instead of the front card's, but no longer fades the rest: since spec 0100 (item 9) nothing dims, and the pointed card's source and targets lift a little and glow gold (code: frontend/src/battlefield/Board.tsx:3758-3768). Since spec 0100 (item 7) its beam is gold only for your own spell or ability; the other player's is blue-violet (code: Board.tsx:9414; Arrows.tsx:19).*

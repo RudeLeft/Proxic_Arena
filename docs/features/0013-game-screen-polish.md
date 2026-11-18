@@ -85,8 +85,12 @@ changing the loading picture (G3).
 None.
 
 *As of 2026-11-18 (a documentation check):* spec 0035 removed the stop
-options: the gear menu holds Concede and Abandon match only (code:
-frontend/src/battlefield/GameScreen.tsx:5904, 5912; corrected 2026-11-18; re-pointed 2026-11-18). Spectators exist
+options: the gear menu holds Concede and Abandon match, and since spec 0103 a
+"Bigger text" switch above them (code:
+frontend/src/battlefield/GameScreen.tsx:5892, 5904, 5912; Bigger text added 2026-11-18; corrected 2026-11-18; re-pointed 2026-11-18). Spectators exist
 since spec 0047; they have no game chat (spec 0067 gives them the public
 play log only). Spec 0064 made the chat a window with Chat and Play log
 tabs that can be undocked (frontend/src/battlefield/GameChat.tsx:1-12).
+Spec 0029 moved each player's picture into the plate's head, beside the
+name; the life total is the banner on the plate's right (code:
+frontend/src/battlefield/GameScreen.tsx:3624-3631, 3656; added 2026-11-18).

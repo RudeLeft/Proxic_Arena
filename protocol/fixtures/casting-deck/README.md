@@ -1,7 +1,8 @@
 # The casting test deck
 
 A legal 60-card Open Format deck for spec 0044 (the card being cast,
-docked beside the stack, face down to the opponent until committed).
+face down to the opponent until committed; since spec 0068 it stays in
+the middle of the screen instead of docking beside the stack).
 
 ```text
 Casting Test Deck.txt  24 Plains
@@ -13,8 +14,9 @@ Casting Test Deck.txt  24 Plains
 ```
 
 The Slivers put creatures in the middle of the table;
-Swords to Plowshares asks for a target there (the card docks, and the
-creature under the middle is clicked with a real mouse); Archon's Glory
+Swords to Plowshares asks for a target there (the card stays in the
+middle of the screen, and the creature under it is clicked with a real
+mouse); Archon's Glory
 asks its Bargain question while it is still in the hand.
 
 Used by `frontend/e2e/match-casting-dock.spec.ts`. CI builds the package

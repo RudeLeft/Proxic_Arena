@@ -108,7 +108,7 @@ always a stop when you have something to do), never "End turn"
 (code: frontend/src/battlefield/stops.ts:131). Waiting reads "Pat’s
 move", with what the screen shows under it: "Choosing attackers",
 "Choosing blockers", "May respond to your Lightning Bolt", or the step
-and whose turn it is (Phase 9 W-25; stops.ts:185-292). Game over says why
+and whose turn it is (Phase 9 W-25; stops.ts:185-294, re-pointed 2026-11-18). Game over says why
 from the game's own reason: "Pat lost: had to draw from an empty
 library", "Pat’s life fell to -3", or "Pat conceded" (specs 0045 and
 0067; stops.ts:313-351).
