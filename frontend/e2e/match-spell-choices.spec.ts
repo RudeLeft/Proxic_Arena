@@ -80,18 +80,51 @@ const swingsOf = (page: Page) =>
 const saidOf = (page: Page) =>
   page.evaluate(() => (window as unknown as { __said: string[] }).__said);
 
-/** A real mouse click on the middle of an element. */
-async function realClick(page: Page, target: Locator) {
-  const box = await target
+/**
+ * A point on the element that the mouse would really hit: inside the
+ * window and not under another card. A hand card stands partly below the
+ * window's edge and under its right-hand neighbour -- CI run 44314547756:
+ * with the host on the draw its first Mountain's middle was at y 1080.3 in
+ * a 1080 window, and 120 s of clicks there hit nothing.
+ */
+const hitPoint = (l: Locator) =>
+  l
     .first()
-    .boundingBox({ timeout: 2_000 })
+    .evaluate(
+      (el) => {
+        const r = el.getBoundingClientRect();
+        const top = Math.max(r.top, 0);
+        const bottom = Math.min(r.bottom, window.innerHeight - 2);
+        const left = Math.max(r.left, 0);
+        const right = Math.min(r.right, window.innerWidth - 2);
+        if (bottom <= top || right <= left) return null;
+        for (const fy of [0.5, 0.3, 0.7, 0.15, 0.85])
+          for (const fx of [0.5, 0.3, 0.15, 0.7, 0.85]) {
+            const x = left + (right - left) * fx;
+            const y = top + (bottom - top) * fy;
+            const hit = document.elementFromPoint(x, y);
+            if (hit && (hit === el || el.contains(hit))) return { x, y };
+          }
+        return null;
+      },
+      null,
+      { timeout: 2_000 },
+    )
     .catch(() => null);
-  if (!box) return false;
-  const x = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
-  await page.mouse.move(x, y, { steps: 6 });
+
+/**
+ * A real mouse click on an element. Aimed again after the mouse arrives:
+ * a hand that fans anew (a card drawn) slides its cards under the pointer
+ * -- the same CI run clicked the host's Gray Ogre for a Mountain so.
+ */
+async function realClick(page: Page, target: Locator) {
+  const first = await hitPoint(target);
+  if (!first) return false;
+  await page.mouse.move(first.x, first.y, { steps: 6 });
   await page.waitForTimeout(150);
-  await page.mouse.click(x, y);
+  const at = await hitPoint(target);
+  if (!at) return false;
+  await page.mouse.click(at.x, at.y);
   return true;
 }
 
@@ -410,8 +443,7 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
           .locator('.bf-cards button[data-choosable="true"][data-controller="viewer"]')
           .filter({ hasText: /^Spellskite/ });
         if (!isHost && boltCast && !skiteClicked && boltUp && (await skite.count()) > 0) {
-          await realClick(page, skite);
-          skiteClicked = true;
+          skiteClicked = await realClick(page, skite);
           continue;
         }
         const stackEmpty = (await page.locator('button[data-zone="stack"]').count()) === 0;
