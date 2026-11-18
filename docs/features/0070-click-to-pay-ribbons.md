@@ -1,6 +1,7 @@
 # 0070 — Click-to-pay ribbons: every card you pick is marked at once
 
 **Status:** Approved 2026-11-09 (owner, by prompt, on the canvas "tap-to-pay" in the Deck Builder chat, handed to this project's chat)
+**Released:** in 1.56.0 (CHANGELOG 1.56.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** every card-by-card cost marks the card the moment you pick it with a **Ribbon** (colour + word); cards picked to tap lean **5 degrees** (never turned sideways before the cost is paid); **clicking a picked card again un-picks it**; **the other player sees nothing** until the cost is paid.
 
 ## Why (researched)

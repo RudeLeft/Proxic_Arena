@@ -73,3 +73,11 @@ Out (and why):
 1. **As built (2026-11-04, a documentation check).** "Resolving Krenko,
    Mob Boss…" is two lines on the button: "Resolving…" with the card's
    name under it (`stops.ts`, `GameScreen.tsx`).
+
+*As of 2026-11-18 (a documentation check):* the rail's waiting line no
+longer reads "Waiting for Pat": since Phase 9 W-25 it reads "Pat’s move",
+with what the screen shows them doing under it ("Choosing blockers", "May
+respond to your Lightning Bolt", or the step and whose turn it is), and
+"One moment" while nobody else is being asked. "Resolving…" with the
+card's name is as Amendment 1 says (code:
+frontend/src/battlefield/stops.ts:185-232).

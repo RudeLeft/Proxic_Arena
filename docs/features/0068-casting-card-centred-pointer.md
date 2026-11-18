@@ -1,6 +1,7 @@
 # 0068 — The casting card stays in the middle; an obsidian pointer
 
 **Status:** Approved 2026-11-09 (owner, on the canvas "casting-cursor-1109", sent as a file)
+**Released:** in 1.55.0 (CHANGELOG 1.55.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** casting card A · Centred, see-through; keep today's bob and tilt; battlefield pointer D · Obsidian arrow with a gold edge (one pointer, no per-action icons)
 
 ## Why (researched)

@@ -1,6 +1,7 @@
 # 0072 — The other player's spells rise from where they are cast
 
 **Status:** Approved 2026-11-11 (owner, by prompt, on the canvas "opp-cast-1111", https://claude.ai/artifact/D1v6VHFhQ8pPYqmFr4qbvz)
+**Released:** in 1.57.0 (CHANGELOG 1.57.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** look **A · Rise from his hand**; a card cast from a pile where it was face up (flashback, escape from a graveyard; an Adventure or "you may play it" card from exile; the revealed top of a library) **rises showing its face**; a cancelled cast goes **back where it came from**.
 
 Phase 10, item A-21 (the stack), part "the other player's casts"; the jump audit's row 7 (Amendment 1: 1,278 times in the Lab games).

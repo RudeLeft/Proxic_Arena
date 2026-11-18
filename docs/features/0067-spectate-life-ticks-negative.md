@@ -1,6 +1,7 @@
 # 0067 — Spectate, life that ticks per hit and can go negative
 
 **Status:** Approved 2026-11-09 (owner, on the canvas "batch-1109", sent as a file)
+**Released:** in 1.55.0 (CHANGELOG 1.55.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** item 1 A · Step per hit (a pile of identical tokens hits once for its total); items 2-6, 8, 9, 10 all as recommended on the canvas, including the 9 "Yes" lines of the spectating checklist (spectators do not read chat; no spectator limit). Items 7 (big casting card) and 11 (pointer) go to their own canvas.
 
 ## Why (researched)

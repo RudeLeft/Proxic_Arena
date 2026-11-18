@@ -1,6 +1,7 @@
 # 0069 — Arrows with effects: molten blade, beam, ripple, shield-and-steel
 
 **Status:** Approved 2026-11-09 (owner, by prompt, on the filmed canvases "arrow-looks-1109" a-d and the earlier arrow review in the Deck Builder chat)
+**Released:** in 1.56.0 (CHANGELOG 1.56.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** Attack A2 · Molten blade (at a player only when pointed at; at a planeswalker or battle always). Spell or ability at a card T4 · Beam, landing with L3 · Ripple and sparks (the rune circle is dropped so cards and players match). Spell at a player: the same beam in one gentle arc onto the player's life shield, landing with L3 · Ripple and sparks. Blocks B4 · Shield and steel with the swords' clash, one fixed size; 1-3 blockers one mark each, 4 or more one centred mark with the number; no arrows. Attach: glow and tab preview, no line. Source: today's dotted thread stays. Also: the target pointer shows while choosing targets, and a spell or ability aimed at something on the stack (a counterspell) marks it.
 
 Supersedes the arrow looks of specs 0063 and 0066 (their timing rules stay: a stack arrow waits for its card to land).

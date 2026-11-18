@@ -1,6 +1,7 @@
 # 0099 — The last two jumps: a card cast out of your library, a creature paid as a cost
 
 **Status:** Approved 2026-11-16 (owner, by prompt: Q1 "Approve"; Q2 "Fix all, count waits" -- Q2a, Q2b and Q2c all in this spec). Canvas: "Last Two Jumps" (Q1, Q2), https://claude.ai/artifact/RonoXEWctBj4ydA3wCrgQQ. Found by the Phase 10 final jump check (release 1.71 run: `frontend/tools/jumps/jumps.spec.ts` + `scripts/check-jumps.py`, 364 Lab traces, both seats); both confirmed by eye on the slow-motion clips. The owner approved fixing both before the Phase 10 play-through.
+**Released:** in 1.72.0, with Amendment 1 (CHANGELOG 1.72.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 
 ## Why (researched)
 

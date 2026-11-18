@@ -1,6 +1,7 @@
 # 0073 — Cards and tokens visibly join a pile, and peel off it
 
 **Status:** Approved 2026-11-12 (owner, by prompt, on the canvas "piles-1112", https://claude.ai/artifact/9FF67JH61BWFrJoV8n2mHU)
+**Released:** in 1.58.0 (CHANGELOG 1.58.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** joining **A · Glide onto the pile**; tokens **from their source, one by one**; leaving **D · Peel off**.
 
 Phase 10 items A-02 (a card joining a pile), A-15 (tokens made; copies are a later canvas), and the pile part of A-04/A-05 (one card of a pile destroyed or exiled); the jump audit's rows 5 and 6 (Amendment 1: about 1,090 joins and 22 leaves not shown).

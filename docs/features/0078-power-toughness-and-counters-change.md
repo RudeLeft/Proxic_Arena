@@ -1,6 +1,7 @@
 # 0078 — Creatures getting bigger or smaller, damage left, loyalty
 
 **Status:** Approved 2026-11-12 (owner, by prompt, on the canvas "pt-1112", https://claude.ai/artifact/79k1e8y9dA5hvVBEpemG8y)
+**Released:** in 1.63.0 (CHANGELOG 1.63.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** getting bigger **A · pop, tick and float**; a counter arriving **A · badge grows in, number pops**; getting smaller **red, like damage**; a creature killed by shrinking **shrinks, then shatters** (small worker change); Anthem **A · all together**; end of turn **B · with a grey float**; damage left **A · the toughness left, in red**; at rest **A · green bigger, red smaller**; planeswalker **A · tick with a float**; a counter taken off **B · like a shrink**. Owner: "I really like the rising numbers ... it really illustrates what's happening" -- every number change gets its rising number.
 
 Phase 10 item A-18 (counters and power/toughness changing). Same language as spec 0077 (life: green rise, red impact with the small shake, point-by-point ticks) and 0076 (counter badges).

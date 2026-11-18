@@ -1,6 +1,7 @@
 # 0081 — Free spells rise from the hand; cards exiled from a hand or library are shown
 
 **Status:** Approved 2026-11-13 (owner, by prompt, on the Phase 10 finish-line clips `Arrow videos/phase10-finish/findings/gap-their-free-spell-*` and `gap-their-pitch-exile-from-hand-quarter`)
+**Released:** in 1.66.0 (CHANGELOG 1.66.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decision:** "Fix both now". No new look: both reuse looks the owner has already approved (0072's rise from the hand, 0074's lift-and-drop / stream to a pile, A-05's exile).
 
 Phase 10 exit gate: the two real gaps the full jump check found (finish line, 2026-11-13). Drawing (A-03) was accepted as it is on the same prompt.

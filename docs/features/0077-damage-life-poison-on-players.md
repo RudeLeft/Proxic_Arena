@@ -1,6 +1,7 @@
 # 0077 — Damage, life and poison on a player's life shield
 
 **Status:** Approved 2026-11-12 (owner, by prompt, on the canvas "life-1112", https://claude.ai/artifact/SKkU7MDodUcVn5to93nLUn)
+**Released:** in 1.62.0 (CHANGELOG 1.62.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** damage **A · Impact**; life loss **looks the same as damage**; big changes **B · point by point**; poison **A · by the life shield** -- touching the shield, but further down and to the left so it never covers the life number. Life gain: a green "+N" rising with a soft glow, one tick per trigger (as on the canvas).
 
 Phase 10 item A-19 (life, poison and damage to players). Combat damage to a player already ticks per hit with a red shake (spec 0067); prevented damage is A-20.

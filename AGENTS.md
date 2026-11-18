@@ -93,6 +93,11 @@ you were asked to do, stop and say so.
 | `docs/architecture/OPEN_FORMAT.md` | The only supported play mode. Read before anything format-related. |
 | `docs/architecture/RULES_COVERAGE.md` | Who applies each Magic rule (Forge), what Arena enforces on Forge's behalf, every answer Arena gives without asking, and the proof of each. Change it with any change to how a rule is applied. |
 | `docs/architecture/DECK_PACKAGE_AND_ART.md` | The Deck Builder ZIP contract and the card-art pipeline. |
+| `docs/architecture/DECK_PACKAGE_FORMAT.md` | The deck package itself, as it really works between the Deck Builder and Arena. |
+| `docs/architecture/DECK_IMPORT_PIPELINE.md` | What happens between a package arriving and a deck existing, and where each step's code lives. |
+| `docs/architecture/LOBBY_ARCHITECTURE.md` | How a room works: who owns what, what is kept, what happens when things go wrong. |
+| `docs/architecture/LOBBY_PROTOCOL.md` | The lobby wire: routes, socket events, snapshots and refusals. |
+| `docs/architecture/MATCH_SETUP_CONTRACT.md` | The handoff from a room to a running match: the frozen match setup. |
 | `docs/architecture/BATTLEFIELD_LAYOUT_CONTRACT.md` | Normative battlefield geometry. |
 | `docs/architecture/BATTLEFIELD_RENDERING.md` | **How the board is rendered: React DOM + SVG overlays, one renderer.** PixiJS is a measured contingency, not the plan. Supersedes Phase 7 §7.15 (owner decision 2026-10-19, Phase 1 Amendment 3). Read before touching the battlefield. |
 | `docs/architecture/AUTHENTICATION.md` | How identity works: hashing, sessions, cookies, CSRF, the admin tool. Read before touching anything in `auth/`. |

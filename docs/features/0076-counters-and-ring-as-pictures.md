@@ -1,6 +1,7 @@
 # 0076 — Counters and the Ring-bearer as picture badges
 
 **Status:** Approved 2026-11-12 (owner, by prompt, on the canvas "counters-1112", https://claude.ai/artifact/BEqbA11StaJi4pJoF9fr1P)
+**Released:** in 1.61.0 (CHANGELOG 1.61.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** **A · One badge per kind** (with 4 or more kinds, the extras fold into a grey "··· N" badge); Ring-bearer **gold ring only**; a single counter **shows "1"**.
 
 From the owner's audit (spec 0075: "counters and the Ring-bearer become pictures in a separate spec"). The owner plans Phase 11 to add statuses to cards, so this sets a small badge language that can grow: **a round badge with a picture and a number = something you count; a gold-rimmed square = something the card is.** Colour always comes with a picture, never colour alone.

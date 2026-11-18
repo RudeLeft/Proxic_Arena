@@ -122,3 +122,13 @@ All taken 2026-10-29 (see the top).
    empties, until the tidy-up at that side's untap step) and the tapped
    stack stands in a tapped group at the row's far (left) end. See
    `docs/features/0093-lands-that-stay-put.md`.
+
+4. **As built (2026-11-18, a documentation check).** The list of facts a
+   stack compares has grown: phased out and regeneration shields (spec
+   0080), and gained keywords, a given "can't be blocked" and lost
+   abilities (spec 0085). More cards stand alone: a card picked to pay a
+   cost (spec 0070's marks), the held place of a card that left while a
+   spell still aims at it (spec 0079), and a card holding exiled cards
+   (spec 0085).
+   A blocked attacker no longer always stands alone: identical blocked
+   pairs stack (spec 0037) (code: frontend/src/battlefield/layout.ts:410-465).

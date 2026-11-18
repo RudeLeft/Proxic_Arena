@@ -1,6 +1,7 @@
 # 0071 — Reports above your hand, revealed cards on a point, picks that stay in a window
 
 **Status:** Approved 2026-11-11 (owner, by prompt, on the canvas "small-fixes-1111", https://claude.ai/artifact/M5H8EfHdchakmoQy2JFKYg)
+**Released:** in 1.57.0 (CHANGELOG 1.57.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** report box **A · Above your hand**; another player's revealed hand cards **B · Point to see**; cards picked in a window **A · Stay, signed, take back**.
 
 Three defects found while filming spec 0070 (1.56.0).

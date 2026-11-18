@@ -1,6 +1,7 @@
 # 0092 — No priority dot, no mana-colour windows, summoning-sickness z's that never stack
 
 **Status:** Approved 2026-11-16 (owner, by prompt, on the canvas "Owner list 2026-11-16", https://claude.ai/artifact/Ky53Huv37tXYsLXWLqDMZq, sections 1 and 7; item 5 by prompt from the owner's live screenshot).
+**Released:** in 1.71.0 (CHANGELOG 1.71.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** section 1 **A · remove it**; item 5 **stop mana-colour windows**; section 7 **B · floating z's, spaced**.
 
 From the owner's list of 2026-11-16, items 1, 5 and 7.

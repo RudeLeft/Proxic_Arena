@@ -1,6 +1,7 @@
 # 0074 — Discards, mills, countered spells, and cards leaving a graveyard or exile
 
 **Status:** Approved 2026-11-12 (owner, by prompt, on the canvas "grave-1112", https://claude.ai/artifact/CG9TUMfS1yG8PTnj4DiYCE)
+**Released:** in 1.59.0 (CHANGELOG 1.59.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** discard **A · Lift and drop**; mill **C · Stream**; countered **F · Struck by the beam**; out of a graveyard or exile **H · Rise and show** (a whole graveyard exiled: **swept as one**).
 
 Phase 10 items A-06 (discarded, milled, a spell countered; sacrifice was done in Amendment 6) and the graveyard/exile part of A-14; the jump audit's row 10 (Amendment 1: about 130 not shown).
