@@ -254,7 +254,8 @@ revision. `EXPIRED` is no longer sent (the 24-hour rule is gone).
   The same for every viewer, which is safe only because it carries
   **no deck** (§7.68); since spec 0016 it also says who an open seat is held for.
 - `PLAYERS` is every active account (`userId`, `username`,
-  `displayName`), online or not; presence says who is online.
+  `displayName`, and `avatar` (spec 0006) and `lastSeenAt` (spec 0009)
+  when there is one), online or not; presence says who is online.
 - Invitations are **one at a time both ways** and have **no timer**.
   `INVITATION_ENDED.reason` is `ACCEPTED`, `DECLINED`, `WITHDRAWN`,
   `ROOM_CLOSED`, `SEAT_FILLED` or `OFFLINE` (gone for a minute; a

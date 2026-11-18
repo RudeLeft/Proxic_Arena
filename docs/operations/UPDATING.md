@@ -98,7 +98,8 @@ https://proxic.barnflix.net/api/version
 ```
 
 Open it in a browser where you are signed in (since 2026-10-24 it
-needs a session), or read the Admin page's health pill, which shows the
+needs a session), or read the health pill on the Admin page's **Server**
+tab, which shows the
 version and a short build id.
 
 ```json

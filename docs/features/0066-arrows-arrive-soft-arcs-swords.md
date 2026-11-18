@@ -1,6 +1,7 @@
 # 0066 — Arrows that arrive with their card and arc softly; crossed swords; no "Died"
 
 **Status:** Approved 2026-11-08 (owner, on the canvas "arrows-1108", sent as a file; items 5 and 6 in chat)
+**Released:** in 1.54.0 (CHANGELOG 1.54.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** spell and ability arrows A · Soft arc; attack arrows A · Soft arc; blocks 2 · Crossed swords; remove the "Died", "Destroyed" and "Sacrificed" pills and their message; the payment box fixed as proposed
 
 The owner's list of 2026-11-08 after 1.52/1.53.
@@ -197,8 +198,10 @@ left of the stack's badges (or its caption, going under it).
 
 *As of 2026-11-17 (a documentation check):* later specs changed parts of
 this. Spec 0069: the crossed swords are its shield-and-steel mark
-(`SwordsMark`, `Arrows.tsx`), fixed at 0.13 of a card's width (the old
-swords size is kept only on a block line), and a stack card's line to a
+(`SwordsMark`, `Arrows.tsx`), one size everywhere -- a radius of 0.13 of
+a card's width, on a block line too -- sitting on the attacker's picture
+rather than in the gap (code: frontend/src/battlefield/Board.tsx:8461-8497;
+corrected 2026-11-18), and a stack card's line to a
 player is `beamToBanner`, not `studRound`. Built item 6: "Cycled",
 "Discarded: too many cards" and "Countered by ..." no longer stay -- specs
 0074/0075 removed those notices and 0097 the last word tags (`Moves.java`).

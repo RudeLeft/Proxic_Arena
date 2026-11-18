@@ -1,6 +1,7 @@
 # 0055 — Target windows say what they do
 
 **Status:** Approved 2026-11-06 (owner: option A on the canvas); built 2026-11-06
+**Released:** in 1.46.0 (CHANGELOG 1.46.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** A · Say what it does (canvas
 https://claude.ai/artifact/FB1Wo7i92d2t2Yy4h6DiQ2)
 

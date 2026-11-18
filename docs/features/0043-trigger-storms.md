@@ -88,7 +88,7 @@ All taken 2026-10-31 (above).
 
 *As of 2026-11-18 (a documentation check):* spec 0097 item 3 replaced
 that grey line with a report window to both players: "Bob's Skirk Drill
-Sergeant did nothing: he couldn't pay {2}{R}." / "Your … you couldn't
+Sergeant did nothing: they couldn't pay {2}{R}." / "Your … you couldn't
 pay …". The trigger is still not asked when it can't be paid (code:
 forge-worker/src/main/java/net/barnflix/proxic/worker/game/MatchController.java:901-922,
-ActionReports.java:896).
+ActionReports.java:896 and :1450 `unpaidSentence`).

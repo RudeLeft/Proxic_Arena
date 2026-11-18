@@ -1,6 +1,7 @@
 # 0064 — Game chat: a play log tab, and undocking
 
 **Status:** Approved 2026-11-07 (owner, on the canvas "chat-1107", sent as a file)
+**Released:** in 1.52.0 (CHANGELOG 1.52.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** tabs; floating window plus its own browser window
 
 ## Why
@@ -72,7 +73,8 @@ refresh brings it back. Never sent to another seat; spectators get no log
 named cards (`MatchArt`), which authorises that seat to fetch them, as a
 snapshot does. A server restart loses the log, as it loses the match.
 *As of 2026-11-17 (a documentation check):* since spec 0067, spectators
-get the public log (the seat-0 view's lines: `LiveMatch.kt`), and
+get the public log (the seat-0 view's lines, kept in `LiveMatch.kt`'s
+`SeatPlayLogs` and sent by `Spectating.kt`:60), and
 `check-hidden-log.py` checks that public log (seat 0) as it checks a
 seat's, instead of checking that a spectator gets none.
 Chat is still live-only (spec 0013 G2: the canvas's question on keeping

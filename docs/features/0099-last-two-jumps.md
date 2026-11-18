@@ -104,7 +104,7 @@ Proportion (TEST-013): the two Lab scripts (`check-panglacial-wurm.py`, `check-a
 
 ## As built
 
-Built 2026-11-16 on main at 3b9d540 (uncommitted at the time of writing). Page only, as specified.
+Built 2026-11-16 on main at 3b9d540 (uncommitted at the time of writing). Page only, as specified. *As of 2026-11-18 (a documentation check): released in 1.72.0 (code: tag v1.72.0; CHANGELOG.md "1.72.0").*
 
 **The changes.**
 
@@ -242,7 +242,7 @@ Proportion (TEST-013): the jump check on agent-of-kotis, piles-think-twice, shap
 
 #### As built
 
-Built 2026-11-17 on main at ff9bb40 (uncommitted at the time of writing). Page only, as specified, plus the real-click game's deck.
+Built 2026-11-17 on main at ff9bb40 (uncommitted at the time of writing). Page only, as specified, plus the real-click game's deck. *As of 2026-11-18 (a documentation check): released in 1.72.0 (code: tag v1.72.0; CHANGELOG.md "1.72.0", "Graveyard and Exile numbers").*
 
 **The changes.**
 

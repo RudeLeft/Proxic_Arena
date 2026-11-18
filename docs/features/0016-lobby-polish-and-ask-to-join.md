@@ -111,6 +111,7 @@ a time (one at a time, both ways, as Amendment 11 set for invitations).
 
 *As of 2026-11-18 (a documentation check):* spec 0018 removed the lobby's
 Hall strip (items 11-13): the trophies are on the Hall of Champions page,
-and the lobby keeps only the rings on players' pictures (code:
-frontend/src/LobbyPage.tsx imports only the Belt reminder from `hall`;
-frontend/src/HallPage.tsx).
+and the lobby keeps only the rings on players' pictures and the Belt
+holder's "Defend your belt by ..." reminder (code:
+frontend/src/LobbyPage.tsx:65 imports only `remindHolder` and `shortDate`
+from `hall`, used at :584-591; frontend/src/HallPage.tsx).

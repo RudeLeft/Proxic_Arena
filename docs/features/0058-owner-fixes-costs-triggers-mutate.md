@@ -2,6 +2,7 @@
 
 **Status:** Approved 2026-11-07 (owner, on the canvas "Your fixes,
 7 November", sent as a file; all eight as shown)
+**Released:** in 1.49.0 (CHANGELOG 1.49.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** 1-8 as shown; 3 "damage in the menu and the window";
 4 "keep the ring, explain it"; 8 both (name each trigger's card, list the
 cards inside)

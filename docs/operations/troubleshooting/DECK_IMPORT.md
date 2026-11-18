@@ -58,7 +58,10 @@ Open Format allows at most 4 copies of "Fiery Temper"; this deck has 5.
 ```
 
 Open Format is 60–100 cards, at most 4 of any card, basic lands
-unlimited, no sideboard.
+unlimited, no sideboard. Contraptions and Attractions are the one
+exception: they go in their own small deck (at least 15 Contraptions
+or 10 Attractions, one copy of each) and do not count toward the
+60–100.
 
 **"Any number" cards are not exempt.** Relentless Rats, Dragon's
 Approach and Persistent Petitioners are limited to 4 like everything

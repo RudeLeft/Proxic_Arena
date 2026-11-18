@@ -2,6 +2,7 @@
 
 **Status:** Approved 2026-11-07 (owner, on the canvas "table-1107", sent
 as a file)
+**Released:** in 1.49.0 (CHANGELOG 1.49.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** arrows B (badges, lines on pointing); share lines
 before shrinking: yes; lands: Option 1 (lands lower)
 

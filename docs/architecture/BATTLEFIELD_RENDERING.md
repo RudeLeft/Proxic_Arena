@@ -8,6 +8,9 @@
 applies per line, to creatures and everything else; lands start at the left
 edge. A tapped card tilts 5° and is never clipped (PHASE 7 AMENDMENT 4 item 6
 superseded).
+**Amended by:** spec 0093 (owner 2026-11-16): lands no longer start at the
+left edge; each land row grows leftward from a fixed spot beside the hand
+(`BATTLEFIELD_LAYOUT_CONTRACT.md` §7d, `layout.ts` `landAnchor`).
 
 ---
 
@@ -30,13 +33,11 @@ lines        SVG above the cards, pointer-events:none combat and target lines   
 effects      SVG above the cards, pointer-events:none bursts, numbers, glows           no
 ```
 
-As built: there are no attachment lines. Auras and Equipment are name
-tags across their host's picture, each its own button (PHASE 7
-AMENDMENT 4), and the one line layer sits above the battlefield and
-below the hand (§5 point 5).
-
-```text
-```
+As built: there are no attachment lines. Auras and Equipment are tabs
+on their host's right edge, each its own button (Phase 10 A-17,
+`BATTLEFIELD_LAYOUT_CONTRACT.md` §7a; they were name tags across the
+host's picture under PHASE 7 AMENDMENT 4), and the one line layer sits
+above the battlefield and below the hand (§5 point 5).
 
 One coordinate system, one input path, one render pass. Nothing is
 synchronised between two technologies, because there are not two.
@@ -132,7 +133,9 @@ Box = { x, y, w, h, scale, rotation, z }   in CSS px for the given viewport
 ## 4. Centre-out placement (owner decision 2026-10-19)
 
 *Spec 0040: per line now, and for creatures and everything else only;
-lands start at the left edge of their line.*
+lands started at the left edge of their line. Since spec 0093 they grow
+leftward from a fixed spot beside the hand (`BATTLEFIELD_LAYOUT_CONTRACT.md`
+§7d).*
 
 Every zone fills from its horizontal centre outward. One permanent sits
 in the middle of its rectangle; a second joins it and the pair stays
@@ -196,7 +199,8 @@ rather than teleports.
 5. **Overlays are SVG, `pointer-events: none`, in separate layers.**
    The plan was connectors for attachments (§7.21) *below* the card layer
    and the targeting arrow (§7.31) and glows *above*; attachments became
-   name tags on the host instead (AMENDMENT 4), so every line is above. Several layers at different z-indices are free
+   name tags on the host instead (AMENDMENT 4; side tabs since Phase 10
+   A-17), so every line is above. Several layers at different z-indices are free
    on DOM and impossible on a single canvas.
 
    As built (step 5, PHASE 7 AMENDMENT 7): the game's lines (attack, block,

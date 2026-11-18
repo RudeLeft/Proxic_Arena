@@ -109,4 +109,4 @@ rating, not all-time wins; the rings in the lobby mark this season's
 places (code:
 server/src/main/kotlin/net/barnflix/proxic/lobby/Standings.kt:16-17,
 34-35). `STANDINGS` also carries `belt` (spec 0019) and `beltDefendBy`
-(spec 0048) (Standings.kt:105-108).
+(spec 0048) (Standings.kt:105-109).

@@ -3,6 +3,7 @@
 **Status:** Approved 2026-11-06 (owner, on the canvas "Your fixes from
 November 6", and item 5 on its own canvas "Cycling Lands Choices", both
 sent as files: publishing to claude.ai failed that afternoon)
+**Released:** in 1.46.0 (CHANGELOG 1.46.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** 1 A, 2 build, 3 "Cancel" and the action, 4 A,
 5 A for every card, 6 A, 7 A
 

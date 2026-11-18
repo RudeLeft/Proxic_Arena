@@ -66,8 +66,9 @@ again at every connection. A spectator gets `MATCH_HELLO` with `seat: 0`
 and `spectator: true`, then the **public view** (a `MATCH_SNAPSHOT` whose
 state has `spectator: true` and `viewFrom`: no hand, nothing face down)
 carrying the **public play log** so far (spec 0067: only what every
-player may see, `MATCH_STATE_VISIBILITY.md`), `MATCH_STEP`, and
-`MATCH_ASKING`. It is never asked anything, and whatever it sends is
+player may see, `MATCH_STATE_VISIBILITY.md`) and `MATCH_ASKING`, and
+after that the public view, `MATCH_STEP` and `MATCH_ASKING` as they
+change (`spectate` in `MatchSocket.kt`). It is never asked anything, and whatever it sends is
 dropped. The players get `WATCHING` (`count`, people watching, and spec
 0067's `names`: their display names, each person once) as it changes.
 The worker builds the public view only while somebody is watching

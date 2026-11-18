@@ -1,6 +1,7 @@
 # 0060 — Player pictures recover by themselves; a wider players list
 
 **Status:** Approved 2026-11-07 (owner, in chat, after the deep dive)
+**Released:** in 1.50.0 (CHANGELOG 1.50.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** pictures retry by themselves; never cache a failure;
 players column grows with the screen. Not chosen: pictures without signing
 in (the sign-in-screen rule stands).

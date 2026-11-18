@@ -1,6 +1,7 @@
 # 0065 — No logo on the table; the mana vortex loading screen
 
 **Status:** Approved 2026-11-07 (owner, on the canvas "loading-1107", sent as a file)
+**Released:** in 1.51.0 (CHANGELOG 1.51.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** remove the logo from the battlefield and the loading screen; option A · Mana vortex
 
 ## Built

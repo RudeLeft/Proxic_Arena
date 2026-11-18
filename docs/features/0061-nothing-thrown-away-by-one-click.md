@@ -1,6 +1,7 @@
 # 0061 — Nothing thrown away by one click; say why a card left
 
 **Status:** Approved 2026-11-07 (owner, on the canvas "cast-1107", sent as a file)
+**Released:** in 1.51.0 (CHANGELOG 1.51.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** all five; the end-of-turn discard way (a)
 
 ## Why (the owner's game record, 2026-11-07)

@@ -514,6 +514,7 @@ forge_patches/             owner-approved Forge fixes; see its README
 scripts/                   Mechanics Lab scenarios (check-*.py), tools
 Test Deck/                 Mechanics Lab corpus (read-only input)
 spikes/                    Phase 0A measurement harnesses
+ci/                        CI helpers: browser-test sharding, skip list, docs-only check
 ```
 
 ## Where to start reading

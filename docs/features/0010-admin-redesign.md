@@ -96,4 +96,6 @@ records (spec 0048) and Server (code: frontend/src/AdminPage.tsx:64-78).
 has no Set password: it holds Send password reset (spec 0026), Change
 display name (spec 0041 Amendment 3), Linked computers (spec 0027), Sign
 out everywhere, Make admin / Make player and Disable / Enable
-(AdminPage.tsx:556-655).
+(AdminPage.tsx:556-655). Spec 0020 moved the health pill from the page's
+heading into the Server tab's title row, with a red dot on the Server
+tab's name when there is a problem (AdminPage.tsx:256-259, 803-806).

@@ -1,6 +1,7 @@
 # 0062 — A spark of mana for every payment
 
 **Status:** Approved 2026-11-07 (owner, on the canvas "mana-1107", sent as a file)
+**Released:** in 1.52.0 (CHANGELOG 1.52.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** look C · Spark arc; the plan as written on the canvas
 
 ## Why

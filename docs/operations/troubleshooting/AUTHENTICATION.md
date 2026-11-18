@@ -272,7 +272,7 @@ works in that browser, the socket will too.
 
 The one refusal that is not about the cookie: since a 2026-10-22
 review the upgrade's `Origin` must pass the same check as a mutating
-request (`BAD_ORIGIN` below), and a foreign one closes with
+request (`BAD_ORIGIN` above), and a foreign one closes with
 `VIOLATED_POLICY` and the reason `unexpected origin` rather than
 `authentication required`. The game socket (`/ws/matches/...`) checks
 the same way.

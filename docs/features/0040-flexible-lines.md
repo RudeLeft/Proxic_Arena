@@ -190,3 +190,9 @@ untap step. A land line's stretch now ends at the spot: about 4 slots fit
 beside it at full size, then the row wraps onto a spare line (or the
 others share the land line so it can), then squeezes, then the side steps
 down as before. Spec 0093 is the authority; its As built has the numbers.
+
+*As of 2026-11-18 (a documentation check):* Amendment 1's riders are gone:
+since Phase 10 A-12 (spec 0037's Amendment 3) a blocker stands facing its
+attacker in its own front line, so no card sits 2000 above the lines; a
+battlefield card's z is 10 + (its line's index × 100 + its place) × 4 (code:
+frontend/src/battlefield/layout.ts:1425; `TAPPED_TILT` is 5 at :79).

@@ -114,7 +114,10 @@ REPORTS_CLOSED seat, upTo       (no reply)          spec 0088: that seat closed 
                                                     next snapshots (nothing in the game
                                                     changes, no snapshot is sent for it)
 GAME_RESULT (diagnostics)       GAME_RESULT
-                                GAME_ENDED          outcome, winningSeat, reason?, turn
+                                GAME_ENDED          outcome, winningSeat? (a win only), turn,
+                                                    detail?, reason?, concededSeat?,
+                                                    lossReason?, and the question counters
+                                                    (stubsReached, costsReached, asked)
                                 GAME_LOG            entries: [{type, message}] -- Forge's
                                                     game log since the last question; for
                                                     the game record only (PHASE_07 §7.56)

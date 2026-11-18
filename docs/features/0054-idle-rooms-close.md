@@ -114,3 +114,11 @@ What the people in a closed room are told:
   and real waiting); the committed proof is the server tests with a clock
   (`RoomMaintenanceTest`, `LiveMatchTest`) and the page's unit tests.
 
+*As of 2026-11-18 (a documentation check):* since Phase 9 W-26 (2026-11-05)
+the offer is a game window beside the other player's plate, its plate
+reads "Away" from the moment they drop, and the button reads "End the game
+· you win"; a committed browser test now covers the window, Keep waiting
+and Peek with the away time sent as 1 minute (`match-away.spec.ts`).
+Ending the game itself is still proven only by the server tests above
+(code: frontend/e2e/match-away.spec.ts:1-6 and :62,
+frontend/src/battlefield/AwayWindow.tsx).

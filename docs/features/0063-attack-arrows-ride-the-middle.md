@@ -1,6 +1,7 @@
 # 0063 — Attack arrows: ride the middle; the target glows
 
 **Status:** Approved 2026-11-07 (owner, on the canvas "arrows-1107", sent as a file)
+**Released:** in 1.51.0 (CHANGELOG 1.51.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** curve B · Ride the middle; at rest R2 · the target glows
 
 ## Why
@@ -93,6 +94,12 @@ this curve with the soft arc (`effects.ts` `arc`, `arcToRing`; a stack
 card to a player, `beamToBanner`). `ride`, `lifePort` and `trimmed` are
 gone; `facingPort`, `shownShare`, `TIP_GAP` (0.03) and `data-line-leaving`
 remain.
+*As of 2026-11-18 (a documentation check):* the `effects.test.ts` test
+"attack arrows ride the middle (F-0063-C)" named under *Tests* below is
+gone too; the curves are now checked by "soft arcs (F-0066-C)". F-0063-A
+and B keep their `Board.test.tsx` tests (code:
+frontend/src/battlefield/effects.test.ts:206,
+frontend/src/battlefield/Board.test.tsx:798 and :855).
 
 *Decisions.* (1) The open middle strip is narrow on the real table (the
 front lines are about 12 px apart at 1920×1080, not the canvas's wide

@@ -13,7 +13,7 @@ docker logs proxic-arena-arena-server-1 2>&1 | tail -200
 docker exec proxic-arena-arena-server-1 ls -t /data/match-logs | head
 docker exec proxic-arena-arena-server-1 tail -100 /data/match-logs/<matchId>.log
 
-# what is deployed (signed in: open it in the browser, or the Admin page's health pill)
+# what is deployed (signed in: open it in the browser, or the health pill on the Admin page's Server tab)
 https://proxic.barnflix.net/api/version
 ```
 
@@ -76,7 +76,8 @@ A pregame question a player is slow to answer does **not** time out.
 
 Fixed 2026-10-20 (build 21d3fa1): a refreshed page lost its room
 mid-match. If it appears on a newer build, the room lookup has
-regressed -- `RoomServiceTest` "a room in a match is still yours".
+regressed -- `RoomServiceTest` "a room in a match is still yours, and
+you cannot take another".
 
 ## A card picture is missing
 

@@ -324,7 +324,7 @@ page that is not applying `ROOM` messages.
 
 ---
 
-## "That room closed" while nobody was playing
+## "This room closed after … with nothing happening"
 
 Spec 0054: a room in the lobby closes after 30 minutes with nothing
 happening while the host is alone, 2 hours with two players, or when the
