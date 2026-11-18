@@ -14,8 +14,15 @@ lands are out. The host mulligans (at most twice, then keeps and draws into it) 
 Karn is in hand; the guest
 plays lands and nothing else, so the board is only Karn's doing.
 
+Since spec 0102 (item 1) the e2e also checks the restart window on the
+guest's page: game 1's table holds still under it until the guest
+clicks Close, then the cards sweep to the libraries and game 2's deal
+plays; the host, who restarted it, gets no window.
+
 Used by `frontend/e2e/match-karn.spec.ts` and
 `match-passing.spec.ts`. CI builds the package with
 `scripts/make-ci-deck.mjs`, which generates placeholder art. The
 worker-level check (`scripts/check-karn.py`) uses its own non-legal
-deck with far more Karns, so it never depends on the draw.
+decks (far more Karns; since spec 0102, the second seat's has Enlightened
+Tutors, to leave a game-1 report open) and a test deal, so it never
+depends on the draw.

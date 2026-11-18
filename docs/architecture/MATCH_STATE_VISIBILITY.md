@@ -101,7 +101,7 @@ to a library only to a reader who owns it or saw it revealed (Goblin
 Ringleader's revealed cards going to the bottom, below). A searched card
 is followed by id from the library to its destination (P6-H, P6-K).
 
-The one exception, since spec 0088 (Q4 C): a library's **top card** is
+The one exception Forge decides, since spec 0088 (Q4 C): a library's **top card** is
 sent, in `libraryTop`, to a viewer Forge lets see it -- every player
 under Courser of Kruphix or Future Sight, its owner alone under Bolas's
 Citadel or Vizier of the Menagerie (Forge's `CardView#canBeShownTo`,
@@ -216,7 +216,12 @@ zone (emblems, the Ring, a dungeon **with the room its marker is in**);
 how many times the Ring has tempted a player; completed dungeons;
 day/night (Forge's own `isDay`). The Ring-bearer is marked on its card
 for both players. Forge's internal effect pieces are not shown as
-command-zone cards.
+command-zone cards. Also public: "prevent the next N" waiting on a player
+(`preventNext`, spec 0101), who controls a player under Mindslaver
+(`controlledBy`, and `controlledFrom` -- the card's id, stripped like any
+id once that card is hidden; spec 0102), and what each player did this
+turn (`thisTurn`: spells cast, life gained, a permanent left the
+battlefield; spec 0103).
 
 ## Match assets
 

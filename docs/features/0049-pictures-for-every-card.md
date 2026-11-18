@@ -84,5 +84,5 @@ Bob's Bolt) wears the picture of what it copies, from THAT card's owner's
 deck; the worker sends `artOwner` only when it differs from the copy's own
 owner, and the server tries `artOwner`, then `owner`, then `seat` /
 `controller` (code:
-server/src/main/kotlin/net/barnflix/proxic/match/MatchArt.kt:202-206 and
-:300).
+server/src/main/kotlin/net/barnflix/proxic/match/MatchArt.kt:205-209 and
+:303 (re-pointed 2026-11-18)).

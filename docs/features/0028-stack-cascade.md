@@ -70,6 +70,6 @@ object that fits is drawn; F-0028-A holds for those.
 *As of 2026-11-18 (a documentation check):* the response clock is 5
 seconds, not 2: spec 0035 lengthened the countdown on your own spell or
 trigger, and the ring round the front card runs the full 5 s with the
-button's (code: frontend/src/battlefield/GameScreen.tsx:236
+button's (code: frontend/src/battlefield/GameScreen.tsx:252 (re-pointed 2026-11-18)
 `RESPONSE_WINDOW_MS`). The caption's ", N not shown" is written in
-`Board.tsx` (:861; line numbers corrected 2026-11-18); `effects.ts` decides how many fit.
+`Board.tsx` (:904; line numbers corrected 2026-11-18; re-pointed 2026-11-18); `effects.ts` decides how many fit.

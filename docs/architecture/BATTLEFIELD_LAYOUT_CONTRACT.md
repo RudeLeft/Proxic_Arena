@@ -338,7 +338,7 @@ lines follow (`creature-2`, ...):
   `SHOW_MIN` (owner 2026-11-07, the canvas's rule): a sharing is taken
   only while the sharing kind's cards do not overlap at all (and every
   card shows at least `SHOW_MIN`); as soon as they would, the next sharing
-  or the next size is tried (code: frontend/src/battlefield/layout.ts:597-604,
+  or the next size is tried (code: frontend/src/battlefield/layout.ts:599-606 (re-pointed 2026-11-18),
   `sizeSide`).
   Sharing happens only for want of lines: outside combat (three kinds,
   three lines) nothing changes. The two kinds keep to their own stretches

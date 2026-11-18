@@ -8,11 +8,14 @@
 # Build once, test that image, promote it by retagging. A gate that
 # tests one build and publishes another is not a gate.
 #
-# The three tiers, and what each has caught here:
+# The three tiers, and what each has caught here (the counts were
+# Phase 1's; 2026-11-18: 105 frontend test files, 84 server test
+# classes plus the worker's own tests and the Mechanics Lab, 71
+# browser specs):
 #
-#   checks   static analysis and 49 frontend tests
-#   server   233 tests: authorization, migrations, sharing rules
-#   browser  29 tests: the CSP breaking Pixi, an origin check that
+#   checks   static analysis and the frontend unit tests (49 then)
+#   server   233 tests then: authorization, migrations, sharing rules
+#   browser  29 tests then: the CSP breaking Pixi, an origin check that
 #            refused the app's own requests, a login page nobody
 #            could reach. Server tests passed through all three.
 #
@@ -275,14 +278,15 @@ jobs:
           ls -la forge-worker/target/
 
       # PHASE_06 P6-AA, P6-AE, P6-AG, P6-AC, P6-AD, P6-BF, P6-J, P6-U, P6-AL,
-      # P6-AO, P6-AP, P6-AK, P6-BD, P6-I, P6-L and P6-G: Mechanics Lab
+      # P6-AO, P6-AP, P6-AK, P6-BD, P6-I, P6-L and P6-G, and every
+      # scenario a later phase or spec added (the list below): Mechanics Lab
       # regressions, each a focused deck played against the worker taken
       # from this image. Exit 2 means the game never reached the scenario,
       # which proves nothing, so it fails too. Three at a time: each is
       # its own worker process and none depends on timing. Each prints its
       # whole output when it finishes, so the log stays readable. Each has
-      # five minutes -- you-choose, cost-kinds and who-did-it fifteen: they
-      # hold forty-odd games each; cost-kinds took about 9.5 minutes in CI
+      # five minutes -- you-choose, cost-kinds, who-did-it and card-actions
+      # fifteen: they hold many games each; cost-kinds took about 9.5 minutes in CI
       # (2026-11-05) and once ran past ten with every game passing -- because a hung scenario once
       # ran the whole job into its time limit, and a killed job keeps no
       # log at all, so nobody could tell which one it was.
@@ -342,6 +346,8 @@ jobs:
           # Spec 0088, over the same games: a library's top card reaches only a
           # seat the game lets see it (its id nowhere else), and every gathered
           # report's cards carry the report's own ids, hidden ones nameless.
+          # Spec 0103: `knownTop` reaches its owner alone, under stand-in ids,
+          # and a report card's `table` link only to a card the board shows.
           python3 -I scripts/check-hidden-tops.py "$traces"/*.jsonl || [ $? = 2 ]
           # Spec 0089, over the same games: before the first turn the other
           # player's deal, mulligan and put-back are told as backs only.

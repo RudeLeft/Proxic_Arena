@@ -14,8 +14,12 @@ The host mulligans (at most twice, then keeps and draws into it) until
 Mindslaver is in hand, casts it at six
 lands and uses it the next turn on the guest. During the guest's
 next turn the HOST's page is asked the guest's questions ("Playing
-for seat 2") and sees the guest's hand; the guest's page is asked
-nothing.
+for" and the guest's name -- since spec 0102, never a seat number) and
+sees the guest's hand; the guest's page is asked nothing. Since spec
+0102 (item 2) the guest's page is also told "<host> is playing your
+turn." in a report window, both pages show a gold chain round the
+guest's plate, and the host plays a land for the guest, which lands on
+the guest's side on both pages.
 
 Used by `frontend/e2e/match-mindslaver.spec.ts`; the worker-level
 check (`scripts/check-mindslaver.py`) uses its own non-legal deck.

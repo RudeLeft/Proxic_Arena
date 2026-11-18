@@ -320,7 +320,27 @@ permanent something tried to destroy; prevented damage is a hit with
 `prevented` (amount 0); and the other player's permanents phasing out
 gives an `action` report ("Bob's permanents phased out until Bob's next
 turn.", adding "Bob's life can't change." when the same effect left Forge a
-CantChangeLife static ability for that player: Teferi's Protection). All public. What may
+CantChangeLife static ability for that player: Teferi's Protection). All public.
+Spec 0100: a spell on the stack says what its caster chose as it was cast
+-- `x`, its `modes` (each with `chosen`), `extra` (kicked, overloaded,
+evoked, entwined, escalated), multikicker's `kicks`, an overloaded spell's
+`hits`, and each divided target's `amount`; an Aura on a player says which
+(`attachedToPlayer`); a change of a spell's targets is an `action` report
+(RETARGET) to that spell's controller. Spec 0101: `survived` also names a
+shield counter used ("shield"), a prevented hit says `by` ("shield",
+"prevent-next"), `preventNext` rides on a permanent or player, a stack
+entry says `ward`, the round's `left` lists stack entries that left without
+resolving (countered, or ended by Time Stop), `blockerCandidates` names the
+blockers the game offers from the attack until the blocks, and an ability
+countered is an `action` report (COUNTER_ABILITY). Spec 0102: a player
+controlled by another says so (`controlledBy`, `controlledFrom`), with
+`action` reports CONTROL, END_TURN and SKIP, and a restart forgets every
+open report first. Spec 0103: each player's `thisTurn` (spells cast, life
+gained, whether a permanent of theirs left the battlefield); `knownTop`,
+the cards a viewer itself put on top of its own library in a known order,
+in that viewer's snapshot only; and a report card's `table`, the id of
+that card on the table, sent only while the reader's own board shows it.
+What may
 appear is `MATCH_STATE_VISIBILITY.md`; every field is in
 `protocol/README.md`.
 
@@ -335,7 +355,7 @@ number:N / divide:N / value:<text> / mana:... / <kind>:<index>   other answers
 decisionId          rises for the whole match, across a game restart
 stateRevision       rises with every snapshot
 stateVersion        the revision a question was asked against
-gameEpoch           1, then 2 after Karn Liberated restarts the game
+gameEpoch           1, then one more each time Karn Liberated restarts the game
 ```
 
 An object id is never an action id (P6-AB); the action model is

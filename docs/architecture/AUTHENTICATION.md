@@ -261,7 +261,10 @@ In-process, keyed on `source + normalized username`:
 ```
 
 A success clears the counter. Expired entries are evicted rather than
-accumulating.
+accumulating. The Account page's "current password" on a password
+change counts under the same key (since 2026-11-18; below). The device
+link, invitation and reset routes use the same throttle under keys of
+their own (a fixed name in place of the username).
 
 Keyed on the pair, not on the username alone, so that one attacker
 cannot lock a legitimate user out by failing logins against their

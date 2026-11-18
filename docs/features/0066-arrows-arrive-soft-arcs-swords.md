@@ -200,7 +200,7 @@ left of the stack's badges (or its caption, going under it).
 this. Spec 0069: the crossed swords are its shield-and-steel mark
 (`SwordsMark`, `Arrows.tsx`), one size everywhere -- a radius of 0.13 of
 a card's width, on a block line too -- sitting on the attacker's picture
-rather than in the gap (code: frontend/src/battlefield/Board.tsx:8461-8497;
+rather than in the gap (code: frontend/src/battlefield/Board.tsx:9324-9360 (re-pointed 2026-11-18);
 corrected 2026-11-18), and a stack card's line to a
 player is `beamToBanner`, not `studRound`. Built item 6: "Cycled",
 "Discarded: too many cards" and "Countered by ..." no longer stay -- specs
@@ -211,6 +211,6 @@ spec 0069's now: an attack at a planeswalker or battle no longer comes
 down onto the card's top. It runs from the attacker's edge facing the
 middle to the target's edge facing it (a soft S), or round to the
 target's side edge when the two stand face to face across the middle
-(code: frontend/src/battlefield/Board.tsx:8641-8685 `attackOnto`). A
+(code: frontend/src/battlefield/Board.tsx:9119-9163 `attackOnto` (re-pointed 2026-11-18)). A
 stack card's beam to a card, and an attack at a player (`arcToRing`),
 still follow item 3.

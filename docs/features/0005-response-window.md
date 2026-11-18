@@ -99,5 +99,5 @@ was removed by spec 0035, and the scenario with it.
 (spec 0035), and while it runs the other player does not see "Waiting for
 <name>": since Phase 9 W-25 their line reads "<name>’s move" with what
 the player is doing under it (code:
-frontend/src/battlefield/GameScreen.tsx:236;
+frontend/src/battlefield/GameScreen.tsx:252 (re-pointed 2026-11-18);
 frontend/src/battlefield/stops.ts:185-232).

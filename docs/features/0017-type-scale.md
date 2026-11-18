@@ -94,6 +94,6 @@ A third shared face, `--pa-mono`, names the one monospace use (the
 `font-weight: 500` is in three rules in `game.css` (`.gs-log-you`,
 `.gs-log-step`, `.gs-opening-button small`, added by later specs) and one
 in `battlefield.css` (`.bf-type`) (code:
-frontend/src/battlefield/game.css:2532, 2540, 4827;
+frontend/src/battlefield/game.css:2533, 2541, 4828 (re-pointed 2026-11-18);
 frontend/src/battlefield/battlefield.css:591). `styles.css` also declares
 Barlow Condensed's 500 face (`@font-face`, styles.css:29).
