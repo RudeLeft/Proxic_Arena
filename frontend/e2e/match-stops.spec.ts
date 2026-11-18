@@ -158,11 +158,12 @@ test("with the one stops rule, turns flow to the main phases and nobody is asked
     expect(quiet, `asked at empty steps: ${askedAt.join(", ")}`).toEqual([]);
     expect(skipSeen, "Skip to end of turn is gone (spec 0035)").toBe(0);
 
-    // F-0035-J: the game menu offers Concede and Abandon, no stop options.
+    // F-0035-J: the game menu offers Concede and Abandon, no stop options
+    // (spec 0103 added the Bigger text switch above them).
     const menu = matchPanel(host);
     await menu.getByRole("button", { name: "Game menu" }).click();
     const items = menu.getByRole("group", { name: "Game menu" }).locator(".gs-dock-item-name");
-    await expect(items).toHaveText(["Concede", "Abandon match"]);
+    await expect(items).toHaveText(["Bigger text", "Concede", "Abandon match"]);
     await host.screenshot({ path: "test-results/seen/stops-menu.png", fullPage: true });
   } finally {
     await clearEverything(host).catch(() => undefined);
