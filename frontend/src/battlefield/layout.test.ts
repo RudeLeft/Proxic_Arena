@@ -1355,6 +1355,8 @@ describe("stacking identical cards (spec 0036)", () => {
       { types: "Artifact Creature — Bear" },
       { ringBearer: true },
       { counters: [{ name: "P1P1", count: 1 }] },
+      // Spec 0101: a 'prevent the next N damage' shield keeps a card apart.
+      { preventNext: 3 },
     ];
     for (const over of splits) {
       expect(pileSizes([bear(), bear(), bear(over)]), JSON.stringify(over)).toEqual([1, 2]);

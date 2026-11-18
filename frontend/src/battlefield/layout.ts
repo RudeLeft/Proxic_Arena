@@ -168,6 +168,8 @@ export interface LayoutCard {
   /** Spec 0080 -- phased out, or holding regeneration shields: a stack compares these too. */
   phasedOut?: boolean | undefined;
   shields?: number | undefined;
+  /** Spec 0101 -- a 'prevent the next N damage' shield: a stack compares it too. */
+  preventNext?: number | undefined;
   /** Spec 0085 -- gained keywords, a given "can't be blocked", lost abilities: a stack compares these too. */
   gained?: readonly string[] | undefined;
   unblockable?: boolean | undefined;
@@ -428,6 +430,7 @@ function identity(card: LayoutCard): string {
     card.sprocket ?? null,
     card.phasedOut === true,
     card.shields ?? 0,
+    card.preventNext ?? 0,
     [...(card.gained ?? [])].sort(),
     card.unblockable === true,
     card.lostAbilities === true,
