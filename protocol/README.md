@@ -375,9 +375,11 @@ decision.arrange.modes     Phase 9 Amendment 21, chooseModeForAbility: {num,
 WATCHING.names            spec 0067: who is watching, by display name, each
                           person once, sorted; to the players only
 MATCH_ENDED               spec 0067: the game is over, to spectators only:
-                          matchId, status, failureCode?, outcome,
-                          winningSeat, endedOnTurn, reason?, concededSeat?,
-                          lossReason? (the lobby MATCH's result fields, by
+                          matchId, status, failureCode?, outcome?,
+                          winningSeat?, endedOnTurn?, reason?, concededSeat?,
+                          lossReason? (the result fields only when there is
+                          a result -- none on a failure or an abandon; no
+                          winningSeat on a draw; the lobby MATCH's result fields, by
                           seat); the socket is closed next (1000 "game over")
 state.playLog (seat 0)    spec 0067: the public view's play log -- the lines
                           every player may read alike ("Bob drew a card"),
@@ -664,7 +666,8 @@ card.uses                 spec 0087: in a graveyard or an exile, who may
                           viewer may NOT identify, only the public reasons
                           count (an effect lets that player play it, it is
                           foretold or plotted), whatever the card is, and
-                          `how` is always "cast" -- so whether it stands in
+                          `how` is "cast" (or "suspended": a suspended card
+                          is face up) -- so whether it stands in
                           a fan never says what it is. Absent: no one may
 card.foretold             spec 0087: in exile, foretold (public; Forge's
                           CardView carries it to every client). The card is
@@ -760,8 +763,10 @@ emblems                 spec 0086 (8): every emblem in a command zone, with
                         printing?, known}] -- the maker's name, owner and
                         printing so the server puts that card's picture
                         (and art crop) on the entry, as on any card
-                        (MatchArt). `known: false` and no name when Forge
-                        does not know the maker or it is face down. Absent
+                        (MatchArt). `known: false` and no from, name,
+                        owner or printing (only {id, seat, known}) when
+                        Forge does not know the maker or it is face down.
+                        Absent
                         when there are none. Public
 stack[]             B2  per entry, besides id and description:
                         source      "card:N", the card it came from

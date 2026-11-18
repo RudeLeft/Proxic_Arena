@@ -1,6 +1,6 @@
 # 0056 — An update waits for games to finish
 
-**Status:** Approved 2026-11-06 (owner, on the canvas); built 2026-11-06, unreleased
+**Status:** Approved 2026-11-06 (owner, on the canvas); built 2026-11-06, unreleased then (released in 1.46.0; noted 2026-11-17)
 **Owner decisions:** "Update waits for games" (not resume-after-update, not
 a separate games container); in a game, a notice card (A); the update
 waits only until games end -- no deadline, no countdown; no email, the

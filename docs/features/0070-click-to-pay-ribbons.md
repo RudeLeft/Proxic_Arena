@@ -65,6 +65,9 @@ chooseEntitiesForEffect, shared with effects); single-pick costs
 (CostPutCounter, CostRemoveCounter, CostBlight, CostEnlist, a Food for
 CostForage, CostRemoveAnyCounter) pay on the one click, so there is
 nothing to mark.
+*As of 2026-11-17 (a documentation check):* spec 0071 covers CostExile from
+a graveyard and Delve (`chooseCardsToDelve`; `check-pay-picks.py escape`,
+`delve`).
 
 **Server.** `DecisionRequest.picking` passed through to the asking seat
 only (DecisionLayout.kt); LiveMatch accepts a take-back named in it.

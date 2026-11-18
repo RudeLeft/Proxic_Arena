@@ -1,6 +1,6 @@
 # 0097 — Pop-ups clean-up: no stuck boxes, grey notices become proper windows, fewer windows for the player who acted
 
-**Status:** Built 2026-11-16, unreleased. Approved 2026-11-16 (owner, by prompt, on the canvas "Pop-ups audit 2026-11-16", https://claude.ai/artifact/WUjW4sAmGEDFVUqTBmQPyr, sections 1-4).
+**Status:** Built 2026-11-16, unreleased then (released in 1.71.0; noted 2026-11-17). Approved 2026-11-16 (owner, by prompt, on the canvas "Pop-ups audit 2026-11-16", https://claude.ai/artifact/WUjW4sAmGEDFVUqTBmQPyr, sections 1-4).
 **Owner decisions:** section 1 **A · on the act button**; sections 2-3 **approve all four**; section 4 **all three changes** (no window for your own counter/mill/bounce/phase; your own reveal to the other player only; drop "Bob is casting a spell…").
 
 The pop-ups audit owed since 2026-11-12 (memory "explain card actions in windows, not pills"), redone on 2026-11-16 against current main.

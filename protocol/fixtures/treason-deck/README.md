@@ -23,7 +23,8 @@ guest's deck. Before spec 0049 it was looked for in the controller's
 (the thief's) and came out bare. The spent steal spell, in the host's
 graveyard, wears its picture too: graveyards had none before 0049.
 
-Used by `frontend/e2e/match-stolen-picture.spec.ts`; the worker-level
+Used by `frontend/e2e/match-stolen-picture.spec.ts` (both decks;
+`match-watching.spec.ts` also uses the goblin deck); the worker-level
 check (`scripts/check-card-owner.py`) uses its own non-legal deck. CI
 builds both packages; locally:
 

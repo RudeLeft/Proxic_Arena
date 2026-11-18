@@ -18,5 +18,6 @@ sacrifice answers by clicking one of their own creatures on the board:
 the question names Innocent Blood, offers nothing else, and has no
 Cancel or Pass.
 
-Used by `frontend/e2e/match-sacrifice.spec.ts`. CI builds the package
+Used by `frontend/e2e/match-sacrifice.spec.ts` and
+`match-lands-stay-put.spec.ts`. CI builds the package
 with `scripts/make-ci-deck.mjs`.

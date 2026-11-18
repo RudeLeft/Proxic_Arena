@@ -71,6 +71,10 @@ refresh brings it back. Never sent to another seat; spectators get no log
 (their snapshot never carries one). The server adds pictures to the
 named cards (`MatchArt`), which authorises that seat to fetch them, as a
 snapshot does. A server restart loses the log, as it loses the match.
+*As of 2026-11-17 (a documentation check):* since spec 0067, spectators
+get the public log (the seat-0 view's lines: `LiveMatch.kt`), and
+`check-hidden-log.py` checks that public log (seat 0) as it checks a
+seat's, instead of checking that a spectator gets none.
 Chat is still live-only (spec 0013 G2: the canvas's question on keeping
 chat was left as it was).
 

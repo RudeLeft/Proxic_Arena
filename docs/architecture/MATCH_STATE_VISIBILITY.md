@@ -64,7 +64,8 @@ the card a player had started to cast and taken back into the hand.
 
 The worker strips them per viewer as the round is sent (`HiddenIds`):
 the name, the reason and the place stay -- they were public -- the id
-goes (a move loses `why`, `said`, `into` with it; a mana says from
+goes (a move loses `why`, `said`, `into`, `spent` with it -- its `last`
+size stays, public from the board; a mana says from
 "unseen"; a card Forge revealed to the viewer -- Goblin Ringleader's four --
 stays in the `reveal` tray under a stand-in id, `reveal:KEY:I`, as `action`
 cards already are). A card that no longer exists (a token gone from the

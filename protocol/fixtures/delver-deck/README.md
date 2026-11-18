@@ -13,7 +13,8 @@ Delver Test Deck.txt   32 Island
 
 Delver looks at the top card each upkeep and transforms if it reveals
 an instant or sorcery -- about two upkeeps in five with this deck.
-The instants are never cast; they are there to be on top.
+The instants are there to be on top; `match-cast-from-pile.spec.ts`
+casts Think Twice and then flashes it back from the graveyard.
 
 Written as the export writes a two-faced card, "A // B", so the
 import, the art file name (named by the front face, as the real
@@ -21,5 +22,6 @@ exporter names it; the build also writes the back face's own picture,
 which `match-multiface.spec.ts` uses) and the match-time lookup all meet
 the real shape.
 
-Used by `frontend/e2e/match-multiface.spec.ts`; the worker-level check
+Used by `frontend/e2e/match-multiface.spec.ts` and
+`match-cast-from-pile.spec.ts`; the worker-level check
 (`scripts/check-multiface.py`) uses its own non-legal deck.

@@ -16,7 +16,8 @@ A Mountain on the battlefield shows the checkered crop in its art window
 instead of the zoomed solid picture; its close-up still shows the whole
 picture. Decks without crops (every other fixture) keep the zoom.
 
-Used by `frontend/e2e/match-art-crop.spec.ts`. CI builds it; locally:
+Used by `frontend/e2e/match-art-crop.spec.ts` and
+`match-picture-reuse.spec.ts`. CI builds it; locally:
 
 ```text
 node scripts/make-ci-deck.mjs "Test Deck/crop-deck.zip" protocol/fixtures/crop-deck --crops

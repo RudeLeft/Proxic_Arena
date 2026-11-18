@@ -14,7 +14,8 @@ lands are out. The host mulligans (at most twice, then keeps and draws into it) 
 Karn is in hand; the guest
 plays lands and nothing else, so the board is only Karn's doing.
 
-Used by `frontend/e2e/match-karn.spec.ts`. CI builds the package with
+Used by `frontend/e2e/match-karn.spec.ts` and
+`match-passing.spec.ts`. CI builds the package with
 `scripts/make-ci-deck.mjs`, which generates placeholder art. The
 worker-level check (`scripts/check-karn.py`) uses its own non-legal
 deck with far more Karns, so it never depends on the draw.

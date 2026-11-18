@@ -202,6 +202,7 @@ which subdirectory is missing.
 
 Almost certainly the route body limit rather than the package.
 `/api/deck-builder/decks` and `/api/decks/import` accept 150 MB;
+a bug report or idea (`/api/reports`, with its screen picture) 5 MB;
 every other endpoint accepts 1 MB. The Deck Builder leaves out
 pictures the player's decks already hold (spec 0022), so only a first
 send of a big deck comes near the cap. A reverse proxy in front may impose its own smaller limit —

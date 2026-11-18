@@ -1,6 +1,6 @@
 # 0093 — Lands that stay put when tapped, nearer the hand
 
-**Status:** Built 2026-11-16, unreleased. Approved 2026-11-16 (owner, by prompt, on the canvas "Owner list 2026-11-16", https://claude.ai/artifact/Ky53Huv37tXYsLXWLqDMZq, sections 2 and 4; section 4 redrawn twice at the owner's request).
+**Status:** Built 2026-11-16, unreleased then (released in 1.71.0; noted 2026-11-17). Approved 2026-11-16 (owner, by prompt, on the canvas "Owner list 2026-11-16", https://claude.ai/artifact/Ky53Huv37tXYsLXWLqDMZq, sections 2 and 4; section 4 redrawn twice at the owner's request).
 **Owner decisions:** section 2 **C · tapped lands glide to the end; tidy up at your untap**; section 4 **L-1 · the row grows left from the edge of a 7-card hand**.
 
 From the owner's list of 2026-11-16, items 2 and 4. Players complained that tapping a land makes the lands jump away from where they were clicking.

@@ -12,7 +12,8 @@ Landing Test Deck.txt   24 Forest, 36 creatures (Birds of Paradise flies; one-dr
 
 Used by `frontend/e2e/match-cast-landing.spec.ts`, `match-cast-aside.spec.ts` and
 `match-board-motion.spec.ts` (flying and summoning sickness, item 3), and
-`match-damage-tray.spec.ts`. CI builds the package
+`match-damage-tray.spec.ts`, `match-cast-step-aside.spec.ts` and
+`match-reading-card.spec.ts`. CI builds the package
 with `scripts/make-ci-deck.mjs`:
 
     node scripts/make-ci-deck.mjs "Test Deck/landing-deck.zip" protocol/fixtures/landing-deck

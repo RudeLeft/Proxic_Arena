@@ -194,3 +194,11 @@ back whose stud would sit on a front card's badges has its stud just below
 them (`studY`). Dev page: `&aim=you|them` aims the scripted stack at a
 player. Test: a player-target path never goes more than 0.6 card heights
 left of the stack's badges (or its caption, going under it).
+
+*As of 2026-11-17 (a documentation check):* later specs changed parts of
+this. Spec 0069: the crossed swords are its shield-and-steel mark
+(`SwordsMark`, `Arrows.tsx`), fixed at 0.13 of a card's width (the old
+swords size is kept only on a block line), and a stack card's line to a
+player is `beamToBanner`, not `studRound`. Built item 6: "Cycled",
+"Discarded: too many cards" and "Countered by ..." no longer stay -- specs
+0074/0075 removed those notices and 0097 the last word tags (`Moves.java`).

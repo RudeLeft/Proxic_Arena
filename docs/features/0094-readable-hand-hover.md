@@ -1,6 +1,6 @@
 # 0094 — Hovering a hand card shows the whole, readable card, lifted clear of the fan
 
-**Status:** Built 2026-11-16, unreleased. Approved 2026-11-16 (owner, by prompt, on the canvas "Owner list 2026-11-16", https://claude.ai/artifact/Ky53Huv37tXYsLXWLqDMZq, section 6).
+**Status:** Built 2026-11-16, unreleased then (released in 1.71.0; noted 2026-11-17). Approved 2026-11-16 (owner, by prompt, on the canvas "Owner list 2026-11-16", https://claude.ai/artifact/Ky53Huv37tXYsLXWLqDMZq, section 6).
 **Owner decision:** **A · whole card, 2.6x, lifted clear**.
 
 From the owner's list of 2026-11-16, item 6.

@@ -45,6 +45,10 @@ over where it was -- the strip that was showing stays under the pointer,
 so it does not slide away from it. Back on leave (or blur). Hidden backs
 have no pointer handlers and never move. The eye goes with the card. The
 slide is the slots' CSS transition, so reduce motion = it appears in place.
+*As of 2026-11-17 (a documentation check):* spec 0094 replaced the slide:
+`opponentRevealBox` is gone; a card you may see comes down a little while
+pointed at, and the reading card under their hand shows the whole card
+(`Board.tsx`, `handRiseBox(..., "opponent")`).
 
 **3. Picks stay, signed, take back.** Reproduced first: the Lab's Escape
 (Uro) and Delve (Treasure Cruise) asked `chooseEntitiesForEffect` with no

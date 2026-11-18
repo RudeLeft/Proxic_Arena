@@ -118,6 +118,12 @@ A card the board never drew (the other player's hidden hand, a mill) has
 no tag; its notice still says it. Lab: `check-thrown-away.py cycled
 (cave), handsize, countered`; `check-moves.py destroy` now also expects
 "Died".
+*As of 2026-11-17 (a documentation check):* none of these notice lines is
+sent today: the battlefield's words went with spec 0066, the discard,
+counter and cycled lines with specs 0074/0075 (`Moves.toldByOwner` is
+gone), and the tags with 0097 (Amendment 2). `check-moves.py destroy`
+expects `why: "destroyed"`; it does not look for "Died".
+The move's `why` values are unchanged.
 
 **Item 5 (payment title).** "Forgotten Cave ability" was never a title in
 the page: the window's title was "Pay the mana" under the small gold

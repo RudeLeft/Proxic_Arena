@@ -54,7 +54,7 @@ Approved looks only; no new canvas needed.
 
 Found while building 0086: a problem report's picture of the screen (a PNG of the board) was 1.03-1.04 MB with a real deck's card art, against the server's 1 MB request limit, so a report from a busy board could be refused. The owner chose both fixes:
 - The page sends the screen picture as a JPEG at a quality that looks the same (0.92), not a PNG. It is kept as `screen.jpg` (a pasted PNG stays `screen.png`).
-- The server's body limit for the report route alone (`POST /api/reports`) is 5 MB, as a safety margin; every other route keeps 1 MB.
+- The server's body limit for the report route alone (`POST /api/reports`) is 5 MB, as a safety margin; every other route keeps 1 MB. *As of 2026-11-17 (a documentation check): the deck routes (`/api/decks/import`, `/api/deck-builder/decks`) keep their 150 MB; every other route is 1 MB (`Limits.kt` `ROUTE_LIMITS`).*
 
 ### Amendment 3 — the stack's line waits for its card (owner, 2026-11-14: "Approve, fix the line")
 

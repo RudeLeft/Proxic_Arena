@@ -168,6 +168,10 @@ ends -- nothing flashes back between questions. `costPips` draws generic
 mana as one grey pip per point and lights each kind from the left. A
 small spark (`.gs-cast-spark`, 420 ms) flies from the land just tapped
 (the payment option's card) to the pip it lit, in that land's colour.
+*As of 2026-11-17 (a documentation check):* spec 0062 replaced the spark
+with its mana balls (`manaBalls.tsx`); `.gs-cast-spark` is gone, and each
+ball lights the pip the mana actually paid (`assignBalls`), not the next
+from the left.
 Symbol pictures added from the Proxic Deck Builder's `assets/mana`
 (Scryfall-made): colourless hybrid {C/W} {C/U} {C/B} {C/R} {C/G}, {C/P},
 and hybrid Phyrexian ({W/U/P} ... ten). {Q}, {E} and half mana have no

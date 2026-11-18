@@ -77,8 +77,9 @@ The worker builds the public view only while somebody is watching
 a result, an abandon, a failure, a server stop -- every spectator
 connection is sent `MATCH_ENDED` (`matchId`, `status`, `failureCode?`,
 and the result as the lobby's `MATCH` carries it: `outcome`,
-`winningSeat`, `endedOnTurn`, `reason?`, `concededSeat?`,
-`lossReason?`; by seat, never a name) and then closed with `1000`
+`winningSeat` (none on a draw), `endedOnTurn`, `reason?`, `concededSeat?`,
+`lossReason?` -- only when there is a result, so none on a failure or an
+abandon; by seat, never a name) and then closed with `1000`
 "game over"; the page does not reconnect after it. The server keeps the
 last 64 endings: a non-player who connects to a match that ended here
 lately (a spectator whose connection dropped at the end) is sent its
@@ -110,8 +111,9 @@ MATCH_STEP              state: the step bar's state -- a step nobody is asked
 WATCHING                count: people watching (spec 0047), to the players;
                         names: who, by display name (spec 0067)
 MATCH_ENDED             spec 0067, to spectators only: the game is over --
-                        status, failureCode?, outcome, winningSeat,
-                        endedOnTurn, reason?, concededSeat?, lossReason?;
+                        status, failureCode?, outcome?, winningSeat?,
+                        endedOnTurn?, reason?, concededSeat?, lossReason?
+                        (the result fields only with a result);
                         the socket is then closed (1000 "game over")
 DECISION_REQUEST        decisionId, actedForSeat, kind, stateVersion, gameEpoch,
                         mandatory, prompt?, options: [{actionId, label,
@@ -292,8 +294,9 @@ Spec 0086: a player's floating mana names the card that made each run
 (`commandIds`), `emblems` lists every emblem with the card that made it (the
 server puts that card's picture on it), a trigger that is the monarch's or
 the initiative's own says so (`from`), and the `action` report tells an
-extra turn at its start (both players) and a completed dungeon (the other
-player, with a dungeon mark).
+extra turn at its start (since its Amendment 4, everyone but the player
+who played the card) and a completed dungeon (the other player, with a
+dungeon mark).
 Spec 0085: a permanent says which keywords it `gained` (not printed), a
 given "can't be blocked" (`unblockable`), that a creature lost all its
 abilities (`lostAbilities`), and which exiled cards it `holds` (Banishing

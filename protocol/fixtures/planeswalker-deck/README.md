@@ -86,6 +86,9 @@ Not a good deck, and not meant to be. It is chosen to reach a
 branch, which is how this project avoids the defect it keeps
 meeting: code that exists, is tested, and is never called.
 
+Used by `frontend/e2e/match-loyalty.spec.ts` and
+`match-ability-menu.spec.ts`, as `Test Deck/loyalty-deck.zip`.
+
 The zip is built at test time by `scripts/make-ci-deck.mjs`, which
 takes a fixture directory as its second argument:
 

@@ -73,6 +73,11 @@ right under its name, as on the canvas, but moves low on the left when the
 line is squeezed (the next card covers a squeezed card's right side); the
 name sits under the ATTACKING tag so it covers neither the card's name nor
 its tag (the first screenshot showed it overlapping the tag).
+*As of 2026-11-17 (a documentation check):* spec 0063 removed the badge
+and the name pill (`AimBadge`, `playerFaces`, `data-attack-badge`,
+`.bf-aim*`; `Board.test.tsx` checks they are gone), and since spec 0069 an
+attack at a planeswalker or a battle is always drawn, not only while
+pointed at. `data-aims` stays.
 
 *Item 10 — sharing a line.* `frontend/src/battlefield/layout.ts`:
 `sizeSide` tries, at each size, the side's own lines, then

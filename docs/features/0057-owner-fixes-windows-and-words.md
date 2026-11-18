@@ -116,6 +116,10 @@ cast card where it was drawn, docked or not, while no question is asked
 or the last one is answered; the cancelled card's flight starts there.
 Before, the cancelled question's "cleared" made it slide to the middle
 first, and the flight started from the middle.
+*As of 2026-11-17 (a documentation check):* spec 0068 removed `docks()` and
+`heldSpot()`: the cast card is always in the middle of the window and every
+flight starts there (`GameScreen.tsx`, the spec 0068 comment by `castingBox`;
+`fixes0057.test.tsx` now checks the flight back from the middle).
 
 **Item 2.** `PeekHint` and `PeekFoot` (GameWindow.tsx): Peek and "or hold
 Space" left, the window's buttons right (`.gs-peek-foot`, 24px gap,

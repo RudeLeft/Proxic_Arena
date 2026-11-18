@@ -88,6 +88,12 @@ curve in along the same landing) and sources (to the stack card's left
 edge) use the same rule; no lanes any more. The attach line keeps the old
 curve inside the picture; the stolen and chain tethers are unchanged.
 
+*As of 2026-11-17 (a documentation check):* specs 0066 and 0069 replaced
+this curve with the soft arc (`effects.ts` `arc`, `arcToRing`; a stack
+card to a player, `beamToBanner`). `ride`, `lifePort` and `trimmed` are
+gone; `facingPort`, `shownShare`, `TIP_GAP` (0.03) and `data-line-leaving`
+remain.
+
 *Decisions.* (1) The open middle strip is narrow on the real table (the
 front lines are about 12 px apart at 1920×1080, not the canvas's wide
 gap), so "ride the middle" is a short turn into the strip and a straight
