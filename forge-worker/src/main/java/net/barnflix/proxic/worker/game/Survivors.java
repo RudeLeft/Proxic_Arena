@@ -76,7 +76,11 @@ final class Survivors {
      * amount it would have dealt, and how many hits had been recorded before
      * it (where its prevented hit goes in the wave).
      */
-    record Pending(Object event, String source, JsonObject target, int amount, int at) {}
+    record Pending(Object event, String source, JsonObject target, int amount, int at, String by) {
+        Pending(Object event, String source, JsonObject target, int amount, int at) {
+            this(event, source, target, amount, at, null);
+        }
+    }
 
     static JsonArray phasedJson(List<Phase> phases) {
         JsonArray out = new JsonArray();
@@ -139,6 +143,11 @@ final class Survivors {
                     entry.add("target", p.target().deepCopy());
                     entry.addProperty("amount", 0);
                     entry.addProperty("prevented", prevented);
+                    // Spec 0101 -- what stopped it, when it is a survive kind
+                    // of its own: a shield counter, "prevent the next N".
+                    if (p.by() != null) {
+                        entry.addProperty("by", p.by());
+                    }
                     out.add(entry);
                 }
             }
@@ -174,6 +183,41 @@ final class Survivors {
             return null;
         }
         return new Card[] {aura, creature};
+    }
+
+    /**
+     * Spec 0101, row 3 -- the replacement Forge chose is a shield counter's
+     * destroy replacement (Card#updateReplacementEffects: "Event$ Destroy
+     * ... ShieldCounter$ True", Forge's own parameter, never a card's name):
+     * the card it saves, or null.
+     */
+    static Card shieldSave(ReplacementEffect re) {
+        if (re == null || re.getMode() != ReplacementType.Destroy || !"True".equals(re.getParam("ShieldCounter"))) {
+            return null;
+        }
+        return re.getHostCard();
+    }
+
+    /**
+     * Spec 0101, rows 3 and 7 -- which survive kind a damage prevention is:
+     * "shield" for a shield counter's (its overriding ability removes a
+     * Shield counter, Card#updateReplacementEffects), "prevent-next" for a
+     * "prevent the next N damage" shield (DamagePreventEffect's
+     * "PreventionEffect$ NextN"), else null (Fog, protection, Holy Day).
+     */
+    static String preventedBy(ReplacementEffect re) {
+        if (re == null || re.getMode() != ReplacementType.DamageDone) {
+            return null;
+        }
+        if ("NextN".equals(re.getParam("PreventionEffect"))) {
+            return "prevent-next";
+        }
+        SpellAbility over = re.getOverridingAbility();
+        if (over != null && over.getApi() == ApiType.RemoveCounter
+                && "Shield".equalsIgnoreCase(over.getParamOrDefault("CounterType", ""))) {
+            return "shield";
+        }
+        return null;
     }
 
     /** Whether this replacement effect prevents damage (Fog, protection, "prevent the next N"). */

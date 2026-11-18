@@ -276,7 +276,7 @@ final class CombatChoices {
                     takeBack.put(back, creature);
                     labels.put(back, "Stop blocking with " + describe(creature));
                 }
-                if (!CombatUtil.canBlock(creature, combat)) {
+                if (!offered(creature, combat)) {
                     if (!blocking && creature.isCreature()) {
                         why.put("card:" + creature.getId(), WhyNot.block(creature));
                     }
@@ -325,6 +325,41 @@ final class CombatChoices {
                 combat.addBlocker(blocked, blocker);
             }
         }
+    }
+
+    /** Whether the declare-blockers decision offers [creature] as a blocker (Forge's CombatUtil#canBlock). */
+    static boolean offered(Card creature, Combat combat) {
+        return CombatUtil.canBlock(creature, combat);
+    }
+
+    /**
+     * Spec 0101, item 3 (Decided 1) -- while blockers are to be declared
+     * ([open]: attackers declared, blocks not yet), the creatures the game
+     * offers the defending player as blockers, as the declare-blockers
+     * decision offers them ({@link #offered}), and those already blocking:
+     * ["card:N", ...] for every viewer. Public: the board is seen by all.
+     */
+    static com.google.gson.JsonArray candidatesJson(forge.game.Game game, boolean open) {
+        com.google.gson.JsonArray out = new com.google.gson.JsonArray();
+        Combat combat = open ? game.getCombat() : null;
+        if (combat == null || combat.getAttackers().isEmpty()) {
+            return out;
+        }
+        try {
+            for (Player defender : combat.getDefendingPlayers()) {
+                for (Card creature : defender.getCardsIn(ZoneType.Battlefield)) {
+                    if (creature.isPhasedOut()) {
+                        continue;
+                    }
+                    if (combat.isBlocking(creature) || offered(creature, combat)) {
+                        out.add("card:" + creature.getId());
+                    }
+                }
+            }
+        } catch (RuntimeException e) {
+            System.err.println("proxic: blocker candidates not read: " + e);
+        }
+        return out;
     }
 
     private Card chooseWhatToBlock(Card blocker, List<Card> attackers, Combat combat)

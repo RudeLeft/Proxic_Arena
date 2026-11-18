@@ -35,6 +35,8 @@ export interface CombatWave {
     infect?: boolean;
     /** Spec 0080 -- damage a prevention stopped (Holy Day, protection): its would-be amount (`amount` 0). */
     prevented?: number;
+    /** Spec 0101 -- what stopped it: a shield counter, "prevent the next N" (else a plain prevention). */
+    by?: "shield" | "prevent-next";
   }[];
   combat?: "first-strike" | "regular";
   /** Spec 0084 -- a fight or bite spell's damage: `fights` in a combat step's shape. */

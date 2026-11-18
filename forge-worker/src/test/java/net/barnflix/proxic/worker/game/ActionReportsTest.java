@@ -42,6 +42,33 @@ class ActionReportsTest {
     }
 
     @Test
+    void aCounteredAbilityIsToldToItsControllerOnly() {
+        // F-0101-B: Bob Stifles Alice's Pyromancer ping -- Alice only.
+        assertTrue(ActionReports.tells(ActionReports.Kind.COUNTER_ABILITY, ALICE, BOB, ALICE, BOB));
+        assertFalse(ActionReports.tells(ActionReports.Kind.COUNTER_ABILITY, BOB, BOB, ALICE, BOB));
+        // Stifling your own ability: nobody (it was yours, and you did it).
+        assertFalse(ActionReports.tells(ActionReports.Kind.COUNTER_ABILITY, BOB, BOB, BOB, BOB));
+        assertFalse(ActionReports.tells(ActionReports.Kind.COUNTER_ABILITY, ALICE, BOB, BOB, BOB));
+        assertEquals("Bob countered Prodigal Pyromancer's ability with Stifle.",
+                ActionReports.abilityCounteredWords("Bob", "Prodigal Pyromancer", "Stifle"));
+    }
+
+    @Test
+    void aCounterspellsOwnMoveAfterItResolvedStartsNoNewReport() {
+        // Spec 0101: Stifle resolves; Forge then moves its card to the
+        // graveyard with Stifle still the stack's top. That move must not start
+        // a new effect under Stifle, or the next permanent spell (Wingshield
+        // Agent) to resolve is gathered under it and told as countered.
+        Object stifle = new Object();
+        Object agent = new Object();
+        assertFalse(ActionReports.startsResolving(stifle, stifle), "Stifle's own move after it resolved");
+        // The Agent resolving next is its own effect (no COUNTER kind).
+        assertTrue(ActionReports.startsResolving(agent, stifle), "the next spell starts its own");
+        assertTrue(ActionReports.startsResolving(stifle, null), "a spell resolving the first time");
+        assertFalse(ActionReports.startsResolving(null, stifle), "nothing on the stack");
+    }
+
+    @Test
     void bobsRaiseDeadIsShownToYouNotToBob() {
         assertTrue(ActionReports.tells(ActionReports.Kind.RETURN, ALICE, BOB, BOB, BOB));
         assertFalse(ActionReports.tells(ActionReports.Kind.RETURN, BOB, BOB, BOB, BOB));

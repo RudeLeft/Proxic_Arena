@@ -154,4 +154,37 @@ class SurvivorsTest {
     void forgeStillHasTheDamageList() {
         assertNotNull(Survivors.DAMAGE_LIST);
     }
+
+    @Test
+    void aShieldCounterOrPreventNextSaysWhatStoppedTheHit() {
+        // F-0101-A: a hit a shield counter stopped says by "shield"; "prevent
+        // the next 3" by "prevent-next"; a plain prevention (Fog) no by.
+        List<JsonObject> hits = new ArrayList<>();
+        List<Survivors.Pending> pending = List.of(
+                new Survivors.Pending(new Object(), "card:5", object("card:9"), 3, 0, "shield"),
+                new Survivors.Pending(new Object(), "card:6", object("card:8"), 3, 0, "prevent-next"),
+                new Survivors.Pending(new Object(), "card:7", player(1), 2, 0));
+        List<JsonObject> out = Survivors.withPrevented(hits, pending);
+        assertEquals(3, out.size());
+        assertEquals("shield", out.get(0).get("by").getAsString());
+        assertEquals(3, out.get(0).get("prevented").getAsInt());
+        assertEquals("prevent-next", out.get(1).get("by").getAsString());
+        assertFalse(out.get(2).has("by"));
+    }
+
+    @Test
+    void entriesThatLeftAreToldOnceAndOnlyWhenShown() {
+        // F-0101-B: Stifle's countered ping, Time Stop's ended entries.
+        assertEquals(java.util.List.of(new StackLeft.Left(4, "ended", 30), new StackLeft.Left(6, "ended", 30)),
+                StackLeft.ended(java.util.List.of(4, 5, 6), 5, 30));
+        JsonArray told = StackLeft.json(java.util.List.of(new StackLeft.Left(4, "countered", 12),
+                new StackLeft.Left(4, "countered", 12), new StackLeft.Left(9, "countered", 12),
+                new StackLeft.Left(6, "ended", 0)), java.util.Set.of(4, 6));
+        assertEquals(2, told.size());
+        JsonObject first = told.get(0).getAsJsonObject();
+        assertEquals("stack:4", first.get("stack").getAsString());
+        assertEquals("countered", first.get("why").getAsString());
+        assertEquals("card:12", first.get("by").getAsString());
+        assertFalse(told.get(1).getAsJsonObject().has("by"));
+    }
 }

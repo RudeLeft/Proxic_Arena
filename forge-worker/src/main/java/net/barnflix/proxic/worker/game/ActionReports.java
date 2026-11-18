@@ -170,7 +170,13 @@ final class ActionReports {
          * Swat, Redirect) moved a spell's target: told to that spell's
          * controller only, never to the one who did it.
          */
-        RETARGET }
+        RETARGET,
+        /**
+         * Spec 0101, item 2 -- an ability countered (Stifle on Prodigal
+         * Pyromancer's ping): it has no card move, so it is told here, to the
+         * ability's controller only, never to the one who countered it.
+         */
+        COUNTER_ABILITY }
 
     /**
      * Spec 0074, Amendment 1 -- the kinds that hide nothing Forge shows (a
@@ -291,6 +297,9 @@ final class ActionReports {
                     finish();
                 }
                 noteTargets();
+                // Spec 0101 -- what resolved now (after its report): its own
+                // move off the stack follows, and starts nothing.
+                justResolved = game.getStack().isEmpty() ? null : game.getStack().peekAbility();
                 return;
             } else if (event instanceof forge.game.event.GameEventTurnPhase phase
                     && phase.phase() == forge.game.phase.PhaseType.COMBAT_BEGIN) {
@@ -405,6 +414,36 @@ final class ActionReports {
         }
     }
 
+    /**
+     * Spec 0101, item 2 -- [ability] (on the stack) was countered while
+     * [by] resolved: a COUNTER_ABILITY report, the ability's source card as
+     * its picture (where it is now), told to the ability's controller.
+     */
+    void abilityCountered(SpellAbility ability, SpellAbility by) {
+        if (ability == null || by == null || ability.getHostCard() == null || ability.getActivatingPlayer() == null
+                || by.getActivatingPlayer() == null || by.getHostCard() == null) {
+            return;
+        }
+        Card source = game.findById(ability.getHostCard().getId());
+        Card card = source != null ? source : ability.getHostCard();
+        ZoneType zone = card.getZone() == null ? ZoneType.Battlefield : card.getZone().getZoneType();
+        List<Move> shown = new ArrayList<>();
+        shown.add(new Move(card.getId(), card.getOwner(), zone, zone, card.isFaceDown()));
+        Card spell = by.getHostCard();
+        Report report = new Report(keys.incrementAndGet(), by.getActivatingPlayer(),
+                spell.isFaceDown() ? "a face-down card" : spell.getName(), Kind.COUNTER_ABILITY,
+                ability.getActivatingPlayer(), shown.size(), shown, new java.util.HashMap<>(), false, -1, 0);
+        report.chooser = by.getActivatingPlayer();
+        report.retargeted = card.isFaceDown() ? "a face-down card" : card.getName();
+        report.cards.put(card.getId(), card);
+        tell(report);
+    }
+
+    /** Spec 0101, item 2 -- "Bob countered Prodigal Pyromancer's ability with Stifle." */
+    static String abilityCounteredWords(String actor, String card, String spell) {
+        return actor + " countered " + card + "'s ability with " + spell + ".";
+    }
+
     /** Spec 0100, item 8 -- the sentence, to the spell's controller ("Bob changed your Lightning Bolt's target to Spellskite."). */
     static String retargetWords(String actor, String spell, String target) {
         return actor + " changed your " + spell + "'s target to " + target + ".";
@@ -499,8 +538,29 @@ final class ActionReports {
 
     private void noteResolving() {
         if (resolving == null && game.getStack().isResolving() && !game.getStack().isEmpty()) {
-            resolving = game.getStack().peekAbility();
+            SpellAbility top = game.getStack().peekAbility();
+            if (startsResolving(top, justResolved)) {
+                resolving = top;
+            }
         }
+    }
+
+    /**
+     * Spec 0101 (found in its real-click game) -- the entry that last said it
+     * resolved (GameEventSpellResolved). Forge moves a spell's card off the
+     * stack AFTER that event, with the stack still resolving and the spell
+     * still its top entry (MagicStack#finishResolving: removeCardFromStack,
+     * then remove(si)); that move must not start a new effect. It did: after
+     * Stifle resolved, its own move to the graveyard set `resolving` back to
+     * Stifle, the next permanent spell's move onto the battlefield was
+     * gathered under it, and that spell was reported countered ("Pat
+     * countered your Wingshield Agent.").
+     */
+    private SpellAbility justResolved;
+
+    /** Whether [top] (the stack's top while it resolves) starts a new effect: not the one that just resolved. */
+    static <S> boolean startsResolving(S top, S justResolved) {
+        return top != null && top != justResolved;
     }
 
     private void reset() {
@@ -1529,6 +1589,7 @@ final class ActionReports {
             case RESTART -> restartWords(r.actor == w.reader ? null : r.actor.getName(), r.count);
             // Spec 0100, item 8, the spec's words.
             case RETARGET -> retargetWords(who, r.retargeted, targetWords(r.newTarget, w));
+            case COUNTER_ABILITY -> abilityCounteredWords(who, r.retargeted, r.source);
         };
     }
 
@@ -1651,6 +1712,8 @@ final class ActionReports {
             case RESTART -> reader != actor;
             // Spec 0100, item 8 (owner): the changed spell's controller, never the one who changed it.
             case RETARGET -> reader == subject && reader != actor;
+            // Spec 0101, item 2 (owner, missed Q5 A): the countered ability's controller only.
+            case COUNTER_ABILITY -> reader == subject && reader != actor;
             // Spec 0097, item 7 (owner): never a window for the one who did it.
             case MILL, COUNTER, RETURN, PHASE -> reader != actor;
             default -> reader != chooser;

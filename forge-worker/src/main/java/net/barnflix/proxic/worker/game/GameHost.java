@@ -1056,6 +1056,8 @@ public final class GameHost {
     private final class MoveLog {
         @com.google.common.eventbus.Subscribe
         public void on(forge.game.event.GameEvent event) {
+            // Spec 0101, item 2 -- what is resolving, and which entries left without resolving.
+            stackLeft(event);
             if (event instanceof forge.game.event.GameEventCardSacrificed sacrificed && sacrificed.card() != null) {
                 sacrificing.add(sacrificed.card().getId());
                 // Spec 0084 -- spent (a cost, its own ability, a Saga), read
@@ -1151,6 +1153,89 @@ public final class GameHost {
      * bestowed or mutating spell -- Forge resolves those as creature spells
      * instead (MagicStack#resolveStack).
      */
+    /**
+     * Spec 0101, item 2 -- every entry on the stack, by its spell ability's
+     * id, as Forge put it there (GameEventSpellAbilityCast); the entry that
+     * was resolving as last seen (a Time Stop clears the stack, itself too,
+     * before it says so); this round's entries that left without resolving;
+     * and the stack ids the last boards showed.
+     */
+    private final java.util.Map<Integer, forge.game.spellability.SpellAbilityStackInstance> onStack =
+            new java.util.HashMap<>();
+    private forge.game.spellability.SpellAbility resolvingTop;
+    private final java.util.List<StackLeft.Left> leftNow =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    private volatile java.util.Set<Integer> toldStack = java.util.Set.of();
+    /** Spec 0101, item 3 -- attackers declared, blockers not yet (this combat). */
+    private volatile boolean attackersDeclared;
+    private volatile boolean blocksDeclared;
+
+    private void stackLeft(forge.game.event.GameEvent event) {
+        Game current = game;
+        if (current == null) {
+            return;
+        }
+        // Spec 0101, item 3 -- between the attack and the blocks, the
+        // blockers the game offers are told (CombatChoices#candidatesJson).
+        if (event instanceof forge.game.event.GameEventAttackersDeclared) {
+            attackersDeclared = true;
+            blocksDeclared = false;
+        } else if (event instanceof forge.game.event.GameEventBlockersDeclared) {
+            blocksDeclared = true;
+        } else if (event instanceof forge.game.event.GameEventCombatEnded) {
+            attackersDeclared = false;
+            blocksDeclared = false;
+        }
+        forge.game.zone.MagicStack stack = current.getStack();
+        if (stack.isResolving() && stack.peek() != null) {
+            resolvingTop = stack.peek().getSpellAbility();
+        }
+        if (event instanceof forge.game.event.GameEventSpellAbilityCast cast && cast.si() != null) {
+            for (forge.game.spellability.SpellAbilityStackInstance each : stack) {
+                if (each.getId() == cast.si().getId() && each.getSpellAbility() != null) {
+                    onStack.put(each.getSpellAbility().getId(), each);
+                }
+            }
+            return;
+        }
+        if (!(event instanceof forge.game.event.GameEventSpellRemovedFromStack removed)) {
+            return;
+        }
+        forge.game.spellability.SpellAbility by = stack.isResolving() ? resolvingTop : null;
+        String why = by == null ? null : StackLeft.why(by);
+        int byCard = by == null || by.getHostCard() == null ? 0 : by.getHostCard().getId();
+        if (removed.sa() == null) {
+            // MagicStack#clear: everything on it went at once (Time Stop).
+            if ("ended".equals(why)) {
+                java.util.List<Integer> ids = new java.util.ArrayList<>();
+                int self = -1;
+                for (forge.game.spellability.SpellAbilityStackInstance each : onStack.values()) {
+                    ids.add(each.getId());
+                    if (each.getSpellAbility() == by) {
+                        self = each.getId();
+                    }
+                }
+                leftNow.addAll(StackLeft.ended(ids, self, byCard));
+            }
+            onStack.clear();
+            return;
+        }
+        forge.game.spellability.SpellAbilityStackInstance gone = onStack.remove(removed.sa().getId());
+        if (gone == null || by == null || gone.getSpellAbility() == by || removed.sa().getId() == by.getId()
+                || !"countered".equals(why)) {
+            return; // it resolved (or left some other way)
+        }
+        leftNow.add(new StackLeft.Left(gone.getId(), why, byCard));
+        // Spec 0101, item 2's window -- a countered ABILITY has no card move,
+        // so no COUNTER report from the moves: told to its controller here.
+        if (!gone.isSpell()) {
+            ActionReports reports = actions();
+            if (reports != null) {
+                reports.abilityCountered(gone.getSpellAbility(), by);
+            }
+        }
+    }
+
     /** Spec 0080 -- this round's phase changes, and its survivors (Survivors). */
     private final java.util.List<Survivors.Phase> phases =
             java.util.Collections.synchronizedList(new java.util.ArrayList<>());
@@ -1183,9 +1268,16 @@ public final class GameHost {
             }
             return;
         }
+        // Spec 0101, row 3 -- a shield counter removed instead of the card being destroyed.
+        forge.game.card.Card shielded = Survivors.shieldSave(chosen);
+        if (shielded != null) {
+            survived.add(new Survivors.Survived(shielded.getId(), "shield"));
+            return;
+        }
         if (!Survivors.isPrevention(chosen)) {
             return;
         }
+        String preventedBy = Survivors.preventedBy(chosen);
         java.util.Map<Player, Integer> seats = seatsByPlayer(current);
         synchronized (damageDealt) {
             for (Object[] event : Survivors.preventing(current, chosen)) {
@@ -1202,7 +1294,7 @@ public final class GameHost {
                     continue;
                 }
                 preventing.add(new Survivors.Pending(event[0], source, target, (Integer) event[3],
-                        damageDealt.size()));
+                        damageDealt.size(), preventedBy));
             }
         }
     }
@@ -1544,6 +1636,18 @@ public final class GameHost {
             survivedNow = Survivors.survivedJson(survived);
             survived.clear();
         }
+        // Spec 0101, item 2 -- entries that left without resolving, of those
+        // a board already showed; then the stack this round's boards show.
+        com.google.gson.JsonArray leftJson;
+        synchronized (leftNow) {
+            leftJson = StackLeft.json(leftNow, toldStack);
+            leftNow.clear();
+        }
+        java.util.Set<Integer> stackShown = new java.util.HashSet<>();
+        current.getStack().forEach(instance -> stackShown.add(instance.getId()));
+        toldStack = stackShown;
+        // Spec 0101, item 3 -- the creatures the game offers as blockers.
+        com.google.gson.JsonArray blockerCandidates = CombatChoices.candidatesJson(current, attackersDeclared && !blocksDeclared);
         sacrificing.clear();
         spending.clear();
         synchronized (spellFights) {
@@ -1628,6 +1732,12 @@ public final class GameHost {
             if (survivedNow.size() > 0) {
                 snapshot.add("survived", survivedNow.deepCopy());
             }
+            if (leftJson.size() > 0) {
+                snapshot.add("left", leftJson.deepCopy());
+            }
+            if (blockerCandidates.size() > 0) {
+                snapshot.add("blockerCandidates", blockerCandidates.deepCopy());
+            }
             // Spec 0084 -- public: a shuffle and a crew are seen by everyone.
             if (shuffles.size() > 0) {
                 snapshot.add("shuffles", shuffles.deepCopy());
@@ -1685,6 +1795,12 @@ public final class GameHost {
             }
             if (survivedNow.size() > 0) {
                 everyone.add("survived", survivedNow.deepCopy());
+            }
+            if (leftJson.size() > 0) {
+                everyone.add("left", leftJson.deepCopy());
+            }
+            if (blockerCandidates.size() > 0) {
+                everyone.add("blockerCandidates", blockerCandidates.deepCopy());
             }
             if (shuffles.size() > 0) {
                 everyone.add("shuffles", shuffles.deepCopy());

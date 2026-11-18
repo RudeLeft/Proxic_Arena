@@ -109,3 +109,58 @@ None.
 ## Build order notes
 
 Second of the four (after 0100), because item 2 changes the same stack-leave loop (`Board.tsx` 7358-7720) that 0100 item 8 (the swing) and 0102 item 3 (Time Stop) rely on. Inside: worker `left` + report first, then the crumble for abilities (smallest page change), then the seven rows (one shared lead in `survive.ts` first, then each row), then combat squares last (speed measurement).
+
+## As built (2026-11-18, uncommitted)
+
+Built on main at 8db8ff1. Line numbers are of the working tree. "RUN" = run here on this tree; "SOURCE" = read from the code (EVID-001). Worker paths are under `forge-worker/src/main/java/net/barnflix/proxic/worker/game/`, page paths under `frontend/src/battlefield/`.
+
+### Where each item is
+
+| Item | Worker | Page |
+|---|---|---|
+| Shared lead, grey number | (nothing new) | `survive.ts:68` `SHIELD_UP_MS` 150 (every shape fully up 150 ms before the blow, `SHAPE_IN_MS` 120 to come up, `shapeStart`); `greyNumber` `:79`, `numberPoint`; dome and pale shield re-timed (`domeMarks`, `wardMarks`); umbra `umbra.ts:39` `SHIELD_LEAD_MS` = unfold 550 + 150. A survivor's red "−N" and crack are replaced by the grey number (`Board.tsx:4381` `lived`; in a fight `Board.tsx` the strike number turns grey, was gold) |
+| Row 1 regeneration | (unchanged) | green shield over the card `regenShieldMarks` (`survive.ts:120`), bursts 350 ms after the blow with green sparks; 0080's badge burst; grey number = damage on this board (`Board.tsx:5974`ff survive effect) |
+| Row 2 indestructible | (unchanged) | dome fully up at −150; the hexagon square pulses at the blow (`pulseSquare`, `Board.tsx:5464`); grey number (3 for a Bolt, 0 for a Murder) |
+| Row 3 shield counters | `Survivors.shieldSave` (`Survivors.java:194`, the destroy replacement's `ShieldCounter` parameter) -> `survived how:"shield"` (`GameHost.java:1272`); `Survivors.preventedBy` (`:208`, overriding RemoveCounter of a Shield counter) -> the prevented hit's `by:"shield"` (`Survivors.java:149`) | silver heater shield `silverShieldMarks` (`survive.ts:161`; `UmbraShield tone="silver"`), cracks at the blow, shatters 550 ms after (silver shards); the SHIELD badge pops at blow+100 (its count ticks on 0078's clock); grey 0 on a hit (`Board.tsx:4342`, fights `:5680`); no number on the destroy path (`Board.tsx:5990`) |
+| Row 4 umbra | (unchanged) | shield whole at −150 after its unfold; grey 0 as it shatters (`Board.tsx:5974`) |
+| Row 5 protection | (unchanged) | pale shield up at −150; the protection square pulses at the blow on a prevented hit with no `by` (spell `Board.tsx:4342`ff, fight `:5680`ff; the fizzle path's pulse is 0085's); grey 0 |
+| Row 6 ward | stack entry `ward: true` (`ViewerSnapshot.java:520`, `Polish.isWard` `Polish.java:19`: the trigger's `Keyword.WARD` origin) | `wardsThen` effect (`Board.tsx:5907`): a ward entry rising -> its creature's ward square flares (`wardFlareFrames`) and a ring (`wardRingMarks`, `survive.ts:224`); leaving -> flare, and when `left` names the creature as `by` a second ring + grey 0 at +450; paid (nothing left): the flare only (Decided 2). The countered spell crumbles struck by the ward trigger's beam (`Board.tsx:7987`, `wardBy`) |
+| Row 7 prevent the next N | `preventNext` on a battlefield card (`ViewerSnapshot.java:953`) and a player (`:133`), from `GameEntityView#getPreventNextDamage`; a soaked hit `by:"prevent-next"` | new square `PreventSquare` (`CardBadges.tsx:708`): pale round shield with N; used (`fromSnapshot.ts:381` `withOutcomes` -> `preventUsed`), each count shows in turn (`PREVENT_TICK_AT_MS` 430, 100 ms a step) and at 0 the square goes (CSS, compositor-only); pale shield up at −150; grey 0 |
+| Item 2 didn't happen | `StackLeft.java` (new) + `GameHost.stackLeft` (`GameHost.java:1173`): entries removed while a Counter or EndTurn part resolves -> `left [{stack, why, by}]`, only ids a board showed (`GameHost.java:1643`); `ActionReports.abilityCountered` (`:419`), kind `COUNTER_ABILITY`, "Bob countered Prodigal Pyromancer's ability with Stifle." (`:440`), told to the ability's controller only (`:1692`) | `fromSnapshot.ts:812`: `left` stack ids join `countered` (+ `leftBy`); `Board.tsx:7987` `struckDown` also by stack id: crumble, no glow, no spark; an ability ticks no pile; Time Stop's Bolt crumbles where it is and goes to its exile tile (`departures`) |
+| Item 3 combat squares | `blockerCandidates` (`CombatChoices.candidatesJson` `:342`, the decision's own `offered` test `:331`), between GameEventAttackersDeclared and GameEventBlockersDeclared (`GameHost.java:1650`), every viewer | `fromSnapshot.ts:366` `COMBAT_STEPS` + `withOutcomes` (`inCombat`: attacking, blocking or a candidate); `marks.tsx:163` printed first strike, double strike, deathtouch, trample, menace, lifelink (never flying) as `kw:` squares (`combat: true`); they pop on (`combatPopFrames`, `markMotion.ts:123`; no riser, `Board.tsx:5355`); `popCombatSquares` (`Board.tsx:5484`): first/double strike at the first-strike wave, deathtouch on its hit, lifelink on the gain, trample when a blocked attacker's damage reaches the player; gone after end of combat (0085's shrink) |
+
+Protocol: `protocol/README.md` (`survived.how "shield"`, `left`, `blockerCandidates`, `card.preventNext` (and players), stack `ward`, hit `by`, action `COUNTER_ABILITY`); `frontend/src/match.ts`. Server: no change. CI: `survive-rows` and `didnt-happen` added to the Lab list; the outcomes deck package built (`protocol/fixtures/outcomes-deck`, `Test Deck/outcomes-deck.zip` built locally as 0100's was).
+
+### Tests and results (RUN, this tree)
+
+- Worker `mvn -q -o test`: pass. New: `ActionReportsTest.aCounteredAbilityIsToldToItsControllerOnly`, `SurvivorsTest.aShieldCounterOrPreventNextSaysWhatStoppedTheHit`, `SurvivorsTest.entriesThatLeftAreToldOnceAndOnlyWhenShown`.
+- Lab, new `scripts/check-survive-rows.py` (shield-murder, shield-bolt, prevent-next, ward, ward-paid, blockers) and `scripts/check-didnt-happen.py` (stifle, time-stop), x3: every scenario OK every run (run 1 inside the full list below).
+- Whole ci.yml Lab list locally (69 scripts, 3 at a time, before main moved to 379bc4e): 69/69 exit 0 at the first go, no retries.
+- Hidden checks over the whole list's 379 traces: snapshot-first, hidden-hands, hidden-log, kinds, hidden-mulligans OK; hidden-tops `problems: []`; questions-asked summarised. Over the new scripts' own 24 traces (3 runs): the same OK (hidden-tops exit 2 there: nothing of its kind in those games, as CI accepts).
+- Page: `fixes0101.test.tsx` (14: the seven rows each with the shield up at blow −150 ms within a frame, the grey number and the badge's end state; ward paid; the countered ability crumbling with no spark and a resolved one sparking; `left` in fromSnapshot; printed squares from declare attackers on an attacker and a blocker candidate, not on a non-candidate, not outside combat, gained unchanged, the pop on the deathtouch hit). `fixes0080`/`fixes0089` updated for the approved timing (dome start, the fight number grey, umbra 0.15 s). Whole vitest 1528/1528; tsc, eslint (whole frontend, 0 warnings), prettier pass.
+- Real-click game (TEST-012) `frontend/e2e/match-outcomes.spec.ts`, headless bundled: pass (2.6 min). The host really attacked with Typhoid Rats and the guest really clicked Youthful Knight to block: deathtouch on the Rats and first strike on the Knight on both pages as the attack was declared, none after combat. The host pinged the Knight, the guest really cast Stifle: the ping crumbled on both pages, no spark at the Knight, the host's window "Pat countered Prodigal Pyromancer's ability with Stifle.", the guest none. The guest really cast Murder at the host's Wingshield Agent: the silver shield on both pages, the Agent stayed.
+- Mutations (TEST-004): page 18/18 caught (one per row, the shared lead, ward paid, the crumble, `left`, the combat squares' steps, candidates, pops, no riser). Worker 8/8 caught (W1 the window's reader, W2 Counter not recognised, W3 the `left` shown-ids guard (HID), W4 shield survivor, W5 prevent-next, W6 ward, W7 the candidates' window, W8 preventNext).
+- Jump check over survive-rows-*, didnt-happen-*, survivors-*, wipes-*, combat-choices-*, card-actions-counter, thrown-away-countered and game-flow-umbra (41 traces, both seats): no problem found (every kind of move listed with boards only).
+- Clips and stills: `scratchpad/b0101/clips/` (CLIPS.txt lists each clip's video, time range and what it shows; stills `<clip>-at250/420/650.png`). The clip tool was a temporary copy of 0100's, removed.
+
+### Open (not done, or not proven)
+
+- **Row 7's tick timing** is fixed on the page (from 430 ms after the board, 100 ms a step), not read from the blow; right for a resolving spell, early or late for other blows.
+- **Row 3's count tick** plays on 0078's badge clock; the badge pops at blow+100. "0080's survived flash" was read as that pop (the v3 canvas row shows no other flash).
+- **Shared lead reading**: the spec's Changes say "fully up at blow −150"; the canvas starts each shape at about −150. Built as the spec words (fully up at −150, up over 120 ms before that), as F-0101-C tests.
+- **Regeneration in a fight**: its green shield plays on the survive effect's clock, not the fight's strike.
+- **W3 (HID-004)**: the `left` shown-ids guard was caught by a unit test only; no Lab game removes an entry no board showed, so it has not fired in a game.
+
+### Not built (no approved look / no data)
+
+On the coordinator's stragglers list (2026-11-18):
+
+- **Menace's pop when a single blocker is refused** (combat Q1): the refusal reaches only the defender's decision (`refused`), not the damage wave the pops read. The other pops (first/double strike, deathtouch, lifelink, trample) are built.
+- **A "prevent the next N" badge on a player** (row 7): the worker sends `preventNext` on players, but the approved canvas shows only the creature's square.
+
+### Fixed while finishing: a false "countered" window (pre-existing, coordinator 2026-11-18)
+
+- **Cause** (SOURCE + RUN): Forge moves a resolved spell's card off the stack after GameEventSpellResolved, with the stack still resolving and the spell still its top entry (`MagicStack#finishResolving`: `removeCardFromStack`, then `remove(si)`). ActionReports' `noteResolving` took that move as the start of a new effect under the same spell. After Stifle resolved, `resolving` was Stifle again. The next permanent spell's move onto the battlefield was gathered under it, and that spell was told as countered. The real-click game showed the host "Pat countered your Wingshield Agent.".
+- **Fix**: `ActionReports.justResolved` holds the entry that last resolved, set after its report (`ActionReports.java:302`). `noteResolving` (`:539`) starts a new effect only for a different top entry (`startsResolving`, `:562`). A spell is told countered only from moves made while the countering effect itself resolves.
+- **Test**: `ActionReportsTest.aCounterspellsOwnMoveAfterItResolvedStartsNoNewReport`. With the old rule restored (`top != null`) it fails (RUN); with the fix it passes. `match-outcomes.spec.ts` now asserts that neither page gets a "countered your Wingshield Agent" window. Before the fix the same game showed one to the host; after it, none (RUN).
+- **Re-run after the fix**: worker `mvn -q -o test` pass. `check-survive-rows.py` and `check-didnt-happen.py` x1 OK, with the hidden checks over their traces OK (hidden-tops `problems: []`). The real-click game passed (1.1 min, stack rebuilt). tsc, eslint and prettier pass, and vitest is 1528/1528.

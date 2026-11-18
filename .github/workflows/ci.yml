@@ -158,6 +158,8 @@ jobs:
       # Spec 0098 F-0098-B: the test-only deal switch is set by the local
       # and CI overrides only, never by a production compose file or the image.
       - run: python3 -I scripts/check-test-switch.py
+      # check-moves' own rule, on saved boards (Chaos Warp's reveal, 2026-11-18).
+      - run: python3 -I scripts/check-moves.py --self-test
 
       - run: npm ci
         working-directory: frontend
@@ -310,7 +312,7 @@ jobs:
               attachments printings face-down costs results \
               tracked-state text-effects coin-flip board-data concede mana-cost \
               library-order mana-pool mulligan unreachable dice unset \
-              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices \
+              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
               'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions) limit=900;; esac;
@@ -635,6 +637,12 @@ jobs:
       - name: Build the spell-choices deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/spell-choices-deck.zip" protocol/fixtures/spell-choices-deck
+
+      # And spec 0101's real-click game (F-0101-F): printed combat squares,
+      # a Stifled ping crumbling, a shield counter's silver shield.
+      - name: Build the outcomes deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/outcomes-deck.zip" protocol/fixtures/outcomes-deck
 
       # And looking at your library (spec 0001, F-0001-H, D3): surveil and
       # scry, the cards as pictures to the player looking, alone.

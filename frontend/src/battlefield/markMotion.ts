@@ -114,6 +114,21 @@ export function whyPulseFrames(): Keyframe[] {
   }));
 }
 
+/**
+ * Spec 0101, item 3 (combat Q1 A) -- a printed combat square popping on as
+ * the attack is declared (the canvas's markIn: from nothing, past its size,
+ * settling), compositor-only.
+ */
+export const COMBAT_POP_MS = 360;
+export function combatPopFrames(): Keyframe[] {
+  const backOut = (p: number) => 1 + 2.9 * (p - 1) ** 3 + 1.9 * (p - 1) ** 2;
+  return [0, 0.2, 0.4, 0.6, 0.8, 1].map((p) => ({
+    offset: p,
+    opacity: Math.min(1, p * 4),
+    transform: `scale(${Math.max(0.01, p === 0 ? 0.01 : backOut(p)).toFixed(3)})`,
+  }));
+}
+
 // --- 4 A · the held card's tab --------------------------------------------------------
 
 /** The tab grows in with a glow (the canvas: in over 0.12 s, the glow a bump over 0.6 s). */

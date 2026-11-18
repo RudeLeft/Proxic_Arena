@@ -31,8 +31,12 @@ export const TAB_GO_MS = 300;
 /** The shield unfolds from the tab (0.55 s), first sliding over the creature (0.3 s). */
 export const UNFOLD_MS = 550;
 export const SLIDE_MS = 300;
-/** It is whole this long before the blow (the canvas's S0 to W: 0.65 s). */
-export const SHIELD_LEAD_MS = 650;
+/**
+ * Spec 0101 (combat Q6 v3) -- it starts unfolding this long before the
+ * blow: its unfold, then whole 150 ms before the blow, the lead every shield
+ * shape shares (survive.ts SHIELD_UP_MS). Was 650 (0089: whole 100 ms before).
+ */
+export const SHIELD_LEAD_MS = 550 + 150;
 /** The blow: it brightens (0.3 s); it cracks 80 ms in; it goes from 250 ms over 200. */
 export const HIT_MS = 300;
 export const CRACK_AT = 80;
@@ -55,7 +59,7 @@ export const SHIELD_H = 1.22;
  */
 export function umbraTimes(blow: number): { start: number; blow: number } {
   const start = Math.max(0, blow - SHIELD_LEAD_MS);
-  return { start, blow: Math.max(blow, start + UNFOLD_MS + 50) };
+  return { start, blow: Math.max(blow, start + SHIELD_LEAD_MS) };
 }
 
 const easeOut = (p: number) => 1 - Math.pow(1 - p, 3);

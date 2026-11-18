@@ -11,7 +11,7 @@
 // only (§7.34, §7.35) -- a wrong guess costs a glide in the wrong
 // direction, never a wrong board, because the board is the snapshot.
 
-import type { LifeChanges, Snapshot, SnapshotCard } from "../match";
+import type { LifeChanges, Snapshot, SnapshotCard, SurviveHow } from "../match";
 import { sameContent } from "./sameProps";
 import { sizeChanges, type SizeChanges } from "./sizeTicks";
 import type {
@@ -57,8 +57,15 @@ export interface BoardData {
   returns: Map<string, Return>;
   /** Spec 0074 -- the cards discarded, milled, or moved out of a graveyard or exile this update. */
   tileMoves: TileMove[];
-  /** Spec 0074 -- the spells countered this update (each spell's own card). */
+  /**
+   * Spec 0074 -- the spells countered this update (each spell's own card).
+   * Spec 0101, item 2 -- and every stack entry that left without resolving
+   * (`left`: countered, or ended by Time Stop), by its stack id: an
+   * ability has no card, and must not take the resolved path.
+   */
   countered: Set<string>;
+  /** Spec 0101, item 2 -- each entry that left without resolving (stack id), and what did it (card id). */
+  leftBy: Map<string, string>;
   /** Spec 0079 -- the spells that fizzled this update (each spell's own card): their targets were gone. */
   fizzled: Set<string>;
   /** Spec 0080 -- flickers and survivors this update, as the game says; null for none. */
@@ -143,7 +150,7 @@ export interface Moments {
 export interface Survive {
   key: string;
   flickers: Map<string, "viewer" | "opponent">;
-  survived: Map<string, "regenerated" | "indestructible" | "umbra">;
+  survived: Map<string, SurviveHow>;
   /** Spec 0089 (Q4 B) -- each Aura destroyed instead of its creature (umbra armor): Aura -> creature. */
   umbras?: Map<string, string>;
   /** Each permanent that phased in (false) or out (true). */
@@ -353,6 +360,44 @@ export function heldCards(card: SnapshotCard, exile: readonly SnapshotCard[]): H
       },
     ];
   });
+}
+
+/** Spec 0101, item 3 -- the combat steps the printed combat squares show in (declare attackers to end of combat). */
+const COMBAT_STEPS = new Set([
+  "COMBAT_DECLARE_ATTACKERS",
+  "COMBAT_DECLARE_BLOCKERS",
+  "COMBAT_FIRST_STRIKE_DAMAGE",
+  "COMBAT_DAMAGE",
+  "COMBAT_END",
+]);
+
+/**
+ * Spec 0101 -- what a permanent shows of this board's outcomes: in combat
+ * (item 3: an attacker, a blocker, or a creature the game offers as a
+ * blocker, `blockerCandidates`, while the step is a combat one), and its
+ * "prevent the next N" (row 7) -- used up on this board when a hit on it was
+ * stopped by it (`by` "prevent-next"): the count it had, to tick away.
+ */
+function withOutcomes(
+  board: BoardCard,
+  card: SnapshotCard,
+  snapshot: Snapshot,
+  previous: Snapshot | null | undefined,
+): BoardCard {
+  const out: BoardCard = { ...board };
+  if (
+    COMBAT_STEPS.has(snapshot.phase ?? "") &&
+    (card.attacking || card.blocking || (snapshot.blockerCandidates ?? []).includes(card.id))
+  )
+    out.inCombat = true;
+  if (card.preventNext) out.preventNext = card.preventNext;
+  const had = previous?.battlefield.find((c) => c.id === card.id)?.preventNext ?? 0;
+  const soaked = (snapshot.damage?.hits ?? []).some(
+    (h) => h.by === "prevent-next" && "object" in h.target && h.target.object === card.id,
+  );
+  if (had > (card.preventNext ?? 0) && soaked)
+    out.preventUsed = { from: had, to: card.preventNext ?? 0 };
+  return out;
 }
 
 function toBoardCard(
@@ -658,6 +703,8 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     // Spec 0083 (18 B) -- what the spell is: its gold squares.
     ...(entry.splitSecond ? { splitSecond: true } : {}),
     ...(entry.cantBeCountered ? { cantBeCountered: true } : {}),
+    // Spec 0101, row 6 -- a ward trigger, and the creature it wards.
+    ...(entry.ward && entry.source ? { ward: entry.source } : {}),
     // Spec 0100 -- what its caster chose: X, the modes, the extra costs, an
     // overload's reach, each target's share.
     ...(entry.x !== undefined ? { x: entry.x } : {}),
@@ -760,6 +807,11 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
       m.card && m.why === "countered" && m.from.zone === "stack" ? [m.card] : [],
     ),
   );
+  const leftBy = new Map<string, string>();
+  for (const l of snapshot.left ?? []) {
+    countered.add(l.stack);
+    if (l.by) leftBy.set(l.stack, l.by);
+  }
   // Spec 0079 -- the spells that did nothing, their targets gone (a copy's too).
   const fizzled = new Set(
     moves.flatMap((m) =>
@@ -850,7 +902,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   for (const move of snapshot.moves ?? [])
     if (move.card && move.why === "flickered" && onBoard.has(move.card))
       flickers.set(move.card, side(move.via?.seat ?? move.to.seat ?? viewer));
-  const survivedNow = new Map<string, "regenerated" | "indestructible" | "umbra">();
+  const survivedNow = new Map<string, SurviveHow>();
   const umbras = new Map<string, string>();
   for (const s of snapshot.survived ?? []) {
     survivedNow.set(s.card, s.how);
@@ -883,7 +935,12 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   const prepared = preparedSpells(snapshot);
   return {
     battlefield: snapshot.battlefield.map((c) =>
-      toBoardCard(c, prepared.get(c.id), heldCards(c, snapshot.exile)),
+      withOutcomes(
+        toBoardCard(c, prepared.get(c.id), heldCards(c, snapshot.exile)),
+        c,
+        snapshot,
+        previous,
+      ),
     ),
     hand: snapshot.hand.map(toHandCard),
     opponentHand: opponentHandOf(snapshot),
@@ -899,6 +956,7 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     returns,
     tileMoves,
     countered,
+    leftBy,
     fizzled,
     survive,
     moments,

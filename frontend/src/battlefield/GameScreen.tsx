@@ -2265,6 +2265,7 @@ export function GameScreen({
             returns={data.returns}
             tileMoves={data.tileMoves}
             countered={data.countered}
+            leftBy={data.leftBy}
             fizzled={data.fizzled}
             survive={data.survive}
             opening={data.opening ?? null}

@@ -16,6 +16,14 @@ final class Polish {
     private Polish() {
     }
 
+    static boolean isWard(forge.game.spellability.SpellAbility sa) {
+        // Spec 0101, row 6 -- the trigger Forge made for the ward keyword
+        // (CardFactoryUtil: the BecomesTarget trigger, KeywordInstance
+        // #addTrigger records the keyword on it).
+        forge.game.trigger.Trigger trigger = sa == null ? null : sa.getTrigger();
+        return trigger != null && trigger.isKeyword(forge.game.keyword.Keyword.WARD);
+    }
+
     /**
      * Split second: the keyword Forge's MagicStack#isSplitSecondOnStack reads
      * (the one that stops spells and abilities while it is on the stack).

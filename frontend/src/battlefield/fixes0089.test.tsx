@@ -328,8 +328,9 @@ describe("F-0089-E · many tokens at once: waves of 8, each with its +8", () => 
 describe("F-0089-D · an umbra destroyed instead: its tab unfolds into a shield that shatters", () => {
   it("the shield is whole before the blow; a blow sooner than that waits for it", () => {
     expect(umbraTimes(2000)).toEqual({ start: 2000 - SHIELD_LEAD_MS, blow: 2000 });
-    expect(umbraTimes(600)).toEqual({ start: 0, blow: 600 });
-    expect(umbraTimes(380).blow).toBe(UNFOLD_MS + 50);
+    // Spec 0101: whole 150 ms before the blow, after its unfold.
+    expect(umbraTimes(800)).toEqual({ start: 100, blow: 800 });
+    expect(umbraTimes(380).blow).toBe(UNFOLD_MS + 150);
   });
 
   it("its marks: the tab held then swung out, the shield unfolding and gone, 18 pieces", () => {

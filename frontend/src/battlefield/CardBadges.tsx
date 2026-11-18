@@ -411,6 +411,9 @@ function CardBadgesView({
     phasedOut?: boolean | undefined;
     shields?: number | undefined;
     indestructible?: boolean | undefined;
+    /** Spec 0101, row 7 -- "prevent the next N damage": the pale round shield square with N, and used on this board. */
+    preventNext?: number | undefined;
+    preventUsed?: { from: number; to: number } | undefined;
     /** Spec 0082 -- prepared: a gold-rimmed square with the spell's picture. */
     prepared?: { id: string; name: string; art: string | null; crop: string | null } | undefined;
   } & Marked;
@@ -453,6 +456,7 @@ function CardBadgesView({
     card.phasedOut,
     (card.shields ?? 0) > 0,
     card.indestructible,
+    (card.preventNext ?? 0) > 0 || !!card.preventUsed,
   ].filter(Boolean).length;
   if (kinds.length === 0 && squares === 0 && marks.length === 0) return null;
   // Spec item 2: past three kinds, "··· N". With less room (a tapped pile
@@ -514,6 +518,9 @@ function CardBadgesView({
       ? `Regeneration shield${(card.shields ?? 0) > 1 ? ` ×${card.shields}` : ""}: the next time it would be destroyed, it taps instead`
       : "",
     card.indestructible ? "Indestructible" : "",
+    (card.preventNext ?? 0) > 0
+      ? `Prevent the next ${card.preventNext} damage to it this turn`
+      : "",
     ...now.map((m) => m.words),
   ].filter(Boolean);
   const moreItem = {
@@ -641,6 +648,17 @@ function CardBadgesView({
           },
         ]
       : []),
+    // Spec 0101, row 7 -- "prevent the next N damage" (new): the pale round
+    // shield square with N; used, N ticks down and, at 0, the square goes.
+    ...((card.preventNext ?? 0) > 0 || card.preventUsed
+      ? [
+          {
+            key: "prevent",
+            h: MARK_H,
+            node: <PreventSquare n={card.preventNext ?? 0} used={card.preventUsed} />,
+          },
+        ]
+      : []),
     // Spec 0085 -- protection and lost abilities (never folded), then the
     // gained keywords that fit; the rest are in the "··· N".
     ...keep.map(markItem),
@@ -681,6 +699,53 @@ function CardBadgesView({
 }
 
 export const CardBadges = memo(CardBadgesView, sameProps);
+
+/** Spec 0101, row 7 -- when the count starts ticking after the board arrives (a resolving spell's blow, plus a beat), and each step. */
+export const PREVENT_TICK_AT_MS = 430;
+export const PREVENT_STEP_MS = 100;
+
+/** Spec 0101, row 7 -- the square, and its count ticking down when used (CSS on the board's arrival; compositor-only). */
+function PreventSquare({
+  n,
+  used,
+}: {
+  n: number;
+  used?: { from: number; to: number } | undefined;
+}) {
+  const steps = used
+    ? Array.from({ length: used.from - used.to + 1 }, (_, i) => used.from - i)
+    : [n];
+  const goneAt = used && used.to === 0 ? PREVENT_TICK_AT_MS + steps.length * PREVENT_STEP_MS : null;
+  return (
+    <span
+      className="bf-mark bf-mark-prevent"
+      data-mark="prevent-next"
+      data-prevent={used ? used.to : n}
+      data-used={used ? "true" : undefined}
+      style={goneAt !== null ? { ["--gone-at" as string]: `${goneAt}ms` } : undefined}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9.2" fill="#cfe6ff30" stroke="#dff0ff" strokeWidth="1.8" />
+      </svg>
+      {steps.map((k, i) => (
+        <span
+          key={k}
+          className="bf-prevent-n bf-prevent-step"
+          style={
+            used
+              ? {
+                  ["--step-at" as string]: `${i === 0 ? 0 : PREVENT_TICK_AT_MS + (i - 1) * PREVENT_STEP_MS}ms`,
+                  ["--step-ms" as string]: `${i === 0 ? PREVENT_TICK_AT_MS : PREVENT_STEP_MS}ms`,
+                }
+              : undefined
+          }
+        >
+          {k}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 /** Spec 0085 -- each mark's leaving plays once (its key is the round's). */
 const goneStarted = new Set<string>();

@@ -22,7 +22,16 @@ import type { Point } from "./motion";
 /** One mark, as the Board's FightMark takes it. */
 export interface SurviveMark {
   key: string;
-  kind: "dome" | "spark" | "ward" | "number" | "shieldbreak";
+  kind:
+    | "dome"
+    | "spark"
+    | "ward"
+    | "number"
+    | "shieldbreak"
+    | "regenshield"
+    | "silvershield"
+    | "shard"
+    | "wardring";
   style: Record<string, string | number>;
   frames: Keyframe[];
   duration: number;
@@ -30,7 +39,7 @@ export interface SurviveMark {
   text?: string;
   of: string;
   /** The number's colour: grey (nothing dealt) or gold (bounced off the dome). */
-  tone?: "grey" | "gold" | "green";
+  tone?: "grey" | "gold" | "green" | "silver";
 }
 
 /** The dome: up in 120 ms, flickering; held; gone by 1 s (the canvas's F1). */
@@ -47,6 +56,207 @@ export const SPARK_MS = 450;
 export const ZERO_MS = 1400;
 
 const centre = (b: Box): Point => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+
+// Spec 0101 (combat Q6 v3, missed Q3 A; owner 2026-11-17) -- one shared
+// lead: every shield shape is fully up SHIELD_UP_MS before the blow (it
+// takes SHAPE_IN_MS to come up), and every save shows a grey number rising
+// (greyNumber: 0 when nothing got through, or the damage it lived through).
+// New shapes: regeneration's green shield over the card, a shield counter's
+// silver heater shield that cracks and shatters, ward's ring.
+
+/** Spec 0101 -- every shield shape is fully up this long before the blow. */
+export const SHIELD_UP_MS = 150;
+/** ...and takes this long to come up. */
+export const SHAPE_IN_MS = 120;
+/** When a shape starts coming up, for a blow at `delay` (never before now). */
+export const shapeStart = (delay: number) => Math.max(0, delay - SHIELD_UP_MS - SHAPE_IN_MS);
+
+/**
+ * Spec 0101 -- the grey number a save shows, rising off the card's top
+ * (`at`) as 0080's "0" does: "0" when nothing got through, else the damage
+ * the card lived through.
+ */
+export function greyNumber(
+  key: string,
+  at: Point,
+  text: string,
+  delay: number,
+  fontSize: number,
+  of: string,
+): SurviveMark {
+  return {
+    key: `${key}:grey`,
+    kind: "number",
+    style: { left: at.x, top: at.y, fontSize },
+    frames: [
+      { offset: 0, opacity: 0, transform: "translate(-50%, -50%) translateY(-30%) scale(1.6)" },
+      { offset: 0.18, opacity: 1, transform: "translate(-50%, -50%) scale(1)" },
+      { offset: 0.8, opacity: 1, transform: "translate(-50%, -50%) translateY(-25%) scale(1)" },
+      { offset: 1, opacity: 0, transform: "translate(-50%, -50%) translateY(-40%) scale(1)" },
+    ],
+    duration: ZERO_MS,
+    delay,
+    text,
+    of,
+    tone: "grey",
+  };
+}
+
+/** Where a card's grey number rises: just over its top edge (the canvas's 0.58 of its height up from the middle). */
+export const numberPoint = (box: Box): Point => ({
+  x: box.x + box.w / 2,
+  y: box.y + box.h / 2 - box.h * 0.58,
+});
+
+/** Spec 0101, row 1 -- the green shield holds this long after the blow, then bursts. */
+export const REGEN_BURST_AT = 350;
+export const REGEN_BURST_MS = 200;
+
+/**
+ * Spec 0101, row 1 (combat Q6 v3) -- a green shield comes up over the card
+ * (fully up SHIELD_UP_MS before the blow), takes the hit, then bursts with
+ * green sparks REGEN_BURST_AT after it.
+ */
+export function regenShieldMarks(key: string, box: Box, delay: number, of: string): SurviveMark[] {
+  const c = centre(box);
+  const w = box.w * 0.92;
+  const h = box.h * 0.78;
+  const start = shapeStart(delay);
+  const end = delay + REGEN_BURST_AT + REGEN_BURST_MS;
+  const total = end - start;
+  const at = (ms: number) => Math.min(1, Math.max(0, (ms - start) / total));
+  return [
+    {
+      key: `${key}:regenshield`,
+      kind: "regenshield",
+      style: { left: c.x - w / 2, top: c.y - h / 2, width: w, height: h },
+      frames: [
+        { offset: 0, opacity: 0, transform: "scale(0.5)" },
+        { offset: at(start + SHAPE_IN_MS), opacity: 1, transform: "scale(1)" },
+        { offset: at(delay), opacity: 1, transform: "scale(1)" },
+        { offset: at(delay + 60), opacity: 1, transform: "scale(1.06)" },
+        { offset: at(delay + REGEN_BURST_AT), opacity: 1, transform: "scale(1)" },
+        { offset: 1, opacity: 0, transform: "scale(1.5)" },
+      ],
+      duration: total,
+      delay: start,
+      of,
+    },
+    ...sparks(`${key}:regen`, c, box.h * 0.6, delay + REGEN_BURST_AT, of, "green", 12),
+  ];
+}
+
+/** Spec 0101, row 3 -- the silver shield cracks at the blow and shatters this long after. */
+export const SILVER_SHATTER_AT = 550;
+export const SILVER_GONE_MS = 120;
+export const SILVER_SHARDS = 10;
+export const SILVER_SHARD_MS = 600;
+
+/**
+ * Spec 0101, row 3 (missed Q3 A) -- a shield counter used: the silver
+ * (steel-blue) heater shield grows over the card, fully up SHIELD_UP_MS
+ * before the blow, takes it and cracks (the crack shows from `--crack-at`,
+ * the blow), then shatters into pieces SILVER_SHATTER_AT after.
+ */
+export function silverShieldMarks(key: string, box: Box, delay: number, of: string): SurviveMark[] {
+  const c = centre(box);
+  const k = box.h / 135;
+  const w = 106 * k;
+  const h = 130 * k;
+  const start = shapeStart(delay);
+  const end = delay + SILVER_SHATTER_AT + SILVER_GONE_MS;
+  const total = end - start;
+  const at = (ms: number) => Math.min(1, Math.max(0, (ms - start) / total));
+  const out: SurviveMark[] = [
+    {
+      key: `${key}:silver`,
+      kind: "silvershield",
+      style: {
+        left: c.x - w / 2,
+        top: c.y - h / 2,
+        width: w,
+        height: h,
+        ["--crack-at"]: `${delay}ms`,
+      },
+      frames: [
+        { offset: 0, opacity: 0, transform: "scale(0.72)" },
+        { offset: at(start + SHAPE_IN_MS), opacity: 1, transform: "scale(1)" },
+        { offset: at(delay), opacity: 1, transform: "scale(1)" },
+        { offset: at(delay + 120), opacity: 1, transform: "scale(1.08)" },
+        { offset: at(delay + 250), opacity: 1, transform: "scale(1)" },
+        { offset: at(delay + SILVER_SHATTER_AT), opacity: 1, transform: "scale(1)" },
+        { offset: 1, opacity: 0, transform: "scale(1)" },
+      ],
+      duration: total,
+      delay: start,
+      of,
+    },
+  ];
+  const ease = (q: number) => 1 - (1 - q) ** 3;
+  for (let i = 0; i < SILVER_SHARDS; i++) {
+    const a = (i / SILVER_SHARDS) * Math.PI * 2 + 0.5;
+    const r = 78 * k;
+    out.push({
+      key: `${key}:silvershard:${i}`,
+      kind: "shard",
+      style: {
+        left: c.x,
+        top: c.y,
+        width: (10 + ((i * 7) % 10)) * k,
+        height: (6 + ((i * 5) % 8)) * k,
+      },
+      frames: [0, 0.25, 0.5, 0.75, 1].map((q) => ({
+        offset: q,
+        opacity: 1 - q,
+        transform: `translate(${(Math.cos(a) * r * ease(q)).toFixed(1)}px, ${(Math.sin(a) * r * ease(q) + 46 * k * q * q).toFixed(1)}px) rotate(${(i * 67 + q * 240).toFixed(0)}deg)`,
+      })),
+      duration: SILVER_SHARD_MS,
+      delay: delay + SILVER_SHATTER_AT,
+      of,
+      tone: "silver",
+    });
+  }
+  return out;
+}
+
+/** Spec 0101, row 6 -- the ring pulsing out from a warded creature (the canvas's 0.8 s, to 240 of a 135 card). */
+export const WARD_RING_MS = 800;
+export function wardRingMarks(key: string, box: Box, delay: number, of: string): SurviveMark[] {
+  const c = centre(box);
+  const r = (240 / 135) * box.h * 0.5;
+  return [
+    {
+      key: `${key}:wardring`,
+      kind: "wardring",
+      style: { left: c.x - r, top: c.y - r, width: 2 * r, height: 2 * r },
+      frames: [
+        { offset: 0, opacity: 0.95, transform: "scale(0.25)" },
+        { offset: 0.6, opacity: 0.5, transform: "scale(0.8)" },
+        { offset: 1, opacity: 0, transform: "scale(1)" },
+      ],
+      duration: WARD_RING_MS,
+      delay,
+      of,
+    },
+  ];
+}
+
+/** Spec 0101, rows 2, 5, 6 -- a square's pulse or flare (the canvas's bump over 0.55 s). */
+export const WARD_FLARE_MS = 550;
+/** Ward's flare: swells x2.5 and glows pale blue. */
+export function wardFlareFrames(): Keyframe[] {
+  return [0, 0.25, 0.5, 0.75, 1].map((p) => {
+    const b = Math.sin(Math.PI * p);
+    return {
+      offset: p,
+      transform: `scale(${(1 + 1.5 * b).toFixed(3)})`,
+      boxShadow:
+        b > 0.01
+          ? `0 0 ${(18 * b).toFixed(1)}px ${(6 * b).toFixed(1)}px rgb(159 196 255 / ${(0.9 * b).toFixed(2)}), 0 1px 3px #000a`
+          : "0 1px 3px #000a",
+    };
+  });
+}
 
 /** Sparks thrown out from a point (the canvas's sparksAt): n of them, round it. */
 export function sparks(
@@ -87,7 +297,8 @@ export function domeMarks(key: string, box: Box, delay: number, of: string): Sur
   const c = centre(box);
   const w = box.w * DOME_W;
   const h = box.h * DOME_H;
-  const start = Math.max(0, delay - 80);
+  // Spec 0101: fully up (its 120 ms frame) SHIELD_UP_MS before the blow.
+  const start = shapeStart(delay);
   const at = (ms: number) => Math.min(1, ms / DOME_MS);
   return [
     {
@@ -136,7 +347,9 @@ export function wardMarks(
   /** Where the "0" rises from: off to the life shield's left (as 0077's numbers), or the card's top. */
   numberAt: Point = at,
 ): SurviveMark[] {
-  const start = Math.max(0, delay - 120);
+  // Spec 0101: fully up SHIELD_UP_MS before the blow; it ripples at the blow.
+  const start = shapeStart(delay);
+  const up = Math.min(delay - start, SHAPE_IN_MS) / WARD_MS;
   const lead = (delay - start) / WARD_MS;
   const out: SurviveMark[] = [
     {
@@ -145,7 +358,8 @@ export function wardMarks(
       style: { left: at.x - r, top: at.y - r, width: 2 * r, height: 2 * r },
       frames: [
         { offset: 0, opacity: 0, transform: "scale(0.85)" },
-        { offset: Math.min(0.5, lead), opacity: 1, transform: "scale(1)" },
+        { offset: Math.min(0.4, up), opacity: 1, transform: "scale(1)" },
+        { offset: Math.min(0.5, Math.max(up, lead)), opacity: 1, transform: "scale(1)" },
         { offset: Math.min(0.6, lead + 0.12), opacity: 1, transform: "scale(1.08)" },
         { offset: Math.min(0.7, lead + 0.3), opacity: 1, transform: "scale(1)" },
         { offset: 0.75, opacity: 0.9, transform: "scale(1)" },

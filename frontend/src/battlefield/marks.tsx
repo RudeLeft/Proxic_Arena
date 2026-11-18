@@ -38,6 +38,8 @@ export interface CardMark {
   colours?: readonly string[];
   /** Ward's mana number, when it is a plain {N}. */
   ward?: number | null;
+  /** Spec 0101, item 3 -- a printed combat ability, shown in combat only: it pops on (no riser) and pops as it works. */
+  combat?: boolean;
 }
 
 export type MarkIconKind =
@@ -73,6 +75,13 @@ const GAINED: readonly { title: string; icon: MarkIconKind; words: string; start
   { title: "reach", icon: "reach", words: "Reach" },
 ];
 
+/** Spec 0101, item 3 -- the printed combat abilities marked during combat. */
+const COMBAT = GAINED.filter((k) =>
+  ["first strike", "double strike", "deathtouch", "trample", "menace", "lifelink"].includes(
+    k.title,
+  ),
+).map((k) => ({ ...k, words: k.words }));
+
 const COLOUR_WORDS: Record<string, string> = {
   white: "W",
   blue: "U",
@@ -102,6 +111,8 @@ export interface Marked {
   gained?: readonly string[] | undefined;
   unblockable?: boolean | undefined;
   lostAbilities?: boolean | undefined;
+  /** Spec 0101, item 3 -- in this combat (fromSnapshot's withOutcomes). */
+  inCombat?: boolean | undefined;
   faceDown?: boolean;
   known?: boolean;
 }
@@ -145,6 +156,18 @@ export function cardMarks(card: Marked): CardMark[] {
   }
   if (card.unblockable)
     add({ key: "unblockable", folds: true, words: "Can't be blocked", icon: "unblockable" });
+  // Spec 0101, item 3 (combat Q1 A) -- in combat, the PRINTED combat
+  // abilities too (a gained one is above already, under the same key):
+  // from the current keywords Forge sends (UI-005). Flying is left out: the
+  // card already hovers.
+  if (card.inCombat)
+    for (const title of card.keywords ?? []) {
+      const t = title.toLowerCase();
+      const k = COMBAT.find(
+        (c) => t === c.title || (c.starts === true && t.startsWith(`${c.title} `)),
+      );
+      if (k) add({ key: `kw:${k.title}`, folds: true, words: k.words, icon: k.icon, combat: true });
+    }
   return out;
 }
 

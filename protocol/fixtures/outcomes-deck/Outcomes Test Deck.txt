@@ -1,0 +1,10 @@
+10 Swamp
+10 Mountain
+10 Island
+6 Plains
+4 Typhoid Rats
+4 Prodigal Pyromancer
+4 Wingshield Agent
+4 Youthful Knight
+4 Stifle
+4 Murder

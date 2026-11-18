@@ -299,7 +299,27 @@ survived                  spec 0080: this round's survivors: [{card
                           or, spec 0089, "umbra" with `by` "card:N": the
                           Aura whose umbra armor was destroyed instead (the
                           replacement Forge chose: its keyword record,
-                          never a name); absent when none. Public
+                          never a name), or, spec 0101, "shield": a shield
+                          counter was removed instead of the card being
+                          destroyed (the destroy replacement Forge chose,
+                          its ShieldCounter parameter); absent when none.
+                          Public
+left                      spec 0101: this round's stack entries that left
+                          without resolving: [{stack "stack:N", why
+                          "countered" | "ended", by? "card:N"}] -- noted as
+                          Forge fires GameEventSpellRemovedFromStack while
+                          a Counter part (a counterspell, Stifle, a ward
+                          trigger) or an end-the-turn part (Time Stop)
+                          resolves; `by` the card whose effect did it. Only
+                          entries an earlier board showed. A countered
+                          spell keeps its card move too. Absent when none.
+                          Public
+blockerCandidates         spec 0101: from the attack until the blocks, the
+                          creatures the game offers the defending player as
+                          blockers (and those blocking): ["card:N", ...],
+                          the declare-blockers decision's own test
+                          (CombatChoices#offered), to every viewer; absent
+                          otherwise. Public
 action (RETARGET)         spec 0100, item 8: a change-targets effect
                           (Forge's ApiType.ChangeTargets: Spellskite,
                           Deflecting Swat, Redirect) resolved and a stack
@@ -310,6 +330,12 @@ action (RETARGET)         spec 0100, item 8: a change-targets effect
                           (so nobody, for your own spell); its cards: the
                           spell, then its new target when that is a card,
                           each under the report's own ids. Public
+action (COUNTER_ABILITY)  spec 0101, item 2: an ability countered (Stifle;
+                          no card moves for it): "Bob countered Prodigal
+                          Pyromancer's ability with Stifle.", told to the
+                          ability's controller only, never to the one who
+                          countered it; its card: the ability's source card
+                          where it is now. Public
 card.attachedToPlayer     spec 0100, item 6: an Aura on a player (a Curse):
                           the seat it enchants (Card#getEntityAttachedTo);
                           `attachedTo` stays a card's id only. Public
@@ -601,6 +627,10 @@ card.shields              spec 0080: the regeneration shields waiting on a
 card.indestructible       spec 0080: true while the permanent has
                           indestructible (Forge's keyword, as it applies
                           now). Public
+card.preventNext          spec 0101: "prevent the next N damage" waiting on
+                          the permanent (Forge's total,
+                          GameEntityView#getPreventNextDamage); absent when
+                          none. Also on players[i]. Public
 card.gained               spec 0085: on the battlefield, the keywords it has
                           that its face does not print (Forge's titles, as
                           `keywords` sends them: Run Amok's "Trample", Heroic
@@ -814,6 +844,8 @@ stack[]             B2  per entry, besides id and description:
                                     keeps for it: the monarch's end-step
                                     draw, the initiative's venture); the
                                     page raises it from the crown or token
+                        ward        spec 0101: true on a ward trigger
+                                    (Forge's keyword origin, Keyword.WARD)
                         cantBeCountered spec 0083: true on a spell Forge's
                                     Spell#isCounterableBy says no counterspell
                                     can counter (Abrupt Decay). Both only for
@@ -896,6 +928,9 @@ damage              B13 damage dealt since the last round, ONE combat
                         fight played). Read as Forge asks a controller
                         which damage replacement to apply (reflective:
                         Survivors.DAMAGE_LIST, VEND-004).
+                        Spec 0101: such a hit carries `by` "shield" when a
+                        shield counter stopped it, "prevent-next" when a
+                        "prevent the next N" shield did.
                         Spec 0084 (2026-11-13): the damage of a fight or
                         bite spell or ability (Prey Upon: Forge's Fight
                         effect; Ram Through: a DealDamage whose damage

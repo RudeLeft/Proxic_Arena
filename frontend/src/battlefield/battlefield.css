@@ -3127,6 +3127,95 @@ img.bf-makes-pip {
   }
 }
 
+/* ---- Spec 0101 (combat Q6 v3, missed Q3 A): every survive status, used ---- */
+
+/* Row 1 -- regeneration: a green shield over the card (0080's square's
+   picture, big), the hit taken, then it bursts with green sparks. */
+.bf-fight-regenshield {
+  position: absolute;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 0 14px #7be08a);
+}
+.bf-fight-regenshield svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Row 3 -- a shield counter: the silver heater shield (0089's shape). */
+.bf-fight-silvershield {
+  position: absolute;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 0 14px rgb(180 194 210 / 67%));
+}
+.bf-fight-silvershield svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.bf-fight-shard.bf-fight-silver {
+  background: linear-gradient(135deg, #f4f8fc, #b4c2d2);
+}
+/* Row 6 -- ward: a pale blue ring pulsing out from the creature. */
+.bf-fight-wardring {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 6px solid #9fc4ff;
+  box-shadow: 0 0 8px #9fc4ff;
+}
+/* Row 7 -- "prevent the next N": a pale round shield square with N; used,
+   the number ticks down (each digit in its turn) and the square goes. */
+.bf-mark.bf-mark-prevent svg {
+  width: 80%;
+  height: 80%;
+}
+.bf-mark-prevent .bf-prevent-n {
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 800;
+}
+/* Each count in its window: unseen before and after it (no fill), the
+   last (what is left) stays. */
+.bf-mark-prevent[data-used] .bf-prevent-step {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  animation: bf-prevent-step var(--step-ms, 100ms) linear var(--step-at, 0ms);
+}
+.bf-mark-prevent[data-used] .bf-prevent-step:last-child {
+  animation: bf-prevent-last 1ms linear var(--step-at, 0ms) forwards;
+}
+.bf-mark-prevent[data-used] {
+  animation: bf-prevent-gone 150ms ease-in var(--gone-at, 0ms) forwards;
+}
+@keyframes bf-prevent-step {
+  0%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes bf-prevent-last {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes bf-prevent-gone {
+  to {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-mark-prevent[data-used] {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 /* ---- Spec 0087: the fan of cards still usable from a pile, beside its plate ---- */
 /* Sized by its own --card-h (pileFan.ts: 96 px at 1080), so the card face,
    its sign and its badge are drawn at the fan's size, as the canvas's. */

@@ -127,6 +127,11 @@ final class ViewerSnapshot {
             entry.addProperty("seat", seatOf.getOrDefault(player, 0));
             entry.addProperty("name", player.getName());
             entry.addProperty("life", player.getLife());
+            // Spec 0101, row 7 -- "prevent the next N damage" to this player (public).
+            int preventNext = player.getView().getPreventNextDamage();
+            if (preventNext > 0) {
+                entry.addProperty("preventNext", preventNext);
+            }
         // §7.61 B6 -- mana floating in the pool, by colour; absent when
         // the pool is empty. Public: mana in a pool is on the table.
         JsonObject pool = manaPool(player);
@@ -509,6 +514,11 @@ final class ViewerSnapshot {
             Player by = instance.getActivatingPlayer();
             entry.addProperty("controller", by == null ? 0 : seatOf.getOrDefault(by, 0));
             entry.addProperty("kind", instance.isSpell() ? "spell" : instance.isTrigger() ? "trigger" : "ability");
+            // Spec 0101, row 6 -- a ward trigger: Forge's keyword origin on
+            // the trigger (Keyword.WARD, CardFactoryUtil), never its words.
+            if (instance.isTrigger() && Polish.isWard(instance.getSpellAbility())) {
+                entry.addProperty("ward", true);
+            }
             // §7.61 B3 -- what it targets, every part of it (Electrolyze's
             // second half has targets of its own).
             entry.add("targets", targetsOf(game, instance.getSpellAbility(), seatOf));
@@ -934,6 +944,13 @@ final class ViewerSnapshot {
             }
             if (card.hasKeyword(forge.game.keyword.Keyword.INDESTRUCTIBLE)) {
                 entry.addProperty("indestructible", true);
+            }
+            // Spec 0101, row 7 -- "prevent the next N damage" waiting on it:
+            // Forge's own total (GameEntityView#getPreventNextDamage, kept by
+            // DamagePreventEffect and CardDamageTable). Public: announced.
+            int preventNext = view.getPreventNextDamage();
+            if (preventNext > 0) {
+                entry.addProperty("preventNext", preventNext);
             }
         }
 

@@ -368,8 +368,9 @@ describe("F-0080-D · Darksteel Myr: the hexagon at rest; a hex dome at the blow
     expect(dome[0]!.querySelector("pattern")).toBeTruthy();
     const run = markCall(dome[0]!);
     expect(Number(run.options.duration)).toBe(DOME_MS);
-    // The wipe's flash first (three or more leaving), then the dome.
-    expect(delayOf(run)).toBeGreaterThan(0);
+    // The wipe's flash first (three or more leaving), then the blow; spec
+    // 0101: the dome is fully up 0.15 s before it, so it starts with the flash.
+    expect(delayOf(run)).toBeGreaterThanOrEqual(0);
     const gold = marks(view.container, "spark").filter((m) => m.dataset["of"] === "card:50");
     expect(gold.length).toBeGreaterThan(0);
     expect(gold.every((s) => s.classList.contains("bf-fight-gold"))).toBe(true);
@@ -399,14 +400,18 @@ describe("F-0080-D · Darksteel Myr: the hexagon at rest; a hex dome at the blow
     const dome = marks(view.container, "dome");
     expect(dome).toHaveLength(1);
     const number = marks(view.container, "number").find((m) => m.dataset["of"] === "card:50")!;
-    expect(number.textContent).toBe("−3");
-    expect(number.classList.contains("bf-fight-gold")).toBe(true);
+    // Spec 0101 (row 2): the damage it lived through, in grey (was a gold "−3").
+    expect(number.textContent).toBe("3");
+    expect(number.classList.contains("bf-fight-grey")).toBe(true);
     // Knocked, but never flashing red as if hurt: the blow bounces off.
     const myrRun = runsOf(faceOf(view.container, "card:50")).find((c) => c.options.id === "fight")!;
     expect(myrRun).toBeTruthy();
     expect(myrRun.frames.every((f) => /sepia\(0\)/.test(String(f.filter)))).toBe(true);
     // The blow and the dome together.
-    expect(Math.abs(delayOf(markCall(dome[0]!)) + 80 - delayOf(markCall(number)))).toBeLessThan(2);
+    // The blow and the dome together (spec 0101: the dome fully up 0.15 s
+    // before the blow, its 120 ms rise before that, unless that is before now).
+    const blow = delayOf(markCall(number));
+    expect(Math.abs(delayOf(markCall(dome[0]!)) - Math.max(0, blow - 270))).toBeLessThan(2);
   });
 
   it("the dome is not the prevention shield: gold hex grid round the card, not pale and in front", () => {

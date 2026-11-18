@@ -259,7 +259,19 @@ import {
   sweepAt,
   sweptAt as sweptInAt,
 } from "./opening";
-import { domeMarks, shieldBreakMarks, wardMarks, type SurviveMark } from "./survive";
+import {
+  domeMarks,
+  greyNumber,
+  numberPoint,
+  regenShieldMarks,
+  shieldBreakMarks,
+  silverShieldMarks,
+  WARD_FLARE_MS,
+  wardFlareFrames,
+  wardMarks,
+  wardRingMarks,
+  type SurviveMark,
+} from "./survive";
 import { GHOST_AT as UMBRA_GHOST_AT, umbraGhostBox, umbraMarks, umbraTimes } from "./umbra";
 import { payWords, type PayMark, type PayTone } from "./payPicks";
 import { PaySign } from "./PaySign";
@@ -297,6 +309,8 @@ import {
   riserFrames,
   tileGlowFrames,
   whyPulseFrames,
+  combatPopFrames,
+  COMBAT_POP_MS,
 } from "./markMotion";
 import { RoomFace } from "./RoomDoors";
 import { Breath } from "./Breath";
@@ -407,6 +421,12 @@ export interface BoardCard extends LayoutCard {
   phasedOut?: boolean | undefined;
   shields?: number | undefined;
   indestructible?: boolean | undefined;
+  /** Spec 0101, row 7 -- "prevent the next N damage" waiting on it: the pale round shield square with N. */
+  preventNext?: number | undefined;
+  /** Spec 0101, row 7 -- used on this board: the count it had and has now (it ticks down; at 0 it goes). */
+  preventUsed?: { from: number; to: number } | undefined;
+  /** Spec 0101, item 3 -- in this combat (attacking, blocking, offered as a blocker): its printed combat squares show. */
+  inCombat?: boolean | undefined;
   /**
    * Spec 0083 (15 A) -- a Room: its two doors (drawn as the card's top and
    * bottom halves), and the halves still locked -- each a closed door with
@@ -558,6 +578,8 @@ export interface StackView {
   splitSecond?: boolean;
   /** Spec 0083 (18 B) -- can't be countered: the gold seal square. */
   cantBeCountered?: boolean;
+  /** Spec 0101, row 6 -- a ward trigger: the warded creature (it flares and rings as this rises). */
+  ward?: string;
   /** Spec 0100, item 1 -- the X its caster paid: the gold X medallion. */
   x?: number;
   /** Spec 0100, item 2 -- every mode as printed, the chosen ones lit, the rest struck through. */
@@ -585,6 +607,8 @@ export interface DamageWave {
     infect?: boolean;
     /** Spec 0080 -- stopped by a prevention: its would-be amount (`amount` 0). */
     prevented?: number;
+    /** Spec 0101 -- what stopped it: a shield counter, "prevent the next N" (else a plain prevention). */
+    by?: "shield" | "prevent-next";
   }[];
   /** Phase 10 A-13 -- a combat damage step's: which step, who fought whom, life gained. */
   combat?: "first-strike" | "regular";
@@ -668,6 +692,8 @@ export interface BoardProps {
   tileMoves?: readonly TileMove[];
   /** Spec 0074 -- the spells countered this update (each spell's own card). */
   countered?: ReadonlySet<string>;
+  /** Spec 0101, item 2 -- each stack entry that left without resolving, and the card whose effect did it. */
+  leftBy?: ReadonlyMap<string, string>;
   /** Spec 0079 -- the spells that fizzled this update (each spell's own card): their targets were gone. */
   fizzled?: ReadonlySet<string>;
   /** Spec 0080 -- this update's flickers, survivors and phase changes, as the game says. */
@@ -1676,7 +1702,11 @@ interface FightMark {
     // Spec 0089 (Q4 B): an umbra's tab swinging out, its shield, the shield's pieces.
     | "umbratab"
     | "umbrashield"
-    | "shard";
+    | "shard"
+    // Spec 0101: regeneration's green shield, a shield counter's silver one, ward's ring.
+    | "regenshield"
+    | "silvershield"
+    | "wardring";
   /** Spec 0083 (13 B) -- a crack drawn across a card's box (stretched), not a shield's. */
   card?: boolean;
   /** Spec 0083 -- what a spell's hit landed on, for the browser checks (as the burst's was). */
@@ -1694,7 +1724,7 @@ interface FightMark {
   /** Spec 0077 -- a mark of poison, drawn in the badge's colours. */
   poison?: boolean;
   /** Spec 0080 -- a number's or spark's colour: grey (nothing dealt), gold, green. */
-  tone?: "grey" | "gold" | "green";
+  tone?: "grey" | "gold" | "green" | "silver";
   /** Spec 0085 -- a riser's mark (its picture). */
   markOf?: CardMark;
   /** Spec 0085 -- a flying held tab: its card as the viewer may know it, and its picture's address. */
@@ -1761,8 +1791,18 @@ function HexDome({ id }: { id: string }) {
  * gradient when it has none), an inner rim, and the crack drawn across it at
  * the blow (CSS, delayed to --crack-at on the board's clock).
  */
-function UmbraShield({ id, src }: { id: string; src: string | null }) {
+function UmbraShield({
+  id,
+  src,
+  tone = "gold",
+}: {
+  id: string;
+  src: string | null;
+  /** Spec 0101, row 3 -- "silver": a shield counter's steel-blue heater shield (the canvas's #b4c2d2). */
+  tone?: "gold" | "silver";
+}) {
   const clip = `bf-umbra-${id.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+  const silver = tone === "silver";
   const heater = "M6 6 H94 V50 C94 84 72 104 50 116 C28 104 6 84 6 50 Z";
   return (
     <svg viewBox="0 0 100 122" preserveAspectRatio="none" aria-hidden="true">
@@ -1771,8 +1811,8 @@ function UmbraShield({ id, src }: { id: string; src: string | null }) {
           <path d={heater} />
         </clipPath>
         <linearGradient id={`${clip}-g`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#f2e6b0" />
-          <stop offset="1" stopColor="#8a6a2a" />
+          <stop offset="0" stopColor={silver ? "#e4ebf3" : "#f2e6b0"} />
+          <stop offset="1" stopColor={silver ? "#3c4856" : "#8a6a2a"} />
         </linearGradient>
       </defs>
       <path d={heater} fill={`url(#${clip}-g)`} fillOpacity=".82" />
@@ -1788,7 +1828,7 @@ function UmbraShield({ id, src }: { id: string; src: string | null }) {
           opacity=".9"
         />
       )}
-      <path d={heater} fill="none" stroke="#f2c46a" strokeWidth="4" />
+      <path d={heater} fill="none" stroke={silver ? "#b4c2d2" : "#f2c46a"} strokeWidth="4" />
       <path
         d="M14 14 H86 V50 C86 78 68 95 50 105 C32 95 14 78 14 50 Z"
         fill="none"
@@ -3101,6 +3141,7 @@ export function Board({
   returns,
   tileMoves,
   countered,
+  leftBy,
   fizzled,
   survive = null,
   opening = null,
@@ -4245,6 +4286,7 @@ export function Board({
             if (poses) for (const pose of poses) pose.red = 0;
           }
       playFights(plan, hold, standOf, lifeOf, g, !damage.fight);
+      if (damage.combat) popCombatSquares(plan, hold, standOf);
       return;
     }
     // No fights to play after all: nothing is held.
@@ -4264,33 +4306,6 @@ export function Board({
         .map((c) => c.player),
     );
     const totals = new Map<string, { ref: TargetRef; amount: number }>();
-    // Spec 0080 (Q5 A) -- damage a prevention stopped (Pyroclasm on a
-    // creature with protection from red): the pale shield, a grey "0".
-    const wards: FightMark[] = [];
-    for (const hit of damage.hits) {
-      if (!hit.prevented || hit.amount > 0) continue;
-      const k = refKey(hit.target);
-      const point = pointOf(hit.target);
-      if (!point || still) continue;
-      const box = "object" in hit.target ? positions.get(hit.target.object)?.box : undefined;
-      wards.push(
-        ...asMarks(
-          wardMarks(
-            `${damage.key}:${k}:prevented`,
-            point,
-            box ? box.h * 0.5 : LIFE_R * g.height * 1.9,
-            holdLeft(),
-            k,
-            true,
-            g.cardH * 0.3,
-            box
-              ? { x: point.x, y: box.y + box.h * 0.12 }
-              : { x: point.x - (52 * g.height) / 900, y: point.y - (4 * g.height) / 900 },
-          ),
-        ),
-      );
-    }
-    if (wards.length > 0) setMarks((list) => [...list, ...wards]);
     for (const hit of damage.hits) {
       if (hit.prevented && hit.amount === 0) continue;
       if ("player" in hit.target && told.has(hit.target.player)) continue;
@@ -4309,6 +4324,64 @@ export function Board({
       for (const t of s.targets) sparked.add(refKey(t));
     }
     const landsAt = (k: string) => Math.max(hold, sparked.has(k) ? RESOLVE_MS : 0);
+    // Spec 0080 (Q5 A) -- damage a prevention stopped (Pyroclasm on a
+    // creature with protection from red): the pale shield, a grey "0".
+    // Spec 0101 -- fully up 0.15 s before the blow, which is when the
+    // spell's spark lands; a shield counter's hit is the silver shield
+    // (row 3); protection's squares pulse (row 5); "prevent the next N"
+    // ticks its square down (row 7, CardBadges).
+    const wards: FightMark[] = [];
+    for (const hit of damage.hits) {
+      if (!hit.prevented || hit.amount > 0) continue;
+      const k = refKey(hit.target);
+      const point = pointOf(hit.target);
+      if (!point || still) continue;
+      const blow = landsAt(k);
+      const at = "object" in hit.target ? positions.get(hit.target.object) : undefined;
+      const box = at?.box;
+      if (box && at && hit.by === "shield") {
+        wards.push(...asMarks(silverShieldMarks(`${damage.key}:${k}:shield`, box, blow, k)));
+        wards.push(
+          ...asMarks([
+            greyNumber(
+              `${damage.key}:${k}:shield`,
+              numberPoint(box),
+              "0",
+              blow + 50,
+              g.cardH * 0.3,
+              k,
+            ),
+          ]),
+        );
+        pulseSquare(at.item, '.bf-badge[data-counter="SHIELD"]', blow + 100);
+        continue;
+      }
+      if (at && !hit.by) pulseSquare(at.item, ".bf-mark-kw:not([data-folds])", blow);
+      wards.push(
+        ...asMarks(
+          wardMarks(
+            `${damage.key}:${k}:prevented`,
+            point,
+            box ? box.h * 0.5 : LIFE_R * g.height * 1.9,
+            blow,
+            k,
+            true,
+            g.cardH * 0.3,
+            box
+              ? numberPoint(box)
+              : { x: point.x - (52 * g.height) / 900, y: point.y - (4 * g.height) / 900 },
+          ),
+        ),
+      );
+    }
+    if (wards.length > 0) setMarks((list) => [...list, ...wards]);
+    // Spec 0101, rows 1-2 -- a card that lived through the hit
+    // (regenerated, indestructible) shows its shield and a grey number (the
+    // survive effect), never the red "−N" and crack of a wound.
+    const lived = (k: string) => {
+      const how = survive?.survived.get(k);
+      return how === "regenerated" || how === "indestructible";
+    };
     let lastLanding = hold;
     const landed = new Map<string, number>();
     for (const [k, { ref, amount }] of totals) {
@@ -4317,6 +4390,7 @@ export function Board({
       const lands = landsAt(k);
       lastLanding = Math.max(lastLanding, lands);
       landed.set(k, lands);
+      if (lived(k)) continue;
       // Spec 0083 (13 B, owner) -- one hit look: a spell or ability hitting
       // anything cracks it -- on a creature exactly as on a life shield
       // (0077's crack, its red flash and shake, its timing). Combat still
@@ -5276,6 +5350,19 @@ export function Board({
       const delay = start + beat * RISER_BEAT_MS;
       beat++;
       added.forEach((m, i) => {
+        // Spec 0101, item 3 -- a printed combat square pops on in place (the
+        // canvas's markIn) as the attack is declared: no riser.
+        if (m.combat) {
+          const sq = element.querySelector<HTMLElement>(`.bf-mark[data-mark="${m.key}"]`);
+          if (sq && typeof sq.animate === "function")
+            sq.animate(combatPopFrames(), {
+              duration: COMBAT_POP_MS,
+              delay: start,
+              easing: "linear",
+              fill: "backwards",
+            });
+          return;
+        }
         // Folded (no room): it drops into the "··· N".
         const square =
           element.querySelector<HTMLElement>(`.bf-mark[data-mark="${m.key}"]`) ??
@@ -5373,6 +5460,58 @@ export function Board({
    * their own), the dimming, the caption, the slash marks and numbers -- so a
    * click hurries all of it together and nothing waits on a timer.
    */
+  /** Spec 0101 -- a square on a drawn card ([selector] inside it) pulses once at [delay] (0085's why-pulse). */
+  function pulseSquare(
+    item: string,
+    selector: string,
+    delay: number,
+    frames = whyPulseFrames(),
+    duration = WHY_PULSE_MS,
+  ) {
+    for (const square of elements.current.get(item)?.querySelectorAll<HTMLElement>(selector) ?? [])
+      if (typeof square.animate === "function")
+        square.animate(frames, { duration, delay, easing: "ease-in-out" });
+  }
+
+  /**
+   * Spec 0101, item 3 (combat Q1 A) -- each combat square pops as it works:
+   * first strike (and double strike) as the first-strike damage lands,
+   * deathtouch with its deathtouch hit, lifelink as the life rises, trample
+   * as a blocked attacker's damage reaches the player. Read from the damage
+   * wave the game sent (who fought whom, which hit was deathtouch, the
+   * gains), never worked out. Only a square drawn pops (a gained one too).
+   */
+  function popCombatSquares(plan: FightPlan, hold: number, standOf: (id: string) => Stand | null) {
+    const pop = (card: string, key: string, at: number) => {
+      const el = elements.current.get(standOf(card)?.item ?? card);
+      const square = el?.querySelector<HTMLElement>(`.bf-mark[data-mark="kw:${key}"]`);
+      if (square && typeof square.animate === "function")
+        square.animate(whyPulseFrames(), {
+          duration: WHY_PULSE_MS,
+          delay: hold + at,
+          easing: "ease-in-out",
+        });
+    };
+    for (const fight of plan.fights) {
+      const first = fight.strikes.reduce((t, s) => Math.min(t, s.at), Infinity);
+      const fighters = [fight.attacker, ...fight.blockers];
+      if (plan.firstStrike && Number.isFinite(first))
+        for (const id of fighters) {
+          pop(id, "first strike", first);
+          pop(id, "double strike", first);
+        }
+      for (const strike of fight.strikes) {
+        if (strike.deathtouch) {
+          const from = strike.target === fight.attacker ? fight.blockers : [fight.attacker];
+          for (const id of from) pop(id, "deathtouch", strike.at);
+        }
+        if (strike.target.startsWith("player:") && fight.blockers.length > 0 && strike.amount > 0)
+          pop(fight.attacker, "trample", strike.at);
+      }
+      for (const gain of fight.gains) for (const id of fighters) pop(id, "lifelink", gain.at);
+    }
+  }
+
   function playFights(
     plan: FightPlan,
     hold: number,
@@ -5536,6 +5675,33 @@ export function Board({
         // blow lands on a pale shield in front of what it hit, which soaks
         // it up, and a grey "0" rises. No slash, no red, no hurt.
         if (strike.prevented && strike.amount === 0) {
+          // Spec 0101 -- what stopped it: a shield counter is the silver
+          // shield (row 3); a plain prevention pulses protection (row 5).
+          const stoppedBy = damage?.hits.find(
+            (h) => "object" in h.target && h.target.object === strike.target && h.by,
+          )?.by;
+          const item = standOf(strike.target)?.item ?? strike.target;
+          if (box && stoppedBy === "shield") {
+            added.push(
+              ...asMarks(
+                silverShieldMarks(key(`silver:${n}:${strike.target}`), box, hold + strike.at, item),
+              ),
+              ...asMarks([
+                greyNumber(
+                  key(`silver:${n}:${strike.target}`),
+                  numberPoint(box),
+                  "0",
+                  hold + strike.at + 50,
+                  g.cardH * 0.3,
+                  strike.target,
+                ),
+              ]),
+            );
+            pulseSquare(item, '.bf-badge[data-counter="SHIELD"]', hold + strike.at + 100);
+            continue;
+          }
+          if (box && !stoppedBy)
+            pulseSquare(item, ".bf-mark-kw:not([data-folds])", hold + strike.at);
           const at = box ? centreOf(box, { x: 0.5, y: 0.5 }) : strike.point!;
           const r = box ? box.h * 0.5 : LIFE_R * g.height * 1.9;
           added.push(
@@ -5560,6 +5726,13 @@ export function Board({
         // Spec 0080 (Q4b F1) -- a lethal blow on an indestructible card: the
         // gold hex dome flickers up as it lands; the number is gold.
         const held = box && survive?.survived.get(strike.target) === "indestructible";
+        const lives = held || survive?.survived.get(strike.target) === "regenerated";
+        if (held)
+          pulseSquare(
+            standOf(strike.target)?.item ?? strike.target,
+            '.bf-mark[data-mark="indestructible"]',
+            hold + strike.at,
+          );
         if (held && box) {
           fightSurvivors.current.add(strike.target);
           added.push(
@@ -5694,9 +5867,10 @@ export function Board({
           ],
           duration: numberMs,
           delay: hold + strike.at,
-          text: `−${strike.amount}`,
+          // Spec 0101 (rows 1-2) -- lived through it: a grey number (was gold).
+          text: lives ? `${strike.amount}` : `−${strike.amount}`,
           of: strike.target,
-          ...(held ? { tone: "gold" as const } : {}),
+          ...(lives ? { tone: "grey" as const } : {}),
         });
       }
       // Lifelink: the life rises as the slash lands.
@@ -5724,6 +5898,44 @@ export function Board({
     setMarks((list) => [...list, ...added]);
   }
 
+  // Spec 0101, row 6 (combat Q6 v3; Decided 2) -- ward. As a ward trigger
+  // rises onto the stack (`ward`: the game's keyword origin), its creature's
+  // ward square flares and a ring pulses out from it; as the trigger leaves,
+  // the square flares again, and when it countered the spell (`left`, by the
+  // warded creature) a second ring and a grey 0. Paid: the flare only.
+  // Reduce motion: none of it.
+  const wardsThen = useRef<ReadonlyMap<string, string> | null>(null);
+  useLayoutEffect(() => {
+    const now = new Map<string, string>();
+    for (const e of stack ?? []) if (e.ward) now.set(e.id, e.ward);
+    const was = wardsThen.current;
+    wardsThen.current = now;
+    if (!was || !result || reducedMotion()) return;
+    const at = holdLeft();
+    const added: FightMark[] = [];
+    const play = (id: string, creature: string, ring: boolean, zero: boolean) => {
+      const p = positions.get(creature);
+      if (!p) return;
+      pulseSquare(p.item, '.bf-mark[data-mark^="kw:ward"]', at, wardFlareFrames(), WARD_FLARE_MS);
+      const key = `ward:${id}:${creature}:${ring ? "ring" : "flare"}:${zero ? "zero" : ""}`;
+      if (ring) added.push(...asMarks(wardRingMarks(key, p.box, at, p.item)));
+      if (zero)
+        added.push(
+          ...asMarks([
+            greyNumber(key, numberPoint(p.box), "0", at + 450, result.geometry.cardH * 0.3, p.item),
+          ]),
+        );
+    };
+    for (const [id, creature] of now) if (!was.has(id)) play(id, creature, true, false);
+    for (const [id, creature] of was) {
+      if (now.has(id)) continue;
+      const countered = [...(leftBy ?? new Map<string, string>()).values()].includes(creature);
+      play(id, creature, countered, countered);
+    }
+    if (added.length > 0) setMarks((list) => [...list, ...added]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per board
+  }, [stack, result]);
+
   // Spec 0080 (owner 2026-11-12, canvas survive-1112) -- once per update:
   // a regeneration shield breaking instead of its card (Q3 B), the hex dome
   // round an indestructible card something tried to destroy (Q4b F1: a
@@ -5745,20 +5957,51 @@ export function Board({
     const leaving = before ? [...before.cards.keys()].filter((id) => !onTable.has(id)).length : 0;
     const blow = holdLeft() + (resolved ? RESOLVE_MS : 0) + (leaving >= WIPE_AT ? SWEEP_MS : 0);
     const added: FightMark[] = [];
+    // Spec 0101 -- the damage each card lived through on this board (a
+    // Bolt's 3): its grey number; 0 when nothing was dealt (a Murder).
+    const dealt = (id: string) =>
+      (damage?.hits ?? [])
+        .filter((h) => "object" in h.target && h.target.object === id)
+        .reduce((n, h) => n + h.amount, 0);
     for (const [id, how] of survive.survived) {
-      // Spec 0089 -- an umbra's save is its shield (the movement effect).
-      if (handled.has(id) || how === "umbra") continue;
       const item = positions.get(id)?.item ?? id;
       const box = positions.get(id)?.box ?? before?.at.get(id)?.box;
       if (!box) continue;
-      if (how === "indestructible")
-        added.push(...asMarks(domeMarks(`survive:${survive.key}:${id}`, box, blow, item)));
-      else
+      const key = `survive:${survive.key}:${id}`;
+      const size = g ? g.cardH * 0.3 : box.h * 0.3;
+      // Spec 0089 -- an umbra's save is its shield (the movement effect);
+      // spec 0101 -- with a grey 0 rising as it shatters.
+      if (how === "umbra") {
         added.push(
-          ...asMarks(
-            shieldBreakMarks(`survive:${survive.key}:${id}`, box, MARK_H, BADGE_FLOOR, blow, item),
-          ),
+          ...asMarks([
+            greyNumber(key, numberPoint(box), "0", umbraTimes(blow).blow + 50, size, item),
+          ]),
         );
+        continue;
+      }
+      if (handled.has(id)) continue;
+      if (how === "indestructible") {
+        added.push(...asMarks(domeMarks(key, box, blow, item)));
+        // Spec 0101, row 2 -- the hexagon pulses and stays; a grey number.
+        pulseSquare(item, '.bf-mark[data-mark="indestructible"]', blow);
+        added.push(
+          ...asMarks([greyNumber(key, numberPoint(box), `${dealt(id)}`, blow + 50, size, item)]),
+        );
+      } else if (how === "shield") {
+        // Spec 0101, row 3 (missed Q3 A) -- a destroy stopped by a shield
+        // counter: the silver shield cracks and shatters; the badge pops as
+        // its count ticks (0078's tick). No number on the destroy path.
+        added.push(...asMarks(silverShieldMarks(key, box, blow, item)));
+        pulseSquare(item, '.bf-badge[data-counter="SHIELD"]', blow + 100);
+      } else {
+        // Spec 0101, row 1 -- regenerated: the green shield over the card
+        // takes the hit and bursts; the badge bursts and goes (0080); a grey number.
+        added.push(...asMarks(regenShieldMarks(key, box, blow, item)));
+        added.push(...asMarks(shieldBreakMarks(key, box, MARK_H, BADGE_FLOOR, blow, item)));
+        added.push(
+          ...asMarks([greyNumber(key, numberPoint(box), `${dealt(id)}`, blow + 50, size, item)]),
+        );
+      }
     }
     if (added.length > 0) setMarks((list) => [...list, ...added]);
     for (const [id, out] of survive.phased) {
@@ -7738,13 +7981,21 @@ export function Board({
         // Spec 0074 (F · Struck by the beam): a countered spell never shows a
         // resolve glow or spark; the countering spell's beam strikes it, and
         // it crumbles to grey ash where it is, then goes to its graveyard.
-        const struckDown = !ret && !!s.card && !!countered?.has(s.card);
+        // Spec 0101, item 2 -- and so does any entry the game says left
+        // without resolving (`left`, by its stack id): a countered ability
+        // (Stifle), a spell Time Stop exiled, one ward countered.
+        const struckDown =
+          !ret && ((!!s.card && !!countered?.has(s.card)) || !!countered?.has(s.id));
         if (struckDown) {
           const spots = before.stack.map((e) => e.box);
+          // What struck it: the entry that left aiming at it, or the ward
+          // trigger of the creature that countered it (ward aims at nothing).
+          const wardBy = leftBy?.get(s.id);
           const by = before.stack.findIndex(
             (e) =>
               !stillThere.has(e.s.id) &&
-              e.s.targets.some((t) => "object" in t && t.object === s.id),
+              (e.s.targets.some((t) => "object" in t && t.object === s.id) ||
+                (!!wardBy && e.s.ward === wardBy)),
           );
           const from = by >= 0 ? studAtOf(spots, by, g.cardH) : null;
           const to = before.stack.findIndex((e) => e.s.id === s.id);
@@ -7752,7 +8003,7 @@ export function Board({
             const beam = stackBeam(spots, from, to, g.cardH, TIP_GAP * g.cardH);
             struck.push({
               key: `strike:${s.id}:${performance.now()}`,
-              of: s.card!,
+              of: s.card ?? s.id,
               d: pathOf(beam.route),
               points: Array.from({ length: 13 }, (_, i) => routeAt(beam.route, i / 12)),
               ring: beam.aim,
@@ -7806,7 +8057,8 @@ export function Board({
               },
             ),
           );
-          tick(pile, hold + COUNTER_MS, 1);
+          // An ability goes nowhere (Forge moves nothing for it).
+          if (s.card) tick(pile, hold + COUNTER_MS, 1);
           continue;
         }
         const stackLook = (): Ghost["stack"] =>
@@ -8468,6 +8720,7 @@ export function Board({
     returns,
     tileMoves,
     countered,
+    leftBy,
     fizzled,
     survive,
     moments,
@@ -10264,6 +10517,10 @@ function FightMarkDrawn({ mark, done }: { mark: FightMark; done: () => void }) {
         <MarkIcon mark={mark.markOf} />
       ) : mark.kind === "umbrashield" ? (
         <UmbraShield id={mark.key} src={mark.src ?? null} />
+      ) : mark.kind === "silvershield" ? (
+        <UmbraShield id={mark.key} src={null} tone="silver" />
+      ) : mark.kind === "regenshield" ? (
+        REGEN_SHIELD
       ) : mark.kind === "umbratab" && mark.heldTab ? (
         <>
           <span className="bf-tag-glyph" aria-hidden="true" />

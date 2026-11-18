@@ -574,6 +574,8 @@ export interface SnapshotCard {
   phasedOut?: boolean | undefined;
   shields?: number | undefined;
   indestructible?: boolean | undefined;
+  /** Spec 0101, row 7 -- "prevent the next N damage" waiting on it (Forge's total). */
+  preventNext?: number | undefined;
   /**
    * Spec 0085 -- on the battlefield (public): the keywords it has that its
    * face does not print (Forge's titles, as `keywords`), a "can't be
@@ -597,6 +599,8 @@ export interface SnapshotPlayer {
   seat: number;
   name: string;
   life: number;
+  /** Spec 0101, row 7 -- "prevent the next N damage" waiting for this player (Forge's total). */
+  preventNext?: number | undefined;
   /** Counts, because a hand's SIZE is public and its contents are not. */
   handCount: number;
   libraryCount: number;
@@ -741,6 +745,8 @@ export interface StackEntry {
   splitSecond?: boolean | undefined;
   /** Spec 0083 (18 B) -- a spell that can't be countered (Abrupt Decay). */
   cantBeCountered?: boolean | undefined;
+  /** Spec 0101, row 6 -- a ward trigger (Forge's keyword origin). */
+  ward?: boolean | undefined;
   /** Spec 0086, Amendment 1 -- a trigger that is the monarch's or the initiative's own. */
   from?: "monarch" | "initiative" | undefined;
   /** Spec 0100, item 1 -- the X its caster paid. */
@@ -800,6 +806,8 @@ export interface DamageState {
      * from a colour): its would-be amount; `amount` is then 0.
      */
     prevented?: number;
+    /** Spec 0101 -- what stopped it, when a survive kind of its own: a shield counter, "prevent the next N". */
+    by?: "shield" | "prevent-next";
   }[];
   /** Phase 10 A-13 -- the damage a combat damage step dealt: which step. Absent for a spell's. */
   combat?: "first-strike" | "regular";
@@ -919,7 +927,15 @@ export interface Snapshot {
   phased?: { card: string; out: boolean }[];
   /** Spec 0080 -- this round's survivors: a regeneration shield used, or a destroy an indestructible permanent shrugged off. */
   /** Spec 0089 (Q4 B) -- "umbra": an Aura's umbra armor (`by`) was destroyed instead. */
-  survived?: { card: string; how: "regenerated" | "indestructible" | "umbra"; by?: string }[];
+  survived?: { card: string; how: SurviveHow; by?: string }[];
+  /**
+   * Spec 0101, item 2 -- stack entries that left without resolving this
+   * round: countered (a counterspell, Stifle, ward) or ended (Time Stop),
+   * by the card whose effect did it.
+   */
+  left?: { stack: string; why: "countered" | "ended"; by?: string }[];
+  /** Spec 0101, item 3 -- the creatures the game offers as blockers, from the attack until the blocks. */
+  blockerCandidates?: string[];
   /** Spec 0084 -- the seats whose library was shuffled this round (a fetch land, a tutor). */
   shuffles?: number[];
   /** Spec 0084 -- the vehicles crewed this round, and the creatures that crewed each. */
@@ -1467,6 +1483,10 @@ function asSnapshot(value: unknown): Snapshot | null {
     life: asLife(row["life"]),
     phased: asPhased(row["phased"]),
     survived: asSurvived(row["survived"]),
+    left: asLeft(row["left"]),
+    blockerCandidates: Array.isArray(row["blockerCandidates"])
+      ? (row["blockerCandidates"] as unknown[]).flatMap((v) => (typeof v === "string" ? [v] : []))
+      : [],
     shuffles: asSeats(row["shuffles"]),
     crewed: asCrewed(row["crewed"]),
     reveal: asReveal(row["reveal"]),
@@ -1501,8 +1521,25 @@ function asPhased(value: unknown): { card: string; out: boolean }[] {
   });
 }
 
+/** Spec 0080, 0089, 0101 -- how a card survived: Forge's own way. */
+export type SurviveHow = "regenerated" | "indestructible" | "umbra" | "shield";
+
+/** Spec 0101, item 2 -- the round's entries that left without resolving, well-formed ones only. */
+function asLeft(value: unknown): { stack: string; why: "countered" | "ended"; by?: string }[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const e = (typeof entry === "object" && entry !== null ? entry : {}) as Record<string, unknown>;
+    const stack = asString(e["stack"]);
+    const why = e["why"];
+    const by = asString(e["by"]);
+    return stack && (why === "countered" || why === "ended")
+      ? [{ stack, why, ...(by ? { by } : {}) }]
+      : [];
+  });
+}
+
 /** Spec 0080 -- the round's survivors, keeping only well-formed ones. */
-type Survivor = { card: string; how: "regenerated" | "indestructible" | "umbra"; by?: string };
+type Survivor = { card: string; how: SurviveHow; by?: string };
 
 function asSurvived(value: unknown): Survivor[] {
   if (!Array.isArray(value)) return [];
@@ -1514,7 +1551,9 @@ function asSurvived(value: unknown): Survivor[] {
       const by = asString(e["by"]);
       return [{ card, how, ...(by ? { by } : {}) }];
     }
-    return card && (how === "regenerated" || how === "indestructible") ? [{ card, how }] : [];
+    return card && (how === "regenerated" || how === "indestructible" || how === "shield")
+      ? [{ card, how }]
+      : [];
   });
 }
 
@@ -1636,6 +1675,8 @@ function asPlayers(value: unknown): SnapshotPlayer[] {
       seat,
       name: asString(row["name"]) ?? `Seat ${seat}`,
       life: asNumber(row["life"]) ?? 0,
+      preventNext:
+        (asNumber(row["preventNext"]) ?? 0) > 0 ? asNumber(row["preventNext"])! : undefined,
       handCount: asNumber(row["handCount"]) ?? 0,
       libraryCount: asNumber(row["libraryCount"]) ?? 0,
       graveyardCount: asNumber(row["graveyardCount"]) ?? 0,
@@ -1784,6 +1825,8 @@ function asCards(value: unknown): SnapshotCard[] {
       phasedOut: row["phasedOut"] === true ? true : undefined,
       shields: (asNumber(row["shields"]) ?? 0) > 0 ? asNumber(row["shields"])! : undefined,
       indestructible: row["indestructible"] === true ? true : undefined,
+      preventNext:
+        (asNumber(row["preventNext"]) ?? 0) > 0 ? asNumber(row["preventNext"])! : undefined,
       // Spec 0085 -- gained keywords, given "can't be blocked", lost abilities, held cards.
       gained: Array.isArray(row["gained"]) ? onlyStrings(row["gained"]) : undefined,
       unblockable: row["unblockable"] === true ? true : undefined,
@@ -1970,6 +2013,7 @@ function asDamage(value: unknown): DamageState | null {
         ...(typeof h["prevented"] === "number" && h["prevented"] > 0
           ? { prevented: h["prevented"] }
           : {}),
+        ...(h["by"] === "shield" || h["by"] === "prevent-next" ? { by: h["by"] } : {}),
       });
   }
   const step = row["combat"];
@@ -2076,6 +2120,7 @@ function asStack(value: unknown): StackEntry[] {
       // Spec 0083 (18 B) -- what the spell is.
       splitSecond: row["splitSecond"] === true ? true : undefined,
       cantBeCountered: row["cantBeCountered"] === true ? true : undefined,
+      ward: row["ward"] === true ? true : undefined,
       // Spec 0086, Amendment 1 -- the monarch's or the initiative's own trigger.
       from: row["from"] === "monarch" || row["from"] === "initiative" ? row["from"] : undefined,
       targets: Array.isArray(row["targets"])
