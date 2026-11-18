@@ -104,6 +104,77 @@ final class HiddenIds {
         return out;
     }
 
+    /**
+     * Spec 0103, items 1-2 (owner option A, 2026-11-18) -- a report card's
+     * link to the card on the table (`table`, ActionReports) stays only while
+     * THIS snapshot's own board lists show that card: the [BOARD] lists'
+     * cards' own ids (battlefield, hand, otherHands, casting, graveyard,
+     * exile, command, libraryTop) -- never the stack's, never a card in a
+     * hidden zone -- and only on a card the reader may identify (`known`: a
+     * face-down card on view stays a back; found by check-hidden-tops on a
+     * Hideaway card, 2026-11-18). Every other link is removed, in the newest report and
+     * each gathered one. Returns how many were removed.
+     */
+    static int keepTableLinks(JsonObject snapshot) {
+        JsonElement action = snapshot.get("action");
+        if (action == null || !action.isJsonObject()) {
+            return 0;
+        }
+        Set<String> onBoard = boardCardIds(snapshot);
+        int removed = dropLinks(action.getAsJsonObject(), onBoard);
+        JsonElement gathered = action.getAsJsonObject().get("gathered");
+        if (gathered != null && gathered.isJsonArray()) {
+            for (JsonElement one : gathered.getAsJsonArray()) {
+                if (one.isJsonObject()) {
+                    removed += dropLinks(one.getAsJsonObject(), onBoard);
+                }
+            }
+        }
+        return removed;
+    }
+
+    /** The ids of the cards the board lists hold (each entry's own `id`, not anything inside it). */
+    static Set<String> boardCardIds(JsonObject snapshot) {
+        Set<String> out = new HashSet<>();
+        for (String list : BOARD) {
+            JsonElement zone = snapshot.get(list);
+            if (zone == null || !zone.isJsonArray()) {
+                continue;
+            }
+            for (JsonElement card : zone.getAsJsonArray()) {
+                if (card.isJsonObject() && card.getAsJsonObject().has("id")) {
+                    JsonElement id = card.getAsJsonObject().get("id");
+                    if (id.isJsonPrimitive()) {
+                        out.add(id.getAsString());
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    private static int dropLinks(JsonObject report, Set<String> onBoard) {
+        JsonElement cards = report.get("cards");
+        if (cards == null || !cards.isJsonArray()) {
+            return 0;
+        }
+        int removed = 0;
+        for (JsonElement card : cards.getAsJsonArray()) {
+            if (!card.isJsonObject()) {
+                continue;
+            }
+            JsonObject entry = card.getAsJsonObject();
+            JsonElement link = entry.get("table");
+            JsonElement known = entry.get("known");
+            boolean identified = known != null && known.isJsonPrimitive() && known.getAsBoolean();
+            if (link != null && !(identified && link.isJsonPrimitive() && onBoard.contains(link.getAsString()))) {
+                entry.remove("table");
+                removed++;
+            }
+        }
+        return removed;
+    }
+
     /** Every card id the snapshot's board lists carry (any `id` or `source` inside them; not the stack's). */
     static Set<String> shown(JsonObject snapshot) {
         Set<String> out = new HashSet<>();

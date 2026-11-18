@@ -610,6 +610,16 @@ snapshot.action           who did what to a library or hand, in this
                           that another seat was shown too is in the other
                           seat's `reveal` only, not the revealer's, unless
                           a card went back into the library
+action.cards[i].table     spec 0103, items 1-2 (owner option A, 2026-11-18):
+                          the id of that card on the table ("card:N"), so
+                          pointing at a row lights it -- sent ONLY while this
+                          reader's own snapshot shows that card in a board
+                          list (battlefield, hand, otherHands, casting,
+                          graveyard, exile, command, libraryTop): never a
+                          card only on the stack, never one in a hidden zone,
+                          never on a card hidden from the reader
+                          (HiddenIds.keepTableLinks, then HiddenIds.strip);
+                          absent otherwise. In `gathered` reports too
 action.marks              spec 0075: pictures that are not cards, in
                           order: {kind "color", color "white"|"blue"|
                           "black"|"red"|"green"} for a colour chosen,
@@ -642,6 +652,28 @@ snapshot.libraryTop       spec 0088 (Q4 C): the top card of each library
                           to show; a viewer not allowed to see a top card is
                           sent nothing of it, and its id is in no other key
                           (HiddenIds counts the list as part of the board)
+snapshot.knownTop         spec 0103, item 4: the cards THIS viewer put on top
+                          of its own library in an order it chose (Brainstorm's
+                          put back, a scry or surveil kept on top, a look-and-
+                          reorder), top first, still exactly its library's top
+                          cards. Kept by the worker from the player's own
+                          answers (KnownTops, like SeenHands: Forge does not
+                          remember it), so it is the HID-002 exception
+                          (MATCH_STATE_VISIBILITY.md). Sent in the owner's own
+                          snapshot only -- never another seat's, never the
+                          public view's. Each card described as shown to its
+                          owner, under a stand-in id "known:SEAT:I" (never the
+                          card's own; HiddenIds). A draw pops the first; any
+                          other card moved into or within that library, or a
+                          shuffle, clears it. Absent when nothing is known
+players[i].thisTurn       spec 0103, item 5: {spells, lifeGained,
+                          leftBattlefield}: spells this player cast this
+                          turn, life it gained this turn, and whether a
+                          permanent it controlled left the battlefield this
+                          turn -- Forge's Player#getSpellsCastThisTurn,
+                          #getLifeGainedThisTurn, #hasRevolt. Public, to
+                          every viewer. No mana spent (Forge keeps none per
+                          player; spec 0103 Decided 3)
 player.mulligans          how many times the player has mulliganed, for every
                           viewer (public, as in paper Magic; Phase 9 W-15)
 card.ringBearer           true on the Ring-bearer, for every viewer

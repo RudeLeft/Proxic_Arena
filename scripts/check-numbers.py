@@ -34,6 +34,12 @@ question; these games read it off the protocol and check the board after:
   energy   Harnessed Lightning: chooseNumber names its card (about) and
            carries the card's sentence ("... deals that much damage ...");
            pay all 3 -- the Ogre dies.
+  thisturn spec 0103, item 5: Alice cracks Evolving Wilds (a permanent of
+           hers left), casts Opt, Lightning Bolt at Bob and Healing Salve on
+           herself: every player entry of hers, in BOTH seats' boards, says
+           thisTurn {spells 3, lifeGained 3, leftBattlefield true} -- Forge's
+           numbers, no mana spent (Decided 3) -- and Bob's {0, 0, false};
+           at Bob's turn hers are back to {0, 0, false}.
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
@@ -492,8 +498,82 @@ def gempalm():
                    "cycle option and the target window; the Ogre died", found)
 
 
+def this_turn():
+    """Spec 0103, item 5: the plate's "this turn" counts, Forge's own."""
+    lands = ["Island", "Mountain", "Plains", "Evolving Wilds"]
+    g = game("thisturn", [("Island", 30), ("Mountain", 4), ("Plains", 4), ("Evolving Wilds", 2), ("Opt", 4),
+                          ("Lightning Bolt", 4), ("Healing Salve", 4)], [("Island", 60)],
+             hand=lands + ["Opt", "Lightning Bolt", "Healing Salve"], top=["Island"] * 8)
+    st = {"done": [], "after": None, "next": None}
+    plan = ["Evolving Wilds", "Opt", "Lightning Bolt", "Healing Salve"]
+
+    def ready(g):
+        # Once all four are out on her turn; the Wilds then leaves.
+        names = {c.get("name") for c in g.mine(1)}
+        if st["done"] or all(n in names for n in lands):
+            return g.state.get(1, {}).get("activeSeat") == 1
+        return False
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        labels = g.labels(f)
+        if seat != 1:
+            return DEFAULT
+        if k == "chooseSpellAbilityToPlay":
+            names = {c.get("name") for c in g.mine(1)}
+            for n in lands:
+                if n not in names and not st["done"]:
+                    o = g.option(f, name=n, land=True)
+                    if o:
+                        return o
+            if ready(g) and not g.state.get(1, {}).get("stack") and len(st["done"]) < len(plan):
+                want = plan[len(st["done"])]
+                o = g.option(f, name=want, land=False)
+                if o:
+                    st["done"].append(want)
+                    return o
+            return g.option(f, name="Island", land=True)
+        if k == "chooseTargetsFor":
+            who = "Bob" if st["done"] and st["done"][-1] == "Lightning Bolt" else "Alice"
+            for o, label in zip(f.get("options") or [], labels):
+                if label.startswith(who):
+                    return o["actionId"]
+        if st["done"] and st["done"][-1] == "Healing Salve":
+            for o, label in zip(f.get("options") or [], labels):
+                if "gains 3 life" in label or "gain 3 life" in label:
+                    return o["actionId"]
+        return DEFAULT
+
+    def until(g):
+        if st["after"] is None and len(st["done"]) == len(plan) and not g.state.get(1, {}).get("stack")                 and g.state.get(1, {}).get("activeSeat") == 1 and g.state.get(2, {}).get("stateRevision")                 == g.state.get(1, {}).get("stateRevision"):
+            counts = {v: {p["seat"]: p.get("thisTurn") for p in g.state[v].get("players") or []} for v in (1, 2)}
+            if counts[1].get(1, {}).get("lifeGained"):
+                st["after"] = counts
+        if st["after"] is not None and g.state.get(1, {}).get("activeSeat") == 2                 and g.state.get(2, {}).get("stateRevision") == g.state.get(1, {}).get("stateRevision"):
+            st["next"] = {v: {p["seat"]: p.get("thisTurn") for p in g.state[v].get("players") or []} for v in (1, 2)}
+            return True
+        return False
+
+    g.run(policy, until=until, max_turn=16)
+    found = {k: st[k] for k in st} | {"stopped": g.stopped_badly()}
+    if st["after"] is None or st["next"] is None:
+        return "inconclusive", "never cracked the Wilds and cast Opt, Bolt and Salve in one turn", found
+    problems = []
+    want = {"spells": 3, "lifeGained": 3, "leftBattlefield": True}
+    none = {"spells": 0, "lifeGained": 0, "leftBattlefield": False}
+    for viewer in (1, 2):
+        if st["after"][viewer].get(1) != want:
+            problems.append(f"seat {viewer} sees Alice's thisTurn {st['after'][viewer].get(1)}, want {want}")
+        if st["after"][viewer].get(2) != none:
+            problems.append(f"seat {viewer} sees Bob's thisTurn {st['after'][viewer].get(2)}, want {none}")
+        if st["next"][viewer].get(1) != none:
+            problems.append(f"at Bob's turn seat {viewer} still sees Alice's {st['next'][viewer].get(1)}")
+    return outcome(problems, "Opt, Bolt and Salve with the Wilds cracked: 3 spells, +3 life, a permanent left -- "
+                   "for both seats; back to nothing at Bob's turn", found)
+
+
 SCENARIOS = {"x": fireball, "kicker": chalice, "split": arc_lightning, "targets": targets,
-             "energy": harnessed, "gempalm": gempalm}
+             "energy": harnessed, "gempalm": gempalm, "thisturn": this_turn}
 
 if __name__ == "__main__":
     codes = []

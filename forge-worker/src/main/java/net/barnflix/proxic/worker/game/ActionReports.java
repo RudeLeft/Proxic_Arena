@@ -1587,6 +1587,13 @@ final class ActionReports {
                     entry = shown.apply(shownCard);
                     named.add(shownCard.getName());
                     visibleIds.add(move.cardId());
+                    // Spec 0103, items 1-2 (owner option A, 2026-11-18): the card
+                    // on the table this one is -- kept only while the reader's
+                    // own board shows it (HiddenIds.keepTableLinks).
+                    // Only a card the reader may identify (a face-down card stays a back).
+                    if (entry.has("known") && entry.get("known").getAsBoolean()) {
+                        entry.addProperty("table", "card:" + move.cardId());
+                    }
                 } else {
                     entry = new JsonObject();
                     entry.addProperty("faceDown", true);
@@ -1649,6 +1656,11 @@ final class ActionReports {
                 entry = shown.apply(card);
                 named.add(card.getName());
                 visibleIds.add(move.cardId());
+                // Spec 0103, items 1-2 (owner option A, 2026-11-18): see above.
+                // Only a card the reader may identify (a face-down card stays a back).
+                if (entry.has("known") && entry.get("known").getAsBoolean()) {
+                    entry.addProperty("table", "card:" + move.cardId());
+                }
             } else {
                 entry = new JsonObject();
                 entry.addProperty("faceDown", true);

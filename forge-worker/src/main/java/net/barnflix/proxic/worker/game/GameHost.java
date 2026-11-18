@@ -183,6 +183,8 @@ public final class GameHost {
         // Spec 0045 -- counters' origins, triggers' causes, reveals.
         // Spec 0070, Amendment 1 -- who has seen which hand card: a new game, nobody.
         this.seen = new SeenHands();
+        // Spec 0103, item 4 -- what each player knows of its library's top: a new game, nothing.
+        this.knownTops = new KnownTops();
         Causes found = new Causes(created);
         this.causes = found;
         created.subscribeToEvents(found.new Listener());
@@ -450,6 +452,14 @@ public final class GameHost {
 
     /** Spec 0070, Amendment 1 -- who has seen which hand card (SeenHands). */
     private volatile SeenHands seen = new SeenHands();
+
+    /** Spec 0103, item 4 -- the cards each player put on top of its own library, in its order (KnownTops). */
+    private volatile KnownTops knownTops = new KnownTops();
+
+    /** [seat] answered: these cards, top first, go on top of its own library (MatchController). */
+    void choseLibraryTop(int seat, java.util.List<Integer> topFirst) {
+        knownTops.chose(seat, topFirst);
+    }
 
     /** Forge showed [seat] these cards of another player's hand (MatchController#reveal). */
     void seenInHand(int seat, java.util.List<Integer> cardIds) {
@@ -1088,12 +1098,27 @@ public final class GameHost {
                 if (shuffledSeat != null && !shuffledNow.contains(shuffledSeat)) {
                     shuffledNow.add(shuffledSeat);
                 }
+                // Spec 0103, item 4 -- a shuffled library's order is nobody's.
+                if (shuffledSeat != null) {
+                    knownTops.shuffled(shuffledSeat);
+                }
             } else if (event instanceof forge.game.event.GameEventCardChangeZone moved && moved.card() != null) {
                 forge.game.card.CardView card = moved.card();
                 // Spec 0070, Amendment 1 -- moved: nobody has seen it where it is now.
                 seen.forget(card.getId());
                 String from = Moves.zoneName(moved.from() == null ? null : moved.from().zoneType());
                 String to = Moves.zoneName(moved.to() == null ? null : moved.to().zoneType());
+                // Spec 0103, item 4 -- a library's known top: a draw pops it,
+                // anything else moved into or within that library forgets it.
+                Integer fromSeat = seatOfZone(moved.from());
+                Integer toSeat = seatOfZone(moved.to());
+                if ("library".equals(from) && fromSeat != null
+                        && !("library".equals(to) && fromSeat.equals(toSeat))) {
+                    knownTops.movedOut(fromSeat, card.getId());
+                }
+                if ("library".equals(to) && toSeat != null) {
+                    knownTops.movedIn(toSeat, card.getId());
+                }
                 // Spec 0082 -- a copy that was cast (a prepared spell, a "cast
                 // a copy") is a token spell: Forge puts it into the graveyard
                 // as it resolves and it ceases to exist there at once (CR
@@ -1444,6 +1469,25 @@ public final class GameHost {
         return hostOf;
     }
 
+    /**
+     * Spec 0103, item 4 -- `knownTop`, the owner's own snapshot only: each card
+     * described as shown to its owner (it was), under a stand-in id (KnownTops).
+     */
+    private void addKnownTop(com.google.gson.JsonObject snapshot, Player owner, int seat,
+            java.util.Map<Player, Integer> seats) {
+        forge.game.card.CardCollectionView library = owner.getCardsIn(forge.game.zone.ZoneType.Library);
+        java.util.List<Integer> ids = new java.util.ArrayList<>();
+        java.util.Map<Integer, forge.game.card.Card> byId = new java.util.HashMap<>();
+        for (forge.game.card.Card card : library) {
+            ids.add(card.getId());
+            byId.put(card.getId(), card);
+        }
+        knownTops.addTo(snapshot, seat, ids, id -> {
+            forge.game.card.Card card = byId.get(id);
+            return card == null ? null : ViewerSnapshot.describeShown(card, owner.getView(), seats);
+        });
+    }
+
     /** The Arena seat whose zone this is (a battlefield, a hand...). */
     private Integer seatOfZone(forge.game.zone.ZoneView zone) {
         return zone == null ? null : seatOfPlayer(zone.player());
@@ -1569,6 +1613,8 @@ public final class GameHost {
             if (event instanceof forge.game.event.GameEventGameRestarted restarted) {
                 int now = epoch.incrementAndGet();
                 lifeChanges.clear();
+                // Spec 0103, item 4 -- a restarted game's libraries are new.
+                knownTops = new KnownTops();
                 // Spec 0097, item 4 (owner) -- the other player is told, in a
                 // report window with the card that did it: the board they
                 // were looking at is gone, not rearranged. Whoever restarted
@@ -1748,6 +1794,10 @@ public final class GameHost {
             }
             addHandCosts(snapshot, player);
             addControlSources(snapshot, current);
+            // Spec 0103, item 4 -- the cards this player put on top of its own
+            // library in its own order: in ITS snapshot alone (HID-001), never
+            // the other seat's or the public view's.
+            addKnownTop(snapshot, player, seat, seatsByPlayer(current));
             // Spec 0061 -- how many notices this seat was told in all.
             snapshot.addProperty("noticesTotal", noticesTotal(seat));
             // Spec 0097, item 2 -- this seat's own turn is being passed for
@@ -1789,6 +1839,9 @@ public final class GameHost {
             // The history sent with the board (moves, payments, rolls, the
             // play log...) keeps no id of a card now in a hand or a library
             // this seat cannot see: the name stays, the handle goes.
+            // Spec 0103, items 1-2 -- a report card's link to the table, only
+            // to a card this board shows; then nothing hidden, under any key.
+            HiddenIds.keepTableLinks(snapshot);
             HiddenIds.strip(snapshot, HiddenIds.hiddenZones(hiddenZones, seat));
             try {
                 snapshotSink.accept(seat, snapshot);
@@ -1853,6 +1906,7 @@ public final class GameHost {
                 PlayLog.keepShownIds(lines, PlayLog.cardIds(everyone));
                 everyone.add("playLog", lines);
             }
+            HiddenIds.keepTableLinks(everyone);
             HiddenIds.strip(everyone, HiddenIds.hiddenZones(hiddenZones, null));
             try {
                 snapshotSink.accept(PUBLIC_SEAT, everyone);

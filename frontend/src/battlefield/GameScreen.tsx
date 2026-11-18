@@ -137,7 +137,7 @@ import {
   sourceOf,
   targetsTitle,
 } from "./QuestionWindows";
-import { RevealTray } from "./RevealTray";
+import { REPLAY_RING_C, RevealTray } from "./RevealTray";
 import { openReports } from "./reports";
 import { carryMoments } from "./carry";
 import {
@@ -232,6 +232,10 @@ import { groupCopies, printedPt, zoneNotes, type ZoneName } from "./zoneTray";
 import { OpeningHand, OPENING_KINDS, optionFor } from "./OpeningHand";
 import { KEEP_MS } from "./opening";
 import { abilityParts } from "./abilities";
+import { useBiggerText } from "./biggerText";
+import { ThisTurnCounts } from "./thisTurn";
+import { KnownTop } from "./knownTop";
+import { ReplayLayer, replayPairOf, type ReplayPair } from "./replay";
 import {
   DECLARE_KINDS,
   combatTargets,
@@ -313,6 +317,8 @@ export function GameScreen({
       );
   // W-24 — the result banner put away, to look at how the game ended.
   const [resultAside, setResultAside] = useState(false);
+  // Spec 0103, item 6 (Q7 A) -- "Bigger text", from this browser (proxic.biggerText).
+  const [bigger, setBigger] = useBiggerText();
   // Shown only when it lasts: a refresh or a blip is not news (owner 2026-10-24).
   const reconnecting = useSettled(game.connection === "reconnecting", 1500);
   // Spec 0050 — the page's notices and the game's own, top right of the table.
@@ -394,6 +400,8 @@ export function GameScreen({
   }, [held]);
 
   // The snapshot before this one, for where arriving cards came from.
+  /** Spec 0103, item 3 -- the board pair the newest report arrived with, while the table still shows it. */
+  const replayPair = useRef<ReplayPair | null>(null);
   const frames = useRef<{ current: Snapshot | null; previous: Snapshot | null }>({
     current: null,
     previous: null,
@@ -551,6 +559,9 @@ export function GameScreen({
     // Spec 0067 -- a spectator's table turned round is not a move: nothing
     // flies from where it was drawn on the other side (the turn is a fade).
     const turned = frames.current.current !== null && frames.current.current.seat !== board.seat;
+    // Spec 0103, item 3 (Decided 5) -- the pair the newest report came with;
+    // any other board drops it (the table is no longer what it showed).
+    replayPair.current = restarting || turned ? null : replayPairOf(frames.current.current, board);
     // Spec 0102, item 1 -- game 2's board after the sweep's empty table is
     // compared as game 2's start (its deal, Karn's cards out of exile).
     frames.current = {
@@ -558,6 +569,14 @@ export function GameScreen({
       previous: turned ? null : afterSweep(frames.current.current, board),
     };
   }
+  // Spec 0103, item 3 (Q3 A) -- the replay playing (the pair, and how far it
+  // is); it ends the moment another board is drawn.
+  const [replaying, setReplaying] = useState<{ pair: ReplayPair; n: number } | null>(null);
+  const replayNow = replaying && replaying.pair.next === board ? replaying : null;
+  useEffect(() => {
+    if (replaying && replaying.pair.next !== board) setReplaying(null);
+  }, [replaying, board]);
+  const replayN = useRef(0);
   // Fixed while building spec 0102 (carry.ts) -- the boards this seat was
   // sent: one never drawn (skipped while another was held) gives its
   // one-time moments to the board that is.
@@ -2091,6 +2110,45 @@ export function GameScreen({
   };
   const actingSeat = reveal?.by ?? null;
   const acting = actingAs(actingSeat);
+  // Spec 0103, item 3 (Q3 A, Decided 5) -- the newest report may be played
+  // again while the table is unchanged since it: its pair is the board drawn.
+  const pairNow = replayPair.current;
+  const replayOffered =
+    !!reveal &&
+    !replayNow &&
+    !motionOff() &&
+    !!pairNow &&
+    pairNow.next === board &&
+    pairNow.key === reveal.key;
+  const startReplay = () => {
+    const pair = replayPair.current;
+    if (!pair || pair.next !== board || replaying || motionOff()) return;
+    replayN.current += 1;
+    setReplaying({ pair, n: replayN.current });
+  };
+  const replayKey = useRef<() => void>(() => {});
+  replayKey.current = () => {
+    if (replayOffered && !decision?.searchable) startReplay();
+  };
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "r" && event.key !== "R") return;
+      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
+      // Never while typing: the chat box, a card's name, any text field.
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.isContentEditable ||
+          target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT")
+      )
+        return;
+      replayKey.current();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   // PHASE_09 group 1 -- the questions in the W-00 frame: a yes/no, a
   // trigger's target for many copies, different triggers to order. The
@@ -2389,7 +2447,10 @@ export function GameScreen({
 
   return (
     <SeatsContext.Provider value={match.participants}>
-      <section className="gs-screen" aria-label={watching ? "The match" : "Your match"}>
+      <section
+        className={`gs-screen${bigger ? " gs-bigger" : ""}`}
+        aria-label={watching ? "The match" : "Your match"}
+      >
         <h1 className="pa-visually-hidden">{watching ? "The match" : "Your match"}</h1>
         {data && board ? (
           <Board
@@ -2730,8 +2791,30 @@ export function GameScreen({
                         />
                       );
                     })()}
+                  {/* Spec 0103, item 3 -- the replay's layer, over the table. */}
+                  {replayNow && (
+                    <ReplayLayer
+                      key={replayNow.n}
+                      pair={replayNow.pair}
+                      playW={geometry.play.w}
+                      artUrl={artUrl}
+                      onProgress={replayRing}
+                      onDone={() => setReplaying(null)}
+                    />
+                  )}
                   {reveal && (
                     <RevealTray
+                      viewerSeat={board?.seat ?? 0}
+                      replay={
+                        replayOffered || (replayNow && replayNow.pair.key === reveal.key)
+                          ? {
+                              key: reveal.key,
+                              offered: replayOffered,
+                              playing: !!replayNow,
+                              onReplay: startReplay,
+                            }
+                          : null
+                      }
                       reveal={reveal}
                       who={acting}
                       whoOf={actingAs}
@@ -2870,6 +2953,8 @@ export function GameScreen({
               listOpen={listOpen}
               onList={() => setListOpen((open) => !open)}
               concession={finished ? null : concessionText(game.concession)}
+              bigger={bigger}
+              onBigger={setBigger}
               onConcede={() => {
                 setGame((previous) => ({ ...previous, concession: null }));
                 socketRef.current?.concede();
@@ -3480,6 +3565,13 @@ function SeatBlock({
   // Spec 0088 (Q4 C) -- this library's top card, when the game lets this
   // viewer see it (public, or theirs to look at): small on the tile.
   const libTop = (board.libraryTop ?? []).find((c) => c.seat === player.seat) ?? null;
+  // Spec 0103, item 4 (Q4 A) -- the cards this viewer put on top of its own
+  // library (sent to it alone), shown while it points at its Library tile.
+  const [pointingLibrary, setPointingLibrary] = useState(false);
+  const known =
+    mine && !board.spectator
+      ? (board.knownTop ?? []).filter((c) => (c.owner ?? c.seat) === player.seat)
+      : [];
   const firstBoard = useRef(true);
   useEffect(() => {
     firstBoard.current = false;
@@ -3542,6 +3634,13 @@ function SeatBlock({
         <span className="gs-seat-who">
           {/* Spec 0041: 12 characters in full, smaller if need be. */}
           <FitName className="gs-seat-name" name={player.name} />
+          {/* Spec 0103, item 5 (Q5 B) -- this turn: spells, life gained, a permanent left. */}
+          <ThisTurnCounts
+            counts={player.thisTurn}
+            name={player.name}
+            mine={mine && !board.spectator}
+            side={mine ? "viewer" : "opponent"}
+          />
           {away !== null && <span className="gs-seat-away">Away · {away} min</span>}
           {/* Spec 0047 -- a spectator sees no hand: how many cards it holds. */}
           {board.spectator && <span className="gs-seat-hand">{player.handCount} in hand</span>}
@@ -3625,6 +3724,8 @@ function SeatBlock({
           aria-label={`${player.name}'s library, ${player.libraryCount} cards${libraryWarning(player.libraryCount) ? `. ${libraryWords(player.libraryCount, mine && !board.spectator ? null : player.name)}` : ""}`}
           data-warning={libraryWarning(player.libraryCount) ?? undefined}
           data-zone-tile={`${mine ? "viewer" : "opponent"}:library`}
+          onMouseEnter={mine && !board.spectator ? () => setPointingLibrary(true) : undefined}
+          onMouseLeave={mine && !board.spectator ? () => setPointingLibrary(false) : undefined}
         >
           <ZoneIcon zone="library" />
           <span className="gs-zone-n">{player.libraryCount}</span>
@@ -3634,6 +3735,7 @@ function SeatBlock({
               : "Library"}
           </span>
         </div>
+        {pointingLibrary && <KnownTop cards={known} />}
         <LibraryTop
           card={libTop}
           owner={mine && !board.spectator ? "your" : `${player.name}'s`}
@@ -5698,6 +5800,15 @@ function useGameMessages(board: Snapshot | null): Notice[] {
   });
 }
 
+/**
+ * Spec 0103, item 3 -- the medallion's ring, filled to [progress] (0..1) as
+ * the replay plays: set on the ring itself, so the screen is not redrawn for it.
+ */
+function replayRing(progress: number) {
+  const ring = document.querySelector<SVGCircleElement>(".gs-reveal-replaying .gs-reveal-ring-pg");
+  if (ring) ring.style.strokeDashoffset = String(REPLAY_RING_C * (1 - progress));
+}
+
 // --- the game menu and the chat drawer ------------------------------------------------------
 
 function GameMenu({
@@ -5709,7 +5820,12 @@ function GameMenu({
   onList,
   concession,
   onConcede,
+  bigger,
+  onBigger,
 }: {
+  /** Spec 0103, item 6 -- the "Bigger text" switch, and turning it. */
+  bigger: boolean;
+  onBigger: (on: boolean) => void;
   match: MatchView;
   /** Spec 0039 — what a report from here knows about the game. */
   report: ReportGame | undefined;
@@ -5764,6 +5880,25 @@ function GameMenu({
       <div className="gs-dock-pop">
         {live && menuOpen && (
           <div className="gs-dock-menu" role="group" aria-label="Game menu">
+            {/* Spec 0103, item 6 (Q7 A) -- "Bigger text": the menu stays open. */}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={bigger}
+              className="gs-dock-item gs-dock-item-switch"
+              onClick={() => onBigger(!bigger)}
+            >
+              <span className="gs-dock-item-name">
+                Bigger text
+                <span
+                  className={`gs-dock-switch${bigger ? " gs-dock-switch-on" : ""}`}
+                  aria-hidden="true"
+                />
+              </span>
+              <span className="gs-dock-item-what">
+                Power and toughness, counters and life totals 25% larger.
+              </span>
+            </button>
             {/* Spec 0013 — each option says what it does. */}
             <button type="button" className="gs-dock-item" onClick={() => choose("concede")}>
               <span className="gs-dock-item-name">Concede</span>
@@ -5838,7 +5973,7 @@ function GameMenu({
             className="gs-icon-button"
             aria-label="Game menu"
             aria-expanded={menuOpen}
-            title="Concede, Abandon match"
+            title="Bigger text, Concede, Abandon match"
             onClick={() => setMenuOpen((open) => !open)}
           >
             <GearIcon />

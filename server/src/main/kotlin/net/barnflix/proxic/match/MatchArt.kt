@@ -122,6 +122,9 @@ class MatchArt(
                         // Spec 0088 (Q4 C) -- a library's top card, sent only to a
                         // viewer the game lets see it: its picture, as any card shown.
                         "libraryTop" -> zone(key)
+                        // Spec 0103, item 4 -- the cards this viewer put on top of
+                        // its own library (sent to the owner alone): their pictures.
+                        "knownTop" -> zone(key)
                         // Spec 0082 -- a copy on its way onto the stack wears its picture as it will there.
                         "stack", "copying" ->
                             (value as? JsonArray)?.map { stackArt(it.jsonObject, allowed) }?.let(::JsonArray)

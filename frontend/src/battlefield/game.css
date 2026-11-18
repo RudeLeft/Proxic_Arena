@@ -252,7 +252,8 @@
   color: #fff;
   font-family: var(--pa-card);
   font-weight: 700;
-  font-size: var(--pa-size-xl);
+  /* Spec 0103, item 6 -- "Bigger text": --bf-text-scale (1.25 when on). */
+  font-size: calc(var(--pa-size-xl) * var(--bf-text-scale, 1));
   font-variant-numeric: tabular-nums;
   text-shadow:
     0 1px 2px rgb(0 0 0 / 90%),
@@ -357,7 +358,7 @@
    shield: the number a little smaller, the plate unchanged. */
 .gs-life-long {
   /* 18px: the scale's step nearest the canvas's 19. */
-  font-size: var(--pa-size-lg);
+  font-size: calc(var(--pa-size-lg) * var(--bf-text-scale, 1));
   letter-spacing: -0.02em;
 }
 /* Spec 0077 (A) -- poison: a round badge touching the life shield at its
@@ -5716,4 +5717,367 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   to {
     transform: scaleX(0);
   }
+}
+
+/* Spec 0103, item 6 (Q7 A) -- "Bigger text", the gear menu's switch: power
+   and toughness, counters and the life totals 25% larger, the gold squares'
+   outlines 2.5px. One variable; no card box changes size. */
+.gs-screen.gs-bigger {
+  --bf-text-scale: 1.25;
+  --bf-mark-border: 2.5px;
+}
+/* The switch in the gear menu (the canvas's). */
+.gs-dock-item-switch .gs-dock-item-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gs-dock-switch {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 22px;
+  margin-left: auto;
+  border-radius: 11px;
+  background: #3a4452;
+  transition: background 0.2s;
+}
+.gs-dock-switch::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #dfe4ea;
+  transition: left 0.2s;
+}
+.gs-dock-switch-on {
+  background: #c9a35a;
+}
+.gs-dock-switch-on::after {
+  left: 21px;
+}
+
+/* Spec 0103, item 5 (Q5 B) -- "this turn" under the name: three tiny counts
+   (the canvas's .tmini), the list in words beside the plate on pointing
+   (the canvas's .ttp). */
+.gs-thisturn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 16px;
+  outline: none;
+  cursor: default;
+}
+.gs-thisturn:focus-visible {
+  box-shadow: 0 0 0 2px #f2c46a;
+  border-radius: 4px;
+}
+.gs-thisturn-n {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font: 700 var(--pa-size-md) / 1 var(--pa-card);
+  color: #e9eee8;
+  font-variant-numeric: tabular-nums;
+}
+.gs-thisturn-n svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.gs-thisturn-zero {
+  color: #6d7682;
+}
+.gs-thisturn-zero svg {
+  opacity: 0.45;
+}
+.gs-thisturn-list {
+  position: absolute;
+  right: calc(100% + 12px);
+  z-index: 86;
+  width: 350px;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  border: 1px solid #33433b;
+  border-radius: 10px;
+  background: #121a17;
+  box-shadow:
+    0 18px 50px rgb(0 0 0 / 70%),
+    inset 0 0 0 1px rgb(217 178 106 / 12%);
+  font-family: var(--pa-text);
+  color: #e3e8e4;
+  pointer-events: none;
+  animation: gs-thisturn-in 0.22s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.gs-thisturn-list-opponent {
+  top: 0;
+}
+.gs-thisturn-list-viewer {
+  bottom: 0;
+}
+@keyframes gs-thisturn-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-thisturn-list {
+    animation: none;
+  }
+}
+.gs-thisturn-by {
+  margin: 0 0 8px;
+}
+.gs-thisturn-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid #26332d;
+  font: 600 var(--pa-size-base) / 1.2 var(--pa-card);
+  color: #e9e4da;
+}
+.gs-thisturn-by + .gs-thisturn-row {
+  border-top: 0;
+}
+.gs-thisturn-row i {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+}
+.gs-thisturn-row svg {
+  width: 22px;
+  height: 22px;
+}
+.gs-thisturn-row span {
+  flex: 1;
+}
+.gs-thisturn-row b {
+  font: 700 var(--pa-size-xl) / 1 var(--pa-card);
+  color: #f2e6c8;
+  font-variant-numeric: tabular-nums;
+}
+.gs-thisturn-row b.gs-thisturn-no {
+  color: #8d9a92;
+}
+
+/* Spec 0103, item 4 (Q4 A) -- the cards you know on top of your library,
+   beside your Library tile while you point at it: face up, numbered from the
+   top (1 nearest the tile), sliding in from the right. In the rail's units:
+   the canvas's 108-high cards at 1080 are 90 here, the first centred 43 left
+   of the rail (61 left of the tile), 77 apart, 18 above the tile's middle. */
+.gs-known {
+  position: absolute;
+  right: calc(100% + 29px);
+  top: 26px;
+  z-index: 70;
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 13px;
+  transform: translateY(calc(-50% - 18px));
+  pointer-events: none;
+  animation: gs-known-in 0.28s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+@keyframes gs-known-in {
+  from {
+    opacity: 0;
+    translate: 38px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-known {
+    animation: none;
+  }
+}
+.gs-known-card {
+  position: relative;
+  flex: none;
+  width: 64px;
+  height: 90px;
+}
+.gs-known-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background: #1b2129 center / cover no-repeat;
+  box-shadow:
+    0 0 0 1px #000,
+    0 6px 16px rgb(0 0 0 / 60%);
+}
+.gs-known-words {
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  box-sizing: border-box;
+  font: 700 var(--pa-size-xs) / 1.15 var(--pa-card);
+  color: #e9e4da;
+  text-align: center;
+}
+/* The stack's own order badge: a gold disc with the card-title numeral. */
+.gs-known-n {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  min-width: 25px;
+  height: 25px;
+  margin: -14px 0 0 -12.5px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font: 700 var(--pa-size-base) / 1 var(--pa-card);
+  background: #e6a84c;
+  color: #1a1206;
+  box-shadow:
+    0 0 0 2px #0e1512,
+    0 2px 5px #000a;
+}
+
+/* Spec 0103, item 3 (Q3 A) -- the replay: the medallion offers it (a replay
+   sign and a glow on pointing), its ring fills as it plays; the foot names
+   the key. The canvas's .rp-med.canrep, .rring, .rglyph and .rp-key. */
+.gs-reveal-replay {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.gs-reveal-replay .pa-avatar {
+  transition: box-shadow 0.15s;
+  border-radius: 50%;
+}
+.gs-reveal-replay:hover .pa-avatar,
+.gs-reveal-replay:focus-visible .pa-avatar,
+.gs-reveal-replaying .pa-avatar {
+  box-shadow:
+    0 0 0 2px #f2d48a,
+    0 0 14px #f2c46a;
+}
+.gs-reveal-replay:focus-visible {
+  outline: none;
+}
+.gs-reveal-ring {
+  position: absolute;
+  left: -6px;
+  top: -6px;
+  width: 56px;
+  height: 56px;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+}
+.gs-reveal-ring circle {
+  fill: none;
+  stroke-linecap: round;
+}
+.gs-reveal-replaying .gs-reveal-ring {
+  opacity: 1;
+}
+.gs-reveal-replay-sign {
+  position: absolute;
+  right: -7px;
+  top: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #121a17;
+  box-shadow: 0 0 0 1.5px #c9a35a;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.gs-reveal-replay[data-replay-offered]:hover .gs-reveal-replay-sign,
+.gs-reveal-replay[data-replay-offered]:focus-visible .gs-reveal-replay-sign {
+  opacity: 1;
+}
+.gs-key {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  margin: 0 2px;
+  box-sizing: border-box;
+  border: 1px solid #6b7a72;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font: 700 var(--pa-size-xs) / 1 var(--pa-text);
+  color: #e3e8e4;
+  vertical-align: 1px;
+}
+/* The replay's layer: the real Board again, over the table (not the plates'
+   column: replay.tsx clips it), taking no pointer. Under the report window. */
+.gs-replay {
+  position: absolute;
+  inset: 0;
+  z-index: 28000;
+  pointer-events: none;
+}
+.gs-replay * {
+  pointer-events: none !important;
+}
+.gs-replay .bf-rail {
+  display: none;
+}
+
+/* Spec 0103, items 1 and 2 (Q1 C, Q2 A; the dim canvas, option B) -- a
+   report row pointed at, or the read-through's, dims everything on the
+   table and the piles with the split-second dim, except that card where it
+   lies now (or the pile tile it went to): one class on the game screen,
+   one on each card or tile kept bright (reportLight.ts). Report windows
+   only, never while choosing. */
+.gs-report-pointing .bf-cards > .bf-slot:not(.gs-lit),
+.gs-report-pointing [data-zone-tile]:not(.gs-lit) {
+  filter: brightness(0.45) saturate(0.4);
+}
+/* The order number: the stack's own order badge (a gold disc, the card-title
+   numeral), 1 the oldest; lit with its report. */
+.gs-report-n {
+  flex: none;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  font: 700 var(--pa-size-md) / 1 var(--pa-card);
+  background: #e6a84c;
+  color: #1a1206;
+  box-shadow: 0 0 0 1.5px #121a17;
+  transition:
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+.gs-report-n-big {
+  float: left;
+  min-width: 25px;
+  height: 25px;
+  border-radius: 13px;
+  margin: 2px 10px 0 0;
+  font-size: var(--pa-size-base);
+}
+.gs-report-lit .gs-report-n {
+  box-shadow:
+    0 0 0 2px #121a17,
+    0 0 0 4px #ffe2a0,
+    0 0 14px #f2c46a;
+  transform: scale(1.08);
+}
+.gs-report-row.gs-report-lit .gs-report-row-open {
+  background: rgb(242 201 92 / 13%);
+  box-shadow: inset 3px 0 0 #e6a84c;
+}
+.gs-reveal-head.gs-report-lit {
+  border-radius: 6px;
+  background: rgb(242 201 92 / 13%);
 }

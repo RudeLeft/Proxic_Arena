@@ -160,6 +160,8 @@ jobs:
       - run: python3 -I scripts/check-test-switch.py
       # check-moves' own rule, on saved boards (Chaos Warp's reveal, 2026-11-18).
       - run: python3 -I scripts/check-moves.py --self-test
+      # check-hidden-tops' table-link rule (spec 0103): a library card's link fails.
+      - run: python3 -I scripts/check-hidden-tops.py --self-test
 
       - run: npm ci
         working-directory: frontend
@@ -312,7 +314,7 @@ jobs:
               attachments printings face-down costs results \
               tracked-state text-effects coin-flip board-data concede mana-cost \
               library-order mana-pool mulligan unreachable dice unset \
-              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends \
+              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
               'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions) limit=900;; esac;
@@ -643,6 +645,12 @@ jobs:
       - name: Build the outcomes deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/outcomes-deck.zip" protocol/fixtures/outcomes-deck
+
+      # And spec 0103's real-click game (F-0103-G): a fetch land's report
+      # replayed, Brainstorm's put back known on top, "Bigger text".
+      - name: Build the reports-comfort deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/reports-comfort-deck.zip" protocol/fixtures/reports-comfort-deck
 
       # And looking at your library (spec 0001, F-0001-H, D3): surveil and
       # scry, the cards as pictures to the player looking, alone.

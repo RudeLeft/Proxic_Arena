@@ -151,6 +151,20 @@ class MatchArtTest {
         assertFalse(art.mayFetch(bob, secret), "only the seat it was shown to")
     }
 
+    /** Spec 0103, item 4 — the cards the viewer put on top of its own library wear their pictures. */
+    @Test
+    fun `a known library top carries its art`() {
+        val art = art()
+        val state =
+            Json.parseToJsonElement(
+                """{"seat":1,"battlefield":[],"hand":[],"players":[],
+                "knownTop":[${card("known:1:0", alice, "Plains")}]}""",
+            ).jsonObject
+
+        val seen = art.annotate(state, alice)
+        assertEquals(plains, seen["knownTop"]!!.jsonArray[0].jsonObject["art"]?.jsonPrimitive?.content)
+    }
+
     /**
      * Spec 0088 — a report's older reports gathered with it (Q3 C) carry
      * their cards' pictures, as the newest does; so does a library's top

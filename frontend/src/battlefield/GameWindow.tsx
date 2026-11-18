@@ -140,11 +140,11 @@ export function PeekButton({ className = "" }: { className?: string }) {
  * Spec 0057, item 2 -- the Peek footer's left half, the same in every
  * window: Peek, then "or hold Space" (under it, in a narrow window).
  */
-export function PeekHint() {
+export function PeekHint({ after = null }: { after?: ReactNode }) {
   return (
     <span className="gs-win-peek-hint">
       <PeekButton />
-      <span className="gs-peek-or">or hold Space</span>
+      <span className="gs-peek-or">or hold Space{after}</span>
     </span>
   );
 }
@@ -156,13 +156,16 @@ export function PeekHint() {
 export function PeekFoot({
   className = "",
   children,
+  after = null,
 }: {
   className?: string;
   children?: ReactNode;
+  /** Spec 0103, item 3 -- words after "or hold Space" (a report's "· R to replay"). */
+  after?: ReactNode;
 }) {
   return (
     <div className={`gs-peek-foot ${className}`.trim()}>
-      <PeekHint />
+      <PeekHint after={after} />
       {children && <span className="gs-peek-foot-buttons">{children}</span>}
     </div>
   );

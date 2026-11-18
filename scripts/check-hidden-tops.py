@@ -18,6 +18,12 @@ compares, round by round (one stateRevision), what each seat was sent:
              top card, under ANY key (a move, a payment, a play log line, a
              report, or as text in Forge's own wording, "Name (48)", a stack
              entry's description): an id is a live handle on a card in a library
+  known top  spec 0103: the cards a player put on top of its own library in
+             its own order (`knownTop`) reach that player alone -- never the
+             other seat, never the public view (seat 0) -- every one its own
+             card, `known`, under a stand-in id ("known:SEAT:I", never a
+             card's own: a library card's id is a live handle); and in a round
+             that shuffled that library, it has none
   reports    every card a report shows (`action.cards`, and each gathered
              report's), for every seat, carries the report's own id
              ("action:N:I"), never a card's; a card hidden from that seat
@@ -26,9 +32,20 @@ compares, round by round (one stateRevision), what each seat was sent:
              in the snapshot's own anonymous shape: "Face-down", "unknown");
              the gathered reports are each their own (distinct keys), oldest
              first, all older than the one in full
+  table link spec 0103, items 1-2 (owner option A, 2026-11-18): a report card
+             may carry `table`, the id of that card on the table -- only when
+             the same snapshot's own board lists (battlefield, hand,
+             otherHands, casting, graveyard, exile, command, libraryTop) hold
+             that card, and never on a card hidden from the reader; any other
+             card id in a report's cards is still a leak
+
+    python -I scripts/check-hidden-tops.py --self-test
+
+checks the table-link rule itself on made-up boards: a link to a card on
+the table passes; a link to a card in a library (in no board list) fails.
 
 Exit 0 when nothing leaked, 1 when something did, 2 when the traces held
-no library top card and no gathered report to check.
+no library top card, no known top and no gathered report to check.
 """
 import json
 import re
@@ -66,6 +83,51 @@ def ids_in(node, skip=("libraryTop",)):
     return found
 
 
+BOARD = ("battlefield", "hand", "otherHands", "casting", "graveyard", "exile", "command", "libraryTop")
+
+
+def board_ids(state):
+    """The ids of the cards a snapshot's own board lists hold (each entry's own id)."""
+    return {c.get("id") for z in BOARD for c in (state.get(z) or []) if isinstance(c, dict)}
+
+
+def report_problems(state, r):
+    """What is wrong with one report's cards in [state] (a reader's snapshot)."""
+    problems = []
+    shown = board_ids(state)
+    for c in r.get("cards") or []:
+        if not str(c.get("id", "")).startswith(f"{r.get('key')}:"):
+            problems.append(f"report card id {c.get('id')} is not the report's")
+        if c.get("known") is False and (set(c) - HIDDEN_KEYS or c.get("name", "Face-down") != "Face-down"
+                                        or c.get("kind", "unknown") != "unknown"):
+            problems.append(f"a hidden report card carries {sorted(set(c) - HIDDEN_KEYS)} name {c.get('name')!r}")
+        # Spec 0103 (owner option A): `table` only to a card this board shows.
+        link = c.get("table")
+        if link is not None and (link not in shown or c.get("known") is not True):
+            problems.append(f"a report card links {link!r}, which this board does not show")
+        rest = {k: v for k, v in c.items() if k != "table"}
+        if CARD.search(json.dumps(rest)):
+            problems.append("a report's cards name a card id")
+    return problems
+
+
+def self_test():
+    """The table-link rule on made-up boards: on the table passes, in a library fails."""
+    card = {"id": "action:1:0", "known": True, "name": "Island", "seat": 2, "to": "battlefield"}
+    ok = {"battlefield": [{"id": "card:5"}]}
+    good = report_problems(ok, {"key": "action:1", "cards": [dict(card, table="card:5")]})
+    # A Brainstorm put back: the card is in a library -- in no board list.
+    library = report_problems({"battlefield": []}, {"key": "action:1", "cards": [dict(card, table="card:30", to="top")]})
+    hidden = report_problems(ok, {"key": "action:1", "cards": [
+        {"id": "action:1:0", "known": False, "faceDown": True, "seat": 2, "table": "card:5"}]})
+    stack = report_problems({"stack": [{"id": "stack:1", "source": "card:9"}]},
+                            {"key": "action:1", "cards": [dict(card, table="card:9")]})
+    results = {"on the table passes": not good, "a library card fails": bool(library),
+               "a hidden card's link fails": bool(hidden), "a stack source fails": bool(stack)}
+    print(json.dumps(results, indent=1))
+    return 0 if all(results.values()) else 1
+
+
 def rounds(paths):
     """{(trace, revision): {seat: state}}, and {(trace, revision, seat): card ids
     Forge put in that seat's questions after that board (its options and the
@@ -97,7 +159,7 @@ def rounds(paths):
 
 def main(paths):
     problems = []
-    tops = gathered = cards = 0
+    tops = gathered = cards = known = 0
     boards, asked = rounds(paths)
     for (path, rev), seats in boards.items():
         sent = {seat: {c.get("id"): c for c in (s.get("libraryTop") or [])} for seat, s in seats.items()}
@@ -114,6 +176,18 @@ def main(paths):
                     problems.append(f"{path} r{rev}: seat {seat} sent seat {owner}'s top card, not public, not asked about")
                 if owner != seat and c.get("public") and owner in sent and cid not in sent[owner]:
                     problems.append(f"{path} r{rev}: seat {seat} sent a public top card its owner was not")
+        for seat, s in seats.items():
+            for c in s.get("knownTop") or []:
+                known += 1
+                owner = c.get("owner", c.get("seat"))
+                if seat == 0 or owner != seat:
+                    problems.append(f"{path} r{rev}: seat {seat} sent seat {owner}'s known library top ({c.get('name')})")
+                if not str(c.get("id", "")).startswith(f"known:{seat}:"):
+                    problems.append(f"{path} r{rev}: seat {seat}: a known top card carries id {c.get('id')!r}")
+                if c.get("known") is not True:
+                    problems.append(f"{path} r{rev}: seat {seat}: a known top card is not known")
+            if s.get("knownTop") and seat in (s.get("shuffles") or []):
+                problems.append(f"{path} r{rev}: seat {seat}: a known top survived its library's shuffle")
         all_tops = {cid for m in sent.values() for cid in m}
         for seat, s in seats.items():
             leaked = (ids_in(s) & all_tops) - set(sent[seat])
@@ -133,22 +207,15 @@ def main(paths):
             for r in rows + [a]:
                 if r is not a and r.get("gathered"):
                     problems.append(f"{path} r{rev}: seat {seat}: a gathered report gathers others")
-                for c in r.get("cards") or []:
-                    cards += 1
-                    if not str(c.get("id", "")).startswith(f"{r.get('key')}:"):
-                        problems.append(f"{path} r{rev}: seat {seat}: report card id {c.get('id')} is not the report's")
-                    if c.get("known") is False and (set(c) - HIDDEN_KEYS or c.get("name", "Face-down") != "Face-down"
-                                                    or c.get("kind", "unknown") != "unknown"):
-                        problems.append(f"{path} r{rev}: seat {seat}: a hidden report card carries "
-                                        f"{sorted(set(c) - HIDDEN_KEYS)} name {c.get('name')!r}")
-                if CARD.search(json.dumps(r.get("cards") or [])):
-                    problems.append(f"{path} r{rev}: seat {seat}: a report's cards name a card id")
-    print(json.dumps({"library top cards sent": tops, "gathered reports": gathered, "report cards": cards,
+                cards += len(r.get("cards") or [])
+                problems.extend(f"{path} r{rev}: seat {seat}: {p}" for p in report_problems(s, r))
+    print(json.dumps({"library top cards sent": tops, "known top cards sent": known,
+                      "gathered reports": gathered, "report cards": cards,
                       "problems": problems[:40]}, indent=1))
     if problems:
         return 1
-    return 0 if (tops or gathered) else 2
+    return 0 if (tops or gathered or known) else 2
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(self_test() if sys.argv[1:] == ["--self-test"] else main(sys.argv[1:]))

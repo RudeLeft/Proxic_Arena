@@ -1,0 +1,7 @@
+32 Island
+8 Swamp
+4 Flooded Strand
+4 Polluted Delta
+4 Brainstorm
+4 Consider
+4 Opt

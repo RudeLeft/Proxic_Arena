@@ -27,6 +27,11 @@ function values(css: string, property: string): { line: number; value: string }[
 
 const onTheScale = new RegExp(`^var\\(--pa-size-(${STEPS.join("|")})\\)$`);
 const onACard = /^calc\(var\(--card-h\) \* [0-9.]+\)$/;
+// Spec 0103, item 6 (owner 2026-11-17, Q7 A) -- "Bigger text": a step on the
+// scale, times the switch's one factor (1, or 1.25 when it is on).
+const scaledStep = new RegExp(
+  `^calc\\(var\\(--pa-size-(${STEPS.join("|")})\\) \\* var\\(--bf-text-scale, 1\\)\\)$`,
+);
 
 describe("the type scale", () => {
   it("defines every step in rem, so the browser's own text size is followed", () => {
@@ -41,7 +46,7 @@ describe("the type scale", () => {
   for (const sheet of SHEETS) {
     it(`${sheet}: every text size is a step on the scale`, () => {
       const off = values(read(sheet), "font-size").filter(
-        ({ value }) => !onTheScale.test(value) && !onACard.test(value),
+        ({ value }) => !onTheScale.test(value) && !onACard.test(value) && !scaledStep.test(value),
       );
       expect(off, `sizes off the scale in ${sheet}`).toEqual([]);
       // The `font:` shorthand sizes text too.

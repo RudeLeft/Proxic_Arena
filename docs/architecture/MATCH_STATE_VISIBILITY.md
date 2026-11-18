@@ -89,8 +89,12 @@ snapshot.
 
 ## Libraries
 
-**A snapshot's library is a count only**, for every player including the
-owner. A library card is named only where Forge shows it to one player:
+**A snapshot's library is a count**, for every player including the
+owner, plus `libraryTop` (spec 0088: the top card, only to a viewer
+Forge's `CardView#canBeShownTo` lets see it, below) and `knownTop` (spec
+0103: the cards the owner put on top in an order they chose, kept by the
+worker from that player's own answers like `SeenHands`, sent to the owner
+alone, cleared by a shuffle, below). A library card is named only where Forge shows it to one player:
 the options of a search or a scry (sent only to the player asked), a
 reveal notice (below), and an `action` report, which names a card going
 to a library only to a reader who owns it or saw it revealed (Goblin
@@ -103,6 +107,40 @@ under Courser of Kruphix or Future Sight, its owner alone under Bolas's
 Citadel or Vizier of the Menagerie (Forge's `CardView#canBeShownTo`,
 `LibraryTops`, `ViewerSnapshot.java`). Nobody else is sent it, and the
 list is absent when there is none.
+
+**The one place the worker, not Forge, decides a library card may be
+shown** (spec 0103, item 4; the HID-002 exception the owner approved
+2026-11-17): `knownTop`. Forge does not remember what a player knows of
+its own library once a look ends (`CardView#canBeShownTo` hides a library
+card from its owner after the prompt's temporary look,
+`PlayerControllerHuman.endTempShowCards`), so the worker keeps it from
+that player's own answers -- Brainstorm's put back, a scry or surveil kept
+on top, a look-and-reorder (`MatchController.knownOnTop`, never when
+another seat answers for the player, never for another player's cards)
+-- in `KnownTops`, as `SeenHands` keeps what a seat was shown of a hand.
+It is sent in the owner's own snapshot only (`GameHost.addKnownTop`;
+never the other seat's, never the public view's), each card under a
+stand-in id ("known:SEAT:I"), and only while those cards are exactly the
+library's top cards: a draw pops the first, any other card moved into or
+within that library or a shuffle forgets it. Proven by `KnownTopsTest`,
+`scripts/check-known-top.py` and `check-hidden-tops.py` (F-0103-D2).
+
+**A report card's link to the table** (spec 0103, items 1 and 2;
+owner-approved 2026-11-18, option A of the CONFLICT raised while building
+0103 -- requirement: pointing at a report row lights that card on the
+table; observed: a report's cards carried only the report's stand-in ids
+(`action:N:I`, Phase 9 Amendment 12), so the page could not tell which
+card on the table a row meant; impact: items 1 and 2 could not be built
+without matching by name, which PROTO-001 forbids; options: a link sent
+only while the reader's board shows the card / light only pile tiles /
+drop the items; decision: the link). Each report card the reader may
+identify carries `table`, that card's own id, kept ONLY while the same
+snapshot's board lists show that card (`HiddenIds.keepTableLinks`:
+battlefield, hand, otherHands, casting, graveyard, exile, command,
+libraryTop -- never the stack, never a hidden zone), then stripped again by
+`HiddenIds.strip` like any id. The report's own ids stay stand-ins.
+Checked by `TableLinksTest` and `check-hidden-tops.py` (whose
+`--self-test` fails a link to a library card).
 
 ## Reveals and known hidden cards
 

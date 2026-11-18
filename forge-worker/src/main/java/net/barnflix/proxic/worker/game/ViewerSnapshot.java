@@ -127,6 +127,11 @@ final class ViewerSnapshot {
             entry.addProperty("seat", seatOf.getOrDefault(player, 0));
             entry.addProperty("name", player.getName());
             entry.addProperty("life", player.getLife());
+            // Spec 0103, item 5 -- "this turn" counts, Forge's own: spells this
+            // player cast, life it gained, and whether a permanent it controlled
+            // left the battlefield (revolt). Public. No mana spent (Decided 3:
+            // Forge keeps none per player).
+            entry.add("thisTurn", thisTurn(player));
             // Spec 0101, row 7 -- "prevent the next N damage" to this player (public).
             int preventNext = player.getView().getPreventNextDamage();
             if (preventNext > 0) {
@@ -902,9 +907,33 @@ final class ViewerSnapshot {
         return true;
     }
 
+    /**
+     * Spec 0103, item 5 -- {spells, lifeGained, leftBattlefield}: Forge's
+     * Player#getSpellsCastThisTurn, #getLifeGainedThisTurn, #hasRevolt.
+     */
+    static JsonObject thisTurn(Player player) {
+        return thisTurn(player.getSpellsCastThisTurn(), player.getLifeGainedThisTurn(), player.hasRevolt());
+    }
+
+    static JsonObject thisTurn(int spells, int lifeGained, boolean leftBattlefield) {
+        JsonObject out = new JsonObject();
+        out.addProperty("spells", spells);
+        out.addProperty("lifeGained", lifeGained);
+        out.addProperty("leftBattlefield", leftBattlefield);
+        return out;
+    }
+
     /** A card as [viewer] may know it -- a question's "looking at" cards (spec 0001 D3). */
     static JsonObject describeFor(Card card, PlayerView viewer, Map<Player, Integer> seatOf) {
         return describe(card, viewer, seatOf);
+    }
+
+    /**
+     * Spec 0103, item 4 -- a card its owner put on top of its own library in
+     * an order it chose (KnownTops): described as shown to that owner.
+     */
+    static JsonObject describeShown(Card card, PlayerView owner, Map<Player, Integer> seatOf) {
+        return describe(card, owner, seatOf, true);
     }
 
     private static JsonObject describe(Card card, PlayerView viewer, Map<Player, Integer> seatOf) {

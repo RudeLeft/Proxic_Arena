@@ -593,6 +593,8 @@
 }
 .bf-pt {
   flex: none;
+  /* Spec 0103, item 6 -- "Bigger text" (the canvas's 1.25em): --bf-text-scale. */
+  font-size: calc(1em * var(--bf-text-scale, 1));
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--bf-ink);
@@ -2005,7 +2007,8 @@ img.bf-makes-pip {
   height: calc(var(--card-h) * 0.17);
   border-radius: calc(var(--card-h) * 0.035);
   background: radial-gradient(circle at 40% 35%, #3a2c12, #16110a);
-  border: 1.5px solid #e9c46a;
+  /* Spec 0103, item 6 -- "Bigger text": 2.5px. */
+  border: var(--bf-mark-border, 1.5px) solid #e9c46a;
   display: grid;
   place-items: center;
   box-shadow:
@@ -3562,4 +3565,11 @@ img.bf-makes-pip {
     transition: none;
     animation: none;
   }
+}
+
+/* Spec 0103, item 6 (Q7 A) -- "Bigger text" (the gear menu): a counter's
+   number 25% larger (--bf-text-scale, set on .gs-screen.gs-bigger in
+   game.css); the badge keeps its size, so the badges' places (BADGE_H) hold. */
+.gs-bigger .bf-badge-n {
+  font-size: calc(var(--card-h) * 0.098 * var(--bf-text-scale, 1));
 }

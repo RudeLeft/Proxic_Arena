@@ -8,9 +8,10 @@
 // stops sending it then). Only what Forge revealed, to whom it revealed
 // it: the worker fills this from the reveal Forge makes to each player.
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import type { ReportMark, SnapshotReveal } from "../match";
-import { FOLD_MS, GATHERED_W, layoutOf } from "./reports";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import type { ReportMark, SnapshotCard, SnapshotReveal } from "../match";
+import { FOLD_MS, GATHERED_W, layoutOf, reportsOf } from "./reports";
+import { lightOff, lightOn } from "./reportLight";
 import type { Geometry } from "./layout";
 import { BigCard } from "./QuestionWindows";
 import { ManaText, symbolUrl } from "./ManaCost";
@@ -173,24 +174,43 @@ function ReportRow({
   who,
   artUrl,
   onOpen,
+  n,
+  lit,
+  onPoint,
 }: {
   report: SnapshotReveal;
   who: { name: string; face: ReactNode } | null;
   artUrl: (art: string) => string;
   onOpen: () => void;
+  /** Spec 0103, item 2 -- its place in the window, 1 the oldest (the stack's order badge). */
+  n: number;
+  /** Spec 0103, items 1-2 -- lit now (pointed at, or the read-through's). */
+  lit: boolean;
+  /** Spec 0103, item 1 -- the pointer (or the focus) on the row, or off it. */
+  onPoint: (on: boolean) => void;
 }) {
   const first = report.cards[0];
   const pic = first && !(first.faceDown && !first.known) ? (first.crop ?? first.art) : null;
   return (
     // Not a list item: the scripted games read a question's choices as
     // list items' buttons, and a row is no choice.
-    <div className="gs-report-row" data-report={report.key}>
+    <div
+      className={`gs-report-row${lit ? " gs-report-lit" : ""}`}
+      data-report={report.key}
+      onMouseEnter={() => onPoint(true)}
+      onMouseLeave={() => onPoint(false)}
+    >
       <button
         type="button"
         className="gs-report-row-open"
         onClick={onOpen}
+        onFocus={() => onPoint(true)}
+        onBlur={() => onPoint(false)}
         aria-label={`Open: ${who?.name ?? "A player"}, ${report.source}. ${report.said ?? ""}`}
       >
+        <b className="gs-report-n" aria-hidden="true">
+          {n}
+        </b>
         <span className="gs-report-row-face" aria-hidden="true">
           {who?.face}
         </span>
@@ -212,6 +232,21 @@ function ReportRow({
   );
 }
 
+/**
+ * Spec 0103, item 3 (Q3 A) -- a report's replay: which report it is for, and
+ * whether it is offered now (only while the table is unchanged since it,
+ * Decided 5) or playing.
+ */
+export interface ReportReplay {
+  key: string;
+  offered: boolean;
+  playing: boolean;
+  onReplay: () => void;
+}
+
+/** The medallion's ring (the canvas's: r 26 in a 56 box). */
+export const REPLAY_RING_C = 2 * Math.PI * 26;
+
 export function RevealTray({
   reveal,
   geometry,
@@ -221,7 +256,13 @@ export function RevealTray({
   who,
   whoOf,
   drainMs = null,
+  replay = null,
+  viewerSeat = 0,
 }: {
+  /** Spec 0103, items 1-2 -- whose side "viewer" is (which pile tile a card went to). */
+  viewerSeat?: number;
+  /** Spec 0103, item 3 -- the newest report's replay, or null. */
+  replay?: ReportReplay | null;
   /**
    * Spec 0102, item 1 (round 2 Q6 B) -- the window holds the table (Karn's
    * restart) this long at most: a thin bar along its foot drains over it.
@@ -245,6 +286,82 @@ export function RevealTray({
   // A newer report coming in shows in full again.
   const [opened, setOpened] = useState<{ at: string; key: string | null }>({ at: "", key: null });
   const { full, rows } = layoutOf(reveal, opened.at === reveal.key ? opened.key : null);
+  // Spec 0103, items 1-2 -- the window points at the table: the report (or
+  // the card) pointed at, or the read-through's, lit; the rest dims.
+  const trayRef = useRef<HTMLDivElement>(null);
+  // The game screen, kept: a window going is unmounted after its ref is gone.
+  const screenEl = useRef<HTMLElement | null>(null);
+  const screenOf = () => {
+    screenEl.current = trayRef.current?.closest<HTMLElement>(".gs-screen") ?? screenEl.current;
+    return screenEl.current;
+  };
+  const all = reportsOf(reveal);
+  const order = new Map(all.map((r, i) => [r.key, i + 1]));
+  const [lit, setLit] = useState<string | null>(null);
+  const reading = useRef<number[]>([]);
+  const stopReading = () => {
+    if (reading.current.length === 0) return;
+    for (const t of reading.current) window.clearTimeout(t);
+    reading.current = [];
+    lightOff(screenOf());
+    setLit(null);
+  };
+  const point = (key: string, cards: readonly SnapshotCard[] | null) => {
+    stopReading();
+    if (cards) {
+      lightOn(screenOf(), cards, viewerSeat);
+      setLit(key);
+    } else {
+      lightOff(screenOf());
+      setLit(null);
+    }
+  };
+  // Item 2 (Q2 A) -- a window of gathered reports, once it has settled,
+  // reads through once: each report lit in turn, about a second each, oldest
+  // first; then it stops. Any pointer over the window, a click, or a new
+  // report cancels it. Once per gathered set.
+  const setKey = rows.length > 0 ? all.map((r) => r.key).join(",") : "";
+  const readFor = useRef(new Set<string>());
+  useEffect(() => {
+    if (!setKey || readFor.current.has(setKey)) return undefined;
+    readFor.current.add(setKey);
+    const reports = reportsOf(reveal);
+    const timers = reports.map((r, i) =>
+      window.setTimeout(
+        () => {
+          lightOn(screenOf(), r.cards, viewerSeat);
+          setLit(r.key);
+        },
+        READ_START_MS + i * READ_MS,
+      ),
+    );
+    timers.push(
+      window.setTimeout(
+        () => {
+          reading.current = [];
+          lightOff(screenOf());
+          setLit(null);
+        },
+        READ_START_MS + reports.length * READ_MS,
+      ),
+    );
+    reading.current = timers;
+    return () => {
+      for (const t of timers) window.clearTimeout(t);
+      if (reading.current === timers) {
+        reading.current = [];
+        lightOff(screenOf());
+        setLit(null);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per gathered set
+  }, [setKey]);
+  // The table back as it was when the window goes.
+
+  useLayoutEffect(() => {
+    screenOf();
+  });
+  useEffect(() => () => lightOff(screenOf()), []);
   const fullWho = full === reveal ? (who ?? null) : (whoOf?.(full.by ?? null) ?? null);
   // A report folding into its row, and the newest coming in under it
   // (the canvas's 0.3 s): once per new report, never on a redraw.
@@ -273,6 +390,9 @@ export function RevealTray({
   }, [full.key]);
   return (
     <div
+      ref={trayRef}
+      onMouseEnter={stopReading}
+      onPointerDown={stopReading}
       className={`gs-reveal${atTop ? " gs-reveal-top" : ""}${peek ? " gs-win-peek" : ""}`}
       role="region"
       aria-label={full.said ?? full.title.replace(/:$/, "")}
@@ -300,11 +420,24 @@ export function RevealTray({
               who={whoOf?.(r.by ?? null, 32) ?? null}
               artUrl={artUrl}
               onOpen={() => setOpened({ at: reveal.key, key: r === reveal ? null : r.key })}
+              n={order.get(r.key) ?? 0}
+              lit={lit === r.key}
+              onPoint={(on) => point(r.key, on ? r.cards : null)}
             />
           ))}
         </div>
       )}
-      <ReportBody report={full} who={fullWho} artUrl={artUrl} bodyRef={fullRef} onClose={onClose} />
+      <ReportBody
+        report={full}
+        who={fullWho}
+        artUrl={artUrl}
+        bodyRef={fullRef}
+        onClose={onClose}
+        replay={replay && replay.key === full.key ? replay : null}
+        n={rows.length > 0 ? (order.get(full.key) ?? null) : null}
+        lit={lit === full.key}
+        onPoint={(cards) => point(full.key, cards)}
+      />
       {drainMs !== null && (
         <span
           className="gs-reveal-drain"
@@ -323,7 +456,17 @@ function ReportBody({
   artUrl,
   bodyRef,
   onClose,
+  replay,
+  n,
+  lit,
+  onPoint,
 }: {
+  /** Spec 0103, item 2 -- its order number in a gathered window; null alone. */
+  n: number | null;
+  lit: boolean;
+  /** Spec 0103, item 1 -- these cards pointed at (all of them: the head), or null. */
+  onPoint: (cards: readonly SnapshotCard[] | null) => void;
+  replay: ReportReplay | null;
   report: SnapshotReveal;
   who: { name: string; face: ReactNode } | null;
   artUrl: (art: string) => string;
@@ -332,11 +475,72 @@ function ReportBody({
 }) {
   return (
     <div className="gs-report-full" ref={bodyRef} data-report={reveal.key}>
-      <div className="gs-reveal-head">
+      <div
+        className={`gs-reveal-head${lit ? " gs-report-lit" : ""}`}
+        onMouseEnter={() => onPoint(reveal.cards)}
+        onMouseLeave={() => onPoint(null)}
+      >
+        {n !== null && (
+          <b className="gs-report-n gs-report-n-big" aria-hidden="true">
+            {n}
+          </b>
+        )}
         {reveal.said ? (
           // Amendment 12 -- who did it, with which card, and the whole action.
           <div className="gs-reveal-who">
-            {who?.face}
+            {replay && (replay.offered || replay.playing) ? (
+              // Spec 0103, item 3 (Q3 A) -- the medallion replays the move: a
+              // replay sign on pointing; its ring fills as it plays.
+              <button
+                type="button"
+                className={`gs-reveal-replay${replay.playing ? " gs-reveal-replaying" : ""}`}
+                aria-label="Replay"
+                title="Replay"
+                data-replay-offered={replay.offered ? "true" : undefined}
+                onClick={() => {
+                  if (replay.offered) replay.onReplay();
+                }}
+              >
+                {who?.face}
+                <svg className="gs-reveal-ring" viewBox="0 0 56 56" aria-hidden="true">
+                  <circle cx="28" cy="28" r="26" stroke="#0b0f0d" strokeWidth="5" />
+                  <circle
+                    className="gs-reveal-ring-pg"
+                    cx="28"
+                    cy="28"
+                    r="26"
+                    stroke="#ffd98a"
+                    strokeWidth="3"
+                    transform="rotate(-90 28 28)"
+                    style={{
+                      strokeDasharray: REPLAY_RING_C,
+                      strokeDashoffset: REPLAY_RING_C,
+                    }}
+                  />
+                </svg>
+                <span className="gs-reveal-replay-sign" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" width="13" height="13">
+                    <path
+                      d="M15.5 10a5.5 5.5 0 1 1-1.8-4.1"
+                      fill="none"
+                      stroke="#f2d48a"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M14.6 2.6 L14.2 6.4 L10.5 5.9"
+                      fill="none"
+                      stroke="#f2d48a"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </button>
+            ) : (
+              who?.face
+            )}
             <div>
               <span className="gs-reveal-by">
                 {who?.name ?? "A player"} · {reveal.source}
@@ -361,6 +565,8 @@ function ReportBody({
             className="gs-reveal-card"
             data-revealed-id={card.id}
             data-to={card.to ?? undefined}
+            onMouseEnter={() => onPoint([card])}
+            onMouseLeave={() => onPoint(null)}
           >
             <BigCard card={card} artUrl={artUrl} small />
             <span className="gs-reveal-name">
@@ -383,7 +589,18 @@ function ReportBody({
       </ul>
       {/* Spec 0057, item 2 -- the question windows' footer: Peek and "or hold
         Space" on the left, Close on the right. */}
-      <PeekFoot className="gs-reveal-foot">
+      <PeekFoot
+        className="gs-reveal-foot"
+        after={
+          replay?.offered ? (
+            // Spec 0103, item 3 -- the foot names the key.
+            <span className="gs-reveal-replay-key">
+              {" · "}
+              <kbd className="gs-key">R</kbd> to replay
+            </span>
+          ) : null
+        }
+      >
         <button
           type="button"
           className="pa-button pa-button-quiet gs-reveal-close"
@@ -395,6 +612,10 @@ function ReportBody({
     </div>
   );
 }
+
+/** Spec 0103, item 2 -- the read-through: after the window settles, each report about a second. */
+export const READ_START_MS = FOLD_MS + 250;
+export const READ_MS = 1100;
 
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function"

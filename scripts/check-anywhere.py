@@ -536,7 +536,15 @@ def fetch():
                 problems.append(f"a report card carries a card's own id: {c.get('id')}")
             if c.get("known") is False and c.get("name") not in (None, "", "Face-down"):
                 problems.append(f"a hidden report card is named: {c}")
-        if CARD.search(json.dumps(r.get("cards") or [])):
+        # Spec 0103 (owner option A, 2026-11-18): a known card's `table` link is
+        # allowed to a card this board shows; any other card id is a leak.
+        shown = {c.get("id") for z in ("battlefield", "hand", "otherHands", "casting", "graveyard",
+                                      "exile", "command", "libraryTop") for c in (last.get(z) or [])}
+        for c in r.get("cards") or []:
+            link = c.get("table")
+            if link is not None and (link not in shown or c.get("known") is not True):
+                problems.append(f"a report card links {link}, which this board does not show")
+        if CARD.search(json.dumps([{k: v for k, v in c.items() if k != "table"} for c in r.get("cards") or []])):
             problems.append("a report's cards name a card id")
     if any("searched" in (r.get("said") or "") or "surveil" in (r.get("said") or "")
            for b in w.boards(2) for r in all_reports(b)):

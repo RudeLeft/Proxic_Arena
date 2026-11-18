@@ -3544,9 +3544,34 @@ public final class MatchController extends GeneratedControllerBase {
     public boolean willPutCardOnTop(forge.game.card.Card card) {
         java.util.List<forge.game.card.Card> one = java.util.List.of(card);
         // Phase 9 W-08 -- the tray's two rows: top, and the bottom.
-        return looking(one, () -> arranged(layout("to", "bottom"), () -> askIndex("willPutCardOnTop", java.util.List.of("Top", "Bottom"), true,
+        boolean top = looking(one, () -> arranged(layout("to", "bottom"), () -> askIndex("willPutCardOnTop", java.util.List.of("Top", "Bottom"), true,
                 "Put " + ViewerSnapshot.nameFor(card, player.getView())
                         + " on the top or the bottom of your library?"))) != 1;
+        if (top) {
+            knownOnTop(one);
+        }
+        return top;
+    }
+
+    /**
+     * Spec 0103, item 4 -- this player chose these cards, top first, for the
+     * top of its OWN library (KnownTops): remembered for its own snapshot. Not
+     * when another seat answers for it (Mindslaver), not for another player's
+     * cards: what the other player's effect puts on top is not this player's
+     * knowledge.
+     */
+    private void knownOnTop(java.util.List<forge.game.card.Card> topFirst) {
+        if (topFirst == null || topFirst.isEmpty() || actedForSeat != authorisedSeat) {
+            return;
+        }
+        java.util.List<Integer> ids = new java.util.ArrayList<>();
+        for (forge.game.card.Card card : topFirst) {
+            if (!player.equals(card.getOwner())) {
+                return;
+            }
+            ids.add(card.getId());
+        }
+        host.choseLibraryTop(actedForSeat, ids);
     }
 
     /**
@@ -3569,6 +3594,9 @@ public final class MatchController extends GeneratedControllerBase {
                     java.util.List.of("Keep it on top", "Put it into your graveyard"), true,
                     "Surveil 1: " + ViewerSnapshot.nameFor(card, player.getView())
                             + " -- keep it on top of your library, or put it into your graveyard?")));
+            if (picked != 1) {
+                knownOnTop(topN);
+            }
             return picked == 1
                     ? org.apache.commons.lang3.tuple.ImmutablePair.of(null, topN)
                     : org.apache.commons.lang3.tuple.ImmutablePair.of(topN, null);
@@ -3599,6 +3627,9 @@ public final class MatchController extends GeneratedControllerBase {
             remaining.remove(toTop.get(toTop.size() - 1));
         }
         toTop.addAll(remaining);
+        // Spec 0103, item 4 -- first chosen = top card (a copy: Forge's scry
+        // reverses the list it is handed, in place).
+        knownOnTop(new java.util.ArrayList<>(toTop));
         return org.apache.commons.lang3.tuple.ImmutablePair.of(toTop.isEmpty() ? null : toTop,
                 away.isEmpty() ? null : away);
     }
@@ -4190,7 +4221,13 @@ public final class MatchController extends GeneratedControllerBase {
             remaining.remove(picked);
             ordered.add(picked);
         }
+        boolean answered = remaining.size() <= 1;
         ordered.addAll(remaining);
+        // Spec 0103, item 4 -- the player's own order for the top of its own
+        // library (Brainstorm's put back, a look-and-reorder), top first.
+        if (answered && library && topOfDeck && !underneath && ownLibrary) {
+            knownOnTop(new java.util.ArrayList<>(ordered));
+        }
 
         if (topOfDeck) {
             // Forge's own rule, and its own comment: the top of a

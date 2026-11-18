@@ -598,6 +598,18 @@ export interface SnapshotCard {
   holds?: string[] | undefined;
   /** Spec 0079 -- in a report window: where a card the spell aimed at is now ("in Bob's hand"). */
   toSaid?: string | undefined;
+  /**
+   * Spec 0103, items 1-2 -- in a report window: that card on the table
+   * ("card:N"), sent only while this viewer's board shows it.
+   */
+  table?: string | undefined;
+}
+
+/** Spec 0103, item 5 -- a player's "this turn" counts (no mana spent: Decided 3). */
+export interface ThisTurn {
+  spells: number;
+  lifeGained: number;
+  leftBattlefield: boolean;
 }
 
 export interface SnapshotPlayer {
@@ -613,6 +625,12 @@ export interface SnapshotPlayer {
   controlledBy?: number | undefined;
   /** Spec 0102, item 2 -- the card that made it so ("card:N"), when this viewer may see it. */
   controlledFrom?: string | undefined;
+  /**
+   * Spec 0103, item 5 -- this turn so far, Forge's own counts: spells this
+   * player cast, life it gained, whether a permanent it controlled left the
+   * battlefield. Public. Absent from an older worker.
+   */
+  thisTurn?: ThisTurn | undefined;
   /** Counts, because a hand's SIZE is public and its contents are not. */
   handCount: number;
   libraryCount: number;
@@ -970,6 +988,13 @@ export interface Snapshot {
    * `uses`. Absent when there is none to show.
    */
   libraryTop?: SnapshotCard[];
+  /**
+   * Spec 0103, item 4 -- the cards THIS viewer put on top of its own library
+   * in an order it chose, top first (Brainstorm's put back, a scry kept on
+   * top); sent to the owner alone, each under a stand-in id ("known:S:I").
+   * Absent when nothing is known.
+   */
+  knownTop?: SnapshotCard[];
   /**
    * Spec 0047 -- the PUBLIC view, sent to spectators: no hand, nothing
    * face down. `seat` is then the side it is drawn from, not the viewer's.
@@ -1520,6 +1545,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     pulse: asPulse(row["pulse"]),
     emblems: asEmblems(row["emblems"]),
     libraryTop: asCards(row["libraryTop"]),
+    knownTop: asCards(row["knownTop"]),
   };
 }
 
@@ -1689,6 +1715,16 @@ function asOrigins(value: unknown): CounterOrigin[] | undefined {
   return origins.length ? origins : undefined;
 }
 
+/** Spec 0103, item 5 -- {spells, lifeGained, leftBattlefield}, or undefined when absent or malformed. */
+function asThisTurn(value: unknown): ThisTurn | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const row = value as Record<string, unknown>;
+  const spells = asNumber(row["spells"]);
+  const lifeGained = asNumber(row["lifeGained"]);
+  if (spells === null || lifeGained === null) return undefined;
+  return { spells, lifeGained, leftBattlefield: row["leftBattlefield"] === true };
+}
+
 function asPlayers(value: unknown): SnapshotPlayer[] {
   if (!Array.isArray(value)) return [];
   const players: SnapshotPlayer[] = [];
@@ -1705,6 +1741,7 @@ function asPlayers(value: unknown): SnapshotPlayer[] {
         (asNumber(row["preventNext"]) ?? 0) > 0 ? asNumber(row["preventNext"])! : undefined,
       controlledBy: asNumber(row["controlledBy"]) ?? undefined,
       controlledFrom: asString(row["controlledFrom"]) ?? undefined,
+      thisTurn: asThisTurn(row["thisTurn"]),
       handCount: asNumber(row["handCount"]) ?? 0,
       libraryCount: asNumber(row["libraryCount"]) ?? 0,
       graveyardCount: asNumber(row["graveyardCount"]) ?? 0,
@@ -1851,6 +1888,7 @@ function asCards(value: unknown): SnapshotCard[] {
       copyOf: asString(row["copyOf"]) ?? undefined,
       prepared: asString(row["prepared"]) ?? undefined,
       toSaid: asString(row["toSaid"]) ?? undefined,
+      table: /^card:\d+$/.test(asString(row["table"]) ?? "") ? asString(row["table"])! : undefined,
       phasedOut: row["phasedOut"] === true ? true : undefined,
       shields: (asNumber(row["shields"]) ?? 0) > 0 ? asNumber(row["shields"])! : undefined,
       indestructible: row["indestructible"] === true ? true : undefined,

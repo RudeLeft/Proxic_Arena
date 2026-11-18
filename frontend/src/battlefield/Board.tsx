@@ -2398,6 +2398,8 @@ function tableCard(k: TableCardKey): { drawn: Drawn; content: ReactNode } {
           data-pt={pt || undefined}
           data-face={lead.faceDown ? "down" : "up"}
           data-pile={count > 1 ? count : undefined}
+          // Spec 0103, items 1-2 -- every member's id: a report row lights the pile its card is in.
+          data-members-ids={count > 1 ? k.ids.join(" ") : undefined}
           data-blocking={lead.blocking ? "true" : undefined}
           data-blocks={k.blocks}
           data-aims={k.aims}
