@@ -1461,6 +1461,8 @@ interface Strike {
   ring: { at: Point; r: number };
   w: number;
   delay: number;
+  /** Spec 0100 item 7 (owner 2026-11-18): the flare takes the striking beam's colour. */
+  tone: "mine" | "theirs";
 }
 
 /**
@@ -8232,6 +8234,10 @@ export function Board({
               ring: beam.aim,
               w: effectSizes(g).line,
               delay: hold,
+              tone:
+                before.stack[by]!.s.seat !== undefined && before.stack[by]!.s.seat !== viewerSeat
+                  ? "theirs"
+                  : "mine",
             });
           }
           const at = { box, origin: { x: 0, y: 0 } };
@@ -10821,6 +10827,7 @@ function StrikeView({
     <div
       className="bf-strike"
       data-strike={strike.of}
+      data-tone={strike.tone}
       aria-hidden="true"
       style={{ zIndex: Z_LINES - 40 }}
     >
@@ -10829,7 +10836,7 @@ function StrikeView({
           ref={beam}
           d={strike.d}
           fill="none"
-          stroke="#f1c36a"
+          stroke={strike.tone === "theirs" ? "#8f9cff" : "#f1c36a"}
           strokeWidth={strike.w}
           strokeLinecap="round"
           style={{ opacity: 0 }}

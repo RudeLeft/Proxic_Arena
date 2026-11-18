@@ -505,6 +505,9 @@ describe("F-0074-C · countered: struck by the beam, grey ash, to the graveyard"
     );
     expect(runOf(strike.querySelector(".bf-strike-pulse")!)).toBeTruthy();
     expect(runOf(strike.querySelector(".bf-strike-ring")!)).toBeTruthy();
+    // Spec 0100 item 7 (owner 2026-11-18): Bob's strike flares in his blue-violet, not gold.
+    expect(strike.dataset["tone"]).toBe("theirs");
+    expect(strike.querySelector("path")!.getAttribute("stroke")).toBe("#8f9cff");
     // Giant Growth: no resolve glow, no spark to the Bears.
     expect(view.container.querySelector(`[data-spark="${bears.id}"]`)).toBeNull();
     const ghost = ghostsOf(view.container, growth.id)[0]!;

@@ -2340,6 +2340,17 @@ img.bf-makes-pip {
   border-radius: 50%;
   box-sizing: border-box;
 }
+/* Spec 0100 item 7 (owner 2026-11-18): the other player's strike flares in
+ * their beam's blue-violet (Arrows.tsx THEIRS), not gold. */
+.bf-strike[data-tone="theirs"] path {
+  filter: drop-shadow(0 0 4px #8f9cff);
+}
+.bf-strike[data-tone="theirs"] .bf-strike-pulse {
+  background: radial-gradient(circle, #fff 0, #e4e8ff 30%, #8f9cff55 55%, transparent 72%);
+}
+.bf-strike[data-tone="theirs"] .bf-strike-ring {
+  border-color: #c9d0ff;
+}
 
 /* Spec 0079 (owner 2026-11-12, canvas "copies-1112") -- copies, copied
  * spells, spells that fizzle. The copy mark is 0076's "something the card
