@@ -26,9 +26,12 @@ to make the old game unreachable on its own. Checked:
 
 A focused deck (Layer B): Plains and Karns. Seat 1 plays lands,
 casts Karn at seven, +4 twice (6 -> 10 -> 14), then -14. Karn's +4
-targets seat 2, who exiles a card from hand each time; seat 2 plays
-lands and casts one Enlightened Tutor (finding nothing: a report to
-seat 1, left open). Not Open Format; the worker does not check.
+targets seat 2, who exiles a Plains from hand each time; seat 2 plays
+one land only and casts one Enlightened Tutor (finding nothing: a report
+to seat 1, left open). The Tutor shuffles Bob's library, so his dealt
+draws are gone after turn 1: he keeps his Plains in hand (one land drop,
+Tutors discarded first) so a permanent card is there to exile at each
++4. Not Open Format; the worker does not check.
 
 Exit 0 when every property held, 1 when one did not, 2 when the game
 never reached the scenario.
@@ -85,7 +88,8 @@ def card_of(action_id):
 state = {}
 found = {
     "ultimate": None,        # the -14: decision id, action id, epoch, turn
-    "exiled_by_karn": [],    # seat 2's cards exiled by the +4s (ids)
+    "exiled_by_karn": [],    # seat 2's permanent cards exiled by the +4s (ids)
+    "exiled_other": [],      # ... any non-permanent card (a Tutor): stays out of play
     "after": None,           # game 2's first board, as seat 1 sees it
     "restart_told": {},      # spec 0097: each seat's game-2 report sentences
     "epochs_seen": [],       # every distinct epoch on snapshots
@@ -237,7 +241,11 @@ for line in proc.stdout:
                     and card_of(o["actionId"]) in {c["id"] for c in state[1].get("hand", [])}]
             pick = land[0] if land else (cast[0] if cast and not karns else None)
     elif dkind == "chooseSpellAbilityToPlay" and seat == 2:
-        land = [o for o, label in zip(options, labels) if "Play land" in label]
+        # One land is all the Tutor needs; the rest stay in hand for Karn's
+        # +4s (CI flake 12872d7: Bob had played them all, exiled a Tutor).
+        lands_out = [c for c in state.get(2, {}).get("battlefield", [])
+                     if c.get("seat") == 2 and c.get("name") == "Plains"]
+        land = [o for o, label in zip(options, labels) if "Play land" in label] if not lands_out else []
         hand = {c["id"] for c in state.get(2, {}).get("hand", []) if c.get("name") == TUTOR}
         tutor = [o for o in options if card_of(o["actionId"]) in hand and "Play land" not in (o.get("label") or "")]
         untapped = [c for c in state.get(2, {}).get("battlefield", [])
@@ -259,7 +267,12 @@ for line in proc.stdout:
         plains = {c["id"] for c in state.get(2, {}).get("hand", []) if c.get("name") == "Plains"}
         pick = next((o for o in options if card_of(o["actionId"]) in plains), options[0] if options else None)
         if pick:
-            found["exiled_by_karn"].append(card_of(pick["actionId"]))
+            chosen = card_of(pick["actionId"])
+            found["exiled_by_karn" if chosen in plains else "exiled_other"].append(chosen)
+    elif dkind == "chooseCardsToDiscardToMaximumHandSize" and seat == 2:
+        # Keep the Plains: discard a Tutor first.
+        tutors = {c["id"] for c in state.get(2, {}).get("hand", []) if c.get("name") == TUTOR}
+        pick = next((o for o in options if card_of(o["actionId"]) in tutors), options[0] if options else None)
     elif dkind in ("declareAttackers", "declareBlockers"):
         pick = None
     elif dkind in ("applyManaToCost", "mulliganKeepHand", "chooseStartingPlayer", "confirmPayment",
@@ -288,8 +301,14 @@ else:
     if any(life != 20 for life in after["life"].values()):
         problems.append(f"life was not reset: {after['life']}")
     missing = [cid for cid in found["exiled_by_karn"] if cid and cid not in returned]
-    if found["exiled_by_karn"] and missing:
+    if not found["exiled_by_karn"]:
+        problems.append("no permanent card was exiled with Karn, so the carry was not tested")
+    elif missing:
         problems.append(f"cards exiled with Karn did not come back under seat 1: {missing}")
+    # A non-permanent card exiled with Karn is not put onto the battlefield.
+    wrong = [cid for cid in found["exiled_other"] if cid and cid in returned]
+    if wrong:
+        problems.append(f"a non-permanent card exiled with Karn came onto the battlefield: {wrong}")
     # Spec 0097, item 4 (owner): seat 1 played Karn -- the other player is
     # told in a report window, seat 1 is not; nobody gets a grey line.
     if found["restart_told"].get("2") != "Alice restarted the game. This is game 2." and \

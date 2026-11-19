@@ -5,8 +5,9 @@
 // `emblem`, `initiative`, `ring`): an emblem's words, a dungeon's rooms. A
 // game that reaches the Ring, a dungeon AND an emblem for both players is
 // many turns of luck, so here the guest's own snapshot is said again with
-// those fields filled the way the worker fills them (routeWebSocket), and
-// the page is checked: short names, never a lone "+N"; the list beside the
+// those fields filled the way the worker fills them (routeWebSocket) -- and
+// every later snapshot the server sends is filled the same way, so the game
+// moving on cannot take them away mid-check -- and the page is checked: short names, never a lone "+N"; the list beside the
 // tray, clear of the turn steps, the action button and both plates; what
 // each thing does; Esc, a click away and the chip close it; one list at a
 // time; Space and the Peek button fade it -- and the opening windows too.
@@ -87,13 +88,33 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
   await clearEverything(guest);
 
   // The guest's game socket: its last snapshot, said again with more in it.
+  // Once filled, every snapshot after it is filled too: the game may still
+  // be moving (CI 12872d7: the host was still choosing its opening hand, and
+  // the next real snapshot, 40 ms later, took the emblem away for good).
   let client: WebSocketRoute | null = null;
   let last = "";
+  let extra: { mine: Partial<Player>; theirs: Partial<Player> } | null = null;
+  const filled = (message: string) => {
+    if (!extra) return message;
+    const said = JSON.parse(message) as { state?: { seat: number; players?: Player[] } };
+    const state = said.state;
+    if (!state?.players) return message;
+    const { mine, theirs } = extra;
+    state.players = state.players.map((p) => ({
+      ...p,
+      ...(p.seat === state.seat ? mine : theirs),
+    }));
+    return JSON.stringify(said);
+  };
   await guest.routeWebSocket("**/ws/matches/**", (ws) => {
     client = ws;
     const server = ws.connectToServer();
     server.onMessage((message) => {
-      if (typeof message === "string" && message.includes('"MATCH_SNAPSHOT"')) last = message;
+      if (typeof message === "string" && message.includes('"MATCH_SNAPSHOT"')) {
+        last = message;
+        ws.send(filled(message));
+        return;
+      }
       ws.send(message);
     });
     ws.onMessage((message) => server.send(message));
@@ -131,12 +152,8 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
     await expect.poll(() => last !== "").toBe(true);
 
     const send = (mine: Partial<Player>, theirs: Partial<Player>) => {
-      const said = JSON.parse(last) as { state: { seat: number; players: Player[] } };
-      said.state.players = said.state.players.map((p) => ({
-        ...p,
-        ...(p.seat === said.state.seat ? mine : theirs),
-      }));
-      client?.send(JSON.stringify(said));
+      extra = { mine, theirs };
+      client?.send(filled(last));
     };
     const panel = matchPanel(guest);
     const myTray = panel.locator(".gs-status-viewer");

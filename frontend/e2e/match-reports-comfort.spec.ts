@@ -522,9 +522,16 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
           const listed = panel.locator(".gs-win li button, .gs-question li button").filter({
             hasText: want,
           });
+          // A hand card only while the game asks for the put back: on the
+          // host's own move (Brainstorm still on the stack, the host holding
+          // priority) a choosable Consider is a CAST (CI 12872d7: Consider was
+          // cast, its draw took the top, the known top read "Swamp, Island").
+          const onMyMove =
+            (await page.locator('[data-kind="chooseSpellAbilityToPlay"]').count()) > 0;
           const inHand = handPick.filter({ hasText: want });
-          const target =
-            (await tile.count()) > 0
+          const target = onMyMove
+            ? null
+            : (await tile.count()) > 0
               ? tile
               : (await listed.count()) > 0
                 ? listed
