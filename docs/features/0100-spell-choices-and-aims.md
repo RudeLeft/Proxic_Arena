@@ -1,7 +1,7 @@
 # 0100 — Spells: what they chose and what they aim at
 
 **Status:** Approved 2026-11-17 (owner, by prompt, deep dive 3). Phase 10.
-**Built:** 2026-11-18, unreleased (commit 8db8ff1; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
+**Built:** 2026-11-18 (commit 8db8ff1). **Released:** in 1.73.0, 2026-11-19
 **Owner decisions** (`Phase 10 deep dive 3 decisions.md`, all approved 2026-11-17):
 round 2 Q1 **B** (X medallion) · round 2 Q2 **B** (modes as the card's text, unchosen struck through) · round 2 Q3 **C** (extra costs shown in what it aims at) · round 2 Q4 **A** (a number at each beam's ripple) · missed Q2 **A** (graveyard/exile target: beam to the tile, the card peeks out with corners) · round 2 Q5 **A** (Curse: a mirror tab on the cursed plate) · combat Q2 **A, reworked** (whose beam: yours gold with a glint, theirs blue-violet with motes) · combat Q4 **A** (the beam swings to a new target; a window to the caster) · combat Q3 **C** (pointing at a stack card lifts its source and targets; nothing dims).
 

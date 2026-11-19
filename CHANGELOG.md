@@ -3,6 +3,43 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.73.0 — 2026-11-19
+
+Everything a spell chose and everything it aims at is now on the table; every way a creature survives has its own badge and look; Karn's restart, Mindslaver and skipped turns are shown; and report windows point at the cards they talk about, can replay what happened, and remember what you put on top of your library.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**Spells: what they chose and what they aim at**
+- Bob's Fireball shows its X as a gold medallion; Cryptic Command lists every mode, the chosen ones lit and the others struck through; a kicked spell's beam is doubled, an overloaded one fans to every card it will hit, an evoked one points at its own graveyard; Arc Lightning shows 2 and 1 where each part lands.
+- A spell aimed at a card in a graveyard or exile points at it, and the card peeks out.
+- A Curse on you shows as a small tab on your plate (the card stays on Bob's side).
+- Your beams are gold; the other player's are blue-violet with drifting motes, and his counterspell's flare is blue-violet too.
+- When Spellskite takes your Bolt, the beam visibly swings across, and you are told.
+- Pointing at a card on the stack lifts what it comes from and what it aims at.
+
+**Survive, didn't happen, combat**
+- Every way a creature lives through a hit has a badge on the card and its own shield when used: regeneration, indestructible, shield counters, an umbra, protection, ward, and "prevent the next N damage". The shield is up just before the hit, a grey number rises, and no window interrupts you.
+- Anything that leaves the stack without working (countered, Stifled, exiled by Time Stop) crumbles grey; a Stifled ability tells its owner.
+- Deathtouch, first strike, trample, menace and lifelink printed on a card show as gold squares through combat.
+
+**Turns and whole games**
+- Karn's restart: a window tells you first and holds the table until you close it, then every card goes home, the libraries riffle and the new hands are dealt.
+- Mindslaver: you're told when your turn is played by the other player, a gold chain rings your plate, and the windows say "Playing for <name>", never a seat number.
+- Time Stop and skipped turns or steps are explained in one line.
+
+**Report windows and comfort**
+- Point at a line in a report window and everything else on the table dims; several lines are numbered and read through in order; click the window's picture or press R to replay what happened.
+- After Brainstorm or a scry to the top, point at your Library to see what you know is on top (only you).
+- Each plate shows this turn's spells cast, life gained, and whether a permanent left.
+- A "Bigger text" switch in the game menu.
+
+**Fixes**
+- Wrong guesses at your current password on the password-change form now count toward the same limit as signing in.
+- A creature's survive moment could be lost when the other player's spell was held on screen; it now always plays.
+- After a counterspell, the next spell to resolve was sometimes reported as countered; no longer.
+- A creature with a "prevent the next N damage" shield no longer stacks with identical ones.
+
 ## 1.72.0 — 2026-11-17
 
 The last cards that still jumped on the battlefield now move smoothly, and the Graveyard and Exile numbers change only when a card actually arrives.

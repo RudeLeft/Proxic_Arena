@@ -1,7 +1,7 @@
 # 0102 — Turns and whole games: Karn's restart, a turn played by the other player, a turn ended or skipped
 
 **Status:** Approved 2026-11-17 (owner, by prompt, deep dive 3). Phase 10.
-**Built:** 2026-11-18, unreleased (commit e2b9ae3; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
+**Built:** 2026-11-18 (commit e2b9ae3). **Released:** in 1.73.0, 2026-11-19
 **Owner decisions** (`Phase 10 deep dive 3 decisions.md`, all approved 2026-11-17):
 missed Q6 (the sweep, riffle and 0089's deal) + round 2 Q6 **B** (the window opens first and holds the sweep until closed or 4 s) · missed Q7 **A** (Mindslaver: a window plus a gold chain round the plate for that turn; "Playing for Alice" instead of a seat number) · missed Q8 **A** (Time Stop or a skipped turn/step: one window line, to the other player).
 

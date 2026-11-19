@@ -1,7 +1,7 @@
 # 0103 — Reports and comfort: the window points at the table, reading order, replay, your known library top, "this turn" counts, bigger text
 
 **Status:** Approved 2026-11-17 (owner, by prompt, deep dive 3). Phase 10.
-**Built:** 2026-11-18, unreleased (commit bc93fa9; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
+**Built:** 2026-11-18 (commit bc93fa9). **Released:** in 1.73.0, 2026-11-19
 **Owner decisions** (`Phase 10 deep dive 3 decisions.md`, all approved 2026-11-17; `deep3-reports-comfort-1117.html`):
 Q1 **C** (pointing at a report row dims everything else, using the SAME dim the game already uses when you're choosing cards) · Q2 **A** (gathered rows numbered, then read through once, lighting each card) · Q3 **A** (replay by medallion click or the R key) · Q4 **A** (point at your Library to see the cards you know on top, numbered from the top) · Q5 **B** (small "this turn" counts always on the plate) · Q6 (calmer very busy boards, B11) **dropped by the owner** ("work it out in later phases"; added to the stragglers list) · Q7 **A** (a "Bigger text" switch in the gear menu).
 
