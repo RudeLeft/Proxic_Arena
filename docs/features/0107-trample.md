@@ -1,0 +1,113 @@
+# 0107 — Trample: the attacker carries on to the life shield; the split is made for you, with "Change split"; the defender is told when nothing trampled over
+
+**Status:** Approved 2026-11-19 (owner, by prompt, feedback batch). Not part of a phase.
+**Owner decisions** (owner feedback batch 2026-11-19; canvas `frontend/zz-canvas/feedback-1119.html`):
+Q5 **A** (one continuous lunge: the attacker strikes the blocker as in any fight, then drives on through the blocker's spot to the defending player's life shield and back; B, back then a second lunge, and C, a pale copy carries on, not taken) and "no captions over the table" (owner: "remove any captions"). Q5b (chosen): the trample split is automatic, lethal to each blocker and the rest to the player; a small "Change split" under the attacker opens today's damage window, filled in. Q5c **A**: the defender gets the standard report window only when trample was possible and extra damage was kept on a blocker.
+
+*Note:* the canvas's own question bar still marks Q5 "Open: needs your pick" with A as "Recommended"; the coordinator relayed the owner's choice of A on 2026-11-19, and this spec is written on it.
+
+Canvas sections: "Q5" (decided line; option A, both seats), "Q5b" (both cells: automatic, and clicking "Change split"), "Q5c" (option A). Research: `Owner feedback 2026-11-19 research B.md`, item 5.
+
+## An owner-approved exception to "you always choose" (spec 0104) and FORGE-RULE
+
+Spec 0104 (Q1 A) asks every card or player choice, even with one option, and FORGE-RULE says "let the rules enforce, and let the player decide". The trample damage split is the one place the owner chose the opposite on 2026-11-19 (Q5b): the game makes the usual split (lethal to each blocker, counting deathtouch and damage already marked, the rest to the player) **for** the attacking player, who may change it before damage with "Change split". It is the player's choice still — the button is always there while the choice is open — but the default is applied without a click. Recorded here and, by the builder, in `RULES_COVERAGE.md` ("Every answer Arena gives without asking": a new row) and in the "Trample" row.
+
+## Why (researched)
+
+Researched at HEAD 3370c75 (1.73.0); worker jar built at db9f7e6 (HEAD changed only comments since). Four Lab games (research B: Heedless One into Grizzly Bears; into the defender's own Llanowar Elves; all 5 moved onto the Bears; an Elf killed by first strike before damage) are RUN; the rest SOURCE.
+
+- **Trample works** (RUN). Game A: 2 to the Bears, 3 to the player, life 20 → 17 on both screens; the same hits on both seats (`hits` and `fights` in the round). Forge reads the attacker's power again at each damage step (`Combat.assignAttackersDamage`, `getNetCombatDamage`), so Heedless One (every Elf on the battlefield, `cardsfolder/h/heedless_one.txt`) hits for less when an Elf died earlier in combat (game C: 4, so 2 and 2). Lethal counts damage already marked (`Card.getLethalDamage`) and deathtouch (`CombatChoices.lethal`); the player can be given damage only once every blocker has lethal (`CombatChoices.allLethal`, CR 702.19c; `RULES_COVERAGE.md` "Trample" row; `check-combat-choices.py` scenario `trample`).
+- **A person splits it** (SOURCE). There is no computer player (`WorkerLobbyPlayer.createIngamePlayer` gives each seat a `MatchController`). `MatchController.assignCombatDamage` → `CombatChoices.assignCombatDamage`: a choice when trample reaches a defender, when there are two or more blockers, or when the creature divides as it chooses (`aChoice`); the worker sends the fight (damage, each blocker with `lethal`, trample) and asks one point at a time (`assignByPoint`); the page's `DamageTray` (`CardTrays.tsx`) opens filled in from `usualSplit` (`cardPlans.ts`): "Filled in: lethal to each blocker, the rest to the player (trample)." Moving points onto the blocker is legal (game A2: 0 to the player) and looks exactly like "trample didn't work".
+- **The display** (SOURCE). `fights.ts` `planFights`: a blocked attacker's fight lunges at its blockers only; trample's excess to the player is a slash and a number on the life shield at the same moment ("trample's excess slashes the player in the same fight", `fights.test.ts`). Every fight has a caption over the dimmed table (`captionOf`: "Damage · the Heedless One against your Grizzly Bears"), which never says the player was hit. The trample square's pop (`Board.tsx` `popCombatSquares`, spec 0101) is built but untested (`fixes0101.test.tsx` covers the deathtouch pop only).
+- **The defender is asked nothing** and gets no explanation when the attacker kept the extra on the blocker (SOURCE: no report kind for it in `ActionReports.kindOf`).
+- **Not covered anywhere** (SOURCE, research B): trample with two blockers, power changing mid-combat, deathtouch with trample, the trample pop, a whole trample game.
+
+## What the player sees
+
+Bob attacks with Heedless One (5/5: four Elves); Alice blocks with Grizzly Bears (2/2).
+
+1. **Bob, after blocks** (canvas "Q5b", "automatic"). No damage window. Bob's act button reads "To damage"; under his Heedless One sits a small "Change split" button. He clicks "To damage": the split is made for him, 2 to the Bears (lethal), 3 to Alice.
+2. **The fight** (canvas "Q5", option A, both seats). No caption over the table. Heedless One strikes the Bears as any fight does (A-13's slashes, the knock, the −2); the Bears die (A-04's shatter). The card itself then drives on through the Bears' spot to Alice's life shield and hits it: spec 0077's impact, the shake and crack, the red −3, her life stepping 20 → 17 a point at a time; its trample square pops on that hit; then it glides back to its place. Bob's seat sees the same, up the table.
+3. **Bob changes the split** (canvas "Q5b", "clicking Change split"). He clicks "Change split": today's damage window opens, filled in 2 / 3, "Filled in: lethal to each blocker, the rest to the player (trample). + and − to change it." He moves all 5 onto the Bears and presses Done, then "To damage". The fight plays with no carry-on (nothing reached Alice).
+4. **Alice is told why** (canvas "Q5c", option A). In that case only, Alice gets the standard report window: Bob's medallion, "Bob put all 5 on your Grizzly Bears; none trampled over.", Heedless One's and the Bears' pictures (Bears "→ graveyard"). Bob gets none (the house rule: no window for the one who chose). Had Bob put 4 on the Bears: "Bob put 4 on your Grizzly Bears; 1 trampled over." No window when the usual split was used or when there was no extra to trample.
+5. **Two blockers.** Grizzly Bears and Llanowar Elves block: the usual split is 2 and 1, the rest 2 to Alice; the attacker strikes both (one fight), then carries on to the shield.
+6. **Deathtouch and trample** (a deathtouch trampler, 5 power, into the Bears): 1 to the Bears, 4 to Alice.
+7. **The Elf count changes.** Bob attacks with Heedless One and an Elf; a first striker kills the Elf before regular damage: Heedless One is now 4/4, and the automatic split is 2 and 2. If Bob had changed the split before (planned for 5) and it no longer adds up, the damage window opens at damage, filled in with the new usual split, so he decides again. Decision default — the owner can change it to "use the usual split silently".
+
+## Captions: all fight captions go (decision, flagged)
+
+The owner's words were "remove any captions", and the canvas's decided line says "no captions over the table" without limiting it to trample. **This spec removes the visible caption from every fight** (combat damage, and spec 0084's fight spells that use the same plan), not only trample's: a caption on some fights and not others would read as inconsistent, and the lunge, slashes and numbers already show who fought whom. The caption's words stay for screen readers (a visually hidden live line) and in the play log. **Flagged for the coordinator to confirm with the owner** (Decisions below); if the owner means trample's only, `captionOf` returns null for a fight with trample excess and nothing else changes.
+
+## Changes
+
+### Worker
+
+- **The stop.** `PriorityStops.shouldAsk`: on the attacking player's own turn, in `COMBAT_DECLARE_BLOCKERS`, the attacker's seat is asked when one of its attackers has trample, is blocked, and its power exceeds the total lethal of its blockers (some can trample over) — even with nothing else to do. It depends only on the public board, never on the hand (Risks). Every other stop unchanged.
+- **"Change split" as a priority option.** That priority question offers, per such attacker, an extra option `split:card:N` (labelled "Change split", carrying the fight: damage, each blocker in Forge's order with its `lethal`, trample, and the automatic split). Chosen, the worker asks today's damage question for that attacker right then (`CombatChoices.assignByPoint`'s questions, answered by the page from `DamageTray`), stores the answer in a new `DamagePlans` (per seat, per attacker id, per combat; dropped when combat ends), and offers the priority question again. Nothing goes to Forge: it is not a game action (FORGE-RULE: Forge still enforces lethal-first at damage).
+- **`CombatChoices.assignCombatDamage`**, for an attacker with trample reaching a defender:
+  - a stored plan that still fits (same blockers still blocking, the same total damage, lethal-first still true with the current `lethal` values and deathtouch): applied without asking;
+  - a stored plan that no longer fits: today's question, filled in with the usual split (item 7 above; decision default);
+  - no plan: **the usual split, applied without asking** — each blocker in Forge's order gets `lethal(attacker, blocker)` (deathtouch 1; damage already marked counted), the rest to the defender (Q5b; the exception above).
+  The two-or-more-blockers case without trample and the divide-as-you-choose creatures are unchanged (today's window). Decision default: the owner chose for trample; the coordinator may ask whether two blockers without trample should follow.
+- **The defender's report (`ActionReports`).** A new kind, `TRAMPLE_KEPT`: when an attacker with trample was blocked, its damage exceeded the total lethal of its blockers, and the defender was dealt less than that excess (only possible through a changed split). `tells` sends it to the defending player only (never to the attacker; a spectator as for any reported kind). Words (`PlainWords`): "Bob put all 5 on your Grizzly Bears; none trampled over." / "Bob put 3 on your Grizzly Bears and 2 on your Llanowar Elves; none trampled over." / "Bob put 4 on your Grizzly Bears; 1 trampled over."; pictures of the attacker and the blockers with where they went.
+
+### Protocol
+
+`protocol/README.md`, `match.ts`: the priority option `split:card:N` with its fight; the `TRAMPLE_KEPT` report kind. No new message: "Change split" and Done go through the existing decision answers, so the server's checks of who may answer, duplicates and stale answers apply as they are (PROTO-004, PROTO-005).
+
+### Server
+
+`AskingWords.doingWord`: none needed (Bob's waiting line while he changes the split is today's damage question's).
+
+### Page
+
+- **"Change split"**: `Board.tsx` draws the `split:` option as the small button under its attacker (the canvas's `csplit` look), not in the act menu; a click answers the priority question with that option; the damage question that follows opens `DamageTray` as today. "To damage" is the act button's pass as today.
+- **The carry-on** (`fights.ts` `planFights`): a blocked attacker whose hits include the defending player (or the planeswalker or battle it attacks) gets, after its blocker hit (`FIGHT_SECOND_MS`, `FIGHT_KNOCK_MS`), a drive from its pose at the blocker through the blocker's spot to the defender's life shield (a new `CARRY_MS`, paced, 0106), the shield impact there (the same `Strike` an unblocked attacker makes: 0077's shake, crack, red −N and point-by-point step-down through `lifeTicks.ts`), then back to its place (`STRIKE_BACK_MS`). The blocker's death (A-04) starts at its hit as today. `popCombatSquares` pops the trample square on the shield hit, not on the blocker hit. The player's slash moves from the blocker moment to the shield moment. `FIGHTS_MAX_MS` still caps a big combat.
+- **Builder detail: the crowded stop point.** On the canvas the carrying-on card stops over the plate's portrait. Stop it edge to edge with the life shield (the way the A-13 lunge meets cards edge to edge), with the red −N and the shield's crack unobscured; check at 1920×1080 and 1920×947 for both seats (the attacker comes from the other end of the table on Alice's screen).
+- **Captions**: `planFights` stops producing a visible caption for any fight; the board's caption element renders its words visually hidden (`aria-live`), as decided above.
+
+## Tests that prove it
+
+| ID | Test | Evidence |
+|---|---|---|
+| F-0107-A | Worker: Heedless One (5) blocked by Bears: the attacker's seat is asked at declare blockers with `split:card:N` offered and nothing else to do; passed: no damage question, 2 to the Bears and 3 to the player (Forge's own hits) | Lab `check-combat-choices.py`, new scenario `trample-auto` |
+| F-0107-B | Worker: "Change split" chosen, all 5 on the Bears: the plan is applied at damage with no further question; Alice's report `TRAMPLE_KEPT` reaches Alice only, words as above; with the usual split no report | `check-combat-choices.py` `trample-kept`; worker unit for the words |
+| F-0107-C | Worker: two blockers (Bears and Llanowar Elves): usual split 2 / 1 / 2 to the player, no question | `check-combat-choices.py` `trample-two-blockers` |
+| F-0107-D | Worker: Heedless One's Elf count changes mid-combat: an Elf killed by first strike before regular damage: the usual split becomes 2 / 2; with a plan made at 5, the damage question is asked filled in 2 / 2 | `check-combat-choices.py` `trample-elf-dies` (research B's game C set-up) |
+| F-0107-E | Worker: deathtouch and trample (5 power into the Bears): 1 / 4, no question | `check-combat-choices.py` `trample-deathtouch` |
+| F-0107-F | Worker: a blocked attacker without trample with two blockers: today's question, unchanged; an unblocked trampler: no stop | `check-combat-choices.py` (existing scenarios still pass) |
+| F-0107-G | Page: the carry-on from a real round's `hits` / `fights`: the attacker's poses run blocker hit → shield hit → home; the shield's blow (shake, −3, the step-down) lands at the shield moment, not at the blocker's; with 0 to the player, no carry-on | `fights.test.ts` (new cases), `fixes0107screen.test.tsx` |
+| F-0107-H | Page: the trample square pops on the shield hit (the test spec 0101 lacked); with deathtouch and trample, both pops | `fixes0107screen.test.tsx` (real game screen from a real round, TEST-003) |
+| F-0107-I | Page: no visible caption during any fight (combat or 0084 fight spell); the words are in a visually hidden live line | `fixes0107screen.test.tsx`; `fights.test.ts` `captionOf` tests kept for the hidden words |
+| F-0107-J | Page: "Change split" stands under its attacker, only on the attacker's page, and its click opens `DamageTray` filled in 2 / 3 | `fixes0107screen.test.tsx` |
+| F-0107-K | Hidden information (below) | `check-hidden-tops.py` over the new traces |
+| F-0107-L | Real game (TEST-012), below | `match-trample.spec.ts` |
+
+**TEST-004 (bites):** the automatic split removed (A fails: the question returns), the plan's fit check removed (D fails), the `TRAMPLE_KEPT` reader filter removed (B and K fail), the carry-on removed (G fails), the pop moved back to the blocker hit (H fails), the caption restored (I fails).
+
+**Real-click game (TEST-012).** 0098's exact deal gives the host a trampler and the guest a smaller blocker. The guest **really declares** the block; the host's page shows "Change split" under the attacker; the host **really clicks** it, the damage window opens filled in, the host **really clicks** + on the blocker until all damage is on it, then Done, then the act button. The guest's page gets the report window with "none trampled over", and the guest's life is unchanged. Next combat the host just clicks the act button: the guest's life falls by the excess (read from the life total once it has settled, `lifeSettled`), and no report window opens. All clicks are real (`hitPoint` for any card that may sit under another); every wait is on a state (the window open, the life number settled, the report present), never on an animation frame. Clips: one normal-speed clip per seat of the carry-on (they differ in direction).
+
+## Risks
+
+- **Hidden information.** (1) A changed split is the attacker's private intent until damage: it is never in the defender's or a spectator's frames before the damage round (the plan lives in `DamagePlans` and in the attacker's own decision only). (2) The new stop depends on the public board only (trample, blocked, power over the blockers' total lethal), so the defender learns nothing from the attacker being stopped. (3) `TRAMPLE_KEPT` reaches the defender only. (4) HID-005: the "Change split" button is absent from the defender's DOM. (5) Bite (HID-004): with the per-seat filter on the plan removed, the check over the traces fails. Both seats checked (HID-003).
+- **A choice made for the player.** The exception is the owner's (above); the RULES_COVERAGE rows say so. Forge still enforces lethal-first on whatever split arrives (ARCH-002: no rules on the page; the worker's usual split reads `lethal` and `allLethal`, Forge's own readings).
+- **Speed budgets.** The carry-on adds one move to a fight; `match-speed.spec.ts`'s combat moment (`scriptMsPerSecond4x` combat 88, frames) must pass unchanged; `FIGHTS_MAX_MS` caps the total.
+- **The jump check.** The attacker now leaves its fight for the shield and returns: one more path per trample fight. Run `check-jumps.py` over the new trample traces: no jump, no blink. The fight sequence is long (`jumps.spec.ts` `settled` waits up to 12 s; `FIGHTS_MAX_MS` 8 s caps it).
+- **e2e timing.** Specs that attack with a trampler (grep the e2e decks and `check-combat-choices` traces) no longer meet a damage window: `match-helpers.ts`'s `passCombat` / `answer` paths that expected `DamageTray` must instead press the act button. The new stop adds a question at declare blockers for the attacker: helpers that pass combat must answer it.
+- **Lab.** Scenarios whose scripted answers expected the damage question for a blocked trampler now meet a priority question first and no damage question; update their policy lines.
+
+## Decisions for the owner (via the coordinator)
+
+1. **Captions:** all fight captions removed (this spec's default) or only trample fights'?
+2. **A changed split that no longer adds up** (the Elf died): ask again with the window (default) or use the usual split silently?
+3. **Two or more blockers without trample:** keep today's damage window (default) or make it automatic too?
+
+## Build order notes
+
+Last of the four (0104 → 0105 → 0106 → 0107): it is built at 0106's final pace (the carry-on's time is `paced`), and on 0104's question flow (the report window's house rule). Inside: the worker (stop, `split:` option, `DamagePlans`, the automatic split) with its Lab scenarios first, then `TRAMPLE_KEPT`, then the page's "Change split", then the carry-on and the pop, then the captions, then the real-click game.
+
+## Amendments
+
+None yet.
+
+*Owner confirmed 2026-11-19: remove ALL fight captions (words stay for screen readers and the play log); the trample stop at declare blockers (one click, or Change split) is approved.*
