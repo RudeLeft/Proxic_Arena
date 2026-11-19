@@ -36,7 +36,7 @@ can dim what cannot be afforded. (As built, 2026-11-04: two -- also
 *As of 2026-11-18 (a documentation check):* three -- since 2026-11-08
 also `ComputerUtilMana.getConvokeOrImproviseFromList`, which creatures
 and artifacts could pay a convoke or improvise cost while it is only
-checked (code: forge-worker/.../game/MatchController.java:4049 (re-pointed 2026-11-18)). No computer player is created or
+checked (code: forge-worker/.../game/MatchController.java, `couldConvoke`). No computer player is created or
 used, and Strategy A's line -- no `forge-gui`, which is Swing -- is
 unchanged: `forge-ai` has no GUI coupling. It brings one library,
 Apache Commons Math 3.6.1. Ship only produced artifacts at runtime; no Forge source
@@ -64,9 +64,9 @@ applied the same way; `forge_patches/README.md` lists both.
 Phase 0A only. The worker now makes two reflective reads of Forge
 internals, each owner-approved in its spec and each failing soft (the
 detail is simply not told): `CostAdjustment.checkRequirement`, to name
-cost changes (spec 0058; code: forge-worker/.../game/MatchController.java:448),
+cost changes (spec 0058; code: forge-worker/.../game/MatchController.java, `costApplies`),
 and `ReplacementHandler.replaceDamageList`, for prevented damage (spec
-0080; code: forge-worker/.../game/Survivors.java:256 (re-pointed 2026-11-18)). AGENTS VEND-004's
+0080; code: forge-worker/.../game/Survivors.java, `damageList`). AGENTS VEND-004's
 record of them is in those two specs.
 
 ## Forge adapter strategy

@@ -7,12 +7,12 @@ Phase 10, A-15/A-21 follow-up: the 13 "popped in" findings left after 0081 (copi
 
 ## Why (researched, 2026-11-13)
 
-- **Storm.** The worker's `casting` list is the cards in the game's stack zone that are not on the stack yet (`ViewerSnapshot.java` ~413-433). Storm copies wait there while each is asked "new target?", so they show as cast spells.
-  - On the caster's seat, a loose Grapeshot fades into the middle with its cost, as if to be paid (`GameScreen.tsx` ~661, `CastingCard.tsx` ~451; the CSS fade at `game.css` ~3851). The other copies never show until all four land.
-  - On the other seat, `castOrigin` falls through to "hand" (`theirCast.ts` ~46-52), so a face-down card seems to leave the caster's hand each time, though her hand count never changes.
-  - The ×N card takes its first member's id (`fromSnapshot.ts` ~367-378), so it is rebuilt, and pops, each time a copy resolves.
-- **Prepare.** The prepared spell is a token in the owner's exile with no move and no `copy`/`copyOf` (`Copies.java` ~118-128). It appears in the exile pile with nothing tying it to its creature. When cast, it fades in at the middle. When it resolves, it glides to a graveyard and is never there, because a stack entry is a copy only when `isCopiedSpell` (`ViewerSnapshot.java` ~379).
-- **Ability copies** (Strionic Resonator) are not marked as copies (spells only, `ViewerSnapshot.java` ~379). One shows as a second trigger: ×2 if it matches, otherwise it slides in.
+- **Storm.** The worker's `casting` list is the cards in the game's stack zone that are not on the stack yet (`ViewerSnapshot.java` `of`, the `casting` list). Storm copies wait there while each is asked "new target?", so they show as cast spells.
+  - On the caster's seat, a loose Grapeshot fades into the middle with its cost, as if to be paid (`GameScreen.tsx` `castingNow`, `CastingCard.tsx` `onRisen`; the CSS fade at `game.css` `.gs-cast`). The other copies never show until all four land.
+  - On the other seat, `castOrigin` falls through to "hand" (`theirCast.ts` `castOrigin`), so a face-down card seems to leave the caster's hand each time, though her hand count never changes.
+  - The ×N card takes its first member's id (`fromSnapshot.ts` `boardFromSnapshot`'s `grouped`), so it is rebuilt, and pops, each time a copy resolves.
+- **Prepare.** The prepared spell is a token in the owner's exile with no move and no `copy`/`copyOf` (`Copies.java` `isCopy`). It appears in the exile pile with nothing tying it to its creature. When cast, it fades in at the middle. When it resolves, it glides to a graveyard and is never there, because a stack entry is a copy only when `isCopiedSpell` (`ViewerSnapshot.java` `of`, the stack list).
+- **Ability copies** (Strionic Resonator) are not marked as copies (spells only, `ViewerSnapshot.java` `of`, the stack list). One shows as a second trigger: ×2 if it matches, otherwise it slides in.
 
 ## Built
 
@@ -67,7 +67,7 @@ Built as approved (C); unreleased then (released in 1.67.0; noted 2026-11-18).
 - The count reaches N one board later than the canvas for the *last* split: a copy's new target is unknown until picked, so the one being asked first counts on the card before it, then moves to its own card (the canvas knows the targets in advance).
 - In the real game the copies resolve in Forge's order: in the split trace the two at Bob resolve first (the canvas has the Bears' first).
 - The prepared square sits in the badge column (low left, MARK_H), as 0076 places marks, not low right and larger as on the canvas; on a summoning-sick creature the zZz touches its top edge (the badge bands are 0076's).
-- The storm trigger itself still fades in at the stack spot when it appears (its source is the Grapeshot on the stack, not a permanent): 2 findings per storm trace, layout-only, present before 0082 and not part of the 13. Tried rising it out of the spell's stack card; the check still flagged it (the card it would rise from is hidden under the cast flight), so that change was taken out. *As of 2026-11-18 (a documentation check): since spec 0088 (Q1 A, "when you cast" triggers) a trigger whose source is a spell on the stack lifts off that spell's stack card, the storm trigger included; 0090's jump check over the storm and split-storm traces found nothing left there (code: frontend/src/battlefield/fromSnapshot.ts:784-785 (re-pointed 2026-11-18)).*
+- The storm trigger itself still fades in at the stack spot when it appears (its source is the Grapeshot on the stack, not a permanent): 2 findings per storm trace, layout-only, present before 0082 and not part of the 13. Tried rising it out of the spell's stack card; the check still flagged it (the card it would rise from is hidden under the cast flight), so that change was taken out. *As of 2026-11-18 (a documentation check): since spec 0088 (Q1 A, "when you cast" triggers) a trigger whose source is a spell on the stack lifts off that spell's stack card, the storm trigger included; 0090's jump check over the storm and split-storm traces found nothing left there (code: frontend/src/battlefield/fromSnapshot.ts, `pileRise`'s `spell:` rise).*
 - Isochron Scepter / Mizzix's "cast a copy": the worker and page paths are general (a token spell whose copied card is real rises from where that card is), but no Lab game covers them.
 
 **Evidence.**

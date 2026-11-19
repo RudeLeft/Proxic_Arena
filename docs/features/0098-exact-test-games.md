@@ -4,7 +4,7 @@
 
 ## Why (researched)
 
-`e2e/match-loyalty.spec.ts` failed ("never asked in 1081 answered decisions") because in about 1 game in 40 neither player drew Elspeth Resplendent in 36 turns. Browser tests have no way to set the deal: the Lab's `labDeal` is accepted only by a worker started with `--lab-deal` (`WorkerMain.java` ~263-275), and the server never passes it. The near-deterministic test fix (mulligan for Elspeth, no Sensei's Top spam) is being made anyway; this spec makes such games exact.
+`e2e/match-loyalty.spec.ts` failed ("never asked in 1081 answered decisions") because in about 1 game in 40 neither player drew Elspeth Resplendent in 36 turns. Browser tests have no way to set the deal: the Lab's `labDeal` is accepted only by a worker started with `--lab-deal` (`WorkerMain.java`, `LAB_DEAL` and `handle`'s `dealRefused`), and the server never passes it. The near-deterministic test fix (mulligan for Elspeth, no Sensei's Top spam) is being made anyway; this spec makes such games exact.
 
 ## Built
 

@@ -98,8 +98,9 @@ remain.
 "attack arrows ride the middle (F-0063-C)" named under *Tests* below is
 gone too; the curves are now checked by "soft arcs (F-0066-C)". F-0063-A
 and B keep their `Board.test.tsx` tests (code:
-frontend/src/battlefield/effects.test.ts:206,
-frontend/src/battlefield/Board.test.tsx:798 and :855).
+frontend/src/battlefield/effects.test.ts, "soft arcs (F-0066-C)";
+frontend/src/battlefield/Board.test.tsx, "F-0063-A: no badge, no name pill; …" and
+"F-0063-B: the line on pointing, keyboard focus or a tap …").
 
 *Decisions.* (1) The open middle strip is narrow on the real table (the
 front lines are about 12 px apart at 1920×1080, not the canvas's wide

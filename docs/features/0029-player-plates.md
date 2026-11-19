@@ -66,7 +66,7 @@ summary for screen readers says ", has priority" instead. See
 *As of 2026-11-18 (a documentation check): spec 0103 (item 5) added three small
 "this turn" counts (spells cast, life gained, a permanent left the table)
 under the name, above the Belt, on both plates (code:
-frontend/src/battlefield/GameScreen.tsx:3637-3643). Spec 0031 replaced the
+frontend/src/battlefield/GameScreen.tsx, `SeatBlock`'s `ThisTurnCounts`). Spec 0031 replaced the
 tile grid above: both plates have Library across the top with Graveyard and
 Exile under it, and the opponent's hand is drawn on the board, not a tile
-(code: frontend/src/battlefield/GameScreen.tsx:3708-3775 (re-pointed 2026-11-18)).*
+(code: frontend/src/battlefield/GameScreen.tsx, `SeatBlock`'s spec 0031 hand note and `gs-zones`).*

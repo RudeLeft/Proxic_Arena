@@ -7,7 +7,7 @@ Phase 10 A-22, from the deep dive "Phase 10 graphical gaps.md" (2026-11-13), ite
 
 ## Why
 
-The exile and graveyard tiles show only a count (`GameScreen.tsx` ~2750-2763). "You may play it", time counters and "Exiled by" appear only inside the opened tray or the close-up (`zoneTray.ts` ~12-35, `GameScreen.tsx` ~4150; worker `ViewerSnapshot.java` ~336-342 already sends playable). A suspended card's time counter coming off each upkeep is invisible.
+The exile and graveyard tiles show only a count (`GameScreen.tsx`, `SeatBlock`'s zone tiles). "You may play it", time counters and "Exiled by" appear only inside the opened tray or the close-up (`zoneTray.ts` `groupCopies`, `GameScreen.tsx` `InspectFacts`; worker `ViewerSnapshot.java` `of`, the exile zone's `playable`, already sends playable). A suspended card's time counter coming off each upkeep is invisible.
 
 ## Built
 

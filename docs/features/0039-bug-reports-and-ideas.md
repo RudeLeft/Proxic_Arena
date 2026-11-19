@@ -76,7 +76,7 @@ logs), `report.json`, `screen.png`, `browser-log.jsonl`,
 
 *As of 2026-11-18 (a documentation check):* spec 0086 Amendment 2 sends
 the screen as a JPEG, kept and zipped as `screen.jpg`; a PNG picture is
-still `screen.png` (code: server/src/main/kotlin/net/barnflix/proxic/report/Reports.kt:318-325).
+still `screen.png` (code: server/src/main/kotlin/net/barnflix/proxic/report/Reports.kt, `PICTURE`, `PICTURE_JPEG` and `pictureName`).
 
 ## How
 

@@ -8,7 +8,7 @@ Phase 10 item A-18 (counters and power/toughness changing). Same language as spe
 
 ## Why (researched)
 
-Every change is a one-step text swap: the P/T is `figure()` (`Board.tsx` ~585-592) drawn as `.bf-pt` (~664); counter badges (0076) don't animate; damage left on a creature shows only in the close-up ("· N damage", `GameScreen.tsx` ~4037) once the fight's red number fades. The snapshot already sends power, toughness, basePower, baseToughness, damage (`ViewerSnapshot.java` ~813-821) and counters (~853-861); loyalty is the LOYALTY counter shown in `.bf-pt`. A creature killed by -N/-N arrives already gone, so today it shatters still showing its old size.
+Every change is a one-step text swap: the P/T is `figure()` (`Board.tsx`) drawn as `.bf-pt` (`CardFaceView`); counter badges (0076) don't animate; damage left on a creature shows only in the close-up ("· N damage", `GameScreen.tsx` `Inspect`) once the fight's red number fades. The snapshot already sends power, toughness, basePower, baseToughness, damage (`ViewerSnapshot.java` `describe`) and counters (also `describe`); loyalty is the LOYALTY counter shown in `.bf-pt`. A creature killed by -N/-N arrives already gone, so today it shatters still showing its old size.
 
 ## Built
 

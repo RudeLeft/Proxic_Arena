@@ -17,8 +17,8 @@ Phase 10 A-22 (graphical improvements), from the deep dive "Phase 10 graphical g
    - On unlocking, the square goes, that half's door swings open on its hinge and light spills out. The other half does not move, and the whole-card flip is not used.
 4. **Poison removed (16 A).** The same dark pill as poison gained, now "−N", rises off the poison badge. The notches go dark, and at zero the badge shrinks away. Closes 0077's note.
 5. **The last grey notices (17).**
-   - Drop "X ×N: they do the same thing here, so the order doesn't matter. You weren't asked." (`MatchController.java` ~1753). The cards' own movement shows what happened; their sources pulse gold.
-   - Move "Looking at …" (`MatchController.java` ~5893, the opening-hand reveal such as Chancellor of the Annex) into the standard report window (0071/0075): medallion, WHO · CARD, one sentence, card pictures.
+   - Drop "X ×N: they do the same thing here, so the order doesn't matter. You weren't asked." (`MatchController.java`, `sameNotAsked`). The cards' own movement shows what happened; their sources pulse gold.
+   - Move "Looking at …" (`MatchController.java`, `tellRevealed`, the opening-hand reveal such as Chancellor of the Annex) into the standard report window (0071/0075): medallion, WHO · CARD, one sentence, card pictures.
    - No grey notice of card actions remains.
 6. **Split second and can't be countered (18 B).**
    - A split-second spell wears a gold-rimmed stopwatch square on its stack card. While it is on the stack, a gold ring closes round the stack card and the other player's hand dims; both lift when it resolves.

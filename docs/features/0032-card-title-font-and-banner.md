@@ -19,7 +19,7 @@ name tags of Auras and Equipment, the stack's order numbers, the
 question's title, the "Game over" title, player names, the life total,
 the zone counts and words, the ladder's "Turn 3 · Your turn" line, and
 the big word on the act button — and the words that take its place
-("Waiting for Pat", "Game over"; *as of 2026-11-18, a documentation check: the waiting words are "Pat’s move" or "One moment" since Phase 9 W-25, code: frontend/src/battlefield/stops.ts:193, 229*), so that spot always looks the same
+("Waiting for Pat", "Game over"; *as of 2026-11-18, a documentation check: the waiting words are "Pat’s move" or "One moment" since Phase 9 W-25, code: frontend/src/battlefield/stops.ts, `waitingLine`'s `moment` and its "’s move" word*), so that spot always looks the same
 (owner, at the ship question). Small words and sentences (step names,
 help lines, the stack caption, chat, menus) keep today's font. No wording
 changes anywhere.

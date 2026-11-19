@@ -247,8 +247,8 @@ have been report windows since spec 0075 and a game restart a RESTART
 report since spec 0097 (item 4); the only notice the worker still sends
 (`GameHost.note`) is the ante line "Every copy of … was taken out of your
 deck before the game: ante is not played." (code:
-forge-worker/src/main/java/net/barnflix/proxic/worker/game/MatchController.java:6097-6107,
-5903; GameHost.java:386).*
+forge-worker/src/main/java/net/barnflix/proxic/worker/game/MatchController.java, `notifyOfValue`
+and `revealAnte`; GameHost.java, `note`).*
 
 **Naming a card (PHASE_09 Amendment 16).** The name-a-card question lists
 the cards its player may click to name (`arrange.name.objects`): only

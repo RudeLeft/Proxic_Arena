@@ -97,4 +97,4 @@ Out (and why):
 *As of 2026-11-18 (a documentation check):* since spec 0022 a deck arrives
 from the Deck Builder, so no "Choose an icon" opens after an import: the
 suggestion shows until one is picked from Change icon (code:
-frontend/src/DecksPage.tsx:208, 343).
+frontend/src/DecksPage.tsx, `OpenDeck`'s `choosingIcon` and its Change icon button).

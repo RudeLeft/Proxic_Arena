@@ -8,10 +8,10 @@ Follows the owner's standing rule of spec 0074 Amendment 1: card actions are exp
 
 ## Why (researched, the audit)
 
-- **"Cycled" pill** (`fromSnapshot.ts` ~408-414, `Board.tsx` ~3917-3960, `motion.ts` graveTagFrames; word from `Moves.graveReason` ~95) and the **"GAME · Cycled: …" notice** (`GameHost.tellGraveyards` ~973-985, `Moves.toldByOwner` ~140-160; after 0074 the only one it still sends).
-- **"Back to your hand", "On top of / On the bottom of / Shuffled into … library" pills** after a bounce from the table or the stack (`Board.tsx` returnTag ~358-371, drawn ~2471-2545). `ActionReports`' RETURN kind (0074) covers only cards leaving a graveyard or exile.
-- **Forge's `notifyOfValue` notices** (`MatchController` ~5955-5966): "Voice of All: Bob chose white", coin flips, "You rolled 4" (the die already tumbles in its own window).
-- **Leftover "Looking at …" / "There are no cards in Bob's hand."** (`tellRevealed` ~5831-5863); the page hides some by matching names (`GameScreen.tsx` ~4420-4428), the empty-hand case gets through.
+- **"Cycled" pill** (at ed85a2600: `fromSnapshot.ts` `graves` and `Board.tsx` `tagGrave`, since removed; `motion.ts` graveTagFrames; word from `Moves.graveReason`) and the **"GAME · Cycled: …" notice** (at ed85a2600: `GameHost.tellGraveyards`, `Moves.toldByOwner`, since removed; after 0074 the only one it still sends).
+- **"Back to your hand", "On top of / On the bottom of / Shuffled into … library" pills** after a bounce from the table or the stack (`Board.tsx` at ed85a2600: returnTag, since removed; drawn by `markReturn`). `ActionReports`' RETURN kind (0074) covers only cards leaving a graveyard or exile.
+- **Forge's `notifyOfValue` notices** (`MatchController.notifyOfValue`): "Voice of All: Bob chose white", coin flips, "You rolled 4" (the die already tumbles in its own window).
+- **Leftover "Looking at …" / "There are no cards in Bob's hand."** (`tellRevealed`); the page hides some by matching names (`GameScreen.tsx` `useGameMessages`), the empty-hand case gets through.
 
 ## Built
 

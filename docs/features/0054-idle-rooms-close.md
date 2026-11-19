@@ -120,5 +120,5 @@ reads "Away" from the moment they drop, and the button reads "End the game
 · you win"; a committed browser test now covers the window, Keep waiting
 and Peek with the away time sent as 1 minute (`match-away.spec.ts`).
 Ending the game itself is still proven only by the server tests above
-(code: frontend/e2e/match-away.spec.ts:1-6 and :62,
+(code: frontend/e2e/match-away.spec.ts, its header and the test "an away player: Away on their plate, then a window beside it with Keep waiting, End the game and Peek",
 frontend/src/battlefield/AwayWindow.tsx).

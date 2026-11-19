@@ -7,9 +7,9 @@ From the owner's list of 2026-11-16, items 2 and 4. Players complained that tapp
 
 ## Why (researched)
 
-- Tapped is part of a pile's identity (spec 0036; `layout.ts` ~376-398), so tapping one of three Swamps splits the pile; the untapped Swamps re-form a new pile at the next member's arrival position. At 1920x1080, with Swamp, Island, Swamp, Dismal Backwater, Plains, Swamp, Island, tapping the first Swamp moves the two untapped Swamps 214 px right, past the Islands, and Backwater and Plains 113 px. A second click on the same spot hits the tapped Swamp.
-- Any tap also shifts everything to its right by 11.5 px (the leaning card's extra room, `planLine` ~526-532).
-- A land picked to pay (0070) leaves its pile too (`pileKey` ~419), so the jump starts before anything taps.
+- Tapped is part of a pile's identity (spec 0036; `layout.ts`, `identity`), so tapping one of three Swamps splits the pile; the untapped Swamps re-form a new pile at the next member's arrival position. At 1920x1080, with Swamp, Island, Swamp, Dismal Backwater, Plains, Swamp, Island, tapping the first Swamp moves the two untapped Swamps 214 px right, past the Islands, and Backwater and Plains 113 px. A second click on the same spot hits the tapped Swamp.
+- Any tap also shifts everything to its right by 11.5 px (the leaning card's extra room, `planLine`).
+- A land picked to pay (0070) leaves its pile too (`pileKey`), so the jump starts before anything taps.
 - The land row starts at the table's left edge (x 3.75 at 1080) while the hand is centred: about 615 px of mouse travel at 1080, 820 at 1440.
 
 ## Built
@@ -166,7 +166,7 @@ and the three arc changes.
 tools`, vitest 1441/1441. On the local stack rebuilt from this tree:
 `match-lands-stay-put` passed 3 of 3; `battlefield.spec` 4/4,
 `match-board-motion` 1/1, `match-cast-step-aside` 1/1, `match-speed` 2/2
-(it failed once at :809 straight after a filmed game and passed on the
+(it failed once at :809, at 1dce861, straight after a filmed game and passed on the
 rerun: in ROADMAP's flake list). 0070 has no browser spec ("No e2e" in
 its As built); `fixes0070.test.tsx` passes.
 

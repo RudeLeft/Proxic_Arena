@@ -8,7 +8,7 @@ Phase 10 exit gate: the two real gaps the full jump check found (finish line, 20
 
 ## Why (found by the full jump check)
 
-- **Free spells pop onto the stack (47 cases, plus 4 free casts from exile).** The other player's Memnite, Ornithopter, a free Shivan Dragon, cascade and Skyclave casts fade in at the stack spot instead of rising from his hand. Likely cause, to confirm: 0072's rise is read from `casting` (`GameScreen.tsx` ~675, ~763-773), the card being cast while a payment question is open; a spell with nothing to pay never has that step, so it reaches the stack with no rise. Example: wipes-judgment seat 1 board 3.
+- **Free spells pop onto the stack (47 cases, plus 4 free casts from exile).** The other player's Memnite, Ornithopter, a free Shivan Dragon, cascade and Skyclave casts fade in at the stack spot instead of rising from his hand. Likely cause, to confirm: 0072's rise is read from `casting` (`GameScreen.tsx` `casting`, `theirCast`/`originOf`), the card being cast while a payment question is open; a spell with nothing to pay never has that step, so it reaches the stack with no rise. Example: wipes-judgment seat 1 board 3.
 - **Cards exiled straight from a hand or library are never drawn (14 cases).** Force of Will's alternative cost (exile a blue card from your hand), Karn's exiles, cascade's revealed cards: only the exile count changes. 0074 draws hand→graveyard (discard) and library→graveyard (mill); hand→exile and library→exile are not handled.
 
 ## Built

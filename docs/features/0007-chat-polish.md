@@ -85,7 +85,7 @@ Out (and why):
   panel's. *As of 2026-11-18 (a documentation check): spec 0013 gave the game its own
   chat, separate from the lobby's, with the lobby panel's look, reactions
   and "New" marker; spec 0064 made it a window with Chat and Play log tabs
-  (code: frontend/src/battlefield/GameChat.tsx:1-12, 343-354).*
+  (code: frontend/src/battlefield/GameChat.tsx, its spec 0064 header and `GameChat`'s "Game chat" `ChatPanel`).*
 
 ## Rules and boundaries
 

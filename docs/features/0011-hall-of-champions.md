@@ -107,6 +107,6 @@ The trophies left the lobby for their own Hall of Champions page (`/hall`,
 frontend/src/HallPage.tsx), and the four places are ranked by the season's
 rating, not all-time wins; the rings in the lobby mark this season's
 places (code:
-server/src/main/kotlin/net/barnflix/proxic/lobby/Standings.kt:16-17,
-34-35). `STANDINGS` also carries `belt` (spec 0019) and `beltDefendBy`
-(spec 0048) (Standings.kt:105-109).
+server/src/main/kotlin/net/barnflix/proxic/lobby/Standings.kt, its spec 0011
+header and `Standings`). `STANDINGS` also carries `belt` (spec 0019) and `beltDefendBy`
+(spec 0048) (Standings.kt, `standingsMessage`).

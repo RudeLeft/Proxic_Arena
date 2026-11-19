@@ -92,5 +92,5 @@ did. Poison is a badge by the life shield, not a chip in the tray (spec
 picture (spec 0086); both are still in the list a click on the tray
 opens. Energy, experience, rad, tickets, the city's blessing and the
 Ring's count are round badges in the tray now (spec 0086) (code:
-frontend/src/battlefield/StatusTray.tsx:175-177, 221-280;
-playerMarks.tsx:618).
+frontend/src/battlefield/StatusTray.tsx, `StatusTrayView`'s tray (its spec 0077 poison note and `CountBadge`s);
+playerMarks.tsx, `FaceMarks`).

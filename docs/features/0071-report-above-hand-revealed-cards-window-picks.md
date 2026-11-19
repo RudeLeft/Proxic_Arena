@@ -42,7 +42,7 @@ lifts above it, as before.
 hand card rises only 0.1 of its height (`HAND_RISE`, about the same as the
 10 px gap), so it no longer reaches over the report; the whole card is
 shown by the 2.6x reading card above the fan instead (code:
-frontend/src/battlefield/motion.ts:43-47, 864-866).*
+frontend/src/battlefield/motion.ts, `HAND_READ`, `HAND_RISE`, `READ_GAP` and `handRiseBox`).*
 
 **2. Point to see their revealed cards.** Board: a face-up card in the
 other player's hand (seen, or shown) slides to `opponentRevealBox`

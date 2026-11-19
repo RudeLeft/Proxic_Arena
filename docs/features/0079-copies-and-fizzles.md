@@ -7,9 +7,9 @@ Phase 10 items A-15 (copies) and the rest of A-21 (spells copied, fizzled).
 
 ## Why (researched)
 
-- Clone: the card's name becomes the copied face, its printing stays Clone's (`ViewerSnapshot.java` ~745-772); nothing says what it copied; it leaves the stack already named Serra Angel; the log says only "cast Clone" (`PlayLog.java` ~1188). Token copies spark from the spell (0073) with no link to the original.
-- Fork: stack entries carry no copy flag (`ViewerSnapshot` ~345-392); Forge makes the copy a new card id (`CardFactory.java` ~80-105) with no zone-change move, so it just slides in (`Board.tsx` ~2068-2087); the log words it as "cast" (`MagicStack` ~565 → `PlayLog.cast` ~751); when done it glides into a graveyard (`Board.tsx` ~4274-4296), though Forge simply ends it (`MagicStack` ~681-683). Storm copies: five separate cards slide in at once (only triggers group ×N, `fromSnapshot.ts` ~334-357).
-- Fizzle: Forge's hasFizzled (`MagicStack` ~587-639) is read nowhere in the worker; it isn't "countered" (that needs another card, `GameHost.java` ~1098-1104); the page glows it like a spell that worked; no window, no log line (`PlayLog` ~1070-1073). When the target leaves, neighbouring cards glide to close its gap at once.
+- Clone: the card's name becomes the copied face, its printing stays Clone's (`ViewerSnapshot.java` `describe`); nothing says what it copied; it leaves the stack already named Serra Angel; the log says only "cast Clone" (`PlayLog.java` `cast`). Token copies spark from the spell (0073) with no link to the original.
+- Fork: stack entries carry no copy flag (`ViewerSnapshot.of`, the stack list); Forge makes the copy a new card id (`CardFactory.java` `copySpellHost`) with no zone-change move, so it just slides in (`Board.tsx` `stackEls`, `freshOnStack`); the log words it as "cast" (`MagicStack` `push` → `PlayLog.cast`); when done it glides into a graveyard (`Board.tsx`, the spec 0028 resolve pass, `stillThere`), though Forge simply ends it (`MagicStack` `removeCardFromStack`, its copied-spell branch). Storm copies: five separate cards slide in at once (only triggers group ×N, `fromSnapshot.ts` `boardFromSnapshot`'s `grouped`).
+- Fizzle: Forge's hasFizzled (`MagicStack.hasFizzled`) is read nowhere in the worker; it isn't "countered" (that needs another card, `GameHost.java` `graveFacts`); the page glows it like a spell that worked; no window, no log line (`PlayLog.moved`, "stack-graveyard"). When the target leaves, neighbouring cards glide to close its gap at once.
 
 ## Built
 

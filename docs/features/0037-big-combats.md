@@ -127,6 +127,6 @@ now "two blockers stand side by side facing their attacker, covering
 nothing" (`layout.test.ts`; *as of 2026-11-18, a documentation check:
 the test is titled by its Phase 10 item, "A-12: two blockers stand side
 by side facing their attacker, ...", not by F-0037-B; code:
-frontend/src/battlefield/layout.test.ts:1464*); F-0037-A's swarm still draws at most 16 cards
+frontend/src/battlefield/layout.test.ts, that test*); F-0037-A's swarm still draws at most 16 cards
 a side. The page marks every blocker `data-blocking` / `data-blocks`
 (was `data-rides`). See BATTLEFIELD_LAYOUT_CONTRACT.md §7b.

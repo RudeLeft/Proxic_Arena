@@ -131,8 +131,8 @@ All taken 2026-10-29 (see the top).
    spell still aims at it (spec 0079), and a card holding exiled cards
    (spec 0085).
    A blocked attacker no longer always stands alone: identical blocked
-   pairs stack (spec 0037) (code: frontend/src/battlefield/layout.ts:410-470; corrected 2026-11-18; re-pointed 2026-11-18).
+   pairs stack (spec 0037) (code: frontend/src/battlefield/layout.ts, `identity` and `pileKey`; corrected 2026-11-18).
    *As of 2026-11-18 (a documentation check): a waiting "prevent the next
    N damage" shield (spec 0101) is compared too, so a shielded card stands
-   apart from its twins (code: frontend/src/battlefield/layout.ts:172, 433;
+   apart from its twins (code: frontend/src/battlefield/layout.ts, `LayoutCard.preventNext` and `identity`;
    layout.test.ts F-0036-B; commit 01c8ccc).*

@@ -7,7 +7,7 @@ From the owner's list of 2026-11-16, item 6.
 
 ## Why (researched)
 
-- Today the hand card itself grows to 2x (`handZoomBox`, `motion.ts` ~907-923, `HAND_ZOOM = 2`) on top of the fan. It shows the table face — name, art, type line — with no rules text (owner decision 2026-10-20: "the whole card is for inspect"), so a player must right-click to read it.
+- Today the hand card itself grows to 2x (`handZoomBox`, `motion.ts` at 1bbcc74, since removed, `HAND_ZOOM = 2`) on top of the fan. It shows the table face — name, art, type line — with no rules text (owner decision 2026-10-20: "the whole card is for inspect"), so a player must right-click to read it.
 - At 1080 the 195-px zoom covers 70 of the next card's 76-px strip, so sliding along the hand skips cards.
 - The full scan already exists for every hand card (`card.art`, and `SharpCard` used by the close-up and W-20's readable stack card).
 

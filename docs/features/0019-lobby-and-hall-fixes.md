@@ -37,7 +37,7 @@ first, built only on the owner's word.
    and on the game's life medallions, with the words "Champion's Belt
    holder" for a screen reader and on hover. *As of 2026-11-18 (a documentation check): in the game the Belt
    sits under the player's name on the plate (spec 0029), not on the life
-   total (code: frontend/src/battlefield/GameScreen.tsx:3647-3654).*
+   total (code: frontend/src/battlefield/GameScreen.tsx, `SeatBlock`'s `gs-seat-marks` `BeltMark`).*
 5. **One size** (F2): pictures in the Players list and chat, and deck
    icons in rooms, are all 40px (were 36px, 28-32px and 28px).
 

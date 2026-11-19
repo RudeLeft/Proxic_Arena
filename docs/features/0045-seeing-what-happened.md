@@ -107,6 +107,6 @@ counter (spec 0076); pointing at it still says where the last ones came
 from ("2 +1/+1 counters, the last from ..."). And the reveal tray no
 longer sits on your hand: it sits just above it (spec 0071, item 1), and
 still goes to the top when a question's window holds the bottom (code:
-frontend/src/battlefield/Board.tsx:478-490 `counterWords`,
-frontend/src/battlefield/CardBadges.tsx:507,
-frontend/src/battlefield/RevealTray.tsx:60 `reportBottom` (re-pointed 2026-11-18)).
+frontend/src/battlefield/Board.tsx, `counterWords`;
+frontend/src/battlefield/CardBadges.tsx, `CardBadgesView`'s `words`;
+frontend/src/battlefield/RevealTray.tsx, `reportBottom`).

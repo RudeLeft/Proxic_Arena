@@ -7,9 +7,9 @@ Phase 10 A-22, from the deep dive "Phase 10 graphical gaps.md" (2026-11-13), ite
 
 ## Why
 
-- Energy, experience, rad, tickets, monarch, initiative, dungeon and emblems are word chips in the player's tray with no animation (`StatusTray.tsx` ~142-200; `game.css` ~2741-2780).
-- The active plate is a colour switch (`game.css` ~131-134, 237-239; `GameScreen.tsx` ~2407-2445).
-- Mana balls exist only for spending (`manaBalls.tsx` ~340-380).
+- Energy, experience, rad, tickets, monarch, initiative, dungeon and emblems are word chips in the player's tray with no animation (`StatusTray.tsx`, `StatusTray`'s tray; `game.css`, `.gs-chip`).
+- The active plate is a colour switch (`game.css`, `.gs-seat-active` and `.gs-life-active`; `GameScreen.tsx`, `StepLadder`'s `gs-whose`).
+- Mana balls exist only for spending (`manaBalls.tsx`, `ManaBalls`).
 
 ## Built
 

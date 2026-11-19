@@ -91,11 +91,11 @@ Out (and why):
 *As of 2026-11-18 (a documentation check):* later specs grew the page. The
 tabs are now Accounts, Rooms, Games, Reports (spec 0039), Sign-ins,
 Computers (spec 0027), Email account (spec 0014 Amendment 1), Belt and
-records (spec 0048) and Server (code: frontend/src/AdminPage.tsx:64-78).
-"+ New account" became "+ Invite" (spec 0014; AdminPage.tsx:377). Manage
+records (spec 0048) and Server (code: frontend/src/AdminPage.tsx, `TABS`).
+"+ New account" became "+ Invite" (spec 0014; AdminPage.tsx, `AccountsPanel`). Manage
 has no Set password: it holds Send password reset (spec 0026), Change
 display name (spec 0041 Amendment 3), Linked computers (spec 0027), Sign
 out everywhere, Make admin / Make player and Disable / Enable
-(AdminPage.tsx:556-655). Spec 0020 moved the health pill from the page's
+(AdminPage.tsx, `AccountRow`). Spec 0020 moved the health pill from the page's
 heading into the Server tab's title row, with a red dot on the Server
-tab's name when there is a problem (AdminPage.tsx:256-259, 803-806).
+tab's name when there is a problem (AdminPage.tsx, `AdminPage`'s tab row and `ServerPanel`'s `HealthPill`).

@@ -163,7 +163,7 @@ hashes" never matched the code: the cap is the package's picture limit
 *As of 2026-11-18 (a documentation check):* spec 0023 (1.13.0) made the
 worker load the editions once, so each edition now has its real type and
 the printing order is Forge's core, expansion and reprint first (code:
-forge-worker/src/main/java/net/barnflix/proxic/worker/ForgeRuntime.java:76-87).
+forge-worker/src/main/java/net/barnflix/proxic/worker/ForgeRuntime.java, `ensureLoaded`'s custom editions folder).
 Token lines are not counted toward the deck size, which is 60-100 since
 spec 0051
-(server/src/main/kotlin/net/barnflix/proxic/deck/OpenFormat.kt:41-42).
+(server/src/main/kotlin/net/barnflix/proxic/deck/OpenFormat.kt, `MIN_CARDS`/`MAX_CARDS`).

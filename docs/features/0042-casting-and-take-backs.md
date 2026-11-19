@@ -92,7 +92,7 @@ All taken 2026-10-30 (above).
    `0044-casting-dock-and-reveal.md`.
    *As of 2026-11-18 (a documentation check):* spec 0068 took the move
    beside the stack out again: the card stays in the middle for every
-   question (code: frontend/src/battlefield/stepAside.ts:26 `castingBox`).
+   question (code: frontend/src/battlefield/stepAside.ts, `castingBox`).
 
 2. **2026-11-03 -- Phase 9 Amendment 13 (owner's list, items 2, 8, 9).**
    The mana still due comes from the question's own `owing` field, not

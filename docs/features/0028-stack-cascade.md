@@ -70,8 +70,8 @@ object that fits is drawn; F-0028-A holds for those.
 *As of 2026-11-18 (a documentation check):* the response clock is 5
 seconds, not 2: spec 0035 lengthened the countdown on your own spell or
 trigger, and the ring round the front card runs the full 5 s with the
-button's (code: frontend/src/battlefield/GameScreen.tsx:252 (re-pointed 2026-11-18)
+button's (code: frontend/src/battlefield/GameScreen.tsx,
 `RESPONSE_WINDOW_MS`). The caption's ", N not shown" is written in
-`Board.tsx` (:904; line numbers corrected 2026-11-18; re-pointed 2026-11-18); `effects.ts` decides how many fit.
+`Board.tsx` (`stackCaption`); `effects.ts` decides how many fit.
 
-*As of 2026-11-18 (a documentation check): pointing at another stack card still shows its line instead of the front card's, but no longer fades the rest: since spec 0100 (item 9) nothing dims, and the pointed card's source and targets lift a little and glow gold (code: frontend/src/battlefield/Board.tsx:3760-3770 (re-pointed 2026-11-18)). Since spec 0100 (item 7) its beam is gold only for your own spell or ability; the other player's is blue-violet (code: Board.tsx:9420 (re-pointed 2026-11-18); Arrows.tsx:19).*
+*As of 2026-11-18 (a documentation check): pointing at another stack card still shows its line instead of the front card's, but no longer fades the rest: since spec 0100 (item 9) nothing dims, and the pointed card's source and targets lift a little and glow gold (code: frontend/src/battlefield/Board.tsx, `Board`'s `lifted`). Since spec 0100 (item 7) its beam is gold only for your own spell or ability; the other player's is blue-violet (code: Board.tsx, the stack beam's `tone` in `Board`'s `studAt` pass; Arrows.tsx, `THEIRS`).*

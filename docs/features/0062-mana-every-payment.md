@@ -126,4 +126,4 @@ into the payment once the picking is over, not as each is picked (a pick
 can now be taken back, and per-pick steps showed the other player each
 convoked creature early); their balls still fly when the cost is paid
 (code:
-forge-worker/src/main/java/net/barnflix/proxic/worker/game/MatchController.java:3999-4014 (re-pointed 2026-11-18)).
+forge-worker/src/main/java/net/barnflix/proxic/worker/game/MatchController.java, `chooseCardsForConvokeOrImprovise`'s spec 0062 balls).

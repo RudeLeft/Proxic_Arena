@@ -130,7 +130,7 @@ chip (P6-BG). There is still no lookup outside the match.
 
 `Cache-Control: private, max-age=31536000, immutable` on both the match
 route and `/api/pictures/{sha}` (corrected 2026-11-18; code:
-`match/MatchRoutes.kt:371-374`, `deck/PictureRoutes.kt:45`). `private`
+`match/MatchRoutes.kt`, `matchAssetRoute`; `deck/PictureRoutes.kt`, `pictureRoutes`). `private`
 because Cloudflare sits in front of the server and a
 shared cache could serve one viewer's authorised image to somebody never
 shown it. A browser may keep its own copy: an id is a content hash, so

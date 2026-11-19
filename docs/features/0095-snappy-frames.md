@@ -12,12 +12,12 @@ Real two-player games on the owner's PC (i5-13600KF, RTX 3060 Ti), headed Edge a
 
 ## Built
 
-1. **Game end** (0089, `lifeTicks.ts` ~256-277 `useLifeLanded` in `GameScreen`): GameScreen no longer re-renders every frame while the last hit lands; the moment is computed once (a small leaf or one timer).
-2. **Flight measuring** (0086, `flights.tsx` ~242-257, `remember` ~638-674): stop measuring every card on every update; measure only what can fly, or use the board's known layout boxes; all reads before writes.
+1. **Game end** (0089, `lifeTicks.ts` `useLifeLanded` in `GameScreen`): GameScreen no longer re-renders every frame while the last hit lands; the moment is computed once (a small leaf or one timer).
+2. **Flight measuring** (0086, `flights.tsx` `PlayerFlights`' measuring effect, `remember`): stop measuring every card on every update; measure only what can fly, or use the board's known layout boxes; all reads before writes.
 3. **Plate redraws** (`useShownPlate`, `SeatBlock`): only the counting number follows the life clock; StatusTray, FaceMarks, LibraryTop, ZoneIcon and the like are memoised with stable props.
-4. **Glow follower** (0090, `Board.tsx` ~7720-7728, `breathMotion.ts` ~41-70): runs only for animations started this draw; no extra next-frame pass when nothing started.
-5. **Waiting plate glow** (`.gs-seat-deciding`, `game.css` ~137-152): two still shadows with only opacity animated, as 0090 did for the breath; the step-ladder dot's glow checked in the same pass.
-6. **Forced layouts**: the marks effect (0085, `Board.tsx` ~4363-4390) and `LibraryTop.tsx` ~160-170 return early before measuring.
+4. **Glow follower** (0090, `Board.tsx`'s Spec 0090 glow-layer effect, `breathMotion.ts` `followCards`): runs only for animations started this draw; no extra next-frame pass when nothing started.
+5. **Waiting plate glow** (`.gs-seat-deciding`, `game.css`): two still shadows with only opacity animated, as 0090 did for the breath; the step-ladder dot's glow checked in the same pass.
+6. **Forced layouts**: the marks effect (0085, `Board.tsx`'s `marksThen` effect) and `LibraryTop.tsx`'s `shown` effect return early before measuring.
 7. **Board re-renders**: CardFace, CardBadges, FightMarkView, ManaCost, SizeFigure and the like memoised with stable props; stable callbacks from GameScreen, so a change elsewhere doesn't redraw every card.
 
 Nothing looks different (TEST-006 still applies: before/after screenshots compared as in F-0090-B).

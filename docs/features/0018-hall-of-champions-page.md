@@ -90,4 +90,4 @@ record yet (life totals); showing the opponent's deck inside a room
 *As of 2026-11-18 (a documentation check):* spec 0048 changed H7's 14 days
 to 7, and added an admin Reset the Belt, after which nobody holds it until
 the next game's winner (code:
-server/src/main/kotlin/net/barnflix/proxic/hall/Belt.kt:12-16, 145-146).
+server/src/main/kotlin/net/barnflix/proxic/hall/Belt.kt, its header and `Belt.IDLE`).

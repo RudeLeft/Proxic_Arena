@@ -197,7 +197,7 @@ arrangeForScry            scry N: both steps are kind arrangeForScry,
                           "Which goes on top of your library?" one at
                           a time. Scry 1 is not arrangeForScry: it asks
                           willPutCardOnTop (corrected 2026-11-18;
-                          MatchController.java:3532-3535)
+                          MatchController.java, arrangeForScry)
 willPutCardOnTop          one card: "Top" or "Bottom"
 ```
 
@@ -845,7 +845,7 @@ choice the other player's `action` report, a coin flip both players'
 A reveal shown in the report window (`reveal`, `action`) is no "Looking
 at ..." notice either; since spec 0097 (item 9) a reveal with no window
 (before a game has begun) is only logged by the worker, never a notice
-(corrected 2026-11-18; MatchController.java:5969-5971).
+(corrected 2026-11-18; MatchController.java, `tellRevealed`).
 Spec 0083 (17): a card revealed from an opening hand before the game
 began (Chancellor of the Annex) is the other player's `reveal`, with `by`,
 `source` (the card) and `said` ("Bob revealed Chancellor of the Annex from

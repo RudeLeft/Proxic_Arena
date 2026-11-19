@@ -111,5 +111,5 @@ their back faces, now name `/api/pictures/{sha}` (with `?size=full` for the
 zoom), which any signed-in player may fetch once they know the address
 (owner D1 of 0052); the deck asset address with `mayViewAsset` and
 `deck_face_art` still exists but the deck page no longer uses it (code:
-server/src/main/kotlin/net/barnflix/proxic/deck/DeckRoutes.kt:455-458,
-server/src/main/kotlin/net/barnflix/proxic/deck/PictureRoutes.kt:13-35).
+server/src/main/kotlin/net/barnflix/proxic/deck/DeckRoutes.kt, `deckDetail`'s `artUrl`;
+server/src/main/kotlin/net/barnflix/proxic/deck/PictureRoutes.kt, `pictureRoutes`).

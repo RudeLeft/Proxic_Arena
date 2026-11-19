@@ -8,7 +8,7 @@ Phase 10, item A-21 (the stack), part "the other player's casts"; the jump audit
 
 ## Why (researched)
 
-`CastingCard` animates only when given a starting box (`CastingCard.tsx` ~378-389); without one only the CSS fade `gs-cast-in` (game.css) plays. The box comes from `castFrom`, set only by the viewer's own click (`GameScreen.tsx` ~1162, passed ~1860). So when Bob casts, Alice's screen fades a card back in at the middle, and in the same frame Bob's fan drops a card with no movement (hidden backs are `hidden-hand:seat:i`, `fromSnapshot.ts` ~97-101). The snapshot already says enough without any hidden id: `casting` (the stack is public), Bob's hand count, and the round's `moves` (hand/graveyard/exile/library -> stack, `Moves.java`). Cancelled, it already flies back to his hand (GameScreen.tsx ~846-852), even when it came from his graveyard.
+`CastingCard` animates only when given a starting box (`CastingCard.tsx`, the rise-out-of-the-hand `useLayoutEffect` in `CastingCard`); without one only the CSS fade `gs-cast-in` (game.css) plays. The box comes from `castFrom`, set only by the viewer's own click (`GameScreen.tsx` `pick`, passed as `CastingCard`'s `from`). So when Bob casts, Alice's screen fades a card back in at the middle, and in the same frame Bob's fan drops a card with no movement (hidden backs are `hidden-hand:seat:i`, `fromSnapshot.ts` `opponentHandOf`). The snapshot already says enough without any hidden id: `casting` (the stack is public), Bob's hand count, and the round's `moves` (hand/graveyard/exile/library -> stack, `Moves.java`). Cancelled, it already flies back to his hand (GameScreen.tsx, the `lastCasting` effect that sets `flight`), even when it came from his graveyard.
 
 ## Built
 

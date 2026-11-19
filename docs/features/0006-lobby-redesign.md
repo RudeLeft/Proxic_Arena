@@ -147,4 +147,4 @@ Wording:
 changed with spec 0050 (one look for every notice). It now reads "One seat
 is held for you. Close this and you can still accept from the room list in
 the Lobby.", with Decline and Accept (code:
-frontend/src/shell/PageNotices.tsx:176-195).
+frontend/src/shell/PageNotices.tsx, `PageNoticesProvider`'s `lobby.invitation` notice).

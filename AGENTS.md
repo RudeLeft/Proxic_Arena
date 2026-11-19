@@ -249,6 +249,12 @@ Inherited from `PHASE_00 §0.3–0.5`, and binding on every phase.
   answer. Say plainly which results were re-confirmed, which changed, and
   which were accepted without re-running. _REVIEW._
 - **EVID-005 — MUST NOT:** Estimate a benchmark. Measure it. _AUTO._
+- **EVID-006 — MUST:** Live docs name code by file and symbol (function,
+  class, selector, constant, test), never by line number; a line number
+  appears only inside dated or commit-pinned evidence. *(Owner decision
+  2026-11-18: line numbers went stale with every code change, and the
+  documentation audit could not reach a clean pass.)* Gate:
+  `scripts/check-doc-refs.py`, in CI. _AUTO._
 
 ---
 

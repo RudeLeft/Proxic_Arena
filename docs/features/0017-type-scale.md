@@ -75,7 +75,7 @@ A third shared face, `--pa-mono`, names the one monospace use (the
    *As of 2026-11-18 (a documentation check): spec 0103's "Bigger text" switch
    multiplies some game-screen sizes by `--bf-text-scale` (1.25 when on); the
    gate accepts a scale step times that factor and nothing else (code:
-   frontend/src/typeScale.test.ts:33).*
+   frontend/src/typeScale.test.ts, `scaledStep`).*
 
 ## Acceptance tests
 
@@ -99,6 +99,6 @@ A third shared face, `--pa-mono`, names the one monospace use (the
 `font-weight: 500` is in three rules in `game.css` (`.gs-log-you`,
 `.gs-log-step`, `.gs-opening-button small`, added by later specs) and one
 in `battlefield.css` (`.bf-type`) (code:
-frontend/src/battlefield/game.css:2533, 2541, 4828 (re-pointed 2026-11-18);
-frontend/src/battlefield/battlefield.css:591). `styles.css` also declares
-Barlow Condensed's 500 face (`@font-face`, styles.css:29).
+frontend/src/battlefield/game.css, `.gs-log-you`, `.gs-log-step`, `.gs-opening-button small`;
+frontend/src/battlefield/battlefield.css, `.bf-type`). `styles.css` also declares
+Barlow Condensed's 500 face (`@font-face`, styles.css).

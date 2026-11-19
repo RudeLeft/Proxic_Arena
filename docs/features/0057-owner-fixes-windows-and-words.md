@@ -150,8 +150,8 @@ across a stack card.
 pill holds, not its size: it keeps every symbol of the cost (a grey pip
 per generic mana), each lit in the colour of the mana that paid it, instead
 of only the symbols still owed; the other player sees it too while its
-balls fly (code: frontend/src/battlefield/Board.tsx:3112-3117 (re-pointed 2026-11-18) `OwePill`,
-frontend/src/battlefield/battlefield.css:1337-1373 (re-pointed 2026-11-18)).
+balls fly (code: frontend/src/battlefield/Board.tsx, `OwePill`;
+frontend/src/battlefield/battlefield.css, `.bf-stack-owe` and its `.bf-stack-owe-*` rules).
 
 **Item 5.** Worker: for each card in hand with an option that discards it
 (cycling, typecycling -- landcycling and the rest --, or any activated
