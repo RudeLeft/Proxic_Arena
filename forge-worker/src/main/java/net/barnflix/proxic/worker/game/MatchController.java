@@ -6064,19 +6064,15 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
-     * Forge reporting a value it chose or computed.
-     *
-     * A notification, and this slice has nowhere to show it.
-     * Becomes a presentation event when the protocol exists
-     * (§6.49: events are hints, the snapshot is authoritative).
-     */
-    /**
      * Forge is telling this player something — P6-AM.
      *
-     * The result of a coin flip, a die roll, a card looked at.
-     * This used to be a no-op, which meant the game acted on a
-     * flip the player never saw. It goes on this seat's notice
-     * list and travels with the next snapshot.
+     * The result of a coin flip, a die roll, a choice, a name. This
+     * used to be a no-op, which meant the game acted on a flip the
+     * player never saw. Today nothing goes on a notice list: a die roll
+     * tumbles in its own window (host.rolled), any other value becomes a
+     * report window for the other player (ActionReports#valueTold, spec
+     * 0075), and a value with no report window, or the colour a mana
+     * ability made (spec 0092), is only logged.
      */
     @Override
     public void notifyOfValue(

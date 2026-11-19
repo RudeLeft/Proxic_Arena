@@ -67,7 +67,8 @@ class Database private constructor(
             }
         } catch (e: Exception) {
             // The message can carry the host and, in some drivers, the
-            // credentials. It goes to the log, never to a client (§1.26).
+            // credentials, so only the exception's class is logged, and
+            // nothing reaches a client (§1.26).
             log.warn("database health check failed: {}", e.javaClass.simpleName)
             "unreachable"
         }

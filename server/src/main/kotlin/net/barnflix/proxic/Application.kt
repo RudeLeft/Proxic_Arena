@@ -476,8 +476,10 @@ private fun Route.databaseRoutes(
     route("/api") { authRoutes(config, accounts, sessions, throttle, signIns, accountChanges, reach.links) }
 
     // §3.77-§3.82 — the authenticated WebSocket. Outside
-    // /api, beside /ws/system, which stays anonymous
-    // infrastructure (§3.83).
+    // /api, beside /ws/system, the infrastructure socket (§3.83),
+    // which carries no Magic but since the sign-in gate (owner
+    // 2026-10-24, auth/SignedInGate.kt installSignedInGate) also
+    // needs a session.
     //
     // PHASE_05 — presence, invitations and chat ride on this
     // socket rather than a second endpoint (§5.66, and

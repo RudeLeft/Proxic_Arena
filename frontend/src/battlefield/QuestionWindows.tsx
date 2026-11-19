@@ -354,7 +354,7 @@ export interface Common {
   anchor: Box;
   busy: boolean;
   notice: string | null;
-  /** The question's heading ("Choose a target", "Playing for seat 2"). */
+  /** The question's heading ("Choose a target", "Playing for Alice" -- spec 0102: a name, never a seat). */
   heading: string;
   /** The pass button's words, or null when there is no "no". */
   passWord: string | null;

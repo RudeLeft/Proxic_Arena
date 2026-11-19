@@ -1061,8 +1061,11 @@ final class ViewerSnapshot {
         // P6-BD, §6.33 — the PRINTING Forge built this card from: the
         // set and collector number the import resolved, carried as
         // Forge holds it ("M10/242"). Identity, like the name, so only
-        // for a card this viewer may identify (above). A token has no
-        // printing and gets none.
+        // for a card this viewer may identify (above). A token is not
+        // left out: one made from Forge's token database carries its
+        // PaperToken (TokenInfo.getProtoType -> CardFactory.getCard),
+        // so it gets the token edition's code and collector number;
+        // only a card with no edition gets none.
         forge.item.IPaperCard paper = card.getPaperCard();
         if (paper != null && paper.getEdition() != null && !paper.getEdition().isEmpty()) {
             entry.addProperty("printing", paper.getEdition() + "/" + paper.getCollectorNumber());

@@ -1403,7 +1403,8 @@
 }
 /* Spec 0028 — the cascade. Whose it is: a gold edge for yours, red for
    theirs. Its place: a numbered badge (1 resolves next). Its caster: a
-   small picture on the other corner. Pointing at one fades the rest. */
+   small picture on the other corner. Pointing at one lifts its source and
+   targets (bf-lifted, spec 0100 item 9); nothing on the stack fades. */
 .bf-stack-slot {
   transition:
     transform var(--move-ms, 320ms) var(--move-easing, ease),
@@ -1416,9 +1417,6 @@
 .bf-stack-theirs {
   outline: 2px solid #d9534f;
   outline-offset: -1px;
-}
-.bf-stack-faded {
-  opacity: 0.45;
 }
 .bf-stack-tag {
   position: absolute;

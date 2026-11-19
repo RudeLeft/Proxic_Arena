@@ -46,7 +46,7 @@ export const STILL_HOLD_MS = 700;
 export const STILL_FADE_MS = 120;
 /** The gap left between the moved card (with its line) and what it uncovers. */
 const CLEAR_GAP = 14;
-/** The line under the card -- the cost pips (yours), "… is casting a spell" (theirs). */
+/** The line under the card -- the cost pips (yours; theirs has no caption since spec 0097 item 8). */
 const UNDER = 66;
 const SIDE_PAD = 24;
 /** "Aside": a little sideways, as a share of the card's width (the canvas's 50 px of 244). */
@@ -56,7 +56,8 @@ const COVERED_SHARE = 0.2;
 
 /**
  * What the casting card hides: the card itself and the line under it (its
- * cost pips, or the other player's "… is casting a spell" line).
+ * cost pips; the other player's card has had no caption since spec 0097,
+ * item 8, and keeps the same room).
  */
 export function castCoverBox(g: Geometry): Box {
   const card = castingBox(g);

@@ -24,6 +24,16 @@ Usually the wrong file. Send the deck again from Proxic Deck Builder
 (Arena's Decks page has no upload since spec 0022); a renamed decklist
 is not a package.
 
+## `NO_FILE` — "No package was uploaded."
+
+The send arrived with no file in it, or with an empty one
+(`DeckRoutes.kt` `handleImport`, for both the browser's import and the
+Deck Builder's send).
+
+Usually a send cut off before the package was attached, or a package
+file that is 0 bytes on disk. Send the deck again from Proxic Deck
+Builder; if the package file itself is empty, export it again.
+
 ## `NO_DECK_LIST` — no decklist in the package
 
 The archive has no `.txt` at its root.
@@ -132,6 +142,15 @@ images (300 and 200 before spec 0051). A 100-card deck of entirely
 distinct cards is well inside them, so a package past these is not a
 normal export.
 
+## `DECK_TEXT_TOO_LARGE` — the decklist is too big
+
+The decklist `.txt` is over 1 MB (`PackageLimits.kt`
+`MAX_DECK_TEXT_BYTES`; checked in `DeckImporter.kt`). A real 100-card
+decklist is a few kilobytes, so this is not a decklist.
+
+Not produced by Deck Builder. Something replaced or padded the
+decklist; export again.
+
 ## `COMPRESSION_RATIO` — the package expands too much
 
 A real export expands at a ratio of about **1.0001**, because PNGs
@@ -165,6 +184,27 @@ delete it first.
 A deck with any change — one card, one different printing — has a
 different checksum and imports normally.
 
+## `DECK_NAME_TAKEN` — "You already have a deck called ..."
+
+You already have a deck with that name (PHASE_07 §7.65: a player's
+deck names are unique to that player; capitals and surrounding spaces
+do not count, so "Burn" and " burn" clash). Sent for a deck whose name
+you already use, and for a rename on the Decks page to such a name
+(`DeckRoutes.kt` `importAndRespond`, `DeckRenameRoutes.kt`). Another
+player's deck of the same name does not count.
+
+The Deck Builder asks for another name and sends again with it. Or
+rename or delete your existing deck first.
+
+## `INVALID_DECK_NAME` — "A deck name is 1 to 80 characters on one line."
+
+A name you typed (a new name for a send, or a rename) is empty, longer
+than 80 characters, or has a line break or other control character in
+it (`DeckNames.kt` `typed`). A name taken from the package itself is
+never refused: it is shortened instead.
+
+Type a shorter name on one line.
+
 ## `IMPORT_DISABLED`
 
 `DECK_IMPORT_ENABLED=false` on this server. Only importing is off
@@ -173,6 +213,21 @@ sharing and icons still work. The server reads it (default `true`), but no
 compose file passes it through, so on the Compose/Unraid stack it is
 only off if someone added it to the `arena-server` environment; remove
 it there (or set `true`) and Compose Up again.
+
+## `IMPORT_FAILED` — "The package could not be imported." / "The deck could not be stored."
+
+Not a package mistake: the server failed while importing
+(`DeckImporter.kt`). "Could not be imported" is an unexpected error
+anywhere in the import, logged as `import <id> failed unexpectedly`
+with its stack trace; "could not be stored" is the database refusing
+the deck's rows, logged as `persisting deck <id> failed`. Nothing is
+kept from a failed import: the staging folder is cleaned up and the
+deck's rows are rolled back.
+
+Send once more. If it fails again, this is the one case for the
+logs: `docker compose logs arena-server` and look for those lines;
+a database failure there usually means the database is unwell (see
+`FOUNDATION.md`).
 
 ---
 

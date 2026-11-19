@@ -166,9 +166,11 @@ data class DeckDetail(
  * Register the deck API.
  *
  * [importEnabled] implements §2.21. PHASE 2 AMENDMENT 1 turns it ON
- * in production by owner decision, but the switch stays: the
- * endpoint it guards is unauthenticated, and an operator who wants
- * it off should not have to redeploy a different build.
+ * in production by owner decision, but the switch stays: an operator
+ * who wants import off should not have to redeploy a different build.
+ * (When the switch was made the endpoint was unauthenticated; since
+ * PHASE 3 AMENDMENT 1 it needs a session, and the Deck Builder's own
+ * send, deckBuilderRoutes, needs a linked device token.)
  */
 fun Route.deckRoutes(
     config: ServerConfig,

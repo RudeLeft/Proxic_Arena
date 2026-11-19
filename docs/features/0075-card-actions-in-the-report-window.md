@@ -2,7 +2,7 @@
 
 **Status:** Approved 2026-11-12 (owner, by prompt, on the audit canvas "pills-audit-1112", https://claude.ai/artifact/NW5kjRvFMfFneRfrJPzuvL)
 **Released:** in 1.60.0 (CHANGELOG 1.60.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
-**Owner decisions:** bounce **gets a window for the one it happened to**; cycling **a window only when the other player cycles**; the other player's choices and coin flips **get windows, the grey lines go** (dice keep their tumbling-die window); state words (TAPPED, ATTACKING, BLOCKING, TARGET) **stay**; counters and the Ring-bearer become **pictures** in a separate spec with its own canvas (owner: "Phase 11 is going to involve statuses that get added to cards, so we can address this further then").
+**Owner decisions:** bounce **gets a window for the one it happened to**; cycling **a window only when the other player cycles**; the other player's choices and coin flips **get windows, the grey lines go** (dice keep their tumbling-die window); state words (TAPPED, ATTACKING, BLOCKING, TARGET) **stay**; counters and the Ring-bearer become **pictures** in a separate spec with its own canvas (owner: "Phase 11 is going to involve statuses that get added to cards, so we can address this further then"; card statuses are Phase 12 since the owner's renumbering of 2026-11-19).
 
 Follows the owner's standing rule of spec 0074 Amendment 1: card actions are explained only in the report window (the acting player's medallion, "WHO · CARD", one plain sentence, the cards as pictures with where each went), standardized, never as word pills on the table or notices at the top; a window opens only for what the other player does or what happens to you.
 

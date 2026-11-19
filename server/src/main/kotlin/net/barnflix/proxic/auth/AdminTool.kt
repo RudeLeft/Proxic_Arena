@@ -7,13 +7,15 @@ import kotlin.system.exitProcess
 
 // Account administration — PHASE_03 §3.56–§3.64, §3.110, §3.150.
 //
-// The only way an account comes into existence. §3.57 forbids
-// shipping or auto-creating default credentials, and §3.112 forbids
-// an open registration API, so this tool IS the registration path.
+// §3.57 forbids shipping or auto-creating default credentials, and
+// §3.112 forbids an open registration API, so this tool was the
+// registration path. Since spec 0014 an account can also come from an
+// invitation link's sign-up page (InviteRoutes.kt); there is still no
+// open registration.
 //
-// Run in the deployed container:
+// Run in the deployed container, e.g.:
 //
-//   docker compose exec arena-server /app/bin/arena-admin user create
+//   docker compose exec arena-server /app/bin/arena-admin create <username>
 //
 // §3.58 is the rule that shapes it: a password must never appear in
 // command-line arguments, shell history, Compose YAML or Git. So it

@@ -87,10 +87,13 @@ RUN set -eu; cd /forge; \
     done; \
     git diff --stat
 
-# forge-core and forge-game (Strategy A), and forge-ai for two checks:
-# Forge's "can this be paid now?" and each spell's current cost
-# (ComputerUtilMana; PHASE_07 §7.61 B8, owner decision 2026-10-21). forge-gui is Swing-coupled and a browser cannot
-# speak it; forge-ai is not.
+# forge-core and forge-game (Strategy A), and forge-ai for three checks:
+# Forge's "can this be paid now?", each spell's current cost
+# (ComputerUtilMana; PHASE_07 §7.61 B8, owner decision 2026-10-21), and
+# which cards could convoke or improvise a cost
+# (ComputerUtilMana.getConvokeOrImproviseFromList, from MatchController
+# couldConvoke). forge-gui is Swing-coupled and a browser cannot speak it;
+# forge-ai is not.
 RUN cd /forge && mvn -q -B install -DskipTests -pl forge-core,forge-game,forge-ai -am
 
 COPY forge-worker/ /build/forge-worker/

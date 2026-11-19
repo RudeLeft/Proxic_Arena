@@ -237,11 +237,13 @@ object PackageInspector {
      *
      * Java's ZipFile does not expose symlink entries as links, but a
      * ZIP can carry a Unix mode saying so. Rather than trust mode
-     * bits, the importer only ever accepts the two member shapes it
-     * expects — a root `.txt` and a PNG directly inside
-     * `real_cards` — so a symlink
-     * entry is refused by [examine] as an unexpected file regardless
-     * of what its attributes claim.
+     * bits, the importer only ever accepts the member shapes it
+     * expects ([memberKind]) — a root `.txt`, a root `pictures.json`
+     * (spec 0022), a `.png`, `.jpg` or `.jpeg` directly inside
+     * `real_cards`, and a `.jpg` or `.jpeg` directly inside
+     * `art_crops` (spec 0051) — so a symlink entry is refused by
+     * [examine] as an unexpected file regardless of what its
+     * attributes claim.
      */
     private fun isUnsafePath(name: String): Boolean {
         if (name.isEmpty()) return true

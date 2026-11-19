@@ -53,10 +53,12 @@
       <artifactId>forge-core</artifactId>
       <version>${forge.maven.version}</version>
     </dependency>
-    <!-- For two checks: Forge's "can this be paid now?" and each spell's
+    <!-- For three checks: Forge's "can this be paid now?", each spell's
          current cost (ComputerUtilMana canPayManaCost, calculateManaCost,
          in test mode), so the board can dim what cannot be afforded
-         (PHASE_07 §7.61 B8). No computer player is created or used.
+         (PHASE_07 §7.61 B8), and which cards could convoke or
+         improvise a cost (ComputerUtilMana getConvokeOrImproviseFromList,
+         from MatchController couldConvoke). No computer player is created or used.
          Owner decision 2026-10-21; Strategy A's line was forge-gui
          (Swing), and forge-ai has no GUI coupling. -->
     <dependency>

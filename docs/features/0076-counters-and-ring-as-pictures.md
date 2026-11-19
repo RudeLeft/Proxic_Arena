@@ -4,7 +4,7 @@
 **Released:** in 1.61.0 (CHANGELOG 1.61.0; AGENTS.md "Current work"; noted 2026-11-18, a documentation check)
 **Owner decisions:** **A · One badge per kind** (with 4 or more kinds, the extras fold into a grey "··· N" badge); Ring-bearer **gold ring only**; a single counter **shows "1"**.
 
-From the owner's audit (spec 0075: "counters and the Ring-bearer become pictures in a separate spec"). The owner plans Phase 11 to add statuses to cards, so this sets a small badge language that can grow: **a round badge with a picture and a number = something you count; a gold-rimmed square = something the card is.** Colour always comes with a picture, never colour alone.
+From the owner's audit (spec 0075: "counters and the Ring-bearer become pictures in a separate spec"). The owner plans Phase 12 to add statuses to cards (Phase 11 when this was written; renumbered by the owner 2026-11-19), so this sets a small badge language that can grow: **a round badge with a picture and a number = something you count; a gold-rimmed square = something the card is.** Colour always comes with a picture, never colour alone.
 
 ## Why (researched)
 

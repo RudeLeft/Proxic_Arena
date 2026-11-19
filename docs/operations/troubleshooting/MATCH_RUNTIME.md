@@ -72,12 +72,14 @@ A pregame question a player is slow to answer does **not** time out.
 | `SETUP_NOT_READY` | prepare the match again |
 | `LAUNCH_REVALIDATION_FAILED` | a seat's deck or account changed since preparing; that player picks again |
 
-## "No game yet / Host a game" while a match is running
+## "Play a game / Open a room" while a match is running
 
-Fixed 2026-10-20 (build 21d3fa1): a refreshed page lost its room
-mid-match. If it appears on a newer build, the room lookup has
-regressed -- `RoomServiceTest` "a room in a match is still yours, and
-you cannot take another".
+The lobby shows its no-room panel ("Play a game", with an "Open a
+room" button; `LobbyPage.tsx`) to a player whose room is mid-match.
+Fixed 2026-10-20 (build 21d3fa1, when the screen said "No game yet /
+Host a game"): a refreshed page lost its room mid-match. If it appears
+on a newer build, the room lookup has regressed -- `RoomServiceTest`
+"a room in a match is still yours, and you cannot take another".
 
 ## A card picture is missing
 

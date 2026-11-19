@@ -50,7 +50,10 @@ public final class WorkerMain {
     /** Forge's card database, loaded lazily on first use. */
     private static ForgeRuntime runtime;
 
-    /** TEST ONLY -- started with --lab-deal (scripts/lab.py), so START_GAME may carry labDeal. */
+    /**
+     * TEST ONLY -- started with --lab-deal (scripts/lab.py, or the server when
+     * PROXIC_TEST_DEALS=true), so START_GAME may carry labDeal.
+     */
     private static boolean LAB_DEAL;
 
     public static void main(String[] args) throws Exception {
@@ -263,7 +266,8 @@ public final class WorkerMain {
                         built.unresolved.forEach(unresolvedAll::add);
                         // TEST ONLY -- the Mechanics Lab's deal. Accepted only
                         // from a worker started with --lab-deal (the Lab's
-                        // command line; the server's never carries it).
+                        // command line, or the server's when
+                        // PROXIC_TEST_DEALS=true -- spec 0098's test switch).
                         net.barnflix.proxic.worker.game.LabDeal deal =
                                 net.barnflix.proxic.worker.game.LabDeal.read(seat);
                         if (deal != null) {

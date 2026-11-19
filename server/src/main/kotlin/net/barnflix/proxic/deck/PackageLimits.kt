@@ -14,10 +14,12 @@ package net.barnflix.proxic.deck
  * compression ratio 1.0001
  * ```
  *
- * These limits matter more than they otherwise would: PHASE 2
- * AMENDMENT 1 enables import on a public endpoint with no
- * authentication, so they are the only thing bounding a hostile
- * upload. They are not a formality.
+ * These limits matter more than they otherwise would. PHASE 2
+ * AMENDMENT 1 enabled import on a public endpoint with no
+ * authentication; since PHASE 3 AMENDMENT 1 an import needs a
+ * session (or, for the Deck Builder's send, a linked device token),
+ * but any signed-in account may upload, so these are still what
+ * bounds a hostile or careless upload. They are not a formality.
  */
 object PackageLimits {
     /**
