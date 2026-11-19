@@ -173,6 +173,7 @@ const RECORDER = `(() => {
     onCommitFiberUnmount() {},
     onPostCommitFiberRoot() {},
     onCommitFiberRoot(_id, root) {
+      P.lastCommit = performance.now();
       if (!P.walk) return;
       try {
         P.commits.push(walk(root.current));
@@ -238,6 +239,14 @@ interface Row {
   gameScreenPerUpdate: number | null;
   seatPerUpdate: number | null;
   paintsPerSecond?: { acting: number; waiting: number };
+  /**
+   * What repainted, when a page did: each Paint's ms from the moment's
+   * start and the node Chrome names (CI 9d9b399 failed on 1.5 a second
+   * with nothing saying what painted), and the looks still playing on
+   * each page as the moment began.
+   */
+  painters?: { acting: string[]; waiting: string[] };
+  playing?: { acting: string[]; waiting: string[] };
 }
 
 /**
@@ -271,6 +280,9 @@ async function measure(
         path: traceFile,
         categories: ["devtools.timeline", ...(TRACE ? TRACE_CATEGORIES : [])],
       });
+  const playing = paints
+    ? { acting: await playingNow(page), waiting: await playingNow(paints.page) }
+    : undefined;
   if (PROFILE) {
     await main.cdp.send("Profiler.enable");
     await main.cdp.send("Profiler.setSamplingInterval", { interval: 250 });
@@ -283,6 +295,7 @@ async function measure(
     writeFileSync(join(OUT, `${cpu}x-${scene}.cpuprofile`), JSON.stringify(profile));
   }
   let painted: { acting: number; waiting: number } | undefined;
+  let painters: { acting: string[]; waiting: string[] } | undefined;
   const m1 = await scriptMs(main);
   const got = await page.evaluate((mk) => {
     const P = (window as unknown as { __speed: { frames: number[]; commits: number[][] } }).__speed;
@@ -297,13 +310,26 @@ async function measure(
   if (paints) {
     await page.context().browser()!.stopTracing();
     const trace = JSON.parse(readFileSync(traceFile, "utf8")) as {
-      traceEvents: { name: string; args?: { data?: { frame?: string } } }[];
+      traceEvents: {
+        name: string;
+        ts?: number;
+        args?: { data?: { frame?: string; nodeName?: string } };
+      }[];
     };
     if (!TRACE) rmSync(traceFile, { force: true });
-    const count = (frame: string) =>
-      trace.traceEvents.filter((e) => e.name === "Paint" && e.args?.data?.frame === frame).length;
+    const of = (frame: string) =>
+      trace.traceEvents.filter((e) => e.name === "Paint" && e.args?.data?.frame === frame);
     const secs = got.span / 1000;
-    painted = { acting: r1(count(main.frame) / secs), waiting: r1(count(paints.frame) / secs) };
+    painted = {
+      acting: r1(of(main.frame).length / secs),
+      waiting: r1(of(paints.frame).length / secs),
+    };
+    const t0 = Math.min(...trace.traceEvents.flatMap((e) => (e.ts ? [e.ts] : [])));
+    const who = (frame: string) =>
+      of(frame).map(
+        (e) => `${Math.round(((e.ts ?? t0) - t0) / 1000)} ms ${e.args?.data?.nodeName ?? "?"}`,
+      );
+    painters = { acting: who(main.frame), waiting: who(paints.frame) };
   }
   // The moment as it ends, once it is timed: a screenshot stalls the
   // page's frames (about 100 ms headless), so none is taken while timing.
@@ -344,7 +370,14 @@ async function measure(
     gameScreenPerUpdate: updates > 0 ? r1(gameScreen / updates) : null,
     seatPerUpdate: updates > 0 ? r1(seats / updates) : null,
     ...(painted ? { paintsPerSecond: painted } : {}),
+    ...(painters && (painters.acting.length || painters.waiting.length) ? { painters } : {}),
+    ...(playing && (playing.acting.length || playing.waiting.length) ? { playing } : {}),
   };
+  if (row.painters || row.playing)
+    console.log(
+      `[speed ${cpu}x] ${scene}: painted ${JSON.stringify(row.painters ?? {})}; ` +
+        `playing at the start ${JSON.stringify(row.playing ?? {})}`,
+    );
   console.log(
     `[speed ${cpu}x] ${scene}: frames p50 ${row.frames.p50} p95 ${row.frames.p95} worst ${row.frames.worst} (${row.frames.n}); ` +
       `JS ${row.scriptMsPerSecond} ms/s (task ${row.taskMsPerSecond}); renders ${row.rendersPerSecond}/s; ` +
@@ -353,6 +386,25 @@ async function measure(
       `; table ${board}`,
   );
   return row;
+}
+
+/** The looks playing to an end on [page] now (running, not looping): name and element. */
+function playingNow(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    document
+      .getAnimations()
+      .filter((a) => {
+        const timing = a.effect?.getComputedTiming();
+        return a.playState === "running" && timing?.iterations !== Infinity;
+      })
+      .map((a) => {
+        const name =
+          (a as unknown as { animationName?: string }).animationName || a.id || a.constructor.name;
+        const target = (a.effect as KeyframeEffect | null)?.target;
+        const cls = target ? String(target.getAttribute("class") ?? target.tagName) : "?";
+        return `${name} on ${cls.slice(0, 60)}`;
+      }),
+  );
 }
 
 async function snap(page: Page, name: string) {
@@ -459,6 +511,41 @@ const over = (page: Page) =>
     .textContent({ timeout: 200 })
     .then((t) => (t ?? "").trim().length > 0)
     .catch(() => false);
+
+/**
+ * Waits (at most 15 s) until every page has settled: nothing on its stack,
+ * no look playing to an end (a looping one may go on: the idle count is
+ * what judges those), and no React commit for 2 s -- longer than any board
+ * the game screen holds (HOLD_MS, SWING_HOLD_MS: 1.5 s), so a held board
+ * cannot be drawn mid-moment. The waiting player's page draws the other
+ * player's spell later than the caster's own page does; idle measured from
+ * a fixed 1.5 s after the host's move could catch its last frames (CI
+ * 9d9b399, run 44489458035: the host had cast a spell that turn). Not
+ * settled in time: idle is measured anyway, and its row says what played.
+ */
+async function settle(pages: Page[]) {
+  const quiet = (page: Page) =>
+    page
+      .evaluate(() => {
+        const P = (window as unknown as { __speed: { lastCommit?: number } }).__speed;
+        const sinceCommit = performance.now() - (P.lastCommit ?? 0);
+        const stack = document.querySelectorAll('button[data-zone="stack"]').length;
+        const playing = document.getAnimations().some((a) => {
+          const timing = a.effect?.getComputedTiming();
+          return a.playState === "running" && timing?.iterations !== Infinity;
+        });
+        return sinceCommit >= 2000 && stack === 0 && !playing;
+      })
+      .catch(() => false);
+  const end = Date.now() + 15_000;
+  while (Date.now() < end) {
+    let all = true;
+    for (const page of pages) if (!(await quiet(page))) all = false;
+    if (all) return;
+    await pages[0]!.waitForTimeout(250);
+  }
+  console.log("[speed] idle: the pages had not settled in 15 s; measured anyway");
+}
 
 /** The host's own move, with nothing in combat. */
 async function hostsMove(host: Page) {
@@ -693,6 +780,10 @@ async function playAndTime(
         if ((await spell.count()) > 0) {
           await host.mouse.move(960, 500);
           await host.waitForTimeout(1500);
+          // Idle is a settled table: both pages done drawing what came last
+          // (CI 9d9b399: 1.5 repaints a second on the waiting page, after a
+          // spell the host had just cast -- see settle()).
+          await settle([host, guest]);
           rows.push(
             await measure("idle", cpu, hostProbe, () => host.waitForTimeout(6000), guestProbe),
           );

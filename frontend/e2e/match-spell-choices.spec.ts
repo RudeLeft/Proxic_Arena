@@ -46,23 +46,46 @@ test.describe.configure({ timeout: 1_200_000 });
 const pkg = join(process.cwd(), "..", "Test Deck", "spell-choices-deck.zip");
 const SHOTS = process.env.PROXIC_SHOTS ?? "test-results/seen";
 
-/** On every frame from now: each beam that swings (its line's target as it swings), and each report said. */
+/**
+ * On every frame from now: each beam that swings (its line's target as it
+ * swings, and the frame), each report said, and -- once a beam has swung --
+ * the first frame its line is seen at rest on that new target (the same
+ * element, on the board or fading out as the spell goes): the swing landed.
+ * Cut short, the line fades out mid-swing (its swing still in it).
+ */
 async function recorder(page: Page) {
   await page.evaluate(() => {
     const w = window as unknown as {
-      __swings: { to: string; at: string; key: string }[];
+      __swings: { to: string; at: string; key: string; f: number }[];
+      __landed: { to: string; key: string; f: number }[];
       __said: string[];
     };
     w.__swings = [];
+    w.__landed = [];
     w.__said = [];
+    let frame = 0;
+    const swungTo = new Map<string, string>();
     const tick = () => {
+      frame += 1;
       for (const s of document.querySelectorAll<SVGGElement>("[data-swing]")) {
         const line = s.closest<SVGGElement>("[data-line]");
-        w.__swings.push({
-          to: line?.dataset.to ?? "",
-          at: s.dataset.swingAt ?? "",
-          key: line?.dataset.key ?? "",
-        });
+        const key = line?.dataset.key ?? "";
+        const to = line?.dataset.to ?? "";
+        w.__swings.push({ to, at: s.dataset.swingAt ?? "", key, f: frame });
+        if (key) swungTo.set(key, to);
+      }
+      // On the board, or fading out with the spell gone: when the Bolt's
+      // resolution waits behind the held board, the swing's last frame
+      // releases it, and the beam at rest may only be seen leaving.
+      for (const line of document.querySelectorAll<SVGGElement>(
+        "[data-line], [data-line-leaving]",
+      )) {
+        const key = line.dataset.key ?? line.getAttribute("data-line-leaving") ?? "";
+        const to = swungTo.get(key);
+        if (to === undefined || to !== line.dataset.to) continue;
+        if (line.querySelector("[data-swing]")) continue;
+        if (w.__landed.some((l) => l.key === key)) continue;
+        w.__landed.push({ to, key, f: frame });
       }
       for (const r of document.querySelectorAll(".gs-reveal")) {
         const text = (r.textContent ?? "").replace(/\s+/g, " ").trim();
@@ -75,7 +98,13 @@ async function recorder(page: Page) {
 }
 const swingsOf = (page: Page) =>
   page.evaluate(
-    () => (window as unknown as { __swings: { to: string; at: string; key: string }[] }).__swings,
+    () =>
+      (window as unknown as { __swings: { to: string; at: string; key: string; f: number }[] })
+        .__swings,
+  );
+const landedOf = (page: Page) =>
+  page.evaluate(
+    () => (window as unknown as { __landed: { to: string; key: string; f: number }[] }).__landed,
   );
 const saidOf = (page: Page) =>
   page.evaluate(() => (window as unknown as { __said: string[] }).__said);
@@ -218,7 +247,7 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
         // The host, the caster of the Bolt: its report window (step 2), as
         // the recorder saw it on any frame.
         const told = page.locator(".gs-reveal").filter({ hasText: "changed your Lightning Bolt" });
-        const heard =
+        const heard: string | undefined =
           isHost && skiteClicked && !swung
             ? (await saidOf(host)).find((s) => s.includes("changed your Lightning Bolt"))
             : undefined;
@@ -231,7 +260,10 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
             .catch(() => undefined);
           if ((await told.count()) > 0)
             await host.screenshot({ path: join(SHOTS, "spell-choices-retarget.png") });
-          swung = { said: heard, swings: await swingsOf(host), guestSaid: await saidOf(guest) };
+          // The swing's frames, and whether it landed, are read when the
+          // game is done (the recorder keeps every frame): the game goes on
+          // at once, so the board's hold is what keeps the Bolt on screen.
+          swung = { said: heard, guestSaid: await saidOf(guest) };
           if ((await told.count()) > 0) await clickNow(told.locator(".gs-reveal-close"));
           continue;
         }
@@ -504,6 +536,10 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
       }
     }
 
+    if (swung) {
+      swung["swings"] = await swingsOf(host);
+      swung["landed"] = await landedOf(host);
+    }
     console.log(`step 1 (Arc Lightning, the host's page): ${JSON.stringify(arc)}`);
     console.log(`step 2 (Spellskite, the host's page): ${JSON.stringify(swung)}`);
     console.log(`step 3 (Reanimate, the host's page): ${JSON.stringify(reanimate)}`);
@@ -519,15 +555,31 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
 
     expect(swung, "the host was told its Bolt's target changed").not.toBeNull();
     expect(swung!["said"]).toContain("changed your Lightning Bolt's target to Spellskite.");
-    const swings = swung!["swings"] as { to: string; key: string; at: string }[];
+    const swings = swung!["swings"] as { to: string; key: string; at: string; f: number }[];
     expect(swings.length, "the Bolt's beam swung (frames drawn mid-swing)").toBeGreaterThan(0);
-    // The host could not answer: the board was held until the swing played
-    // through, the Bolt still on the stack (owner 2026-11-18).
     expect(
-      Math.max(...swings.map((s) => Number(s.at))),
-      "the swing played through before the Bolt resolved",
-    ).toBeGreaterThan(0.85);
-    expect(new Set(swings.map((s) => s.key)).size, "one beam element throughout").toBe(1);
+      swings.some((s) => Number(s.at) > 0 && Number(s.at) < 1),
+      "frames were drawn part-way through the swing",
+    ).toBe(true);
+    // The host could not answer: the board was held until the swing played
+    // through, the Bolt still on the stack (owner 2026-11-18). Seen as the
+    // beam at rest on Spellskite -- the same line, on the board or fading
+    // out as the Bolt resolves -- after the last swing frame. Not the largest
+    // progress sampled: a swing that lands draws its resting beam on the
+    // same frame (progress 1 is never drawn), so its last swing frame is
+    // one frame short of the end, and on CI's slower or stalled frames that
+    // was 0.83 for a swing that did land (CI 9d9b399, run 44489458035).
+    // Cut short (the Bolt resolving first), the line fades out mid-swing.
+    // A line that goes keeps its last look as it fades (no key then): only
+    // the frames drawn on the board count.
+    const drawn = swings.filter((s) => s.key !== "");
+    const landed = swung!["landed"] as { to: string; key: string; f: number }[];
+    const last = drawn[drawn.length - 1]!;
+    expect(
+      landed.filter((l) => l.key === last.key && l.to === last.to && l.f > last.f),
+      "the swing played through before the Bolt resolved (its beam came to rest on Spellskite)",
+    ).toHaveLength(1);
+    expect(new Set(drawn.map((s) => s.key)).size, "one beam element throughout").toBe(1);
     const guestSaid = swung!["guestSaid"] as string[];
     expect(
       guestSaid.filter((s) => s.includes("changed")),
