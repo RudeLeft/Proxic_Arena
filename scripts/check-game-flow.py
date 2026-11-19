@@ -35,9 +35,10 @@ needs to play each moment, never inferred:
               beside them, Bob's Savannah Lions); Bob's Wrath of God: both
               seats were told survived {Bears, "umbra", by the Umbra}, those
               Bears still there (the others and the Lions gone), the Umbra ->
-              graveyard (destroyed); Bob's report "Hyena Umbra was destroyed
-              instead of Alice's Grizzly Bears." with the Umbra's picture;
-              Alice is told nothing
+              graveyard (destroyed); NO report window for either seat (owner
+              2026-11-18, spec 0101's rule: the shield on the table shows
+              it) -- no report from the Umbra, with its picture, or saying
+              it was "destroyed instead of" the Bears
   krenko      F-0089-E: Krenko, Mob Boss doubling: an activation that makes
               more than 8 Goblins at once -- both seats told every one in the
               same round (nowhere -> battlefield, each its own new id on the
@@ -517,18 +518,15 @@ def umbra():
                 and m["from"]["zone"] == "battlefield" and m["to"]["zone"] == "graveyard"]
         if not gone or gone[0].get("why") != "destroyed":
             problems.append(f"seat {seat}: the Umbra is destroyed, to the graveyard: {gone}")
-        reports = [a for a in w.actions(seat) if "instead of" in (a.get("said") or "")]
+        # Owner 2026-11-18 (spec 0101's rule for every survive look): no umbra report window, either seat.
+        reports = [a for a in w.actions(seat) if "instead of" in (a.get("said") or "")
+                   or a.get("source") == "Hyena Umbra"
+                   or any(c.get("name") == "Hyena Umbra" for c in a.get("cards") or [])]
         found[f"reports{seat}"] = reports
-        if seat == 1 and reports:
-            problems.append(f"Alice is not told of her own Umbra: {reports}")
-        if seat == 2:
-            if len(reports) != 1 or reports[0].get("said") != "Hyena Umbra was destroyed instead of Alice's Grizzly Bears.":
-                problems.append(f"Bob's report says the Umbra was destroyed instead: {reports}")
-            elif (reports[0].get("cards") or [{}])[0].get("name") != "Hyena Umbra" \
-                    or reports[0]["cards"][0].get("to") != "graveyard" or reports[0].get("by") != 1:
-                problems.append(f"Bob's report shows Alice's Hyena Umbra, to the graveyard: {reports[0]}")
+        if reports:
+            problems.append(f"seat {seat}: no report window for the umbra: {reports}")
     return result(problems, "Hyena Umbra: survived 'umbra' by the Umbra, the Bears stay, the Umbra destroyed; "
-                            "Bob's report", found)
+                            "no report window for either seat", found)
 
 
 # --- F-0089-E ---------------------------------------------------------------------------------

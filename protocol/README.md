@@ -824,18 +824,16 @@ a dungeon (Player#getCompletedDungeons grew), to the other player only:
 `marks` [{kind: "dungeon", dungeon: "Tomb of Annihilation"}] (its map is the
 picture).
 
-Spec 0089 adds two more. When a combat phase begins and the turn has had one
+Spec 0089 adds one more. When a combat phase begins and the turn has had one
 already (Forge's PhaseHandler#getNumCombat), to every player but the one who
 played the card that gave it (0089 Amendment 1): "Extra combat: Alice attacks
 again." to Bob (a player given a combat or turn by someone else reads "you
 attack again." / "your turn again."), `source`
 the card whose AddPhase effect adding a combat resolved for that player,
 newest first (Aurelia, the Warleader; Relentless Assault), that card in
-`cards` where it is now. When an Aura's umbra armor is destroyed instead of
-its creature (the replacement Forge chose, its own keyword record), to every
-player but the Aura's controller: "Hyena Umbra was destroyed instead of
-Alice's Grizzly Bears." ("... of your Grizzly Bears." to the creature's
-controller), `source` the Aura, the Aura in `cards` with `to` "graveyard".
+`cards` where it is now. An Aura's umbra armor destroyed instead of its
+creature is told as `survived` "umbra" only, with no report (its spec 0089
+report was removed 2026-11-18, owner: no survive look gets a report window).
 
 Values Forge tells a player (its notifyOfValue) are no notice since spec
 0075: a die roll is `rolls` (its tumbling window, on both boards), a

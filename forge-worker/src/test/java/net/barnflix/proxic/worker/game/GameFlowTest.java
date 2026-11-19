@@ -14,7 +14,8 @@ import java.util.List;
 /**
  * Spec 0089 -- an extra combat's report (F-0089-C) and an umbra destroyed
  * instead of its creature (F-0089-D): who is told, in their words, and the
- * survivor the page draws the shield for. The games themselves are
+ * survivor the page draws the shield for (the umbra has no report window
+ * since 2026-11-18, owner). The games themselves are
  * scripts/check-game-flow.py (Aurelia, Relentless Assault; Hyena Umbra and
  * Wrath of God), from both seats.
  */
@@ -40,18 +41,18 @@ class GameFlowTest {
     }
 
     @Test
-    void anUmbraDestroyedInsteadIsToldToTheOtherPlayerOnly() {
-        // F-0089-D: Alice's Hyena Umbra saves her Bears from Bob's Wrath -- Bob's window.
-        assertTrue(ActionReports.tells(ActionReports.Kind.UMBRA, BOB, ALICE, ALICE, ALICE));
-        assertFalse(ActionReports.tells(ActionReports.Kind.UMBRA, ALICE, ALICE, ALICE, ALICE));
-    }
-
-    @Test
-    void theUmbraSentenceIsTheCanvasOne() {
-        assertEquals("Hyena Umbra was destroyed instead of Alice's Grizzly Bears.",
-                ActionReports.umbraWords("Hyena Umbra", "Alice", "Grizzly Bears"));
-        assertEquals("Hyena Umbra was destroyed instead of your Grizzly Bears.",
-                ActionReports.umbraWords("Hyena Umbra", null, "Grizzly Bears"));
+    void anUmbraDestroyedInsteadHasNoReportWindow() {
+        // Owner 2026-11-18 (spec 0101's rule for every survive look): the umbra's
+        // shield on the table shows it; no report window for either player. The
+        // game itself (no "instead of" report to either seat) is
+        // scripts/check-game-flow.py's umbra scenario.
+        for (ActionReports.Kind kind : ActionReports.Kind.values()) {
+            assertFalse(kind.name().contains("UMBRA"), "a report kind for the umbra: " + kind);
+        }
+        for (java.lang.reflect.Method method : ActionReports.class.getDeclaredMethods()) {
+            assertFalse(method.getName().toLowerCase(java.util.Locale.ROOT).contains("umbra"),
+                    "ActionReports makes an umbra report: " + method.getName());
+        }
     }
 
     @Test

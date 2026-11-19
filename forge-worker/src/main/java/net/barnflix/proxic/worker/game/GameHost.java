@@ -1282,15 +1282,12 @@ public final class GameHost {
             return;
         }
         // Spec 0089 (Q4 B) -- umbra armor: the Aura is destroyed instead of
-        // its creature. Told as a survivor (the page's shield), and to the
-        // other player as a report (ActionReports#umbraSaved).
+        // its creature. Told as a survivor only (the page's shield); no
+        // report window (spec 0101's rule for every survive look, owner
+        // 2026-11-18).
         forge.game.card.Card[] umbra = Survivors.umbraSave(chosen);
         if (umbra != null) {
             survived.add(new Survivors.Survived(umbra[1].getId(), "umbra", umbra[0].getId()));
-            ActionReports reports = actions();
-            if (reports != null) {
-                reports.umbraSaved(umbra[0], umbra[1]);
-            }
             return;
         }
         // Spec 0101, row 3 -- a shield counter removed instead of the card being destroyed.

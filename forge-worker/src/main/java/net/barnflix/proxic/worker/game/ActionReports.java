@@ -100,9 +100,6 @@ final class ActionReports {
          * (Teferi's Protection), as Forge has it.
          */
         boolean lifeHeld;
-        /** Spec 0089 (Q4 B) -- the creature an umbra saved, and who controlled it then. */
-        String savedName;
-        Player savedBy;
         /**
          * Spec 0097, item 3 -- a fizzle that is a trigger its controller
          * could not pay for: the mana it cost ("{1}"); null for a fizzled spell.
@@ -162,8 +159,6 @@ final class ActionReports {
          * (0089 Amendment 1).
          */
         EXTRA_COMBAT,
-        /** Spec 0089 (Q4 B) -- an Aura's umbra armor was destroyed instead of its creature: told to the other player. */
-        UMBRA,
         /**
          * Spec 0097, item 4 -- a player restarted the game (Karn Liberated):
          * told to the other player only, with the card that did it.
@@ -293,10 +288,6 @@ final class ActionReports {
             }
             if (event instanceof forge.game.event.GameEventCardChangeZone moved) {
                 noteResolving();
-                // Spec 0089 (Q4 B) -- the umbra destroyed instead has gone.
-                if (moved.card() != null) {
-                    umbraGone(moved.card().getId());
-                }
                 if (resolving != null && moved.from() != null && moved.to() != null) {
                     Card card = game.findById(moved.card().getId());
                     if (card != null) {
@@ -1129,44 +1120,6 @@ final class ActionReports {
         return actor + " ended the turn" + (spells ? ": the spells on the stack were exiled." : ".");
     }
 
-    /** Spec 0089 (Q4 B) -- umbras chosen to be destroyed instead, not yet gone: aura id -> {aura, creature}. */
-    private final java.util.Map<Integer, Card[]> umbras = new java.util.LinkedHashMap<>();
-
-    /**
-     * Spec 0089 (Q4 B) -- Forge chose [aura]'s umbra armor to replace
-     * [creature] being destroyed (GameHost#replacementChosen): told once the
-     * Aura has gone ("Hyena Umbra was destroyed instead of Alice's Grizzly
-     * Bears.", to the other player), with the Aura's picture where it went.
-     */
-    void umbraSaved(Card aura, Card creature) {
-        if (aura != null && creature != null) {
-            umbras.put(aura.getId(), new Card[] {aura, creature});
-        }
-    }
-
-    private void umbraGone(int id) {
-        Card[] saved = umbras.remove(id);
-        if (saved == null) {
-            return;
-        }
-        Card was = saved[0];
-        Card aura = game.findById(id);
-        Card card = aura != null ? aura : was;
-        Player actor = was.getController();
-        ZoneType zone = card.getZone() == null ? ZoneType.Graveyard : card.getZone().getZoneType();
-        List<Move> shown = new ArrayList<>();
-        shown.add(new Move(card.getId(), card.getOwner(), ZoneType.Battlefield, zone, false));
-        java.util.Map<Integer, String> where = new java.util.HashMap<>();
-        where.put(card.getId(), whereIs(card.getId()));
-        Report report = new Report(keys.incrementAndGet(), actor, was.getName(), Kind.UMBRA, actor, 1, shown, where,
-                false, -1, 0);
-        report.chooser = actor;
-        report.savedName = saved[1].getName();
-        report.savedBy = saved[1].getController();
-        report.cards.put(card.getId(), card);
-        tell(report);
-    }
-
     /** Spec 0086 (8) -- how many dungeons each player had completed, as last seen. */
     private final java.util.Map<Player, Integer> dungeonsDone = new java.util.HashMap<>();
 
@@ -1816,10 +1769,8 @@ final class ActionReports {
             // Spec 0086 (10 B), the canvas's words.
             case EXTRA_TURN -> extraTurnWords(r.actor == w.reader ? null : r.actor.getName());
             case DUNGEON -> who + " completed " + r.source + ".";
-            // Spec 0089 (Q3 A, Q4 B), the canvas's words.
+            // Spec 0089 (Q3 A), the canvas's words.
             case EXTRA_COMBAT -> extraCombatWords(r.actor == w.reader ? null : r.actor.getName());
-            case UMBRA -> umbraWords(r.source,
-                    r.savedBy == w.reader ? null : (r.savedBy == null ? r.actor : r.savedBy).getName(), r.savedName);
             // Spec 0097, item 4, the canvas's words.
             case RESTART -> restartWords(r.actor == w.reader ? null : r.actor.getName(), r.count);
             // Spec 0100, item 8, the spec's words.
@@ -1884,15 +1835,6 @@ final class ActionReports {
         return "Extra combat: " + (player == null ? "you attack" : player + " attacks") + " again.";
     }
 
-    /**
-     * Spec 0089 (Q4 B) -- "Hyena Umbra was destroyed instead of Alice's
-     * Grizzly Bears." ([controller] null: the reader's own creature).
-     */
-    static String umbraWords(String umbra, String controller, String creature) {
-        return umbra + " was destroyed instead of " + (controller == null ? "your" : controller + "'s") + " "
-                + creature + ".";
-    }
-
     /** Spec 0100, item 8 -- a new target in the reader's words: "you", "Bob", "Spellskite". */
     private static String targetWords(Object target, Words w) {
         if (target instanceof Player p) {
@@ -1947,8 +1889,6 @@ final class ActionReports {
             case DUNGEON -> reader != actor;
             // Spec 0089 (Q3 A), Amendment 1 (owner 2026-11-15): all but whoever played the card.
             case EXTRA_COMBAT -> reader != chooser;
-            // Spec 0089 (Q4 B): an umbra destroyed instead is told to the other player.
-            case UMBRA -> reader != actor;
             // Spec 0097, item 4 (owner): a restart is told to the other player only.
             case RESTART -> reader != actor;
             // Spec 0100, item 8 (owner): the changed spell's controller, never the one who changed it.
