@@ -44,6 +44,13 @@ You open your Burn deck in the Deck Depot.
   ids are checked by the one helper everywhere; the five lobby style
   rules left over from 0006 go.
 
+*As of 2026-11-18 (a documentation check):* since spec 0022 the Deck
+Depot has no import box: decks arrive from the Deck Builder, and the
+server's answer ("You already have this deck", the refusals) goes back to
+it, so the import headings above no longer appear on the Depot page (code:
+frontend/src/DecksPage.tsx, its "Decks come from the Proxic Deck Builder"
+panel; server/src/main/kotlin/net/barnflix/proxic/deck/DeckBuilderRoutes.kt).
+
 ## Scope
 
 In: the Deck Depot page and the deck picture route.

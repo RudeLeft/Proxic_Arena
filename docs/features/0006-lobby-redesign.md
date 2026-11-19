@@ -49,6 +49,14 @@ closed by default; clicking opens the list. The count reads "2 online".
   seat**, sit together at the bottom right of the room, quieter than the
   steps.
 
+*As of 2026-11-18 (a documentation check):* spec 0016 changed the room's
+words: your own seat has no "· you, host" (only the other player's
+"· host" shows), there is no "Your room"/"Your seat" label, and the guest
+never sees "The host starts the game": their box says what the start
+waits for ("Waiting for a second player", "Waiting for you to be ready",
+"Waiting for Pat to be ready") and "Waiting for the host" once both are
+ready (code: frontend/src/LobbyPage.tsx, `waitingFor`).
+
 **No room yet.** The main area offers "Open a room" (with the optional
 name), above the other rooms.
 
@@ -56,6 +64,13 @@ name), above the other rooms.
 ("Cole · waiting for a player"), "Closes in 2h" near its end; "Join by
 invitation" in the heading. An invitation to a room shows Accept on its
 line, as today.
+
+*As of 2026-11-18 (a documentation check):* since spec 0016 each other
+room is a card with its seats and a coloured status line ("1 seat open",
+"Waiting on Pat's answer", "Choosing decks"...), not one line; "Join by
+invitation" is gone, and an invitation shows Accept and Decline (code:
+frontend/src/lobbyView.ts, `roomLine`; frontend/src/LobbyPage.tsx,
+`RoomCard`).
 
 **Chat.** Its own column, newest at the bottom, the box at the bottom,
 nothing written under it. Empty: "Nothing yet." On a phone, chat is

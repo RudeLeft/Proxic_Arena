@@ -310,8 +310,10 @@ jobs:
           # Longest first (measured in CI, 2026-11-05), so the long ones
           # start at once instead of last: the job used to end with one
           # scenario running alone for two minutes. Dealt round-robin, so
-          # each machine gets one of the longest. Every scenario is in this
-          # list exactly once; a new one goes anywhere in it.
+          # each machine gets one of the longest. Every scenario CI plays is in
+          # this list exactly once; a new one goes anywhere in it. (Four older
+          # scenario scripts are not here and run only by hand: check-card-owner,
+          # check-hidden-information, check-semantic-choices, check-x-announcement.)
           printf '%s\n' \
               cost-kinds you-choose who-did-it card-actions numbers card-trays surveil sacrifice \
               many-triggers what-happened combat-choices stops blocks shapes modes \

@@ -96,7 +96,7 @@ Forge's `CardView#canBeShownTo` lets see it, below) and `knownTop` (spec
 worker from that player's own answers like `SeenHands`, sent to the owner
 alone, cleared by a shuffle, below). A library card is named only where Forge shows it to one player:
 the options of a search or a scry (sent only to the player asked), a
-reveal notice (below), and an `action` report, which names a card going
+reveal tray (below), and an `action` report, which names a card going
 to a library only to a reader who owns it or saw it revealed (Goblin
 Ringleader's revealed cards going to the bottom, below). A searched card
 is followed by id from the library to its destination (P6-H, P6-K).
@@ -146,9 +146,11 @@ Checked by `TableLinksTest` and `check-hidden-tops.py` (whose
 
 When Forge reveals cards to a player ("look at the top card",
 "reveal your hand", a tutor's reveal) the worker turns Forge's own
-`reveal` call into a **notice for that player only**, in Forge's
+`reveal` call into a **`reveal` tray for that player only** (the cards
+face up, never a grey notice since spec 0075; spec 0097, item 9: a reveal
+with no tray, before a game has begun, is only logged), in Forge's
 wording ("Looking at your library: ...", "Looking at RudeLeft's hand:
-Plains"). Delver of Secrets' look reaches its controller before the
+Plains"; `MatchController.java`, `tellRevealed`). Delver of Secrets' look reaches its controller before the
 "Reveal?" question (P6-J). How a reveal is drawn is Phase 7's.
 
 **Who did it (PHASE_09 Amendment 12).** When a spell or ability

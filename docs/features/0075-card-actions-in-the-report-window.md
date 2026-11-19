@@ -8,7 +8,7 @@ Follows the owner's standing rule of spec 0074 Amendment 1: card actions are exp
 
 ## Why (researched, the audit)
 
-- **"Cycled" pill** (at ed85a2600: `fromSnapshot.ts` `graves` and `Board.tsx` `tagGrave`, since removed; `motion.ts` graveTagFrames; word from `Moves.graveReason`) and the **"GAME · Cycled: …" notice** (at ed85a2600: `GameHost.tellGraveyards`, `Moves.toldByOwner`, since removed; after 0074 the only one it still sends).
+- **"Cycled" pill** (at ed85a2600: `fromSnapshot.ts` `graves`, `Board.tsx` `tagGrave` and `motion.ts` `graveTagFrames`, all since removed; word from `Moves.graveReason`) and the **"GAME · Cycled: …" notice** (at ed85a2600: `GameHost.tellGraveyards`, `Moves.toldByOwner`, since removed; after 0074 the only one it still sends).
 - **"Back to your hand", "On top of / On the bottom of / Shuffled into … library" pills** after a bounce from the table or the stack (`Board.tsx` at ed85a2600: returnTag, since removed; drawn by `markReturn`). `ActionReports`' RETURN kind (0074) covers only cards leaving a graveyard or exile.
 - **Forge's `notifyOfValue` notices** (`MatchController.notifyOfValue`): "Voice of All: Bob chose white", coin flips, "You rolled 4" (the die already tumbles in its own window).
 - **Leftover "Looking at …" / "There are no cards in Bob's hand."** (`tellRevealed`); the page hides some by matching names (`GameScreen.tsx` `useGameMessages`), the empty-hand case gets through.

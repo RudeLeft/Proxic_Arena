@@ -17,6 +17,7 @@ Phase 10 A-22, from the deep dive "Phase 10 graphical gaps.md" (2026-11-13), ite
    - Covered: hexproof, shroud, protection (in its colour or colours), ward, and keywords gained until end of turn (trample, haste, lifelink, first strike, deathtouch, vigilance, menace, flying beside its hover).
    - The mark shrinks away when the ability ends.
    - Abilities printed on the card are not marked; they are in the close-up. The exception is hexproof, shroud, protection and ward, which are marked whether printed or gained, because they decide what can be targeted. Indestructible keeps 0080's hexagon.
+     *As of 2026-11-18 (a documentation check): since spec 0101 (item 3) printed first strike, double strike, deathtouch, trample, menace and lifelink are also marked, but only during combat, on the attackers and the creatures offered as blockers; flying is still left out (code: frontend/src/battlefield/marks.tsx, `cardMarks` and `COMBAT`).*
    - Heroic Intervention on three creatures plays on all three at once.
 2. **Fold order (owner).** When marks don't fit (a small attacking card fits a counter plus three), gained keywords fold into the "··· N" badge first. Hexproof, shroud, protection, ward and indestructible never fold before them.
 3. **What a card is holding (4 A).**

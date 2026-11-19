@@ -16,6 +16,12 @@ corner icons wait for the board; everything else as in the demo
    "Loading…" with a spinner. The sentence "Both decks are being
    checked, so a card that can't be played turns up now and not
    mid-game." is gone, for both players.
+
+   *As of 2026-11-18 (a documentation check):* since spec 0016 (item 5)
+   both players' boxes read "Checking both decks…" with the spinner, not
+   "Loading…", from the moment the host presses Start (code:
+   frontend/src/LobbyPage.tsx, the "3 · Start" step's `pa-start-loading`
+   box).
 3. **A clean loading screen (G3).** Until the battlefield has drawn,
    the gear and chat icons are not shown. The loading picture and its
    words are unchanged.

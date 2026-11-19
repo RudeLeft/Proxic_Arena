@@ -40,6 +40,13 @@ Out (and why): email password reset (§3.115 stays: an administrator
 resets passwords); open sign-up (still none); changing an account's email
 (no email is kept on the account).
 
+*As of 2026-11-18 (a documentation check):* spec 0026 changed both: an
+account now keeps an email address (an invited account takes its
+invitation's), the player or an administrator can change it, and a
+password is reset by an emailed link (code:
+server/src/main/resources/db/migration/V026__password_reset.sql, `app_user.email`;
+server/src/main/kotlin/net/barnflix/proxic/auth/AccountRoutes.kt, `accountEmailRoutes`).
+
 ## Rules and boundaries
 
 - **I4 amends AUTHENTICATION.md**: accounts exist because an

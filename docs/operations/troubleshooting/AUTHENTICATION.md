@@ -295,7 +295,7 @@ http://127.0.0.1:8080/api/health/ready`; a 503 means a check failed --
 The everyday way (spec 0026): on the Admin page, open the player's
 **Manage** menu and choose **Send password reset**. Arena emails them a
 link that works once, for an hour, and they choose their own password.
-It needs an email account set up on the Admin page's Email tab, and an
+It needs an email account set up on the Admin page's Email account tab, and an
 email address on the player's account (Manage → Add email address).
 If the page says why it can't send, that is what to fix.
 
@@ -310,9 +310,10 @@ Without `--password-stdin` it prompts for the password instead, which
 is the better choice at a terminal. A password passed as an argument
 is **refused outright**, not warned about.
 
-Setting a new password **revokes every session for that user**. They
-sign in again everywhere. To end their sessions without changing the
-password:
+Setting a new password **revokes every session for that user** and
+unlinks every computer they linked to the Deck Builder. They sign in
+(and link) again. To end their sessions without changing the password
+(this unlinks their computers too):
 
 ```bash
 docker compose exec arena-server /app/bin/arena-admin revoke-sessions RudeLeft
@@ -331,7 +332,8 @@ user, including the browser doing it. The page says so and signs you
 out a moment later; that is the rule working, not a crash.
 
 There is also a **Sign out everywhere** button on `/account`, which
-ends every session without changing the password. It reports how many
+ends every session, and unlinks every computer linked to the Deck
+Builder, without changing the password. It reports how many
 it ended; if it says it could not, sessions elsewhere are still live
 and it is worth retrying rather than assuming.
 

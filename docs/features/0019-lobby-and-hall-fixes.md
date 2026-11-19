@@ -77,6 +77,11 @@ first, built only on the owner's word.
 10. The Import and Deck Library column is wider, so View and Delete sit
     on one line beside each deck; the deck icons there are bigger.
 
+    *As of 2026-11-18 (a documentation check):* the column has no Import
+    part since spec 0022: in its place a panel says decks come from the
+    Proxic Deck Builder (code: frontend/src/DecksPage.tsx, its "Decks
+    come from the Proxic Deck Builder" panel).
+
 **The Admin page**
 
 11. The Games tab says how a finished game ended in words, with the
