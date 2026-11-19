@@ -863,7 +863,7 @@ def daybound():
     # Seat 2 casts nothing: its turns pass with no spells, so day becomes night.
     g = game("daybound", [("Mountain", 30), ("Reckless Stormseeker", 30)], [("Forest", 60)],
              deal=deal(["Mountain"] * 4 + ["Reckless Stormseeker"] * 3, ["Mountain"] * 4, seat2=None))
-    st = {"cast": False, "sides": []}
+    st = {"cast": False, "sides": [], "night_casts": {}}
     seat2 = seat2_plays()
 
     def policy(g, f):
@@ -874,13 +874,24 @@ def daybound():
             land = g.play_land(f)
             if land:
                 return land
-            # The first, and after night falls more of them: two spells in
-            # one turn bring day back.
+            # The first by day; at night two in ONE turn, which is what
+            # brings day back. Night casts wait until two can be paid for
+            # (two in hand, six untapped lands): casting each one as it was
+            # drawn never held two, so day never returned, the game ran to
+            # its turn limit with a growing pile of combat triggers, and on
+            # CI that last game ran shapes past its time limit (TEST-013
+            # flake, CI 1e08c7d and b6fb6b0) -- and it was still judged OK.
             night = g.state.get(1, {}).get("dayTime") == "night"
-            if (not st["cast"] or night) and len(g.untapped_lands(1)) >= 3:
-                o = starts(f, "Reckless Stormseeker · {2}{R}")
-                if o:
-                    st["cast"] = True
+            o = starts(f, "Reckless Stormseeker · {2}{R}")
+            if o and not st["cast"] and len(g.untapped_lands(1)) >= 3:
+                st["cast"] = True
+                return o
+            if o and night:
+                this_turn = st["night_casts"].get(g.turn, 0)
+                ready = this_turn == 1 or (len(g.mine(1, "hand", name="Reckless Stormseeker")) >= 2
+                                           and len(g.untapped_lands(1)) >= 6)
+                if ready and this_turn < 2 and len(g.untapped_lands(1)) >= 3:
+                    st["night_casts"][g.turn] = this_turn + 1
                     return o
             return None
         if kind == "chooseTargetsFor":
@@ -896,16 +907,25 @@ def daybound():
             st["sides"].append(side)
         return any(s[0] == "night" for s in st["sides"]) and st["sides"][-1][0] == "day"
 
-    g.run(policy, until=until, max_turn=30)
-    found = {"cast": st["cast"], "sides": st["sides"], "stopped": g.stopped_badly()}
+    # Night falls by turn 8 and two are cast by turn 12 whoever plays first;
+    # a limit well short of 30 keeps a game that goes wrong short too.
+    g.run(policy, until=until, max_turn=20)
+    found = {"cast": st["cast"], "sides": st["sides"], "night_casts": st["night_casts"], "turn": g.turn,
+             "stopped": g.stopped_badly()}
     if not st["cast"] or not any(s[0] == "night" for s in st["sides"]):
         return "inconclusive", "night never fell with the Stormseeker out", found
+    twice = [t for t, n in st["night_casts"].items() if n >= 2]
     problems = [found["stopped"]] if found["stopped"] else []
     night = [s for s in st["sides"] if s[0] == "night"]
     if not any("Storm-Charged Slasher" in s[1] for s in night):
         problems.append(f"at night the card never showed its nightbound face: {st['sides']}")
     later = st["sides"][st["sides"].index(night[0]):]
-    if any(s[0] == "day" for s in later) and not any("Reckless Stormseeker" in s[1] for s in later if s[0] == "day"):
+    if not any(s[0] == "day" for s in later):
+        if not twice:
+            return "inconclusive", f"two spells were never cast in one night turn (by turn {g.turn})", found
+        problems.append(f"two spells were cast at night on turn {twice[0]}, yet day never returned "
+                        f"(stopped on turn {g.turn}): {st['sides']}")
+    elif not any("Reckless Stormseeker" in s[1] for s in later if s[0] == "day"):
         problems.append(f"when day returned the card stayed on its night face: {st['sides']}")
     return result(problems, "day became night and the card turned to Storm-Charged Slasher; day returned and it turned back", found)
 
