@@ -168,10 +168,16 @@ test("under Mindslaver the controller answers for the other player and sees thei
     ).toHaveCount(0);
     // The host really clicks a land for the guest (Forge's "Play land" for
     // the guest, in the host's window headed "Playing for <guest>").
+    // On the table only: the guest's hand is face up to the host now (and
+    // always to the guest), and its Mountains are buttons in .bf-cards too.
+    // Counting them made a land play net zero (hand -1, table +1), so the
+    // test passed only when the guest's draw happened to be a Mountain.
     const theirLands = (page: Page, side: "viewer" | "opponent") =>
       cardCount(
         matchPanel(page)
-          .locator(`.bf-cards button[data-controller="${side}"][data-object-id]`)
+          .locator(
+            `.bf-cards button[data-controller="${side}"][data-object-id]:not([data-zone$=":hand"])`,
+          )
           .filter({ hasText: "Mountain" }),
       );
     const before = await theirLands(host, "opponent");
