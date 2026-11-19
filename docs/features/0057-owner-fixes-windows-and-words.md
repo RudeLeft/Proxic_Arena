@@ -81,7 +81,7 @@ hand", then "to cast Wren's Run Vanquisher for {1}{G} instead of {4}{G}"
 
 ## 8 · Attacking and blocking
 
-Noted for Phase 10 A-11..A-13 (PHASE_10_ANIMATION_LOCKED.md, fe4bac7).
+Noted for Phase 10 A-11..A-13 (`docs/history/phases/phase-10/PHASE_10_ANIMATION_LOCKED.md`, fe4bac7).
 
 ## Acceptance tests
 

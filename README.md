@@ -92,15 +92,21 @@ it pays and adds a play log and a floating window to the game chat;
 1.70.0 shows cards you can still play from your graveyard and exile, keeps report windows until you close them, and animates the game's end, the opening hand, umbras, big token batches and paying with cards under the spell;
 1.71.0 keeps lands still when you tap them and puts them next to your hand, shows the whole card when you hover over your hand, makes busy boards lighter, and cleans up the pop-ups;
 1.72.0 fixes the last cards that jumped: a card cast out of your library rises from it, and graveyard and exile numbers wait for their cards;
-1.73.0 shows what every spell chose and aims at, how creatures survive, Karn's restart, Mindslaver and skipped turns, and makes report windows point at the table, replay, and remember your library top.
+1.73.0 shows what every spell chose and aims at, how creatures survive, Karn's restart, Mindslaver and skipped turns, and makes report windows point at the table, replay, and remember your library top -- and finishes Phase 10.
 Two players
 play a real game of Magic, run by Forge, on a graphical battlefield in
 the style of MTG Arena — cards clicked to play, target, attack and
 block, each player seeing only what Forge lets them see — with every
 page built: sign in, Lobby, Deck Depot, Account, Admin. What each of
-the ten phases (0A and 1-9) proved is in `docs/history/phases/`; what changed in
+the eleven phases (0A and 1-10) proved is in `docs/history/phases/`; what changed in
 each release is `CHANGELOG.md`; what is next, and how new features are
 specified and approved, is `ROADMAP.md`.
+
+**Phase 10 is complete** (`docs/history/phases/phase-10/`, 1.73.0):
+nothing on the battlefield jumps -- every card that changes place, side
+or form moves there so you can follow it, one animation at a time, each
+shown to the owner first; checked frame by frame on every Mechanics Lab
+game, and played.
 
 **Phase 9 is complete** (`docs/history/phases/phase-09/`, 1.45.0): every
 window, popup and prompt in a game reviewed one at a time with the owner

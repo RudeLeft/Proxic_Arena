@@ -1,8 +1,9 @@
 # Phase 10 — Animation polish and graphical improvements
 
-**Status: LOCKED and ACTIVE 2026-11-06** (owner: "Lock it"). Changes from
-here are dated amendments (PHASE-002). Each item is built only after its
-own animated canvas is approved.
+**Status: COMPLETE 2026-11-19** (owner: "accept"; version 1.73.0; exit
+gate `PHASE_10_EXIT_GATE.md`). Locked 2026-11-06 (owner: "Lock it").
+Changes from here are dated amendments (PHASE-002). Each item is built
+only after its own animated canvas is approved.
 
 **Owner's brief (2026-11-06):** animation polish and graphical
 improvements. The rule: **nothing on the battlefield jumps.** A card

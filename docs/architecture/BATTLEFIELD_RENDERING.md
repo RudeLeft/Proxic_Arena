@@ -259,7 +259,7 @@ rather than teleports.
    targets are chosen `AimPointer.tsx` draws the beam from the card being
    cast to the pointer (followed outside React), or, for an Aura or
    Equipment, a preview of its tab on the creature pointed at. *Phase 10 (2026-11-06, Amendment 15 of
-   `PHASE_10_ANIMATION_LOCKED.md`) replaced the swoop and spec 0037's riding
+   `docs/history/phases/phase-10/PHASE_10_ANIMATION_LOCKED.md`) replaced the swoop and spec 0037's riding
    blocker:* attackers are their side's front line, blockers stand facing
    them in theirs (BATTLEFIELD_LAYOUT_CONTRACT.md §7b), and combat damage
    plays one fight at a time (`fights.ts`): the fighters rear back and meet

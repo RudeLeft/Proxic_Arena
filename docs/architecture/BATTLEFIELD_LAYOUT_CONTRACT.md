@@ -287,7 +287,7 @@ over to make room (Phase 10 A-00). `layout.ts` `tabRoom`, `tabAt`;
 `layout.test.ts` "attachments". Owner's reasons and the measurements
 (97 x 136 cards at 1920x1080, 4 px apart on a busy line; 1-2 attached
 common, 3-4 in Aura and Equipment decks, 5-8 rare) are in
-`PHASE_10_ANIMATION_LOCKED.md`, Amendment 9.
+`docs/history/phases/phase-10/PHASE_10_ANIMATION_LOCKED.md`, Amendment 9.
 
 ## 7b. Amendment — combat's front lines (Phase 10 A-11, A-12, owner 2026-11-06)
 
@@ -359,7 +359,7 @@ lines follow (`creature-2`, ...):
 
 `layout.ts` (`LineKind` "front", `faceBlockers`); `layout.test.ts`
 "combat and tapped", "big combats". Owner's reasons and the fights that
-play on these places are `PHASE_10_ANIMATION_LOCKED.md`, Amendments 15-16.
+play on these places are `docs/history/phases/phase-10/PHASE_10_ANIMATION_LOCKED.md`, Amendments 15-16.
 
 ## 7c. Amendment — the land line nearer the hand (spec 0059 item 11, owner 2026-11-07)
 

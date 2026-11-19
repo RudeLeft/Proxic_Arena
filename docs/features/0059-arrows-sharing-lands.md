@@ -113,7 +113,7 @@ unchanged.
 
 *Docs:* contract §7b amended, new §7c, header; spec 0040 Amendment 2;
 `BATTLEFIELD_RENDERING.md` (attack lines on pointing);
-`PHASE_10_ANIMATION_LOCKED.md` note after Amendment 18. *Dev page:*
+`docs/history/phases/phase-10/PHASE_10_ANIMATION_LOCKED.md` note after Amendment 18. *Dev page:*
 `/dev/board?…&combat=1` makes a board's attackers attack (`&pw=N`: the last
 N at the defender's first planeswalker), with players' pictures; two dev
 boards `attack8` and `fight7` (`scenarios.ts` `DEV_BOARDS`, not among the
