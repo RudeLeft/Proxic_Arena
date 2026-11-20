@@ -105,6 +105,7 @@ describe("F-0090-A · the speed test's Phase 10 moments", () => {
       "army",
       "storm",
       "reports",
+      "flyer-tab",
     ]);
     for (const name of SCENES) {
       const scene = benchScene(name)!;
@@ -249,13 +250,14 @@ describe("F-0090-B · the glow is a soft layer whose opacity alone animates", ()
     ).container;
     const breath = breathOf(c, "card:5")!;
     expect(breath).not.toBeNull();
-    // It hovers with its card: the same classes, the same point in the bob,
-    // and breathes from the same offset as the card's one animation list had.
-    expect(breath.classList.contains("bf-fly")).toBe(true);
-    expect(breath.style.animationDelay).toBe(cardOf(c, "card:5").style.animationDelay);
-    expect(breath.style.getPropertyValue("--breath-delay")).toBe(
-      cardOf(c, "card:5").style.animationDelay,
-    );
+    // It hovers with its card: spec 0108, in the card's own bobbing wrapper
+    // (one clock), and breathes from the same offset as the card's one
+    // animation list had.
+    const flight = cardOf(c, "card:5").closest<HTMLElement>(".bf-flight")!;
+    expect(flight.classList.contains("bf-fly")).toBe(true);
+    expect(breath.parentElement).toBe(flight);
+    expect(breath.classList.contains("bf-fly")).toBe(false);
+    expect(breath.style.getPropertyValue("--breath-delay")).toBe(flight.style.animationDelay);
   });
 
   it("in your hand, on the stack, and a tab: each its layer, a tab's in the tab's place", () => {
@@ -388,7 +390,7 @@ describe("F-0090-B · the glow is a soft layer whose opacity alone animates", ()
 
 describe("F-0090-C · flyers in step above 12, still while the tab is hidden", () => {
   const delays = (c: ParentNode) =>
-    [...c.querySelectorAll<HTMLElement>(".bf-card.bf-fly")].map((el) => el.style.animationDelay);
+    [...c.querySelectorAll<HTMLElement>(".bf-flight.bf-fly")].map((el) => el.style.animationDelay);
 
   it("up to 12: each its own point in the bob; 13: all on one clock, and they stay so", () => {
     const view = render(draw(flyers(FLY_SYNC_AT)));

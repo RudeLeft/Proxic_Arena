@@ -730,7 +730,7 @@ const PACE_TABLE: Record<string, Record<string, PaceClass>> = {
     ALIVE_FLOAT_MS: "wait",
     ALIVE_POP_MS: "move",
   },
-  "benchScenes.ts": { STORM_BEAT_MS: "wait", REPORT_BEAT_MS: "wait" },
+  "benchScenes.ts": { STORM_BEAT_MS: "wait", REPORT_BEAT_MS: "wait", FLYER_TAB_LIT_MS: "wait" },
   "breathMotion.ts": { ZZ_LOOP_MS: "loop", ZZ_GAP_MS: "loop" },
   "copies.ts": {
     COPY_LIFT_MS: "move",

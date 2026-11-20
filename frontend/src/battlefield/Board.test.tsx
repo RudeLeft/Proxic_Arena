@@ -4,6 +4,7 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   Board,
+  SLOT_CARD,
   stackCaption,
   type BoardCard,
   type Merge,
@@ -459,11 +460,11 @@ describe("Board movement", () => {
     expect(ghost.getAttribute("data-flip")).toBe("true");
     expect(ghost.textContent).toContain(a.name);
     const slot = view.container.querySelector(`[data-object-id="${a.id}"]`)!.closest(".bf-slot")!;
-    const inner = slot.querySelector(":scope > .bf-card")!;
+    const inner = slot.querySelector(SLOT_CARD)!;
     const turnRound = calls.find((c) => c.element === inner)!;
     expect(String(turnRound.frames[0]!.transform)).toContain("rotateY(-90deg)");
     expect(String(turnRound.frames.at(-1)!.transform)).toContain("rotateY(0deg)");
-    const turnAway = calls.find((c) => c.element === ghost.querySelector(":scope > .bf-card"))!;
+    const turnAway = calls.find((c) => c.element === ghost.querySelector(SLOT_CARD))!;
     expect(String(turnAway.frames.at(-1)!.transform)).toContain("rotateY(90deg)");
   });
 
@@ -515,7 +516,7 @@ describe("Board movement", () => {
     expect(host.style.zIndex).toBe("4601"); // above the dimmed table while it runs
     // Not also flipped (A-09): no flip ghost, nothing turned on its card.
     expect(view.container.querySelector("[data-flip]")).toBeNull();
-    expect(calls.some((c) => c.element === host.querySelector(":scope > .bf-card"))).toBe(false);
+    expect(calls.some((c) => c.element === host.querySelector(SLOT_CARD))).toBe(false);
     // Its old face, pulled in and gone at the slam.
     const old = view.container.querySelector(`[data-ghost-of="merge:${a.id}"]`)!;
     expect(old.getAttribute("data-merge")).toBe("old");
@@ -1195,7 +1196,10 @@ describe("Board lines and effects", () => {
     const out = layout(combatScript(1).board, size);
     const steps = ["card:201", "card:202", "card:203"].map((id) => {
       const call = calls.find(
-        (c) => c.element.querySelector(`:scope > button[data-object-id="${id}"]`) !== null,
+        (c) =>
+          c.element.querySelector(
+            `:scope > button[data-object-id="${id}"], :scope > .bf-flight > button[data-object-id="${id}"]`,
+          ) !== null,
       )!;
       return call;
     });
@@ -1221,7 +1225,10 @@ describe("Board lines and effects", () => {
     const moved = ["card:211", "card:212", "card:213"].map(
       (id) =>
         calls.find(
-          (c) => c.element.querySelector(`:scope > button[data-object-id="${id}"]`) !== null,
+          (c) =>
+            c.element.querySelector(
+              `:scope > button[data-object-id="${id}"], :scope > .bf-flight > button[data-object-id="${id}"]`,
+            ) !== null,
         )!,
     );
     expect(moved.map((c) => c.options.duration)).toEqual([paced(650), paced(650), paced(650)]);

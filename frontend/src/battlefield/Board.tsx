@@ -1196,15 +1196,20 @@ function zzDelay(id: string, k: number, inStep: boolean): CSSProperties {
   return { animationDelay: `-${(inStep ? 0 : hoverOffset(id)) + k * ZZ_GAP_MS}ms` };
 }
 /**
- * Spec 0090 (2) -- a card's glow layer: a flyer's hovers with it (the same
- * classes and clock), and breathes as the flyer's glow always did (offset
- * by its own point in the bob, as the card's one animation list had it).
+ * Spec 0090 (2) -- a card's glow layer: a flyer's breathes as the flyer's
+ * glow always did (offset by its own point in the bob, as the card's one
+ * animation list had it). Spec 0108: it hovers inside the flyer's one
+ * bobbing wrapper (`.bf-flight`), never on its own clock.
  */
-function breathStyle(id: string, flyer: boolean, inStep: boolean): CSSProperties | undefined {
-  return flyer
-    ? { ...hoverDelay(id, inStep), ["--breath-delay" as string]: `-${hoverOffset(id)}ms` }
-    : undefined;
+function breathStyle(id: string, flyer: boolean): CSSProperties | undefined {
+  return flyer ? { ["--breath-delay" as string]: `-${hoverOffset(id)}ms` } : undefined;
 }
+
+/**
+ * Spec 0108, items 8/9 -- a slot's own card button: its child, or, for a
+ * flyer, its bobbing wrapper's (`.bf-flight`).
+ */
+export const SLOT_CARD = ":scope > .bf-card, :scope > .bf-flight > .bf-card";
 
 /** Enough of a card to draw it on its way out, after it has left. */
 interface Drawn {
@@ -1268,7 +1273,7 @@ function glide(element: HTMLElement, frames: Keyframe[], delay = 0, duration = M
  * their animation.
  */
 function tickBadge(slot: HTMLElement, start: number, changes: readonly BadgeChange[]) {
-  const card = slot.querySelector<HTMLElement>(":scope > .bf-card");
+  const card = slot.querySelector<HTMLElement>(SLOT_CARD);
   if (!card || typeof card.animate !== "function") return;
   for (const old of card.querySelectorAll(":scope > .bf-pile-was")) old.remove();
   const total = Math.max(...changes.map((c) => c.at));
@@ -2382,7 +2387,10 @@ function tableCard(k: TableCardKey): { drawn: Drawn; content: ReactNode } {
   // Spec 0085 (4 A) -- the cards it holds in exile, each a picture tab.
   const holding = lead.holding ?? [];
   const handlers = actHandlers(k.act.pickId, [...k.ids], k.onPick, k.onInspect);
-  // Spec 0090 (2): its glow, and (3) a flyer's hover classes, which the glow wears too.
+  // Spec 0090 (2): its glow, and (3) a flyer's hover classes. Spec 0108,
+  // items 8/9: the classes and the clock are its wrapper's (`.bf-flight`),
+  // which carries the card, its glow, tabs and marks as one piece; the
+  // card keeps `bf-fly` only as the mark that it flies (it does not bob).
   const breathes = k.act.breathing && !k.act.pay && (flies(lead) || !k.act.still);
   const flyClass = flies(lead) ? (k.crowded ? " bf-fly bf-fly-bob" : " bf-fly") : "";
   const drawn: Drawn = {
@@ -2409,8 +2417,7 @@ function tableCard(k: TableCardKey): { drawn: Drawn; content: ReactNode } {
     drawn,
     content: (
       <>
-        {/* Spec 0088 (Q5 C) -- targeted: four still gold corners just outside it. */}
-        {k.act.targeted && <Sight theirs={k.act.theirs} />}
+        {/* The table's shadow of a flyer: on the table, outside its wrapper. */}
         {flies(lead) && (
           <span
             className={`bf-fly-shadow${k.crowded ? " bf-fly-bob" : ""}`}
@@ -2418,239 +2425,272 @@ function tableCard(k: TableCardKey): { drawn: Drawn; content: ReactNode } {
             style={hoverDelay(lead.id, k.inStep)}
           />
         )}
-        <button
-          type="button"
-          className={`bf-card bf-look-${look}${lead.tapped ? " bf-dim" : ""}${lead.attacking ? " bf-attacking" : ""}${lead.blocking ? " bf-blocking" : ""}${k.act.className}${breathes ? " bf-breathes" : ""}${flyClass}`}
-          style={flies(lead) ? hoverDelay(lead.id, k.inStep) : undefined}
-          aria-label={label}
-          {...k.act.data}
-          {...handlers}
-          data-object-id={lead.id}
-          data-zone={k.row}
-          data-controller={side}
-          data-tapped={String(lead.tapped)}
-          data-attacking={lead.attacking ? "true" : undefined}
-          // Spec 0080 (Q2 A): a ghost in its place -- see-through and
-          // grey, shimmering; never clicked or aimed at (battlefield.css).
-          data-phased={lead.phasedOut ? "true" : undefined}
-          {...(lead.phasedOut ? { tabIndex: -1, "aria-disabled": true } : {})}
-          data-pt={pt || undefined}
-          data-face={lead.faceDown ? "down" : "up"}
-          data-pile={count > 1 ? count : undefined}
-          // Spec 0103, items 1-2 -- every member's id: a report row lights the pile its card is in.
-          data-members-ids={count > 1 ? k.ids.join(" ") : undefined}
-          data-blocking={lead.blocking ? "true" : undefined}
-          data-blocks={k.blocks}
-          data-aims={k.aims}
-          data-aimed={k.aimedHere ? "true" : undefined}
-          data-attacked={k.attacked}
-          data-pointed-blocker={k.pointedBlocker ? "true" : undefined}
-          {...(k.aims !== undefined
-            ? {
-                // Spec 0059 item 9, spec 0063: pointing, keyboard focus,
-                // or a tap on a touch screen (which has no pointing)
-                // shows its line -- every attacker, blocked ones and
-                // piles too.
-                onPointerEnter: (event: { pointerType: string }) => {
-                  if (event.pointerType !== "touch") k.setAimed(lead.id);
-                },
-                onPointerLeave: (event: { pointerType: string }) => {
-                  if (event.pointerType !== "touch")
-                    k.setAimed((now) => (now === lead.id ? null : now));
-                },
-                onPointerDown: (event: { pointerType: string }) => {
-                  if (event.pointerType === "touch")
-                    k.setAimed((now) => (now === lead.id ? null : lead.id));
-                },
-                // Spec 0063: only focus the keyboard gave (a click
-                // focuses the card too, and must not leave it pointed at).
-                onFocus: (event: { currentTarget: Element }) => {
-                  if (keyboardFocus(event.currentTarget)) k.setAimed(lead.id);
-                },
-                onBlur: () => k.setAimed((now) => (now === lead.id ? null : now)),
-              }
-            : {})}
-        >
-          {/* Spec 0083 (15 A) -- a Room: its two doors, the locked ones
+        <Flight flies={flies(lead)} className={flyClass} style={hoverDelay(lead.id, k.inStep)}>
+          {/* Spec 0088 (Q5 C) -- targeted: four still gold corners just outside it. */}
+          {k.act.targeted && <Sight theirs={k.act.theirs} />}
+          <button
+            type="button"
+            className={`bf-card bf-look-${look}${lead.tapped ? " bf-dim" : ""}${lead.attacking ? " bf-attacking" : ""}${lead.blocking ? " bf-blocking" : ""}${k.act.className}${breathes ? " bf-breathes" : ""}${flyClass}`}
+            aria-label={label}
+            {...k.act.data}
+            {...handlers}
+            data-object-id={lead.id}
+            data-zone={k.row}
+            data-controller={side}
+            data-tapped={String(lead.tapped)}
+            data-attacking={lead.attacking ? "true" : undefined}
+            // Spec 0080 (Q2 A): a ghost in its place -- see-through and
+            // grey, shimmering; never clicked or aimed at (battlefield.css).
+            data-phased={lead.phasedOut ? "true" : undefined}
+            {...(lead.phasedOut ? { tabIndex: -1, "aria-disabled": true } : {})}
+            data-pt={pt || undefined}
+            data-face={lead.faceDown ? "down" : "up"}
+            data-pile={count > 1 ? count : undefined}
+            // Spec 0103, items 1-2 -- every member's id: a report row lights the pile its card is in.
+            data-members-ids={count > 1 ? k.ids.join(" ") : undefined}
+            data-blocking={lead.blocking ? "true" : undefined}
+            data-blocks={k.blocks}
+            data-aims={k.aims}
+            data-aimed={k.aimedHere ? "true" : undefined}
+            data-attacked={k.attacked}
+            data-pointed-blocker={k.pointedBlocker ? "true" : undefined}
+            {...(k.aims !== undefined
+              ? {
+                  // Spec 0059 item 9, spec 0063: pointing, keyboard focus,
+                  // or a tap on a touch screen (which has no pointing)
+                  // shows its line -- every attacker, blocked ones and
+                  // piles too.
+                  onPointerEnter: (event: { pointerType: string }) => {
+                    if (event.pointerType !== "touch") k.setAimed(lead.id);
+                  },
+                  onPointerLeave: (event: { pointerType: string }) => {
+                    if (event.pointerType !== "touch")
+                      k.setAimed((now) => (now === lead.id ? null : now));
+                  },
+                  onPointerDown: (event: { pointerType: string }) => {
+                    if (event.pointerType === "touch")
+                      k.setAimed((now) => (now === lead.id ? null : lead.id));
+                  },
+                  // Spec 0063: only focus the keyboard gave (a click
+                  // focuses the card too, and must not leave it pointed at).
+                  onFocus: (event: { currentTarget: Element }) => {
+                    if (keyboardFocus(event.currentTarget)) k.setAimed(lead.id);
+                  },
+                  onBlur: () => k.setAimed((now) => (now === lead.id ? null : now)),
+                }
+              : {})}
+          >
+            {/* Spec 0083 (15 A) -- a Room: its two doors, the locked ones
               closed with the gold keyhole square; one swings open as it
               unlocks, and the other half does not move. */}
-          {lead.doors && !lead.faceDown ? (
-            <RoomFace
-              id={lead.id}
-              doors={lead.doors}
-              locked={lead.lockedHalves ?? []}
-              art={drawn.art}
-              crop={drawn.crop ?? null}
-              look={look}
-            />
-          ) : (
-            <CardFace {...drawn} />
-          )}
-          {/* Spec 0076 -- its counters and the Ring-bearer as badges, low
+            {lead.doors && !lead.faceDown ? (
+              <RoomFace
+                id={lead.id}
+                doors={lead.doors}
+                locked={lead.lockedHalves ?? []}
+                art={drawn.art}
+                crop={drawn.crop ?? null}
+                look={look}
+              />
+            ) : (
+              <CardFace {...drawn} />
+            )}
+            {/* Spec 0076 -- its counters and the Ring-bearer as badges, low
               on the left; pointing says spec 0045's words. They keep
               clear of everything else on the card (item 5): the state
               word, the x N, a land's mana symbols, the zZz. */}
-          <CardBadges
-            card={lead}
-            artUrl={k.artUrl}
-            gone={k.gone}
-            onGone={k.onGone}
-            pile={count > 1}
-            room={{
-              pile: count > 1,
-              mana: Boolean(lead.makes && lead.makes.length > 0 && !lead.faceDown),
-              state: Boolean(k.act.chosen || lead.blocking || lead.attacking || lead.tapped),
-              zzz: sick(lead),
-              zone: Boolean(lead.sector || lead.sprocket),
-            }}
-          />
-          {k.act.chosen ? (
-            // Phase 9 Amendment 17: already chosen for the spell being cast.
-            <span className="bf-state bf-state-target">TARGET</span>
-          ) : lead.blocking ? (
-            // Phase 10 A-12: blue, on a blocker standing facing its attacker.
-            <span className="bf-state bf-state-blocking">BLOCKING</span>
-          ) : lead.attacking ? (
-            <span className="bf-state bf-state-attacking">ATTACKING</span>
-          ) : lead.tapped ? (
-            <span className="bf-state">TAPPED</span>
-          ) : null}
-          {shownCount > 1 && <span className="bf-pile">×{shownCount}</span>}
-          {/* Spec 0046 -- what a land makes, as mana symbols. */}
-          {lead.makes && lead.makes.length > 0 && !lead.faceDown && (
-            <span
-              className="bf-makes"
-              title={`Makes ${lead.makes.map((m) => `{${m}}`).join(" or ")}`}
-            >
-              {lead.makes.map((m) => {
-                const url = symbolUrl(m);
-                return url ? (
-                  <img key={m} className="bf-makes-pip" src={url} alt={m} />
-                ) : (
-                  <span key={m} className="bf-makes-pip">
-                    {m}
-                  </span>
+            <CardBadges
+              card={lead}
+              artUrl={k.artUrl}
+              gone={k.gone}
+              onGone={k.onGone}
+              pile={count > 1}
+              room={{
+                pile: count > 1,
+                mana: Boolean(lead.makes && lead.makes.length > 0 && !lead.faceDown),
+                state: Boolean(k.act.chosen || lead.blocking || lead.attacking || lead.tapped),
+                zzz: sick(lead),
+                zone: Boolean(lead.sector || lead.sprocket),
+              }}
+            />
+            {k.act.chosen ? (
+              // Phase 9 Amendment 17: already chosen for the spell being cast.
+              <span className="bf-state bf-state-target">TARGET</span>
+            ) : lead.blocking ? (
+              // Phase 10 A-12: blue, on a blocker standing facing its attacker.
+              <span className="bf-state bf-state-blocking">BLOCKING</span>
+            ) : lead.attacking ? (
+              <span className="bf-state bf-state-attacking">ATTACKING</span>
+            ) : lead.tapped ? (
+              <span className="bf-state">TAPPED</span>
+            ) : null}
+            {shownCount > 1 && <span className="bf-pile">×{shownCount}</span>}
+            {/* Spec 0046 -- what a land makes, as mana symbols. */}
+            {lead.makes && lead.makes.length > 0 && !lead.faceDown && (
+              <span
+                className="bf-makes"
+                title={`Makes ${lead.makes.map((m) => `{${m}}`).join(" or ")}`}
+              >
+                {lead.makes.map((m) => {
+                  const url = symbolUrl(m);
+                  return url ? (
+                    <img key={m} className="bf-makes-pip" src={url} alt={m} />
+                  ) : (
+                    <span key={m} className="bf-makes-pip">
+                      {m}
+                    </span>
+                  );
+                })}
+              </span>
+            )}
+            {/* Owner 2026-11-01 (item 3) -- came in this turn: drifting zZz. */}
+            {sick(lead) && (
+              // Spec 0092 (3) -- a third of a loop apart, so they never stack.
+              <span
+                className="bf-zz"
+                aria-hidden="true"
+                data-in-step={k.zzStep ? "true" : undefined}
+              >
+                <i style={zzDelay(lead.id, 0, k.zzStep)}>z</i>
+                <i style={zzDelay(lead.id, 1, k.zzStep)}>z</i>
+                <i style={zzDelay(lead.id, 2, k.zzStep)}>z</i>
+              </span>
+            )}
+            {lead.sector && <span className="bf-zone">{lead.sector}</span>}
+            {lead.sprocket && <span className="bf-zone">Sprocket {lead.sprocket}</span>}
+          </button>
+          {/* Spec 0090 (2): its glow, over its edge, as its shadow was. */}
+          {breathes && <Breath style={breathStyle(lead.id, flies(lead))} />}
+          {k.act.pay && (
+            // Spec 0070, Amendment 1: picked to pay -- the cost's sign on the
+            // card's corner (beside the card, which clips its edge); no words.
+            <PaySign tone={k.act.pay.tone} />
+          )}
+          {/* Amendment 13 (item 10): the seal hangs over the card's corner, so
+            it sits beside the card, which clips what crosses its edge. */}
+          {k.act.marks > 0 && (
+            <span className="bf-marked-n" aria-hidden="true">
+              <svg viewBox="0 0 20 20">
+                <path
+                  d="M4 10.5 L8.5 15 L16 6"
+                  stroke="#1a1408"
+                  strokeWidth="3"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {count > 1 && <b>{k.act.marks}</b>}
+            </span>
+          )}
+          {(attached.length > 0 || holding.length > 0) && (
+            // Auras and Equipment as tabs on the host's right edge (Phase
+            // 10 A-17, owner 2026-11-06; name tags across its picture
+            // before, AMENDMENT 4), fanning past TAB_FAN. Each is its own
+            // button, with its own id, so it can be targeted and inspected
+            // like any permanent.
+            <div className="bf-tags" data-tabs={attached.length + holding.length}>
+              {attached.map((card, index) => {
+                const tagLook = lookOf(card.kind, card.types);
+                const tagAct = k.tags[index]!;
+                // Spec 0090 (2): a tab's glow is its own soft layer, beside it.
+                const tagPlace = {
+                  left: `calc(var(--card-h) * ${tabAt(index, attached.length + holding.length)})`,
+                  zIndex: attached.length + holding.length - index,
+                };
+                const tagBreathes = tagAct.breathing;
+                return (
+                  <Fragment key={card.id}>
+                    <button
+                      type="button"
+                      style={tagPlace}
+                      className={`bf-tag bf-look-${tagLook}${tagAct.className}${tagBreathes ? " bf-breathes" : ""}`}
+                      {...tagAct.data}
+                      {...actHandlers(tagAct.pickId, [card.id], k.onPick, k.onInspect)}
+                      aria-label={[
+                        `${card.name}, attached to ${lead.faceDown && !lead.known ? "a face-down card" : lead.name}`,
+                        (card.seat === k.viewerSeat ? "viewer" : "opponent") === "viewer"
+                          ? k.viewerName
+                            ? `${k.viewerName}'s`
+                            : "yours"
+                          : k.viewerName
+                            ? `${k.opponentName}'s`
+                            : "opponent's",
+                        ...tagAct.words,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")}
+                      data-object-id={card.id}
+                      data-zone={k.row}
+                      data-controller={card.seat === k.viewerSeat ? "viewer" : "opponent"}
+                      data-attached-to={lead.id}
+                      data-tapped={String(card.tapped)}
+                      data-face="up"
+                    >
+                      <Glyph look={tagLook} className="bf-tag-glyph" />
+                      <span className="bf-tag-name">{card.name}</span>
+                    </button>
+                    {tagBreathes && <Breath className=" bf-breath-tag" style={tagPlace} />}
+                  </Fragment>
                 );
               })}
-            </span>
-          )}
-          {/* Owner 2026-11-01 (item 3) -- came in this turn: drifting zZz. */}
-          {sick(lead) && (
-            // Spec 0092 (3) -- a third of a loop apart, so they never stack.
-            <span className="bf-zz" aria-hidden="true" data-in-step={k.zzStep ? "true" : undefined}>
-              <i style={zzDelay(lead.id, 0, k.zzStep)}>z</i>
-              <i style={zzDelay(lead.id, 1, k.zzStep)}>z</i>
-              <i style={zzDelay(lead.id, 2, k.zzStep)}>z</i>
-            </span>
-          )}
-          {lead.sector && <span className="bf-zone">{lead.sector}</span>}
-          {lead.sprocket && <span className="bf-zone">Sprocket {lead.sprocket}</span>}
-        </button>
-        {/* Spec 0090 (2): its glow, over its edge, as its shadow was. */}
-        {breathes && (
-          <Breath className={flyClass} style={breathStyle(lead.id, flies(lead), k.inStep)} />
-        )}
-        {k.act.pay && (
-          // Spec 0070, Amendment 1: picked to pay -- the cost's sign on the
-          // card's corner (beside the card, which clips its edge); no words.
-          <PaySign tone={k.act.pay.tone} />
-        )}
-        {/* Amendment 13 (item 10): the seal hangs over the card's corner, so
-            it sits beside the card, which clips what crosses its edge. */}
-        {k.act.marks > 0 && (
-          <span className="bf-marked-n" aria-hidden="true">
-            <svg viewBox="0 0 20 20">
-              <path
-                d="M4 10.5 L8.5 15 L16 6"
-                stroke="#1a1408"
-                strokeWidth="3"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            {count > 1 && <b>{k.act.marks}</b>}
-          </span>
-        )}
-        {(attached.length > 0 || holding.length > 0) && (
-          // Auras and Equipment as tabs on the host's right edge (Phase
-          // 10 A-17, owner 2026-11-06; name tags across its picture
-          // before, AMENDMENT 4), fanning past TAB_FAN. Each is its own
-          // button, with its own id, so it can be targeted and inspected
-          // like any permanent.
-          <div className="bf-tags" data-tabs={attached.length + holding.length}>
-            {attached.map((card, index) => {
-              const tagLook = lookOf(card.kind, card.types);
-              const tagAct = k.tags[index]!;
-              // Spec 0090 (2): a tab's glow is its own soft layer, beside it.
-              const tagPlace = {
-                left: `calc(var(--card-h) * ${tabAt(index, attached.length + holding.length)})`,
-                zIndex: attached.length + holding.length - index,
-              };
-              const tagBreathes = tagAct.breathing;
-              return (
-                <Fragment key={card.id}>
-                  <button
-                    type="button"
-                    style={tagPlace}
-                    className={`bf-tag bf-look-${tagLook}${tagAct.className}${tagBreathes ? " bf-breathes" : ""}`}
-                    {...tagAct.data}
-                    {...actHandlers(tagAct.pickId, [card.id], k.onPick, k.onInspect)}
-                    aria-label={[
-                      `${card.name}, attached to ${lead.faceDown && !lead.known ? "a face-down card" : lead.name}`,
-                      (card.seat === k.viewerSeat ? "viewer" : "opponent") === "viewer"
-                        ? k.viewerName
-                          ? `${k.viewerName}'s`
-                          : "yours"
-                        : k.viewerName
-                          ? `${k.opponentName}'s`
-                          : "opponent's",
-                      ...tagAct.words,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")}
-                    data-object-id={card.id}
-                    data-zone={k.row}
-                    data-controller={card.seat === k.viewerSeat ? "viewer" : "opponent"}
-                    data-attached-to={lead.id}
-                    data-tapped={String(card.tapped)}
-                    data-face="up"
-                  >
-                    <Glyph look={tagLook} className="bf-tag-glyph" />
-                    <span className="bf-tag-name">{card.name}</span>
-                  </button>
-                  {tagBreathes && <Breath className=" bf-breath-tag" style={tagPlace} />}
-                </Fragment>
-              );
-            })}
-            {/* Spec 0085 (4 A) -- each card it holds in exile: a picture
+              {/* Spec 0085 (4 A) -- each card it holds in exile: a picture
                 tab after its Aura and Equipment tabs, the held card's
                 picture and name (a face-down one the viewer may not see:
                 a back, no name). */}
-            {holding.map((held, j) => (
-              <span
-                key={held.id}
-                className="bf-tag bf-tag-held"
-                style={{
-                  left: `calc(var(--card-h) * ${tabAt(attached.length + j, attached.length + holding.length)})`,
-                  zIndex: holding.length - j,
-                }}
-                title={
-                  held.known ? `Holding ${held.name} in exile` : "Holding a face-down card in exile"
-                }
-                data-held-card={held.id}
-                data-held-by={lead.id}
-                data-face={held.known ? "up" : "down"}
-              >
-                <HeldPicture held={held} artUrl={k.artUrl} />
-                {held.known && <span className="bf-tag-name">{held.name}</span>}
-              </span>
-            ))}
-          </div>
-        )}
+              {holding.map((held, j) => (
+                <span
+                  key={held.id}
+                  className="bf-tag bf-tag-held"
+                  style={{
+                    left: `calc(var(--card-h) * ${tabAt(attached.length + j, attached.length + holding.length)})`,
+                    zIndex: holding.length - j,
+                  }}
+                  title={
+                    held.known
+                      ? `Holding ${held.name} in exile`
+                      : "Holding a face-down card in exile"
+                  }
+                  data-held-card={held.id}
+                  data-held-by={lead.id}
+                  data-face={held.known ? "up" : "down"}
+                >
+                  <HeldPicture held={held} artUrl={k.artUrl} />
+                  {held.known && <span className="bf-tag-name">{held.name}</span>}
+                </span>
+              ))}
+            </div>
+          )}
+        </Flight>
       </>
     ),
   };
+}
+
+/**
+ * Spec 0108, items 8/9 -- a flyer's one floating piece: the card, its glow,
+ * its tabs (and their glows), its pay sign, its picked seal and its gold
+ * corners bob and tilt together in this wrapper (`.bf-flight`, the slot's
+ * box), on one clock. Anything that does not fly is drawn as before, in
+ * its slot directly.
+ */
+function Flight({
+  flies: flying,
+  className,
+  style,
+  children,
+}: {
+  flies: boolean;
+  className: string;
+  style: CSSProperties;
+  children: ReactNode;
+}) {
+  if (!flying) return <>{children}</>;
+  return (
+    <div className={`bf-flight${className}`} style={style}>
+      {children}
+    </div>
+  );
 }
 
 /**
@@ -4770,7 +4810,7 @@ export function Board({
         if (box && "object" in ref) {
           const item = positions.get(ref.object)?.item;
           const card = item
-            ? elements.current.get(item)?.querySelector<HTMLElement>(":scope > .bf-card")
+            ? elements.current.get(item)?.querySelector<HTMLElement>(SLOT_CARD)
             : null;
           if (card && typeof card.animate === "function")
             card.animate(shakeFrames(box.h), {
@@ -4887,7 +4927,7 @@ export function Board({
       if (item)
         elements.current
           .get(item)
-          ?.querySelector<HTMLElement>(":scope > .bf-card")
+          ?.querySelector<HTMLElement>(SLOT_CARD)
           ?.animate(glowFrames(), { duration: ORIGINAL_GLOW_MS, delay, easing: "linear" });
     };
     for (const { s, box: to } of keyed) {
@@ -5348,7 +5388,7 @@ export function Board({
       if (!element) continue;
       const delay = previous.current?.cards.has(card) ? 0 : MOVE_MS + paced(120);
       element
-        .querySelector<HTMLElement>(":scope > .bf-card")
+        .querySelector<HTMLElement>(SLOT_CARD)
         ?.animate(glowFrames(), { duration: ORIGINAL_GLOW_MS, delay, easing: "linear" });
       const mark = element.querySelector<HTMLElement>(".bf-mark-prepared");
       if (mark && typeof mark.animate === "function")
@@ -5514,9 +5554,7 @@ export function Board({
     // A pile of them (two Leylines side by side are one pile) pulses once.
     const items = new Set(pulse.cards.map((id) => positions.get(id)?.item));
     for (const item of items) {
-      const card = item
-        ? elements.current.get(item)?.querySelector<HTMLElement>(":scope > .bf-card")
-        : null;
+      const card = item ? elements.current.get(item)?.querySelector<HTMLElement>(SLOT_CARD) : null;
       if (card && typeof card.animate === "function")
         card.animate(glowFrames(), { duration: PULSE_MS, easing: "linear" });
     }
@@ -5789,7 +5827,7 @@ export function Board({
           });
       }
       element
-        .querySelector<HTMLElement>(":scope > .bf-card")
+        .querySelector<HTMLElement>(SLOT_CARD)
         ?.animate(glowFrames(), { duration: ORIGINAL_GLOW_MS, delay: exiled, easing: "linear" });
     }
     if (risers.length > 0) setMarks((list) => [...list, ...risers]);
@@ -5950,7 +5988,7 @@ export function Board({
         continue;
       }
       const slot = elements.current.get(heir ?? item);
-      const card = slot?.querySelector<HTMLElement>(":scope > .bf-card");
+      const card = slot?.querySelector<HTMLElement>(SLOT_CARD);
       if (!slot || !card || typeof card.animate !== "function") continue;
       card.animate(frames, {
         duration: plan.total,
@@ -6390,7 +6428,7 @@ export function Board({
       if (out) continue;
       const card = elements.current
         .get(positions.get(id)?.item ?? id)
-        ?.querySelector<HTMLElement>(":scope > .bf-card");
+        ?.querySelector<HTMLElement>(SLOT_CARD);
       if (!card || typeof card.animate !== "function") continue;
       card.animate(
         [
@@ -7083,7 +7121,7 @@ export function Board({
         glowing.add(item);
         elements.current
           .get(item)
-          ?.querySelector<HTMLElement>(":scope > .bf-card")
+          ?.querySelector<HTMLElement>(SLOT_CARD)
           ?.animate(glowFrames(), {
             duration: ORIGINAL_GLOW_MS,
             delay: Math.max(0, delay - paced(80)),
@@ -7173,7 +7211,7 @@ export function Board({
           landAt.set(item.id, r.start + SHOW_MS);
           // Spec 0085 -- freed from its holder: it glows gold as it rises.
           const freedAt = freedRise.get(item.id);
-          const face = element.querySelector<HTMLElement>(":scope > .bf-card");
+          const face = element.querySelector<HTMLElement>(SLOT_CARD);
           if (freedAt !== undefined && face && typeof face.animate === "function")
             face.animate(freedGlowFrames(SHOW_MS), {
               duration: SHOW_MS,
@@ -7277,7 +7315,7 @@ export function Board({
             { duration: FLIP_MS, delay: flipAt, easing: "linear", fill: "backwards" },
           );
           element
-            .querySelector<HTMLElement>(":scope > .bf-card")
+            .querySelector<HTMLElement>(SLOT_CARD)
             ?.animate(flipFrames(g.cardH * item.box.scale, "in"), {
               duration: FLIP_MS,
               delay: flipAt,
@@ -7652,9 +7690,7 @@ export function Board({
             // door opens (RoomDoors), the card does not turn over.
             (oldFace.name !== item.drawn.name && !(oldFace.room && item.drawn.room)))
         ) {
-          const card = elements.current
-            .get(item.id)
-            ?.querySelector<HTMLElement>(":scope > .bf-card");
+          const card = elements.current.get(item.id)?.querySelector<HTMLElement>(SLOT_CARD);
           if (card && typeof card.animate === "function") {
             card.animate(flipFrames(g.cardH * item.box.scale, "in"), {
               duration: FLIP_MS,
@@ -8202,7 +8238,7 @@ export function Board({
           // The creature it saved: a soft pale-gold glow as the blow meets the shield.
           elements.current
             .get(result.slots.find((x) => x.ids.includes(host))?.ids[0] ?? host)
-            ?.querySelector<HTMLElement>(":scope > .bf-card")
+            ?.querySelector<HTMLElement>(SLOT_CARD)
             ?.animate(
               [
                 { offset: 0, boxShadow: "0 0 0 0 rgb(255 236 180 / 0%)" },
@@ -8975,9 +9011,7 @@ export function Board({
           const now = positions.get(l.id)?.box;
           if (!home || !now) continue;
           const key = `alive:${l.id}:${performance.now()}`;
-          const card = elements.current
-            .get(l.item)
-            ?.querySelector<HTMLElement>(":scope > .bf-card");
+          const card = elements.current.get(l.item)?.querySelector<HTMLElement>(SLOT_CARD);
           if (l.up) {
             marks.push(...moteMarks(key, l.from, home, l.times.motes, l.id));
             marks.push(ringMark(key, home, l.times.pulse, l.id, false));
@@ -10676,7 +10710,7 @@ function GhostCard({
     }
     // A-09: the old face flips away where it is.
     if (ghost.flip) {
-      const card = element.querySelector<HTMLElement>(":scope > .bf-card");
+      const card = element.querySelector<HTMLElement>(SLOT_CARD);
       if (!card) {
         done();
         return;
@@ -10724,7 +10758,7 @@ function GhostCard({
       element.classList.add("bf-moving");
       run.onfinish = done;
       // Spec 0079: and the card inside it turning (Clone's old face, flipping away).
-      const card = ghost.inner ? element.querySelector<HTMLElement>(":scope > .bf-card") : null;
+      const card = ghost.inner ? element.querySelector<HTMLElement>(SLOT_CARD) : null;
       const turn =
         ghost.inner && card && typeof card.animate === "function"
           ? card.animate(ghost.inner.frames, {
@@ -10811,7 +10845,7 @@ function GhostCard({
     element.classList.add("bf-moving");
     animation.onfinish = done;
     // A-13: killed in a fight -- its moves in the fight, on its card, first.
-    const card = ghost.fight ? element.querySelector<HTMLElement>(":scope > .bf-card") : null;
+    const card = ghost.fight ? element.querySelector<HTMLElement>(SLOT_CARD) : null;
     const fought =
       ghost.fight && card && typeof card.animate === "function"
         ? card.animate(ghost.fight.frames, {

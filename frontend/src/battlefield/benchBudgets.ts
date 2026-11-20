@@ -11,6 +11,7 @@ export const SCENES = [
   "army",
   "storm",
   "reports",
+  "flyer-tab",
 ] as const;
 export type SceneName = (typeof SCENES)[number];
 
@@ -33,4 +34,5 @@ export const BUDGETS: Record<SceneName, { p95: number; worst: number }> = {
   army: { p95: 100, worst: 250 },
   storm: { p95: 100, worst: 250 },
   reports: { p95: 100, worst: 250 },
+  "flyer-tab": { p95: 100, worst: 250 },
 };

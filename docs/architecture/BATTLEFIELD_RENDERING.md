@@ -277,6 +277,9 @@ rather than teleports.
 7. **Animation never gates input** (§7.36). Transitions are CSS; new
    state interrupts them. Entering play needs a mount transition and
    leaving needs a brief exit hold; both are real work and budgeted.
+   The flyer bob (owner 2026-11-01, spec 0090): the card, its glow, tabs
+   and marks bob as one wrapper (spec 0108; `Board.tsx` `Flight`,
+   `.bf-flight` in `battlefield.css`), its shadow on the table outside it.
 
 8. **Fonts are self-hosted.** Screenshot regression (§7.43) is not
    trustworthy against a web-font request. *As built (2026-11-04):* only

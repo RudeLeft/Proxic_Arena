@@ -1,0 +1,12 @@
+20 Plains
+6 Forest
+6 Swamp
+14 Island
+4 Rebuke
+4 Slayer of the Wicked
+4 Grizzly Bears
+4 Mist Raven
+4 Sharpened Pitchfork
+4 Butcher Ghoul
+4 Screeching Skaab
+4 Thought Scour

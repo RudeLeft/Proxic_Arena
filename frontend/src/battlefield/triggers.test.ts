@@ -119,10 +119,13 @@ describe("many copies of one trigger (W-06)", () => {
 
   it("counts the copies on the stack, this one included", () => {
     // As Forge words them: each copy ends with what caused it.
+    // Spec 0108, item 12: the worker strips Forge's "(Targeting: ...)" note,
+    // so copies aimed differently are told apart by `targets` alone.
     const entry = (
       n: number,
       name = BOGGART,
-      words = "deal 1 damage (Targeting: [[Pat]])",
+      words = "deal 1 damage",
+      targets: StackEntry["targets"] = [{ player: 2 }],
     ): StackEntry => ({
       id: `stack:${n}`,
       description: `${words} [Zone Changer: Goblin Token (${150 + n})]`,
@@ -130,7 +133,7 @@ describe("many copies of one trigger (W-06)", () => {
       name,
       controller: 1,
       kind: "trigger",
-      targets: [],
+      targets,
       art: null,
       manaCost: null,
     });
@@ -138,11 +141,16 @@ describe("many copies of one trigger (W-06)", () => {
     expect(copiesOnStack(stack, BOGGART)).toBe(4);
     // A copy aimed somewhere else is not answered by the same yes.
     expect(
-      copiesOnStack(
-        [...stack, entry(6, BOGGART, "deal 1 damage (Targeting: [[RudeLeft]])")],
-        BOGGART,
-      ),
+      copiesOnStack([...stack, entry(6, BOGGART, "deal 1 damage", [{ player: 1 }])], BOGGART),
     ).toBe(4);
+    // Spec 0108 F-0108-F: seven Shenanigans, five at Bob and two at his creature.
+    const seven = [
+      ...[1, 2, 3, 4, 5].map((n) => entry(n)),
+      ...[6, 7].map((n) => entry(n, BOGGART, "deal 1 damage", [{ object: "card:44" }])),
+    ];
+    expect(copiesOnStack(seven, BOGGART)).toBe(5);
+    expect(copiesOnStack(seven.slice(5), BOGGART)).toBe(2);
+    expect(copiesOnStack([entry(1), entry(2)], BOGGART)).toBe(2);
     expect(copiesOnStack(stack, "Blood Artist")).toBe(1);
     expect(copiesOnStack(stack, "Zulaport Cutthroat")).toBe(0);
   });

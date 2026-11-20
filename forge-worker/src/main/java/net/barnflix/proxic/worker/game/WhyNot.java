@@ -2,7 +2,10 @@ package net.barnflix.proxic.worker.game;
 
 import forge.game.card.Card;
 import forge.game.keyword.Keyword;
+import forge.game.ability.ApiType;
 import forge.game.player.Player;
+import forge.game.spellability.SpellAbility;
+import forge.game.spellability.TargetRestrictions;
 
 /**
  * Why a card the player clicked cannot do anything right now -- PHASE_07
@@ -83,6 +86,79 @@ final class WhyNot {
         }
         return "It can't be used right now.";
     }
+
+    /**
+     * Spec 0108, item 11 -- a card in hand with nothing offered for it, when
+     * some of its abilities were left out for want of a target ([noTarget]):
+     * the target's reason first, for this card's own ability.
+     */
+    static String play(Card card, Player player, java.util.Collection<SpellAbility> noTarget) {
+        for (SpellAbility sa : noTarget) {
+            if (sa.getHostCard() != null && sa.getHostCard().getId() == card.getId()) {
+                return noTarget(targetless(sa));
+            }
+        }
+        return play(card, player);
+    }
+
+    /**
+     * Spec 0108, item 11 -- the step of [sa]'s chain that must target and
+     * has nothing it could target, Forge's own answer
+     * ({@link TargetRestrictions#hasCandidates}); null when every required
+     * target can be chosen. A charm chooses its mode first (its modes are
+     * not its chain yet), and "up to" targets need none: both stay offered.
+     * An Aura spell's enchant target is its own target step.
+     */
+    static SpellAbility targetless(SpellAbility sa) {
+        if (sa == null || sa.getApi() == ApiType.Charm) {
+            return null;
+        }
+        for (SpellAbility step = sa; step != null; step = step.getSubAbility()) {
+            if (!step.usesTargeting() || step.getMinTargets() < 1) {
+                continue;
+            }
+            TargetRestrictions restrictions = step.getTargetRestrictions();
+            if (restrictions != null && !restrictions.hasCandidates(step)) {
+                return step;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Spec 0108, item 11 -- why: from Forge's own target prompt for the
+     * step ("Select target attacking creature" says "There's no attacking
+     * creature to target."); when Forge's words can't be read that way,
+     * "There's nothing it can target right now." Never from Oracle text.
+     */
+    static String noTarget(SpellAbility step) {
+        String prompt = step == null || step.getTargetRestrictions() == null
+                ? null : step.getTargetRestrictions().getVTSelection();
+        return noTargetWords(prompt);
+    }
+
+    static final String NOTHING_TO_TARGET = "There's nothing it can target right now.";
+
+    /** The no-target sentence for Forge's target prompt [prompt] (words only). */
+    static String noTargetWords(String prompt) {
+        String lead = "Select target ";
+        if (prompt == null || !prompt.startsWith(lead)) {
+            return NOTHING_TO_TARGET;
+        }
+        String what = PlainWords.humanise(prompt.substring(lead.length()).trim());
+        while (what.endsWith(".")) {
+            what = what.substring(0, what.length() - 1).trim();
+        }
+        if (what.isEmpty() || !WORDS.matcher(what).matches()
+                || what.matches("(?i)^(a|an|the|any|up|one|two|three)\\b.*")) {
+            return NOTHING_TO_TARGET;
+        }
+        return "There's no " + what + " to target.";
+    }
+
+    /** Plain words: letters, spaces, commas, apostrophes, a hyphen inside a word. */
+    private static final java.util.regex.Pattern WORDS =
+            java.util.regex.Pattern.compile("[A-Za-z']+(?:-[A-Za-z']+)*(?:,?\\s+[A-Za-z']+(?:-[A-Za-z']+)*)*");
 
     /** A card in hand with nothing offered for it. */
     static String play(Card card, Player player) {

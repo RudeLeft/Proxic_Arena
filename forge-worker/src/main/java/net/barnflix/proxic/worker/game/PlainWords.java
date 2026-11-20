@@ -82,6 +82,53 @@ public final class PlainWords {
         return out.toString();
     }
 
+    /**
+     * Spec 0108, item 12 -- a stack entry's words without the notes Forge
+     * appends in its own code text: " (Targeting: [[Butcher Ghoul (65)]])"
+     * (Forge's {@code WrappedAbility.getStackDescription}, a Java list of
+     * lists), the plain " (Targeting: Pat)" some effects add, and a
+     * trigger's remembered objects printed as a raw list (" ([Goblin
+     * Token])"). The arrow and the stack's own marks carry those facts.
+     * Anything else is left as it is; then trimmed.
+     */
+    public static String stackText(String text) {
+        if (text == null || text.indexOf('(') < 0) {
+            return text;
+        }
+        StringBuilder out = new StringBuilder(text);
+        int at = 0;
+        while ((at = out.indexOf("(", at)) >= 0) {
+            boolean targeting = out.indexOf("(Targeting:", at) == at;
+            boolean remembered = at + 1 < out.length() && out.charAt(at + 1) == '[';
+            int close = targeting || remembered ? closing(out, at) : -1;
+            if (close < 0 || (remembered && out.charAt(close - 1) != ']')) {
+                at++;
+                continue;
+            }
+            int from = at;
+            while (from > 0 && Character.isWhitespace(out.charAt(from - 1))) {
+                from--;
+            }
+            out.delete(from, close + 1);
+            at = from;
+        }
+        return out.toString().trim();
+    }
+
+    /** The index of the bracket closing the "(" at [open], counting nested ones; -1 if none. */
+    private static int closing(CharSequence text, int open) {
+        int depth = 0;
+        for (int i = open; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '(') {
+                depth++;
+            } else if (c == ')' && --depth == 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     /** One piece of shorthand, or null when it is not shorthand at all. */
     private static String say(String type, String properties, String noun) {
         List<String> before = new ArrayList<>();

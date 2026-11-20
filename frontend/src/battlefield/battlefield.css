@@ -904,7 +904,8 @@
     box-shadow: 1px 0 3px rgb(0 0 0 / 50%);
   }
 }
-.bf-clink > .bf-card {
+.bf-clink > .bf-card,
+.bf-clink > .bf-flight > .bf-card {
   animation: bf-clink calc(1240ms * var(--pa-pace, 1)) ease-out both;
 }
 @keyframes bf-clink {
@@ -923,7 +924,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .bf-tag.bf-tab-arrive,
-  .bf-clink > .bf-card {
+  .bf-clink > .bf-card,
+  .bf-clink > .bf-flight > .bf-card {
     animation: none;
   }
 }
@@ -2098,11 +2100,18 @@ img.bf-makes-pip {
 /* Owner 2026-11-01 (item 3) -- a creature that flies hovers over the table:
    lifted, bobbing slowly and tilting a little (5 s); in a crowded row it only
    bobs, so it never swings into the next card. Tapped, it rests. `translate`
-   and `rotate` compose with the slot's placement. */
-.bf-card.bf-fly {
+   and `rotate` compose with the slot's placement.
+   Spec 0108, items 8/9: the bob is its wrapper's (`.bf-flight`, the slot's
+   box), which holds the card, its glow, its tabs and its marks, so they
+   rise and tilt as one piece; the card itself does not bob. */
+.bf-flight {
+  position: absolute;
+  inset: 0;
+}
+.bf-flight.bf-fly {
   animation: bf-fly 5s ease-in-out infinite;
 }
-.bf-card.bf-fly.bf-fly-bob {
+.bf-flight.bf-fly.bf-fly-bob {
   animation-name: bf-fly-bob;
 }
 @keyframes bf-fly {
@@ -2212,8 +2221,8 @@ img.bf-makes-pip {
 }
 @media (prefers-reduced-motion: reduce) {
   /* Still: a flyer rests lifted, the z's stay put. */
-  .bf-card.bf-fly,
-  .bf-card.bf-fly.bf-fly-bob {
+  .bf-flight.bf-fly,
+  .bf-flight.bf-fly.bf-fly-bob {
     animation: none;
     translate: 0 calc(var(--card-h) * -0.06);
   }

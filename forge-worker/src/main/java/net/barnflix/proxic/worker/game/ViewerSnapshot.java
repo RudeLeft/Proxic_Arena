@@ -441,7 +441,8 @@ final class ViewerSnapshot {
             // Forge's own wording -- unless it is about a face-down card
             // this viewer may not identify: it starts with the card's name.
             // Spec 0057, item 1: no script shorthand ("Card.Green") reaches a player.
-            entry.addProperty("description", hidden ? "Face-down spell" : PlainWords.humanise(String.valueOf(instance)));
+            // Spec 0108, item 12: nor Forge's "(Targeting: [[...]])" note (PlainWords#stackText).
+            entry.addProperty("description", hidden ? "Face-down spell" : PlainWords.humanise(PlainWords.stackText(String.valueOf(instance))));
             // §7.61 B2 -- the stack as cards: what it is, whose it is, and
             // where it came from, the name as this viewer may know it.
             if (source != null) {
@@ -761,7 +762,7 @@ final class ViewerSnapshot {
         entry.addProperty("controller", by == null ? 0 : seatOf.getOrDefault(by, 0));
         entry.addProperty("kind", sa.isSpell() ? "spell" : sa.isTrigger() ? "trigger" : "ability");
         String said = sa.getStackDescription();
-        entry.addProperty("description", PlainWords.humanise(said == null || said.isBlank() ? String.valueOf(sa) : said));
+        entry.addProperty("description", PlainWords.humanise(PlainWords.stackText(said == null || said.isBlank() ? String.valueOf(sa) : said)));
         entry.addProperty("copy", true);
         forge.game.spellability.SpellAbilityStackInstance of = Copies.originalEntry(game, sa);
         if (of != null) {

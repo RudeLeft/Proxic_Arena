@@ -142,12 +142,13 @@ function readBoard(page: Page): Promise<Seen> {
     ].map((el) => {
       // A flyer's hover-sway (owner item 3) is decoration on top of its
       // place: measure the place, with the sway held still for the read.
-      const still = el.classList.contains("bf-fly");
-      if (still) el.style.setProperty("animation", "none");
-      if (still) el.style.setProperty("translate", "none");
+      // Spec 0108: the sway is its wrapper's (.bf-flight), tabs and all.
+      const still = el.closest<HTMLElement>(".bf-flight");
+      if (still) still.style.setProperty("animation", "none");
+      if (still) still.style.setProperty("translate", "none");
       const r = el.getBoundingClientRect();
-      if (still) el.style.removeProperty("animation");
-      if (still) el.style.removeProperty("translate");
+      if (still) still.style.removeProperty("animation");
+      if (still) still.style.removeProperty("translate");
       return {
         id: el.dataset.objectId!,
         zone: el.dataset.zone!,
@@ -885,7 +886,9 @@ test("lines and combat effects follow the game (Amendments 4 and 7)", async ({ p
                 return (
                   target.dataset.objectId ??
                   target.closest<HTMLElement>("[data-ghost-of]")?.dataset.ghostOf ??
-                  target.querySelector<HTMLElement>(":scope > button")?.dataset.objectId ??
+                  // Spec 0108: a flyer's button is in its wrapper (.bf-flight).
+                  target.querySelector<HTMLElement>(":scope > button, :scope > .bf-flight > button")
+                    ?.dataset.objectId ??
                   ""
                 );
               }),

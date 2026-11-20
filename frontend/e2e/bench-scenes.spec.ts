@@ -446,6 +446,75 @@ test.describe("Phase 10's moments, timed (spec 0090)", () => {
     );
   });
 
+  test("F-0108-B · a flyer's tab and glow keep their place on it through a bob, lit mid-bob", async ({
+    page,
+  }) => {
+    const shots = process.env.PROXIC_SHOTS ?? "test-results/seen";
+    mkdirSync(shots, { recursive: true });
+    await showScene(page, "flyer-tab");
+    const cdp = await page.context().newCDPSession(page);
+    /** Each element's four drawn corners (CDP's content quads: rotation and all), in one go. */
+    const corners = async (selectors: string[]) => {
+      const { root } = await cdp.send("DOM.getDocument", { depth: 0 });
+      const out: number[][] = [];
+      for (const selector of selectors) {
+        const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: root.nodeId, selector });
+        const { quads } = await cdp.send("DOM.getContentQuads", { nodeId });
+        out.push(quads[0]!);
+      }
+      return out;
+    };
+    /** A point in the card's own frame: along its top edge (u) and down its left edge (v). */
+    const local = (card: number[], x: number, y: number) => {
+      const [ox, oy, tx, ty] = card as [number, number, number, number];
+      const lx = card[6]! - ox;
+      const ly = card[7]! - oy;
+      const top = Math.hypot(tx - ox, ty - oy);
+      const left = Math.hypot(lx, ly);
+      return {
+        u: ((x - ox) * (tx - ox) + (y - oy) * (ty - oy)) / top,
+        v: ((x - ox) * lx + (y - oy) * ly) / left,
+      };
+    };
+    const CARD = 'button.bf-card[data-object-id="card:300"]';
+    const TAB = 'button.bf-tag[data-object-id="card:301"]';
+    const GLOW = `${CARD} + .bf-breath`;
+    await page.getByRole("button", { name: "Play" }).click();
+    // Lit part way through a bob: wait for the glow (a state), then sample.
+    await expect(page.locator(GLOW)).toHaveCount(1, { timeout: 10_000 });
+    const samples: {
+      cardY: number;
+      tab: { u: number; v: number };
+      glow: { u: number; v: number };
+    }[] = [];
+    for (let i = 0; i < 10; i++) {
+      const [card, tab, glow] = await corners([CARD, TAB, GLOW]);
+      samples.push({
+        cardY: card![1]!,
+        tab: local(card!, tab![0]!, tab![1]!),
+        glow: local(card!, glow![0]!, glow![1]!),
+      });
+      if (i % 3 === 0) await page.screenshot({ path: join(shots, `0108-flyer-tab-${i}.png`) });
+      // Ten looks spread over one 5 s bob (not a frame's wait: the bob is slow).
+      await page.waitForTimeout(450);
+    }
+    const spread = (xs: number[]) => Math.max(...xs) - Math.min(...xs);
+    const seen = {
+      cardMoved: spread(samples.map((s) => s.cardY)),
+      tabU: spread(samples.map((s) => s.tab.u)),
+      tabV: spread(samples.map((s) => s.tab.v)),
+      glowU: spread(samples.map((s) => s.glow.u)),
+      glowV: spread(samples.map((s) => s.glow.v)),
+    };
+    console.log(JSON.stringify({ flyerTab: seen }));
+    report.push({ flyerTab: seen });
+    // It did bob (or nothing was measured).
+    expect(seen.cardMoved, "the flyer bobbed while it was measured").toBeGreaterThan(2);
+    for (const [k, v] of Object.entries(seen))
+      if (k !== "cardMoved")
+        expect(v, `${k}: within 1 px of its place on the card`).toBeLessThan(1);
+  });
+
   test.afterAll(({ browserName }) => {
     if (!process.env.PROXIC_BENCH_OUT) return;
     writeFileSync(

@@ -1574,13 +1574,9 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   cursor: pointer;
   animation: none;
 }
-/* A flyer you can choose hovers too (CI 2026-11-03, match-board-motion). */
-.bf-card.bf-fly.bf-choosable {
-  animation: bf-fly 5s ease-in-out infinite;
-}
-.bf-card.bf-fly.bf-fly-bob.bf-choosable {
-  animation-name: bf-fly-bob;
-}
+/* A flyer you can choose hovers too (CI 2026-11-03, match-board-motion):
+   spec 0108, its wrapper bobs (battlefield.css `.bf-flight`), whatever the
+   card's own state. */
 @media (prefers-reduced-motion: no-preference) {
   .bf-card.bf-choosable.bf-breathes,
   .bf-tag.bf-choosable.bf-breathes,
@@ -1616,13 +1612,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   height: 58px;
   border-radius: 4px;
 }
-/* A flyer's glow hovers with it: its classes, its clock. */
-.bf-breath.bf-fly {
-  animation: bf-fly 5s ease-in-out infinite;
-}
-.bf-breath.bf-fly.bf-fly-bob {
-  animation-name: bf-fly-bob;
-}
+/* A flyer's glow hovers with it: spec 0108, inside its wrapper (`.bf-flight`). */
 .bf-breath::before,
 .bf-breath::after,
 .gs-life.gs-choosable:not(.gs-targeted)::before,
@@ -1691,8 +1681,6 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
     display: none;
   }
   .bf-card.bf-choosable,
-  .bf-card.bf-fly.bf-choosable,
-  .bf-card.bf-fly.bf-fly-bob.bf-choosable,
   .bf-tag.bf-choosable,
   .gs-choosable {
     animation: none;

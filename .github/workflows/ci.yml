@@ -325,7 +325,7 @@ jobs:
               attachments printings face-down costs results \
               tracked-state text-effects coin-flip board-data concede mana-cost \
               library-order mana-pool mulligan unreachable dice unset \
-              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose stack-rests \
+              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose stack-rests no-target \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
               'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions|shapes|always-choose|stops|stack-rests|combat-choices) limit=900;; esac;
@@ -714,6 +714,13 @@ jobs:
       - name: Build the trample deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/trample-deck.zip" protocol/fixtures/trample-deck
+
+      # Spec 0108 -- Rebuke, Slayer of the Wicked, Mist Raven with Sharpened
+      # Pitchfork, and the two mills, for the real-click games
+      # (match-small-fixes.spec.ts).
+      - name: Build the small-fixes deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/small-fixes-deck.zip" protocol/fixtures/small-fixes-deck
 
       # Spec 0095 -- the owner's mono-green deck on both seats, for the
       # real-game speed test (match-speed.spec.ts).

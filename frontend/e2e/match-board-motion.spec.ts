@@ -43,15 +43,16 @@ async function creatures(page: Page) {
       els
         .filter((el) => /creature/.test(el.getAttribute("data-zone") ?? ""))
         .map((el) => {
-          const style = getComputedStyle(el);
+          // Spec 0108: a flyer bobs as one piece, its wrapper (.bf-flight).
+          const flight = el.closest(".bf-flight");
           return {
             id: el.getAttribute("data-object-id") ?? "",
             name: (el.getAttribute("aria-label") ?? "").split(",")[0] ?? "",
             label: el.getAttribute("aria-label") ?? "",
             tapped: el.getAttribute("data-tapped") === "true",
-            fly: el.classList.contains("bf-fly"),
-            moving: style.animationName.includes("bf-fly"),
-            shadow: !!el.parentElement?.querySelector(".bf-fly-shadow"),
+            fly: el.classList.contains("bf-fly") && flight !== null,
+            moving: flight !== null && getComputedStyle(flight).animationName.includes("bf-fly"),
+            shadow: !!el.closest(".bf-slot")?.querySelector(":scope > .bf-fly-shadow"),
             zz: el.querySelectorAll(".bf-zz i").length,
           };
         }),

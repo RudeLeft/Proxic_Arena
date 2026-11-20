@@ -47,6 +47,7 @@ Forge's own desktop screen does the checking, so Arena's worker must.
 | Costs paid in a rules-legal order that never loses a card for nothing (CR 601.2h) | `MatchController.orderCosts` -- refundable first, sacrifices last (Phase 8 Amendment 2) | `check-cost-kinds mill-no` |
 | Choices between min and max (sacrifice, discard, reveal, "any number") | `pickSeveral` / `pickCards`: never fewer than required, a pass only when allowed | the record's scenarios |
 | A card in another player's graveyard or exile that a player may use (Gonti's, Hostage Taker's: CR 109.5's "you may cast") is offered to that player, as its own cards are (FMT-003) | `MatchController` adds Forge's own `Player#getCardsActivatableInExternalZones` to the player's zones; the offer is still Forge's (`getAllPossibleAbilities`, its restrictions and timing). Before spec 0087 such a card was never offered | `check-piles gonti` |
+| What is offered: Forge's `getAllPossibleAbilities`, screened by its own restrictions and timing, and a required target exists (Forge `TargetRestrictions.hasCandidates`, spec 0108); a charm (its mode first) and an "up to" target stay offered, and what is left out for want of a target says why ("There's no attacking creature to target.") | `MatchController.chooseSpellAbilityToPlay`'s offer loop, `WhyNot.targetless` / `WhyNot.noTarget` | `check-no-target` |
 
 ## Every answer Arena gives without asking -- and why it is not a guess
 

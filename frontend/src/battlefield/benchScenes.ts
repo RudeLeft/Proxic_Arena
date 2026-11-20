@@ -275,6 +275,38 @@ function flyers(): BenchScene {
   };
 }
 
+/** Spec 0108 (F-0108-B) -- when the flyer becomes choosable: mid-bob. */
+export const FLYER_TAB_LIT_MS = 1300; // not paced: a wait (spec 0106)
+
+/**
+ * Spec 0108 (F-0108-B) -- Bob's Mist Raven carrying Sharpened Pitchfork,
+ * bobbing; part way through a bob it becomes choosable (its glow and its
+ * tab's light up). The tab and the glow keep their place on the card.
+ */
+function flyerTab(): BenchScene {
+  const raven = card("card:300", 2, "Mist Raven", { keywords: ["Flying"] });
+  const fork = card("card:301", 2, "Sharpened Pitchfork", {
+    kind: "other",
+    types: "Artifact — Equipment",
+    power: null,
+    toughness: null,
+    attachedTo: "card:300",
+  });
+  const cards = [...lands(1, 1), ...lands(2, 11), raven, fork];
+  return {
+    name: "flyer-tab",
+    label: "A flyer with a tab, lit mid-bob",
+    start: table(cards),
+    steps: [
+      {
+        at: FLYER_TAB_LIT_MS,
+        board: table(cards, { choosable: new Set([raven.id, fork.id]), asking: true }),
+      },
+    ],
+    ms: FLYER_TAB_LIT_MS + 6000,
+  };
+}
+
 /** Day becomes night: the wash across a full table. */
 function wash(): BenchScene {
   const cards = [
@@ -488,6 +520,7 @@ const MAKERS: Record<SceneName, () => BenchScene> = {
   army,
   storm,
   reports,
+  "flyer-tab": flyerTab,
 };
 
 /** A scene, made fresh (its cards' ids are its own). */

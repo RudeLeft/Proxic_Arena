@@ -113,8 +113,15 @@ export function copiesOnStack(stack: readonly StackEntry[], name: string): numbe
   const top = stack.find((s) => s.kind === "trigger" && s.name === name);
   if (!top) return 0;
   const words = copyWords(top.description);
+  // Spec 0108, item 12 -- told apart by what they aim at (`targets`), as
+  // sameTrigger does: the worker strips Forge's "(Targeting: ...)" words.
+  const aim = JSON.stringify(top.targets);
   return stack.filter(
-    (s) => s.kind === "trigger" && s.name === top.name && copyWords(s.description) === words,
+    (s) =>
+      s.kind === "trigger" &&
+      s.name === top.name &&
+      copyWords(s.description) === words &&
+      JSON.stringify(s.targets) === aim,
   ).length;
 }
 

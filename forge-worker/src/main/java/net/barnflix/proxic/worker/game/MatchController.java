@@ -570,6 +570,8 @@ public final class MatchController extends GeneratedControllerBase {
         // player may do; nothing here reorders it, and the only
         // filter is Forge's own (below).
         java.util.LinkedHashMap<String, SpellAbility> byId = new java.util.LinkedHashMap<>();
+        // Spec 0108, item 11 -- left out for want of a target, by ability id.
+        java.util.Map<Integer, SpellAbility> noTarget = new java.util.HashMap<>();
         // Spec 0087, Amendment 1 (FMT-003) -- and the other players' cards
         // this player may use where they lie (Gonti's, Hostage Taker's card
         // in the other player's exile): Forge's own list of cards activatable
@@ -593,6 +595,15 @@ public final class MatchController extends GeneratedControllerBase {
                 // and rolled back. Still Forge's answer, asked earlier.
                 // COST is deliberately not screened (see describe()).
                 if (!sa.checkRestrictions(player) || !sa.canCastTiming(player)) {
+                    continue;
+                }
+                // Spec 0108, item 11 -- nor what has nothing it could target:
+                // Forge's own answer (TargetRestrictions.hasCandidates), asked
+                // before the click, where its casting would roll it back
+                // without a word (Rebuke with nothing attacking). Charms and
+                // "up to" targets stay offered (WhyNot#targetless).
+                if (WhyNot.targetless(sa) != null) {
+                    noTarget.put(sa.getId(), sa);
                     continue;
                 }
                 // §6.46 — TYPED ids, because card ids and
@@ -689,7 +700,7 @@ public final class MatchController extends GeneratedControllerBase {
         java.util.Map<String, String> why = new java.util.HashMap<>();
         for (forge.game.card.Card card : player.getCardsIn(forge.game.zone.ZoneType.Hand)) {
             if (!offeredCards.contains(card.getId())) {
-                why.put("card:" + card.getId(), WhyNot.play(card, player));
+                why.put("card:" + card.getId(), WhyNot.play(card, player, noTarget.values()));
             }
         }
         host.offerUnavailable(why);
@@ -714,8 +725,11 @@ public final class MatchController extends GeneratedControllerBase {
                 if (offeredLabels.contains(label)) {
                     continue;
                 }
+                // Spec 0108, item 11: one left out for want of a target says so.
+                String reason = noTarget.containsKey(sa.getId())
+                        ? WhyNot.noTarget(WhyNot.targetless(sa)) : WhyNot.ability(sa, card, player);
                 notNow.computeIfAbsent("card:" + card.getId(), k -> new java.util.ArrayList<>())
-                        .add(new String[] {label, WhyNot.ability(sa, card, player)});
+                        .add(new String[] {label, reason});
             }
         }
         // Spec 0061, item 1 -- a card in hand whose ONLY options throw it away
@@ -1321,7 +1335,7 @@ public final class MatchController extends GeneratedControllerBase {
             for (String id : byId.keySet()) {
                 labels.put(id, shown.get(at++));
             }
-            onStack.forEach((id, spell) -> labels.put(id, "on the stack: " + spell.getStackDescription()));
+            onStack.forEach((id, spell) -> labels.put(id, "on the stack: " + PlainWords.stackText(spell.getStackDescription())));
             // Phase 9 Amendment 17 -- backing out is its own answer, last
             // (a pass with enough chosen means "no more", so it cannot
             // also mean "cancel"), and the page is told what is chosen

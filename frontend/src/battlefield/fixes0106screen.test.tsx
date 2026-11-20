@@ -230,7 +230,7 @@ describe("F-0106-B · the style sheets read the table's pace from the game scree
     const cast = declared(sheet("game.css"), ".gs-cast", "transition");
     expect(firstMs(cast, pace)).toBeCloseTo(380 * 1.25, 6);
     // A flyer's endless bob is a loop: not paced.
-    const bob = declared(bf, ".bf-card.bf-fly", "animation");
+    const bob = declared(bf, ".bf-flight.bf-fly", "animation");
     expect(bob).not.toContain("--pa-pace");
     expect(firstMs(bob, pace)).toBe(5000);
   });

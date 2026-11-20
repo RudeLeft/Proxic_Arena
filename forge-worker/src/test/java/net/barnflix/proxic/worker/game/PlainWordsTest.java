@@ -115,4 +115,36 @@ class PlainWordsTest {
         assertEquals("Pay {X}: it gets +2/+2 (2 Elves you control).",
                 PlainWords.countedX("Pay {X}: it gets +X/+X, where X is the number of Elves you control.", 2, false));
     }
+
+    // --- spec 0108, item 12: Forge's code notes on a stack entry ------------------------
+
+    @Test
+    void theTargetingNoteLeavesTheStackWords() {
+        String slayer = "When Slayer of the Wicked enters, you may destroy target Vampire, Werewolf, or Zombie.";
+        // The nested-list form WrappedAbility prints.
+        assertEquals("Slayer of the Wicked (65) - " + slayer,
+                PlainWords.stackText("Slayer of the Wicked (65) - " + slayer + " (Targeting: [[Butcher Ghoul (66)]])"));
+        // Before the trigger's cause, which the page strips itself.
+        assertEquals(slayer + " [Slayer of the Wicked (65)]",
+                PlainWords.stackText(slayer + " (Targeting: [[Butcher Ghoul (66)]]) [Slayer of the Wicked (65)]"));
+        // Two targets, and the plain form some effects add.
+        assertEquals("deal 1 damage", PlainWords.stackText("deal 1 damage (Targeting: [[Pat, Grizzly Bears (12)]])"));
+        assertEquals("Lightning Bolt deals 3 damage to any target.",
+                PlainWords.stackText("Lightning Bolt deals 3 damage to any target. (Targeting: Pat)"));
+    }
+
+    @Test
+    void theRememberedListGoesToo() {
+        assertEquals("Whenever a Goblin dies, create a token.",
+                PlainWords.stackText("Whenever a Goblin dies, create a token. ([Goblin Token (70)])"));
+        assertEquals("Do it.", PlainWords.stackText("Do it. ([Goblin Token (70), Pat]) (Targeting: [[Pat]])"));
+    }
+
+    @Test
+    void otherBracketsStay() {
+        assertEquals("B.F.M. (Big Furry Monster) attacks.", PlainWords.stackText("B.F.M. (Big Furry Monster) attacks."));
+        assertEquals("Grizzly Bears (12) - Draw a card.", PlainWords.stackText("Grizzly Bears (12) - Draw a card."));
+        assertEquals("Unclosed (Targeting: [[Pat]", PlainWords.stackText("Unclosed (Targeting: [[Pat]"));
+        assertEquals(null, PlainWords.stackText(null));
+    }
 }
