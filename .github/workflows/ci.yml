@@ -327,7 +327,7 @@ jobs:
               take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose stack-rests \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
-              'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions|shapes|always-choose) limit=900;; esac;
+              'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions|shapes|always-choose|stops|stack-rests) limit=900;; esac;
                run() { timeout $limit python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1; };
                run; s=$?;
                if [ $s = 2 ]; then
@@ -690,8 +690,8 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/numbers-deck.zip" protocol/fixtures/numbers-deck
 
-      # And a creature nobody can answer (owner 2026-11-01, item 2): the
-      # cast card lands straight on its place on the battlefield.
+      # And a creature nobody can answer (owner 2026-11-01, item 2; spec
+      # 0105): the cast card goes by the stack, and the creature is drawn once.
       - name: Build the landing deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/landing-deck.zip" protocol/fixtures/landing-deck

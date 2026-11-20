@@ -1,15 +1,21 @@
-// A creature nobody can answer lands straight on the battlefield -- owner
-// 2026-11-01, item 2 (canvas https://claude.ai/artifact/GXixi5Eb5b43KELUTGjn81).
+// A creature nobody can answer is drawn once -- owner 2026-11-01, item 2
+// (canvas https://claude.ai/artifact/GXixi5Eb5b43KELUTGjn81), as spec 0105
+// (the stack always shows) changed it.
 //
-// When the opponent cannot respond, the game resolves a creature the moment
-// it is cast. The big card used to fly to the stack (by then empty) while
-// the creature slid out of the same spot: a blink. Now the card waits a
-// beat, hears the creature is already on the battlefield, and flies onto
-// its place there; the board shows the creature only once it has landed.
+// Before 0105 the game resolved a creature nobody could answer the moment it
+// was cast, and the big card flew straight onto its battlefield place. Since
+// 0105 the worker rests an unanswered spell on the stack (StackRests), so
+// the card always flies to the stack, rests there with the ring, and the
+// creature then glides out of the stack card to its place. The straight
+// landing (`flyingOnto`, `data-landing`) stays only as the fallback for a
+// board that arrives already resolved (a dropped snapshot, a reconnect; 0105
+// As built, "The caster's card flies to the stack"); a real game with the
+// stops rule never takes it, so this test does not look for it.
 //
-// Watched frame by frame: while the cast card is in the air, the creature's
-// own card is hidden; when the flight ends, it is shown where the flight
-// landed -- never on the stack.
+// What still holds, watched frame by frame from the click that pays: while
+// the cast card is in the air the creature is not on the battlefield; the
+// card rests on the stack; the creature appears only once the stack card has
+// left, and is never drawn in two places at once.
 //
 // Both players use the landing test deck (protocol/fixtures/landing-deck).
 // CI builds it; locally:
@@ -38,65 +44,75 @@ const pkg = join(process.cwd(), "..", "Test Deck", "landing-deck.zip");
 const CREATURES =
   /^(Grizzly Bears|Birds of Paradise|Llanowar Elves|Elvish Mystic|Centaur Courser|Giant Spider|Craw Wurm|Kalonian Tusker|Leatherback Baloth)/;
 
-interface Rect {
-  x: number;
-  y: number;
-}
 interface Frame {
-  /** The cast card in the air: its centre, and whether it is landing on the battlefield. */
-  flight: (Rect & { landing: boolean }) | null;
-  /** The board cards hidden because the cast card is flying onto them. */
-  hidden: string[];
-  /** Where each of those is drawn (hidden or not), by id. */
-  at: Record<string, Rect & { shown: boolean }>;
+  /** Since the watch began, ms. */
+  t: number;
+  /** The cast card in the air (the big card leaving the hand), by card id. */
+  flight: string | null;
+  /** The stack cards drawn (not hidden), by object id and the ids they draw. */
+  stack: { id: string; members: string[]; label: string }[];
+  /** Whether the watched creature's own battlefield card is drawn (and not hidden). */
+  shown: boolean;
 }
 
-/** Every animation frame for [ms]: the cast card, and the cards it is flying onto. */
-async function watch(page: Page, ms: number): Promise<Frame[]> {
-  return page.evaluate<Frame[], { ms: number }>(
-    async ({ ms }) => {
+/**
+ * Every animation frame from the click that pays the last of the cast, for
+ * the cast card's card id: until the creature has been on the battlefield
+ * for half a second with no stack card left, or [ms] at most. Ends at once
+ * when no cast card sets off within [startMs] (more mana still to pay).
+ */
+async function watch(page: Page, ms: number, startMs: number): Promise<Frame[]> {
+  return page.evaluate<Frame[], { ms: number; startMs: number }>(
+    async ({ ms, startMs }) => {
       const frames: Frame[] = [];
       const start = performance.now();
-      const centre = (el: Element) => {
-        const r = el.getBoundingClientRect();
-        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-      };
-      const watched = new Set<string>();
+      let card: string | null = null;
+      let settledAt: number | null = null;
       await new Promise<void>((done) => {
         const tick = () => {
+          const t = performance.now() - start;
           const leaving = document.querySelector(".gs-cast-leaving");
-          const hidden = [...document.querySelectorAll<HTMLElement>(".bf-slot")]
-            .filter((slot) => slot.style.opacity === "0")
-            .map((slot) => slot.querySelector("button")?.getAttribute("data-object-id") ?? "")
-            .filter(Boolean);
-          hidden.forEach((id) => watched.add(id));
-          const at: Frame["at"] = {};
-          for (const id of watched) {
-            const button = document.querySelector(`.bf-cards button[data-object-id="${id}"]`);
+          const flight = leaving?.getAttribute("data-card") ?? null;
+          if (flight && card === null) card = flight;
+          const stack = [...document.querySelectorAll<HTMLElement>(".bf-stack-slot")]
+            .filter(
+              (slot) => slot.style.opacity !== "0" && !slot.classList.contains("bf-stack-paying"),
+            )
+            .map((slot) => {
+              const b = slot.querySelector("button[data-zone='stack']");
+              return {
+                id: b?.getAttribute("data-object-id") ?? "",
+                members: (b?.getAttribute("data-members") ?? "").split(" ").filter(Boolean),
+                label: b?.getAttribute("aria-label") ?? "",
+              };
+            });
+          let shown = false;
+          if (card !== null) {
+            const button = document.querySelector(
+              `.bf-cards button[data-object-id="${card}"]:not([data-zone$=":hand"])`,
+            );
             const slot = button?.closest<HTMLElement>(".bf-slot");
-            if (button && slot) at[id] = { ...centre(button), shown: slot.style.opacity !== "0" };
+            shown =
+              !!slot && slot.style.opacity !== "0" && !slot.classList.contains("bf-stack-slot");
           }
-          frames.push({
-            flight: leaving
-              ? { ...centre(leaving), landing: leaving.getAttribute("data-landing") === "true" }
-              : null,
-            hidden,
-            at,
-          });
-          if (performance.now() - start < ms) requestAnimationFrame(tick);
-          else done();
+          frames.push({ t, flight, stack, shown });
+          if (card !== null && shown && !flight && stack.length === 0) settledAt ??= t;
+          const over =
+            t >= ms ||
+            (card === null && t >= startMs) ||
+            (settledAt !== null && t - settledAt >= 500);
+          if (over) done();
+          else requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
       });
       return frames;
     },
-    { ms },
+    { ms, startMs },
   );
 }
 
-test("a creature nobody can answer lands straight on its place, drawn once", async ({
-  browser,
-}) => {
+test("a creature nobody can answer goes by the stack, drawn once", async ({ browser }) => {
   test.skip(!existsSync(pkg), "no landing deck package (CI builds it)");
   test.setTimeout(900_000);
   const viewport = { width: 1920, height: 1080 };
@@ -190,51 +206,60 @@ test("a creature nobody can answer lands straight on its place, drawn once", asy
             await page.waitForTimeout(100);
             continue;
           }
-          const watching = watch(page, 2600);
+          // Spec 0105: the card flies to the stack and rests there (5.6 s
+          // from the board that says so) before the creature comes out.
+          const watching = watch(page, 15_000, 2_600);
           await clickNow(owing);
           frames = await watching;
           if (frames.some((f) => f.flight)) break;
         }
+        const first = frames.findIndex((f) => f.flight);
+        if (first < 0) continue;
+        const card = frames[first]!.flight!;
         // A second copy joins its twin's pile (identical cards stack), with
-        // no card of its own to land on: that cast does not count. The
-        // watch can open on the end of the previous cast's landing: this
-        // cast's creature is the one hidden in the last landing frame.
-        const onto = frames.filter((f) => f.flight?.landing).pop()?.hidden[0];
-        if (!onto) continue;
-        const landing = frames.filter((f) => f.flight?.landing && f.hidden.includes(onto));
-        // The whole flight, or nothing to judge: it set off near the end of
-        // the recording (another mana was still being paid).
-        const lastAt = frames.lastIndexOf(landing[landing.length - 1]!);
-        if (landing.length < 10 || !frames.slice(lastAt + 1).some((f) => !f.flight)) continue;
+        // no card of its own: that cast does not count.
+        const shownAt = frames.findIndex((f) => f.shown);
+        if (shownAt < 0) continue;
+        const timeline = () =>
+          JSON.stringify(
+            frames
+              .filter((_, i) => i % 4 === 0)
+              .map((f) => [
+                Math.round(f.t),
+                f.flight ? "air" : "",
+                f.stack.length,
+                f.shown ? "S" : "",
+              ]),
+          ).slice(0, 900);
 
-        // Drawn once: in every frame the card is in the air, the creature
-        // it is landing on is hidden.
-        const shownEarly = landing.filter((f) => f.at[onto]?.shown);
+        // Drawn once: while its card is in the air, the creature is not on
+        // the battlefield...
         expect(
-          shownEarly.length,
-          `the creature was drawn while its card was still flying: ${JSON.stringify(
-            landing.map((f) => [f.hidden.join("+"), f.at[onto]?.shown]),
-          ).slice(0, 600)}`,
+          frames.filter((f) => f.flight && f.shown).length,
+          `the creature was drawn while its card was still flying: ${timeline()}`,
         ).toBe(0);
-        // It lands on the creature's place as it is at that moment (the
-        // row may still shift afterwards, gliding like any other card),
-        // not on the stack; then the creature is shown.
-        const last = landing[landing.length - 1]!;
-        const place = last.at[onto];
-        expect(place, "the creature's place, at the landing").toBeTruthy();
+        // ...the card lands on the stack and rests there (spec 0105)...
+        const lastFlight = frames.map((f) => !!f.flight).lastIndexOf(true);
+        const onStack = frames.slice(lastFlight + 1).filter((f) => f.stack.length > 0);
+        expect(onStack.length, `the card rested on the stack: ${timeline()}`).toBeGreaterThan(0);
+        // ...and the creature appears only once the stack card has left,
+        // never in two places at once.
         expect(
-          Math.abs(last.flight!.x - place!.x),
-          `landed on the creature (x): ${JSON.stringify(
-            landing
-              .filter((_, i) => i % 3 === 0)
-              .map((f) => [Math.round(f.flight!.x), Math.round(f.at[onto]?.x ?? -1)]),
-          )}`,
-        ).toBeLessThan(30);
-        expect(Math.abs(last.flight!.y - place!.y), "landed on the creature (y)").toBeLessThan(30);
+          frames.filter((f) => f.stack.length > 0 && f.shown).length,
+          `the creature was drawn while its stack card was still shown: ${timeline()}`,
+        ).toBe(0);
+        const lastStack = frames.map((f) => f.stack.length > 0).lastIndexOf(true);
         expect(
-          frames.some((f) => !f.flight && f.at[onto]?.shown),
-          "the creature is shown once the card has landed",
-        ).toBe(true);
+          shownAt,
+          `the creature appeared after its stack card left: ${timeline()}`,
+        ).toBeGreaterThan(lastStack);
+        expect(frames[frames.length - 1]!.shown, "the creature stays on the battlefield").toBe(
+          true,
+        );
+        console.log(
+          `cast ${card}: in the air ${Math.round(frames[lastFlight]!.t - frames[first]!.t)} ms, ` +
+            `on the stack ${Math.round(frames[lastStack]!.t - frames[lastFlight]!.t)} ms`,
+        );
         landed += 1;
         await page.screenshot({ path: `test-results/seen/cast-landed-${landed}.png` });
       }

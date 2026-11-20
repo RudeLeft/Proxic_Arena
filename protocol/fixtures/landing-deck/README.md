@@ -3,8 +3,9 @@
 Lands and creatures only (owner 2026-11-01, item 2): nobody ever holds an
 instant, so every creature resolves the moment it is cast -- the case
 where the cast card used to fly to an empty stack while the creature slid
-out of it (the "blink"). The card now lands straight on the creature's
-place on the battlefield.
+out of it (the "blink"). Since spec 0105 the worker rests the spell on
+the stack first: the card flies to the stack, rests, and the creature
+glides out of the stack card, drawn once.
 
 ```text
 Landing Test Deck.txt   24 Forest, 36 creatures (Birds of Paradise flies; one-drops up to Craw Wurm)
