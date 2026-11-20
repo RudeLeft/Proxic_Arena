@@ -8,12 +8,13 @@ sentence naming who did it, in that reader's words), who is sent none, and
 that no grey notice repeats it (no "Cycled: ...", no "Bob chose white", no
 "... the flip", no "You rolled 4", no "There are no cards in ...").
 
-  unsummon  F-0075-A: Bob's Unsummon on Alice's Grizzly Bears: Alice reads
-            "Bob returned your Grizzly Bears to your hand.", the Bears a
-            picture "-> hand"; Bob is sent nothing
-  bounce    F-0075-A: the other way round -- Alice's Unsummon on Bob's
-            Bears: Bob reads "Alice returned your Grizzly Bears to your
-            hand."; Alice is sent nothing
+  unsummon  F-0075-A, as spec 0109 item 7 changed it: Bob's Unsummon on
+            Alice's Grizzly Bears: its arrow and the Bears flying home told
+            it, so neither seat is sent a window (it was Alice's "Bob
+            returned your Grizzly Bears to your hand."; what keeps a bounce
+            window is scripts/check-quiet-reports.py)
+  bounce    F-0075-A, as spec 0109 changed it: the other way round --
+            Alice's Unsummon on Bob's Bears: no window for either seat
   cycle     F-0075-B: Bob cycles Forgotten Cave: Alice reads "Bob cycled
             Forgotten Cave and drew a card.", the Cave a picture
             "-> graveyard", the card he drew never named; Bob is sent
@@ -43,9 +44,10 @@ that no grey notice repeats it (no "Cycled: ...", no "Bob chose white", no
 Spec 0097 (owner 2026-11-16) -- fewer windows for the player who acted,
 grey notices made windows:
 
-  counter   F-0097-E: Alice's Counterspell on Bob's Grizzly Bears: Bob
-            reads "Alice countered your Grizzly Bears."; Alice is sent
-            nothing (it used to tell both)
+  counter   F-0097-E, as spec 0109 item 7 changed it: Alice's Counterspell
+            on Bob's Grizzly Bears: the arrow and the spell to his
+            graveyard told it, so neither seat is sent a window (it was
+            Bob's "Alice countered your Grizzly Bears.")
   mill      F-0097-E: Alice's Thought Scour on Bob: Bob reads "You milled
             2 cards."; Alice is sent nothing
   unpaid    F-0097-C: Bob's Lightning Rift triggers when he cycles with his
@@ -58,8 +60,9 @@ grey notices made windows:
             the reveal tray is Alice's; Bob is shown no tray of his own
             reveal (Goblin Ringleader's was already the other player's
             alone: Amendment 13, item 7)
-  (Bounce audiences are unsummon and bounce above: the one it happened to
-  only. A game restart is scripts/check-karn.py.)
+  (Bounce audiences, where a window stays -- a library, no arrow --, are
+  scripts/check-quiet-reports.py's griptide and untargeted: the one it
+  happened to only. A game restart is scripts/check-karn.py.)
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
@@ -95,14 +98,14 @@ SCENARIOS = {
                   decks={1: BEARS, 2: [("Island", 30), ("Unsummon", 30)]},
                   deal={1: BEARS_DEAL, 2: {"hand": ["Island"] * 4 + ["Unsummon"] * 3, "top": ["Island"] * 3}},
                   ready=lambda g: bool(g.mine(1, name="Grizzly Bears")), target="Grizzly Bears",
-                  said={1: r"^Bob returned your Grizzly Bears to your hand\.$"}, silent=[2],
-                  pictures={1: [("Grizzly Bears", "hand")]}),
+                  # Spec 0109, item 7: no window (was seat 1's "Bob returned your ...").
+                  said={}, silent=[1, 2]),
     "bounce": S(actor=1, card="Unsummon", lands=1,
                 decks={2: BEARS, 1: [("Island", 30), ("Unsummon", 30)]},
                 deal={2: BEARS_DEAL, 1: {"hand": ["Island"] * 4 + ["Unsummon"] * 3, "top": ["Island"] * 3}},
                 ready=lambda g: bool(g.mine(2, name="Grizzly Bears")), target="Grizzly Bears",
-                said={2: r"^Alice returned your Grizzly Bears to your hand\.$"}, silent=[1],
-                pictures={2: [("Grizzly Bears", "hand")]}),
+                # Spec 0109, item 7: no window (was seat 2's "Alice returned your ...").
+                said={}, silent=[1, 2]),
     "cycle": S(actor=2, card="Forgotten Cave", lands=1, cycle=True,
                decks={1: BEARS, 2: [("Mountain", 30), ("Forgotten Cave", 30)]},
                deal={1: BEARS_DEAL, 2: {"hand": ["Mountain"] * 3 + ["Forgotten Cave"] * 4, "top": ["Mountain"] * 3}},
@@ -151,7 +154,8 @@ SCENARIOS = {
                  ready=lambda g: any(e.get("name") == "Grizzly Bears"
                                      for e in (g.state.get(1) or {}).get("stack") or []),
                  target="Grizzly Bears",
-                 said={2: r"^Alice countered your Grizzly Bears\.$"}, silent=[1]),
+                 # Spec 0109, item 7: no window (was seat 2's "Alice countered your Grizzly Bears.").
+                 said={}, silent=[1, 2]),
     "mill": S(actor=1, card="Thought Scour", lands=1,
               decks={2: BEARS, 1: [("Island", 30), ("Thought Scour", 30)]},
               deal={2: BEARS_DEAL, 1: {"hand": ["Island"] * 4 + ["Thought Scour"] * 3, "top": ["Island"] * 3}},

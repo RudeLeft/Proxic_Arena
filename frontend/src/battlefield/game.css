@@ -6077,18 +6077,19 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   display: none;
 }
 
-/* Spec 0103, items 1 and 2 (Q1 C, Q2 A; the dim canvas, option B) -- a
-   report row pointed at, or the read-through's, dims everything on the
-   table and the piles with the split-second dim, except that card where it
-   lies now (or the pile tile it went to): one class on the game screen,
-   one on each card or tile kept bright (reportLight.ts). Report windows
-   only, never while choosing. */
+/* Spec 0103, items 1 and 2 (Q1 C; the dim canvas, option B), as spec 0109
+   item 13 left them (canvas "13", option A) -- a report's picture clicked
+   dims everything on the table and the piles with the split-second dim,
+   except that card where it lies now (or the pile tile it went to): one
+   class on the game screen, one on each card or tile kept bright
+   (reportLight.ts). Report windows only, never while choosing; pointing
+   and the read-through (removed) light nothing. */
 .gs-report-pointing .bf-cards > .bf-slot:not(.gs-lit),
 .gs-report-pointing [data-zone-tile]:not(.gs-lit) {
   filter: brightness(0.45) saturate(0.4);
 }
 /* The order number: the stack's own order badge (a gold disc, the card-title
-   numeral), 1 the oldest; lit with its report. */
+   numeral), 1 the oldest. */
 .gs-report-n {
   flex: none;
   min-width: 22px;
@@ -6112,18 +6113,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   margin: 2px 10px 0 0;
   font-size: var(--pa-size-base);
 }
-.gs-report-lit .gs-report-n {
-  box-shadow:
-    0 0 0 2px #121a17,
-    0 0 0 4px #ffe2a0,
-    0 0 14px #f2c46a;
-  transform: scale(1.08);
-}
-.gs-report-row.gs-report-lit .gs-report-row-open {
-  background: rgb(242 201 92 / 13%);
-  box-shadow: inset 3px 0 0 #e6a84c;
-}
-.gs-reveal-head.gs-report-lit {
-  border-radius: 6px;
-  background: rgb(242 201 92 / 13%);
+/* Spec 0109, item 13 -- a report's picture is clicked to dim the table to it. */
+.gs-reveal-card[tabindex] {
+  cursor: pointer;
 }

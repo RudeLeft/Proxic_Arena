@@ -175,8 +175,6 @@ function ReportRow({
   artUrl,
   onOpen,
   n,
-  lit,
-  onPoint,
 }: {
   report: SnapshotReveal;
   who: { name: string; face: ReactNode } | null;
@@ -184,28 +182,18 @@ function ReportRow({
   onOpen: () => void;
   /** Spec 0103, item 2 -- its place in the window, 1 the oldest (the stack's order badge). */
   n: number;
-  /** Spec 0103, items 1-2 -- lit now (pointed at, or the read-through's). */
-  lit: boolean;
-  /** Spec 0103, item 1 -- the pointer (or the focus) on the row, or off it. */
-  onPoint: (on: boolean) => void;
 }) {
   const first = report.cards[0];
   const pic = first && !(first.faceDown && !first.known) ? (first.crop ?? first.art) : null;
   return (
     // Not a list item: the scripted games read a question's choices as
-    // list items' buttons, and a row is no choice.
-    <div
-      className={`gs-report-row${lit ? " gs-report-lit" : ""}`}
-      data-report={report.key}
-      onMouseEnter={() => onPoint(true)}
-      onMouseLeave={() => onPoint(false)}
-    >
+    // list items' buttons, and a row is no choice. Spec 0109, item 13: a
+    // row no longer lights the table; a click opens it.
+    <div className="gs-report-row" data-report={report.key}>
       <button
         type="button"
         className="gs-report-row-open"
         onClick={onOpen}
-        onFocus={() => onPoint(true)}
-        onBlur={() => onPoint(false)}
         aria-label={`Open: ${who?.name ?? "A player"}, ${report.source}. ${report.said ?? ""}`}
       >
         <b className="gs-report-n" aria-hidden="true">
@@ -286,8 +274,13 @@ export function RevealTray({
   // A newer report coming in shows in full again.
   const [opened, setOpened] = useState<{ at: string; key: string | null }>({ at: "", key: null });
   const { full, rows } = layoutOf(reveal, opened.at === reveal.key ? opened.key : null);
-  // Spec 0103, items 1-2 -- the window points at the table: the report (or
-  // the card) pointed at, or the read-through's, lit; the rest dims.
+  // Spec 0103, items 1-2, as spec 0109 item 13 (owner 2026-11-20, canvas
+  // "13" option A) left it -- the window points at the table only on a
+  // click: a click on a picture dims the table to that card (where it lies
+  // now); a second click on it, a click on the table outside any window, or
+  // closing the window brings the table back; a click on another picture
+  // moves the dim. Pointing does nothing, and the read-through is gone
+  // (owner 2026-11-20, "Remove it"): nothing else lights the table.
   const trayRef = useRef<HTMLDivElement>(null);
   // The game screen, kept: a window going is unmounted after its ref is gone.
   const screenEl = useRef<HTMLElement | null>(null);
@@ -297,70 +290,48 @@ export function RevealTray({
   };
   const all = reportsOf(reveal);
   const order = new Map(all.map((r, i) => [r.key, i + 1]));
-  const [lit, setLit] = useState<string | null>(null);
-  const reading = useRef<number[]>([]);
-  const stopReading = () => {
-    if (reading.current.length === 0) return;
-    for (const t of reading.current) window.clearTimeout(t);
-    reading.current = [];
-    lightOff(screenOf());
-    setLit(null);
-  };
-  const point = (key: string, cards: readonly SnapshotCard[] | null) => {
-    stopReading();
-    if (cards) {
-      lightOn(screenOf(), cards, viewerSeat);
-      setLit(key);
+  /** The picture clicked: its report and its card, while the table is dimmed to it. */
+  const [lit, setLit] = useState<{ report: string; card: string } | null>(null);
+  const point = (key: string, card: SnapshotCard | null) => {
+    // Dimmed only when something could be kept bright (lightOn's count).
+    if (card && lightOn(screenOf(), [card], viewerSeat) > 0) {
+      setLit({ report: key, card: card.id });
     } else {
       lightOff(screenOf());
       setLit(null);
     }
   };
-  // Item 2 (Q2 A) -- a window of gathered reports, once it has settled,
-  // reads through once: each report lit in turn, about a second each, oldest
-  // first; then it stops. Any pointer over the window, a click, or a new
-  // report cancels it. Once per gathered set.
-  const setKey = rows.length > 0 ? all.map((r) => r.key).join(",") : "";
-  const readFor = useRef(new Set<string>());
-  useEffect(() => {
-    if (!setKey || readFor.current.has(setKey)) return undefined;
-    readFor.current.add(setKey);
-    const reports = reportsOf(reveal);
-    const timers = reports.map((r, i) =>
-      window.setTimeout(
-        () => {
-          lightOn(screenOf(), r.cards, viewerSeat);
-          setLit(r.key);
-        },
-        READ_START_MS + i * READ_MS,
-      ),
-    );
-    timers.push(
-      window.setTimeout(
-        () => {
-          reading.current = [];
-          lightOff(screenOf());
-          setLit(null);
-        },
-        READ_START_MS + reports.length * READ_MS,
-      ),
-    );
-    reading.current = timers;
-    return () => {
-      for (const t of timers) window.clearTimeout(t);
-      if (reading.current === timers) {
-        reading.current = [];
-        lightOff(screenOf());
-        setLit(null);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per gathered set
-  }, [setKey]);
-  // The table back as it was when the window goes.
-
+  const pick = (key: string, card: SnapshotCard) =>
+    point(key, lit?.report === key && lit.card === card.id ? null : card);
+  // The clicked card, while this window still shows it (a newer report can
+  // replace the one it was in).
+  const litCard = lit
+    ? (all.find((r) => r.key === lit.report)?.cards.find((c) => c.id === lit.card) ?? null)
+    : null;
+  // Kept across redraws: a board redrawn under the dim (a new snapshot) may
+  // rewrite a card's classes, so the dim is laid again after each render;
+  // when the card is no longer anywhere to light, the table comes back.
   useLayoutEffect(() => {
     screenOf();
+    if (!lit) return;
+    if (!litCard || lightOn(screenOf(), [litCard], viewerSeat) === 0) lightOff(screenOf());
   });
+  // A click on the table, outside any window, while dimmed: the table back.
+  useEffect(() => {
+    if (!lit) return undefined;
+    const screen = screenOf();
+    if (!screen) return undefined;
+    const away = (event: MouseEvent) => {
+      const at = event.target;
+      if (at instanceof Element && at.closest(WINDOWS)) return;
+      lightOff(screen);
+      setLit(null);
+    };
+    screen.addEventListener("click", away);
+    return () => screen.removeEventListener("click", away);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one listener while dimmed
+  }, [lit !== null]);
+  // The table back as it was when the window goes.
   useEffect(() => () => lightOff(screenOf()), []);
   const fullWho = full === reveal ? (who ?? null) : (whoOf?.(full.by ?? null) ?? null);
   // A report folding into its row, and the newest coming in under it
@@ -391,8 +362,6 @@ export function RevealTray({
   return (
     <div
       ref={trayRef}
-      onMouseEnter={stopReading}
-      onPointerDown={stopReading}
       className={`gs-reveal${atTop ? " gs-reveal-top" : ""}${peek ? " gs-win-peek" : ""}`}
       role="region"
       aria-label={full.said ?? full.title.replace(/:$/, "")}
@@ -421,8 +390,6 @@ export function RevealTray({
               artUrl={artUrl}
               onOpen={() => setOpened({ at: reveal.key, key: r === reveal ? null : r.key })}
               n={order.get(r.key) ?? 0}
-              lit={lit === r.key}
-              onPoint={(on) => point(r.key, on ? r.cards : null)}
             />
           ))}
         </div>
@@ -435,8 +402,8 @@ export function RevealTray({
         onClose={onClose}
         replay={replay && replay.key === full.key ? replay : null}
         n={rows.length > 0 ? (order.get(full.key) ?? null) : null}
-        lit={lit === full.key}
-        onPoint={(cards) => point(full.key, cards)}
+        litCard={litCard && lit?.report === full.key ? lit.card : null}
+        onPick={(card) => pick(full.key, card)}
       />
       {drainMs !== null && (
         <span
@@ -458,14 +425,15 @@ function ReportBody({
   onClose,
   replay,
   n,
-  lit,
-  onPoint,
+  litCard,
+  onPick,
 }: {
   /** Spec 0103, item 2 -- its order number in a gathered window; null alone. */
   n: number | null;
-  lit: boolean;
-  /** Spec 0103, item 1 -- these cards pointed at (all of them: the head), or null. */
-  onPoint: (cards: readonly SnapshotCard[] | null) => void;
+  /** Spec 0109, item 13 -- the picture the table is dimmed to now, or null. */
+  litCard: string | null;
+  /** Spec 0109, item 13 -- a picture clicked (or Enter / Space on it). */
+  onPick: (card: SnapshotCard) => void;
   replay: ReportReplay | null;
   report: SnapshotReveal;
   who: { name: string; face: ReactNode } | null;
@@ -475,11 +443,8 @@ function ReportBody({
 }) {
   return (
     <div className="gs-report-full" ref={bodyRef} data-report={reveal.key}>
-      <div
-        className={`gs-reveal-head${lit ? " gs-report-lit" : ""}`}
-        onMouseEnter={() => onPoint(reveal.cards)}
-        onMouseLeave={() => onPoint(null)}
-      >
+      {/* Spec 0109, item 13 -- the top part points at nothing. */}
+      <div className="gs-reveal-head">
         {n !== null && (
           <b className="gs-report-n gs-report-n-big" aria-hidden="true">
             {n}
@@ -565,8 +530,20 @@ function ReportBody({
             className="gs-reveal-card"
             data-revealed-id={card.id}
             data-to={card.to ?? undefined}
-            onMouseEnter={() => onPoint([card])}
-            onMouseLeave={() => onPoint(null)}
+            // Spec 0109, item 13 -- a click (Enter or Space) dims the table
+            // to this card; again, the table comes back. Not a button: the
+            // scripted games read list items' buttons as a question's choices.
+            data-lit={litCard === card.id ? "true" : undefined}
+            tabIndex={0}
+            aria-pressed={litCard === card.id}
+            aria-label={`Show ${card.faceDown && !card.known ? "the face-down card" : card.name} on the table`}
+            onClick={() => onPick(card)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              // Space here is the picture's, not Peek's (usePeek skips a handled key).
+              event.preventDefault();
+              onPick(card);
+            }}
           >
             <BigCard card={card} artUrl={artUrl} small />
             <span className="gs-reveal-name">
@@ -613,9 +590,8 @@ function ReportBody({
   );
 }
 
-/** Spec 0103, item 2 -- the read-through: after the window settles, each report about a second. */
-export const READ_START_MS = FOLD_MS + 250; // not paced: a wait (spec 0106)
-export const READ_MS = 1100; // not paced: a wait (spec 0106)
+/** Spec 0109, item 13 -- a click inside one of these is not a click on the table. */
+const WINDOWS = ".gs-reveal, .gs-win, [role='dialog'], [role='menu']";
 
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function"

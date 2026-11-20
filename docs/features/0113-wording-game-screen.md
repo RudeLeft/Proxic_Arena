@@ -111,3 +111,8 @@ First of the three wording steps, after 0112. Inside: (1) the CI check in report
 ## Amendments
 
 None yet.
+
+## Notes carried from building 0109 (2026-11-20)
+
+- The target window's title and chosen line still use digits ("Choose up to 1 more target", "1 chosen: …"). They follow this spec's number rule: "Choose up to one more target", "One chosen: …".
+- Act of Treason's play log has the cast line naming the target, but no line for the control change itself. Add one ("Bob gains control of your Grizzly Bears until the end of the turn.") in the play-log wording.

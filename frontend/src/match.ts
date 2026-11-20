@@ -366,6 +366,12 @@ export interface TargetsLayout {
   enough: boolean;
   more: number;
   cancel: string | null;
+  /**
+   * Spec 0109, item 5 -- the target is for one mode of a modal spell (a
+   * charm, escalate): the short window beside the big card keeps that
+   * mode's line. From the game, never from the words.
+   */
+  mode?: boolean;
 }
 
 /**
@@ -2371,6 +2377,7 @@ function asTargets(value: unknown): TargetsLayout | null {
     enough: v["enough"] === true,
     more: asNumber(v["more"]) ?? 0,
     cancel: asString(v["cancel"]),
+    ...(v["mode"] === true ? { mode: true } : {}),
   };
 }
 

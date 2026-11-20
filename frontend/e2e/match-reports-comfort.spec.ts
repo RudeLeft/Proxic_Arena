@@ -15,8 +15,13 @@
 // 3. The host REALLY clicks the gear and the "Bigger text" switch: the life
 //    total's computed size rises 25% (item 6).
 //
-// Not here: items 1 and 2 (pointing at a report row dims the table; the
-// read-through) -- stopped while building, see the spec's As built.
+// 4. Items 1 and 2 as spec 0109 item 13 left them (owner 2026-11-20, canvas
+//    "13" A; the read-through removed): the guest's second fetch gathers the
+//    host's window, numbered 1 and 2. The host REALLY moves the pointer over
+//    the row, the top part and the picture: the table never dims (and
+//    nothing lights it unasked while the window waits). The host REALLY
+//    opens row 1 and REALLY clicks its picture: all but the guest's Island
+//    dims; a click on the picture again brings the table back.
 //
 // Dealt (spec 0098), so every moment comes on the first game. The deck is
 // protocol/fixtures/reports-comfort-deck. CI builds it; locally:
@@ -231,18 +236,17 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
       };
       requestAnimationFrame(tick);
     });
-    // Every change of what is lit on the host's table (the read-through).
+    // Every change of what is dimmed on the host's table, each frame (spec
+    // 0109: only a click on a picture may dim it).
     await host.evaluate(() => {
       const w = window as unknown as { __lit: string[][] };
       w.__lit = [];
       let last = "";
       const tick = () => {
-        // The report lit (its key), then what it keeps bright on the table.
-        const row = document.querySelector<HTMLElement>(".gs-report-lit");
-        const key =
-          row?.closest<HTMLElement>("[data-report]")?.dataset.report ?? (row ? "full" : "");
+        // Whether the table is dimmed, then what it keeps bright.
+        const dimmed = document.querySelector(".gs-report-pointing") ? "dimmed" : "";
         const now = [
-          key,
+          dimmed,
           ...[...document.querySelectorAll<HTMLElement>(".gs-lit")].map(
             (el) =>
               el.querySelector<HTMLElement>("[data-object-id]")?.dataset.objectId ??
@@ -261,7 +265,7 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
     let cracked = false;
     let strandOut = false;
     // Items 1 and 2: the guest's second fetch (Polluted Delta) gathers the
-    // host's window; the read-through, then the host points at row 1.
+    // host's window; the host points across it, then clicks row 1's picture.
     let deltaOut = false;
     let deltaCracked = false;
     let pointed: Record<string, unknown> | null = null;
@@ -351,8 +355,9 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
           }
         }
 
-        // --- items 1 and 2: the gathered window reads through, then the host
-        // points at row 1 (the Strand's report): all but that Island dims.
+        // --- items 1 and 2 (spec 0109, item 13): pointing across the gathered
+        // window dims nothing; a click on row 1's picture (the Strand's Island)
+        // dims all but that Island; a click on it again brings the table back.
         const rows = page.locator(".gs-report-row");
         if (
           isHost &&
@@ -363,23 +368,37 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
             "Polluted Delta",
           )
         ) {
-          moment(`the host's window gathers the two fetches (read-through, item 2)`);
+          moment(`the host's window gathers the two fetches (items 1-2)`);
           const readFrom = await page.evaluate(
             () => (window as unknown as { __lit: string[][] }).__lit.length,
           );
+          const numbers = await page.locator(".gs-report-n").allTextContents();
+          // The pointer across the row, the top part and the picture (the
+          // flicker's path, canvas "13"), the window left alone between.
           await page.mouse.move(0, 0);
-          // Row 2 (the Delta's, the full report) is lit about 1.65 s in.
-          await page.waitForTimeout(1_900);
-          await page.screenshot({ path: join(SHOTS, "reports-comfort-read-through-row2.png") });
-          await page.waitForTimeout(2_000);
-          const read = (
+          moment(`host points across the window (item 13: nothing dims)`);
+          for (const part of [
+            rows.first(),
+            page.locator(".gs-reveal-head").first(),
+            page.locator("li.gs-reveal-card").first(),
+          ]) {
+            await pointAt(page, part);
+            await page.waitForTimeout(400);
+          }
+          await page.screenshot({ path: join(SHOTS, "reports-comfort-pointing-no-dim.png") });
+          const pointedOnly = (
             await page.evaluate(() => (window as unknown as { __lit: string[][] }).__lit)
           ).slice(Math.max(0, readFrom - 1));
-          const numbers = await page.locator(".gs-report-n").allTextContents();
-          moment(`host points at row 1 (item 1)`);
-          await pointAt(page, rows.first());
-          await page.waitForTimeout(400);
-          await page.screenshot({ path: join(SHOTS, "reports-comfort-row-dim.png") });
+          // Row 1 opened, then its picture really clicked.
+          moment(`host opens row 1 and clicks its picture (item 13)`);
+          await realClick(page, rows.first().locator("button"));
+          const strandPic = page.locator('li.gs-reveal-card[data-revealed-id^="action:"]').first();
+          await expect(page.locator(".gs-report-row").first()).toBeAttached();
+          const clicked = await realClick(page, strandPic);
+          await expect(page.locator(".gs-screen.gs-report-pointing")).toHaveCount(1, {
+            timeout: 5_000,
+          });
+          await page.screenshot({ path: join(SHOTS, "reports-comfort-picture-dim.png") });
           const dim = await page.evaluate(() => {
             const screen = document.querySelector(".gs-screen");
             const lit = [...document.querySelectorAll<HTMLElement>(".gs-lit")].map((el) => ({
@@ -402,12 +421,16 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
               tileFilter: tile ? getComputedStyle(tile).filter : "",
             };
           });
-          await page.mouse.move(0, 0);
-          await page.waitForTimeout(300);
+          // Again: the table back.
+          await realClick(page, strandPic);
+          await expect(page.locator(".gs-screen.gs-report-pointing")).toHaveCount(0, {
+            timeout: 5_000,
+          });
           const after = await page.evaluate(
             () => document.querySelectorAll(".gs-lit, .gs-report-pointing").length,
           );
-          pointed = { read, numbers, dim, after };
+          await page.mouse.move(0, 0);
+          pointed = { pointedOnly, numbers, clicked, dim, after };
           continue;
         }
 
@@ -661,7 +684,7 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
     console.log(`guest's plate on the host's page: ${JSON.stringify(guestPlate)}`);
     console.log(`known top: ${JSON.stringify(known)}`);
     console.log(`bigger text: ${JSON.stringify(bigger)}`);
-    console.log(`row pointed and read-through: ${JSON.stringify(pointed)}`);
+    console.log(`pointed across, then a picture clicked: ${JSON.stringify(pointed)}`);
 
     // Item 3: offered, played on its layer at half speed, the table unchanged.
     expect(replayed, "the host replayed the guest's fetch").not.toBeNull();
@@ -701,26 +724,19 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
     expect(bigger!["stored"]).toBe("on");
     expect(Number(bigger!["on"]) / Number(bigger!["off"])).toBeCloseTo(1.25, 2);
 
-    // Items 1 and 2: numbered oldest first; read through once, the Strand's
-    // Island then the Delta's land, each lit alone; pointing at row 1 keeps
-    // only the guest's Island bright, everything else at the split-second dim.
+    // Items 1 and 2 (spec 0109, item 13 changed the claim: a click, not
+    // pointing; no read-through): numbered oldest first; pointing across the
+    // window never dimmed the table; a click on row 1's picture keeps only the
+    // guest's Island bright, everything else at the split-second dim; a
+    // second click brings the table back.
     expect(pointed, "the host's window gathered the two fetches").not.toBeNull();
     expect(pointed!["numbers"]).toEqual(["1", "2"]);
-    // [report lit, what it keeps bright...] at each change, from the window's arrival.
-    // Each report lit in turn, oldest first: [its key, what it keeps bright].
-    const read = (pointed!["read"] as string[][]).filter((set) => set[0] !== "");
-    const order = read.map((set) => set[0]).filter((k, i, all) => all.indexOf(k) === i);
-    expect(order.length, "each report lit, once").toBe(2);
+    const pointedOnly = pointed!["pointedOnly"] as string[][];
     expect(
-      Number(order[0]!.split(":")[1]),
-      "row 1 (the Strand's) before the full report (the Delta's)",
-    ).toBeLessThan(Number(order[1]!.split(":")[1]));
-    for (const key of order)
-      expect(
-        read.some((set) => set[0] === key && set.length > 1),
-        `report ${key} lit its card on the table`,
-      ).toBe(true);
-    const strandIsland = read.find((set) => set[0] === order[0] && set.length > 1)?.[1];
+      pointedOnly.filter((set) => set[0] !== "" || set.length > 1),
+      "pointing (and waiting) never dims the table",
+    ).toEqual([]);
+    expect(pointed!["clicked"], "the picture was really clicked").toBe(true);
     const dim = pointed!["dim"] as {
       pointing: boolean;
       lit: { id: string; name: string; side: string; filter: string }[];
@@ -731,13 +747,11 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
     expect(dim.lit, "one card kept bright").toHaveLength(1);
     expect(dim.lit[0]!.name).toMatch(/^Island/);
     expect(dim.lit[0]!.side).toBe("opponent");
-    expect(dim.lit[0]!.id, "pointing at row 1 lights what the read-through lit for it").toBe(
-      strandIsland,
-    );
     expect(dim.otherFilter).toBe("brightness(0.45) saturate(0.4)");
     expect(dim.tileFilter).toBe("brightness(0.45) saturate(0.4)");
-    expect(pointed!["after"], "the table back at once").toBe(0);
+    expect(pointed!["after"], "the table back on the second click").toBe(0);
   } finally {
+    await clearEverything(host).catch(() => undefined);
     await host.context().close();
     await guest.context().close();
   }

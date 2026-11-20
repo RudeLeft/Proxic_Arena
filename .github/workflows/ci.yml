@@ -333,7 +333,7 @@ jobs:
               attachments printings face-down costs results \
               tracked-state text-effects coin-flip board-data concede mana-cost \
               library-order mana-pool mulligan unreachable dice unset \
-              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose stack-rests no-target \
+              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose stack-rests no-target quiet-reports \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
               'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions|shapes|always-choose|stops|stack-rests|combat-choices) limit=900;; esac;
@@ -729,6 +729,12 @@ jobs:
       - name: Build the small-fixes deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/small-fixes-deck.zip" protocol/fixtures/small-fixes-deck
+
+      # Spec 0109 -- Victim of Night, Mist Raven and Griptide, for the
+      # real-click game (match-quiet-windows.spec.ts).
+      - name: Build the quiet-windows deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/quiet-windows-deck.zip" protocol/fixtures/quiet-windows-deck
 
       # Spec 0095 -- the owner's mono-green deck on both seats, for the
       # real-game speed test (match-speed.spec.ts).

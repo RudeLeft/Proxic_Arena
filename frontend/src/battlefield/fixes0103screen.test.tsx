@@ -17,7 +17,6 @@ import { reduceMatch, type MatchState } from "../match";
 import { endLifeSteps } from "./lifeTicks";
 import { REPLAY_MAX_MS, REPLAY_RATE } from "./replay";
 import { BIGGER_TEXT_KEY } from "./biggerText";
-import { READ_MS, READ_START_MS } from "./RevealTray";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -317,7 +316,7 @@ describe("F-0103-C · replay: R or the medallion, at half speed, only while the 
   });
 });
 
-// --- F-0103-A and F-0103-B: the window points at the table; the read-through -------------------
+// --- F-0103-A and F-0103-B: the window points at the table (on a click, spec 0109) -----------------
 
 // Bob cracked Flooded Strand (an Island), then Polluted Delta (a Swamp), then
 // cast Consider and surveilled Lightning Bolt into his graveyard. Alice's
@@ -368,31 +367,33 @@ const litNow = (c: HTMLElement) =>
     (el) =>
       el.dataset.zoneTile ?? el.querySelector<HTMLElement>("[data-object-id]")?.dataset.objectId,
   );
+const picOf = (c: HTMLElement, id: string) =>
+  c.querySelector<HTMLElement>(`li.gs-reveal-card[data-revealed-id="${id}"]`)!;
 
-describe("F-0103-A · pointing at a report row dims everything but that card (or its pile tile)", () => {
-  it("row 1 lights Bob's Island; the Bolt picture lights his Graveyard tile; leaving restores the table", () => {
+// Spec 0109, item 13 changed this claim: a click on a picture lights the
+// table, not pointing at a row (rows only open). Where it lights is 0103's.
+describe("F-0103-A · a report's picture dims everything but that card (or its pile tile)", () => {
+  it("the Island's picture lights Bob's Island; the Bolt picture lights his Graveyard tile; the hidden card his Library tile", () => {
     const view = render(<GameScreen match={match} me="u-1" onLeave={() => {}} />);
     const c = view.container;
     threeReports();
-    // Pointing cancels the read-through (it has not started yet anyway).
-    fireEvent.mouseEnter(c.querySelector(".gs-reveal")!);
-    fireEvent.mouseEnter(c.querySelector('.gs-report-row[data-report="action:1"]')!);
+    // Row 1 opened (a click), then its picture clicked.
+    fireEvent.click(c.querySelector('.gs-report-row[data-report="action:1"] button')!);
+    fireEvent.click(picOf(c, "action:1:0"));
     expect(screenOf(c).classList.contains("gs-report-pointing")).toBe(true);
     expect(litNow(c)).toEqual(["card:100"]);
     expect(slotOf(c, "card:100").classList.contains("gs-lit")).toBe(true);
     expect(slotOf(c, "card:101").classList.contains("gs-lit")).toBe(false);
     expect(slotOf(c, "card:20").classList.contains("gs-lit")).toBe(false);
-    fireEvent.mouseLeave(c.querySelector('.gs-report-row[data-report="action:1"]')!);
-    // The Bolt's picture in the full report: in his graveyard, so its tile.
-    const pic = c.querySelector('li.gs-reveal-card[data-revealed-id="action:3:0"]')!;
-    fireEvent.mouseEnter(pic);
+    // The newest report again (its row), the Bolt's picture: in his graveyard, so its tile.
+    fireEvent.click(c.querySelector('.gs-report-row[data-report="action:3"] button')!);
+    fireEvent.click(picOf(c, "action:3:0"));
     expect(litNow(c)).toEqual(["opponent:graveyard"]);
-    fireEvent.mouseLeave(pic);
     // The hidden card he put back: no link; his Library tile instead.
-    fireEvent.mouseEnter(c.querySelector('li.gs-reveal-card[data-revealed-id="action:3:1"]')!);
+    fireEvent.click(picOf(c, "action:3:1"));
     expect(litNow(c)).toEqual(["opponent:library"]);
     expect(tileOf(c, "opponent:graveyard").classList.contains("gs-lit")).toBe(false);
-    fireEvent.mouseLeave(c.querySelector('li.gs-reveal-card[data-revealed-id="action:3:1"]')!);
+    fireEvent.click(picOf(c, "action:3:1"));
     expect(screenOf(c).classList.contains("gs-report-pointing")).toBe(false);
     expect(litNow(c)).toEqual([]);
   });
@@ -415,7 +416,7 @@ describe("F-0103-A · pointing at a report row dims everything but that card (or
       }),
     );
     expect(c.querySelector('[data-members-ids~="card:103"]')).toBeTruthy();
-    fireEvent.mouseEnter(c.querySelector(".gs-reveal-head")!);
+    fireEvent.click(picOf(c, "action:1:0"));
     expect(c.querySelector('.gs-lit [data-members-ids~="card:103"]')).toBeTruthy();
     expect(c.querySelectorAll(".gs-lit")).toHaveLength(1);
   });
@@ -426,16 +427,18 @@ describe("F-0103-A · pointing at a report row dims everything but that card (or
     send(
       state({
         battlefield: [card("card:20", 1, "Grizzly Bears")],
-        action: { ...fetchReport(1, "Flooded Strand", island, "card:999"), cards: [] },
+        action: fetchReport(1, "Flooded Strand", island, "card:999"),
       }),
     );
-    fireEvent.mouseEnter(c.querySelector(".gs-reveal-head")!);
+    fireEvent.click(picOf(c, "action:1:0"));
     expect(screenOf(c).classList.contains("gs-report-pointing")).toBe(false);
   });
 });
 
-describe("F-0103-B · numbered, oldest first; the read-through lights each once, in order, and stops", () => {
-  it("1, 2, 3; then Island, Swamp, the Graveyard tile in turn, a second each; then the table as it was, once", () => {
+// Spec 0109, item 13 removed the read-through (owner 2026-11-20, "Remove it");
+// the numbers stay. That nothing lights unasked is F-0109-F's.
+describe("F-0103-B · numbered, oldest first", () => {
+  it("1, 2, 3", () => {
     const view = render(<GameScreen match={match} me="u-1" onLeave={() => {}} />);
     const c = view.container;
     threeReports();
@@ -444,48 +447,9 @@ describe("F-0103-B · numbered, oldest first; the read-through lights each once,
       "2",
       "3",
     ]);
-    expect(litNow(c)).toEqual([]);
-    wait(READ_START_MS);
-    expect(litNow(c)).toEqual(["card:100"]);
-    expect(
-      c
-        .querySelector('.gs-report-row[data-report="action:1"]')!
-        .classList.contains("gs-report-lit"),
-    ).toBe(true);
-    wait(READ_MS);
-    expect(litNow(c)).toEqual(["card:101"]);
-    wait(READ_MS);
-    expect(litNow(c).sort()).toEqual(["opponent:graveyard", "opponent:library"]);
-    expect(c.querySelector(".gs-reveal-head")!.classList.contains("gs-report-lit")).toBe(true);
-    wait(READ_MS);
-    expect(litNow(c)).toEqual([]);
-    expect(screenOf(c).classList.contains("gs-report-pointing")).toBe(false);
-    // Once: a later board with the same window does not read it again.
-    send(
-      state({
-        battlefield: [island, swamp, card("card:20", 1, "Grizzly Bears")],
-        graveyard: [bolt],
-        action: gatheredWindow,
-        phase: "MAIN2",
-      }),
-    );
-    wait(READ_START_MS + READ_MS);
-    expect(litNow(c)).toEqual([]);
   });
 
-  it("a click on the window cancels it", () => {
-    const view = render(<GameScreen match={match} me="u-1" onLeave={() => {}} />);
-    const c = view.container;
-    threeReports();
-    wait(READ_START_MS);
-    expect(litNow(c)).toEqual(["card:100"]);
-    fireEvent.pointerDown(c.querySelector(".gs-reveal")!);
-    expect(litNow(c)).toEqual([]);
-    wait(READ_MS * 3);
-    expect(litNow(c)).toEqual([]);
-  });
-
-  it("a single report has no number and no read-through", () => {
+  it("a single report has no number", () => {
     const view = render(<GameScreen match={match} me="u-1" onLeave={() => {}} />);
     const c = view.container;
     send(
@@ -495,8 +459,6 @@ describe("F-0103-B · numbered, oldest first; the read-through lights each once,
       }),
     );
     expect(c.querySelectorAll(".gs-report-n")).toHaveLength(0);
-    wait(READ_START_MS + READ_MS);
-    expect(litNow(c)).toEqual([]);
   });
 });
 

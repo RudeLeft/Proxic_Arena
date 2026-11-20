@@ -363,6 +363,22 @@ export interface Common {
 }
 
 /**
+ * Spec 0109, item 5 -- a target question gets the short window (title and
+ * "Choose a creature ..." only) when it is for the asked player's own spell
+ * and that spell's big card is on screen: the snapshot's `casting` entry,
+ * this seat's, the spell the question is about (PROTO-006: from the board
+ * and the decision, never from the words). A trigger or an ability has no
+ * big card, a copy has its own window, and a mode of a modal spell keeps
+ * its line (the big card shows every mode: `arrange.targets.mode`).
+ */
+export function shortTargetWindow(decision: Decision, board: Snapshot): boolean {
+  if (decision.kind !== "chooseTargetsFor" || decision.about?.kind !== "spell") return false;
+  if (decision.actedForSeat !== board.seat || decision.arrange?.targets?.mode) return false;
+  const name = decision.about.name;
+  return board.casting.some((c) => c.seat === board.seat && c.name === name);
+}
+
+/**
  * W-01 — the answer is a click on the table: a bubble beside the card
  * asking, saying what to click; the few choices the table cannot show
  * ("All attack", "Use floating {R}") as buttons in it.
@@ -375,6 +391,9 @@ export function TableQuestionWindow(props: Common) {
   const title = props.heading;
   // Spec 0055: a target window says what the card will do, and what to click.
   const words = decision.kind === "chooseTargetsFor" ? targetWords(decision.prompt, name) : null;
+  // Spec 0109, item 5 (canvas "5", option A) -- beside your own spell's big
+  // card the card says what it does: the window says only what to do.
+  const short = words !== null && shortTargetWindow(decision, board);
   const decline =
     words?.decline &&
     decision.arrange?.targets?.cancel &&
@@ -412,7 +431,7 @@ export function TableQuestionWindow(props: Common) {
         </>
       }
     >
-      {(words?.said ?? decision.prompt) && (
+      {!short && (words?.said ?? decision.prompt) && (
         <p className="gs-win-prompt gs-question-prompt decision-prompt">
           <ManaText text={words?.said ?? decision.prompt ?? ""} />
         </p>
@@ -423,8 +442,13 @@ export function TableQuestionWindow(props: Common) {
         </p>
       )}
       <ChosenLine decision={decision} board={board} />
-      <p className="gs-win-prompt">
-        <ManaText text={words?.hint ?? plainHint(decision.kind, decision.options.length)} />
+      <p className={`gs-win-prompt${short ? " gs-target-short" : ""}`}>
+        <ManaText
+          text={
+            (short ? words.choose : words?.hint) ??
+            plainHint(decision.kind, decision.options.length)
+          }
+        />
       </p>
       {question.listed.length > 0 && (
         <ul className="gs-win-list">

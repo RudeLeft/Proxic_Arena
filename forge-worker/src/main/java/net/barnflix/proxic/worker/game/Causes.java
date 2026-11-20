@@ -330,6 +330,9 @@ final class Causes {
         if (cardIds.isEmpty()) {
             return;
         }
+        // Spec 0109, item 7 (test 3) -- a card shown while an effect resolves:
+        // that effect's report window carries a hidden fact and stays.
+        actions.revealedNow();
         String by = resolvingName();
         String title = told != null ? told.said() : by != null ? by + " revealed:" : forgeWords;
         reveals.put(seat, new Reveal(revealKeys.incrementAndGet(), title, java.util.List.copyOf(cardIds), told,

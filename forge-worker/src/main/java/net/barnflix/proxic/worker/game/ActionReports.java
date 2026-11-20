@@ -689,8 +689,22 @@ final class ActionReports {
         return top != null && top != justResolved;
     }
 
+    /**
+     * Spec 0109, item 7 (test 3) -- Forge showed a card to a player while an
+     * effect resolved (Causes#revealed): that effect's report is never quiet.
+     */
+    private volatile boolean revealedHere;
+
+    /** Causes#revealed -- a reveal or a look, now. Counted only while the stack resolves. */
+    void revealedNow() {
+        if (game.getStack().isResolving()) {
+            revealedHere = true;
+        }
+    }
+
     private void reset() {
         resolving = null;
+        revealedHere = false;
         moves.clear();
         shuffled.clear();
         scryTop = -1;
@@ -723,6 +737,13 @@ final class ActionReports {
             noteExtraCombats(sa);
             noteControls(sa);
             Report report = build(sa);
+            // Spec 0109, item 7 (owner, canvas "7" A) -- no window for what the
+            // animation already showed: the arrow pointed at the card, it
+            // landed in sight, nothing was hidden. The play log keeps its line
+            // (PlayLog#moved, which never reads these reports).
+            if (report != null && values.isEmpty() && quiet(report, sa)) {
+                report = null;
+            }
             // Spec 0102, item 3 -- a skip effect: told now, as it resolves
             // (with the choices that made it, when it is nothing else).
             Report skip = skipped(sa);
@@ -746,6 +767,95 @@ final class ActionReports {
         } finally {
             reset();
         }
+    }
+
+    /**
+     * Spec 0109, item 7 (owner 2026-11-20, canvas "7" option A) -- the kinds
+     * whose window goes when the animation told the whole story. CONTROL is
+     * here as the spec names it, but Kind.CONTROL is Mindslaver's "Bob is
+     * playing your turn." (spec 0102): told as the turn begins, outside any
+     * resolution and with no card moved, so test 1 never holds for it and
+     * its window always stays. Act of Treason (Forge's GainControl) has no
+     * report at all (kindOf).
+     */
+    static boolean mayBeQuiet(Kind kind) {
+        return kind == Kind.BOUNCE || kind == Kind.RETURN || kind == Kind.COUNTER || kind == Kind.CONTROL;
+    }
+
+    /** Spec 0109, item 7, test 2 -- a place every player sees a card land in, face up. */
+    static boolean landsInSight(ZoneType to, boolean faceDown) {
+        return !faceDown && (to == ZoneType.Hand || to == ZoneType.Graveyard || to == ZoneType.Battlefield
+                || to == ZoneType.Exile);
+    }
+
+    /**
+     * Spec 0109, item 7 -- whether [report], made as [root] resolved, says
+     * nothing the table did not already show, so it gets no window. All five
+     * of the spec's tests, read from Forge's state for the resolving effect
+     * (never from words):
+     *  1. the cause was visible: [root] was on the stack and every card the
+     *     report shows was among its targets (its arrow) -- a spell the
+     *     counter aimed at counts by its card;
+     *  2. each landed in sight: a hand, a graveyard, exile face up or the
+     *     battlefield; not a library, not face down;
+     *  3. nothing hidden: no card shown or looked at while it resolved
+     *     (Causes#revealed), no shuffle, no scry or surveil, no choice told
+     *     (the caller's `values`), and no other card moved out of a hidden
+     *     zone but a draw;
+     *  4. one visible result: every card shown went to the same place, and
+     *     nothing else moved but a draw and the source itself;
+     *  5. not a non-event: a fizzle is its own path (fizzled) and never here.
+     */
+    private boolean quiet(Report report, SpellAbility root) {
+        if (!mayBeQuiet(report.kind) || report.moves.isEmpty()) {
+            return false;
+        }
+        // 3. Nothing hidden.
+        if (revealedHere || !shuffled.isEmpty() || scryTop >= 0 || surveilKept >= 0) {
+            return false;
+        }
+        // 1. The arrow: every card shown was a target of the effect on the stack.
+        java.util.Set<Integer> aimed = new java.util.HashSet<>();
+        List<Object> targets = new ArrayList<>(aimedAt.getOrDefault(root, List.of()));
+        targets.addAll(targetsNow(root));
+        for (Object target : targets) {
+            if (target instanceof Card card) {
+                aimed.add(card.getId());
+            } else if (target instanceof SpellAbility spell && spell.getHostCard() != null) {
+                aimed.add(spell.getHostCard().getId());
+            }
+        }
+        java.util.Set<Integer> shown = new java.util.HashSet<>();
+        ZoneType landed = null;
+        for (Move move : report.moves) {
+            if (!aimed.contains(move.cardId())) {
+                return false;
+            }
+            // 2. Landed in sight, face up then and now.
+            Card now = game.findById(move.cardId());
+            if (!landsInSight(move.to(), move.faceDown() || (now != null && now.isFaceDown()))) {
+                return false;
+            }
+            // 4. One place for all of them.
+            if (landed != null && landed != move.to()) {
+                return false;
+            }
+            landed = move.to();
+            shown.add(move.cardId());
+        }
+        // 3 and 4. Nothing else moved, but a draw (Repulse) and the source itself.
+        boolean draws = false;
+        for (SpellAbility part = root; part != null; part = part.getSubAbility()) {
+            draws |= part.getApi() == ApiType.Draw;
+        }
+        int host = root.getHostCard() == null ? -1 : root.getHostCard().getId();
+        for (Move move : moves) {
+            boolean drew = draws && move.from() == ZoneType.Library && move.to() == ZoneType.Hand;
+            if (!shown.contains(move.cardId()) && move.cardId() != host && !drew) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Report build(SpellAbility root) {

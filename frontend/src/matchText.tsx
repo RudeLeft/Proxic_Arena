@@ -586,12 +586,70 @@ export interface TargetWords {
   title: string | null;
   said: string;
   hint: string;
+  /**
+   * Spec 0109, item 5 -- the hint as an instruction, for the short window
+   * beside your own spell's big card ("Choose a creature that isn't a
+   * Vampire, Werewolf or Zombie.").
+   */
+  choose: string;
   decline: string | null;
 }
 
 const TITLE_MOST = 40;
+/**
+ * Where a target's noun phrase ends. Spec 0109, item 5: not at a comma --
+ * "target non-Vampire, non-Werewolf, non-Zombie creature" and "target
+ * artifact, enchantment, or land" run on (`readNoun` decides).
+ */
 const NOUN_END =
-  /\s(?:gets?|gains?|deals?|reveals?|loses?|until|to|and|can't|becomes?|has|have|with|that|this|from|on|in|for)\b|\s?\(|[.,;]|$/;
+  /\s(?:gets?|gains?|deals?|reveals?|loses?|until|to|and|can't|becomes?|has|have|with|that|this|from|on|in|for)\b|\s?\(|[.;]|$/;
+const WORD = String.raw`[\w'-]+`;
+/** "non-Vampire, non-Werewolf, non-Zombie creature" (or "non-A, non-B or non-C creature"). */
+const NON_RUN = new RegExp(
+  String.raw`^((?:non-${WORD}(?:,\s*(?:or\s+)?|\s+or\s+))*non-${WORD})\s+(?!or\b)(?!non-)(${WORD}(?:\s+${WORD})*)$`,
+  "i",
+);
+/** "artifact, enchantment, or land": single words, the last after "or". */
+const OR_LIST = new RegExp(
+  String.raw`^(?:non-)?${WORD}(?:,\s*(?:non-)?${WORD})*,?\s+or\s+(?:non-)?${WORD}(?:\s+${WORD})?$`,
+  "i",
+);
+
+/** "a" or "an" before [word]. */
+function articleFor(word: string): string {
+  return /^[aeiou]/i.test(word) ? "an" : "a";
+}
+
+/** "A", "A or B", "A, B or C". */
+function orWords(words: readonly string[]): string {
+  return words.length < 2
+    ? (words[0] ?? "")
+    : `${words.slice(0, -1).join(", ")} or ${words[words.length - 1]!}`;
+}
+
+/**
+ * Spec 0109, item 5 -- the kind of thing a target names, whole: the words
+ * after "target" up to where the phrase ends, a comma list kept when it is
+ * one ("artifact, enchantment, or land"). A run of "non-" words before the
+ * noun, for one target, reads "creature that isn't a Vampire, Werewolf or
+ * Zombie". Null when the words can't be read as a kind (only "non-" words,
+ * no noun). Presentation only: it shapes the worker's words and decides
+ * nothing (Forge highlights what may be chosen).
+ */
+export function readNoun(after: string, one: boolean): string | null {
+  const run = after.slice(0, after.search(NOUN_END)).trim();
+  const non = NON_RUN.exec(run);
+  if (non) {
+    if (!one) return run;
+    const kinds = [...non[1]!.matchAll(new RegExp(String.raw`non-(${WORD})`, "gi"))].map(
+      (m) => m[1]!,
+    );
+    return `${non[2]!} that isn't ${articleFor(kinds[0] ?? "")} ${orWords(kinds)}`;
+  }
+  const phrase = run.includes(",") && !OR_LIST.test(run) ? run.slice(0, run.indexOf(",")) : run;
+  if (phrase.split(/[\s,]+/).every((w) => /^non-/i.test(w) || /^or$/i.test(w))) return null;
+  return phrase;
+}
 
 function capital(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -619,11 +677,14 @@ export function targetWords(prompt: string | null, name: string | null): TargetW
     hint = "Click any creature, player or planeswalker.";
   } else {
     const after = sentence.slice(sentence.search(/\btarget\b/i) + "target ".length);
-    const noun = after.slice(0, after.search(NOUN_END)).trim();
     const count = /\b(two|three|four|five|\d+|up to \w+) target\b/i.exec(sentence)?.[1];
-    hint = noun
-      ? `Click ${count ? count.toLowerCase() : /^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}.`
-      : "Click a highlighted card or player.";
+    const noun = readNoun(after, !count || /^(up to )?one$/i.test(count));
+    hint =
+      noun === null
+        ? "Click a highlighted card."
+        : noun
+          ? `Click ${count ? count.toLowerCase() : articleFor(noun)} ${noun}.`
+          : "Click a highlighted card or player.";
   }
 
   const said = capital(plainTargets(sentence));
@@ -657,6 +718,7 @@ export function targetWords(prompt: string | null, name: string | null): TargetW
     title,
     said,
     hint,
+    choose: hint.replace(/^Click /, "Choose "),
     decline: optional && title ? `Don't ${title.charAt(0).toLowerCase()}${title.slice(1)}` : null,
   };
 }

@@ -226,4 +226,28 @@ class ActionReportsTest {
         assertEquals(2, Skips.turns("Number$2"));
         assertEquals(1, Skips.turns(null));
     }
+
+    /**
+     * Spec 0109, item 7 -- the kinds whose window may go when the animation
+     * showed it all, and the places a card lands in sight (test 2): a
+     * library or a face-down card keeps the window. The five tests as a
+     * whole are scripts/check-quiet-reports.py's, on real games.
+     */
+    @Test
+    void onlyAShownMoveToASeenPlaceMayBeQuiet() {
+        assertTrue(ActionReports.mayBeQuiet(ActionReports.Kind.BOUNCE));
+        assertTrue(ActionReports.mayBeQuiet(ActionReports.Kind.RETURN));
+        assertTrue(ActionReports.mayBeQuiet(ActionReports.Kind.COUNTER));
+        assertFalse(ActionReports.mayBeQuiet(ActionReports.Kind.FIZZLE));
+        assertFalse(ActionReports.mayBeQuiet(ActionReports.Kind.MILL));
+        assertFalse(ActionReports.mayBeQuiet(ActionReports.Kind.PHASE));
+        assertFalse(ActionReports.mayBeQuiet(ActionReports.Kind.SEARCH));
+        assertTrue(ActionReports.landsInSight(forge.game.zone.ZoneType.Hand, false));
+        assertTrue(ActionReports.landsInSight(forge.game.zone.ZoneType.Graveyard, false));
+        assertTrue(ActionReports.landsInSight(forge.game.zone.ZoneType.Battlefield, false));
+        assertTrue(ActionReports.landsInSight(forge.game.zone.ZoneType.Exile, false));
+        assertFalse(ActionReports.landsInSight(forge.game.zone.ZoneType.Library, false));
+        assertFalse(ActionReports.landsInSight(forge.game.zone.ZoneType.Exile, true));
+        assertFalse(ActionReports.landsInSight(forge.game.zone.ZoneType.Battlefield, true));
+    }
 }

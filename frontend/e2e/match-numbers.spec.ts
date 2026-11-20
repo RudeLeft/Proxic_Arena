@@ -220,7 +220,9 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
             await expect(done).toHaveText("Done · 2 targets");
             const cancel = panel.locator("button.gs-act-cancel");
             await expect(cancel).toContainText(`Cancel ${spellName}`);
-            await expect(bubble.locator(".decision-prompt")).not.toContainText("CARDNAME");
+            // Spec 0109, item 5: beside your own spell's big card the window
+            // has no card sentence (`.decision-prompt`), so the whole window is read.
+            await expect(bubble).not.toContainText("CARDNAME");
             if (!seen.has("chooseTargetsFor")) {
               const inHand = page
                 .locator('[data-zone="viewer:hand"]')
@@ -232,7 +234,8 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
                 chosen: await bubble.locator(".gs-targets-chosen").textContent(),
                 done: await done.textContent(),
                 cancel: await cancel.getAttribute("aria-label"),
-                says: await bubble.locator(".decision-prompt").textContent(),
+                // Never textContent: it waits for a line spec 0109 may have taken out.
+                says: (await bubble.locator(".gs-win-prompt").allTextContents()).join(" / "),
               });
               await click(cancel);
               await expect(inHand, "Cancel backs out: the card is back in hand").toHaveCount(

@@ -2,8 +2,9 @@
 // "deep3-dim-1117", option B; the link, option A of the build's CONFLICT,
 // owner 2026-11-18) -- a report window points at the table.
 //
-// Pointing at a report row, or at a card picture in the full report (and the
-// read-through, lighting each row in turn), dims everything on the table and
+// Spec 0109, item 13 (canvas "13" option A; the read-through removed, owner
+// 2026-11-20): a click on a card picture in the full report (no longer any
+// pointing, row or read-through) dims everything on the table and
 // the piles with the split-second dim, brightness(0.45) saturate(0.4) (CSS:
 // .gs-report-pointing), except that card where it lies now: the card itself
 // when the worker linked it (`table`, sent only while this viewer's board
@@ -12,7 +13,7 @@
 // game screen, and one on each card or tile kept bright: no style per card,
 // and nothing about the seats is redrawn (spec 0103, Risks: speed).
 //
-// Not while choosing (Decided 1): only report rows and the read-through call it.
+// Not while choosing (Decided 1): only a report window's picture click calls it.
 
 import type { SnapshotCard } from "../match";
 

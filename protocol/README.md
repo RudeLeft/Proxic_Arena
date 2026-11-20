@@ -592,6 +592,12 @@ arrange.targets           on every target question (chooseTargetsFor):
                           not a target). Before, a pass was the only "no",
                           and with enough chosen it could not cancel
                           (Phase 9 Amendment 17)
+                          Spec 0109, item 5: mode true when the target is
+                          for one mode of a modal spell (Forge's Charm
+                          root: a charm, escalate); absent otherwise. The
+                          page keeps that mode's line beside the big card
+                          (its short window otherwise drops the card's
+                          sentence)
 snapshot.action           who did what to a library or hand, in this
                           reader's words, with only the cards it may know;
                           never to the seat that chose (Amendment 12, 13).
@@ -627,6 +633,18 @@ snapshot.action           who did what to a library or hand, in this
                           hand. It has no cards."), to the one shown it
                           (Duress on an empty hand: both seats, there was
                           nothing to choose). `cards` may then be empty.
+                          Spec 0109, item 7: a bounce, a return or a
+                          counter is sent to nobody when the animation
+                          told it all: its spell or ability on the stack
+                          aimed at every card shown, each went to a hand,
+                          a graveyard, face-up exile or the battlefield,
+                          all to one place, nothing shown, looked at,
+                          shuffled or chosen while it resolved, and
+                          nothing else moved but a draw and the source
+                          (ActionReports#quiet); the play log keeps its
+                          line. A library (Griptide), no arrow
+                          (Evacuation) or another result (Psychic
+                          Strike's mill) keeps the report.
                           Spec 0097: a trigger its controller could not
                           pay for is a fizzle, to both seats ("Bob's
                           Lightning Rift did nothing: they couldn't pay

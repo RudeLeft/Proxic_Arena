@@ -1434,6 +1434,14 @@ public final class MatchController extends GeneratedControllerBase {
         targets.addProperty("enough", enough);
         targets.addProperty("more", Math.max(0, most - ability.getTargets().size()));
         targets.addProperty("cancel", CANCEL_TARGETS);
+        // Spec 0109, item 5 -- a target for one mode of a modal spell (a
+        // charm, escalate: Forge's Charm root, CharmEffect#chainAbilities):
+        // the big card shows every mode, so the page's short window keeps
+        // the line naming this one. A fact from Forge, not from the words.
+        SpellAbility root = ability.getRootAbility();
+        if (root != null && root != ability && root.getApi() == forge.game.ability.ApiType.Charm) {
+            targets.addProperty("mode", true);
+        }
         return targets;
     }
 

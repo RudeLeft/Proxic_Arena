@@ -952,7 +952,6 @@ const PACE_TABLE: Record<string, Record<string, PaceClass>> = {
     UNPOISON_GONE_AT: "move",
     UNPOISON_GONE_MS: "move",
   },
-  "RevealTray.tsx": { READ_START_MS: "wait", READ_MS: "wait" },
   "RoomDoors.tsx": { DOOR_OPEN_MS: "move" },
   "flights.tsx": {
     HOLDER_FLY_MS: "move",
@@ -1001,7 +1000,7 @@ const UNPACED: [string, string, number][] = [
   ["fights.ts", "FIGHT_BEAT_MS", 450],
   ["fights.ts", "SLASH_NUMBER_MS", 1400],
   ["fights.ts", "FIGHTS_MAX_MS", 8000],
-  ["RevealTray.tsx", "READ_MS", 1100],
+  // RevealTray.tsx's READ_MS went with the read-through (spec 0109, item 13).
   ["reports.ts", "FOLD_MS", 300],
   ["manaBalls.tsx", "BALLS_LONGEST_MS", 8000],
   ["replay.tsx", "REPLAY_MAX_MS", 12_000],
