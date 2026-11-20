@@ -289,6 +289,10 @@ test("Appetite for Brains with one card that fits: the host clicks it; the guest
           await clickNow(other);
           continue;
         }
+        // The host's hand tray is step 1's to read, never the generic answer's:
+        // it can open between step 1's look and here (the full local run of
+        // 2026-11-20 had the generic answer click Hill Giant first, twice).
+        if (isHost && !clicked && (await handTray(page).count()) > 0) continue;
         if (await answerCardTray(page)) continue;
         const combat = panel.locator("button.gs-act-combat");
         if ((await combat.count()) > 0) {
