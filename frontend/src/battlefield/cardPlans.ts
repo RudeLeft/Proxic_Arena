@@ -136,6 +136,12 @@ export function plainPrompt(prompt: string | null, asking: string | null): strin
     .replace(/\s*-?\s*(Looking at cards in|You are looking at:)[\s\S]*$/, "")
     .trim();
   if (asking && words.endsWith(` ${asking}`)) words = words.slice(0, -asking.length).trim();
+  // Spec 0104 -- "Appetite for Brains: You choose a card ...": the tray's
+  // own line already names the card.
+  if (asking && words.startsWith(`${asking}: `)) {
+    words = words.slice(asking.length + 2).trim();
+    words = words.charAt(0).toUpperCase() + words.slice(1);
+  }
   if (!words) return null;
   return /[.?!)]$/.test(words) ? words : `${words}.`;
 }
@@ -152,19 +158,16 @@ export interface CardGroup {
 const isLand = (card: SnapshotCard) => card.kind === "land" || /\bLand\b/.test(card.types);
 
 /**
- * W-09 -- why a card the player can see is not offered: what the offered
- * cards all are and it is not ("a land" for Thoughtseize). Null when the
- * game's choice is not that plain.
+ * W-09 -- why a card the player can see is not offered. Spec 0104: the
+ * game's own words for it ("mana value 1", "a land"), sent with the
+ * question in `arrange.why`; the page no longer works it out from the
+ * cards' types (UI-001). "can't be chosen" when the game gave none.
  */
-export function notOffered(card: SnapshotCard, offered: readonly SnapshotCard[]): string {
-  if (offered.length > 0 && offered.every((c) => !isLand(c)) && isLand(card)) return "a land";
-  if (
-    offered.length > 0 &&
-    offered.every((c) => !/\bCreature\b/.test(c.types)) &&
-    /\bCreature\b/.test(card.types)
-  )
-    return "a creature";
-  return "can't be chosen";
+export function notOffered(
+  cardId: string,
+  why: Readonly<Record<string, string>> | null | undefined,
+): string {
+  return why?.[cardId] ?? "can't be chosen";
 }
 
 /**
@@ -174,6 +177,7 @@ export function notOffered(card: SnapshotCard, offered: readonly SnapshotCard[])
 export function cardGroups(
   offered: readonly SnapshotCard[],
   shownOnly: readonly SnapshotCard[] = [],
+  why?: Readonly<Record<string, string>> | null,
 ): CardGroup[] {
   const byName = new Map<string, CardGroup>();
   for (const card of offered) {
@@ -185,7 +189,7 @@ export function cardGroups(
     (a, b) =>
       Number(isLand(a.card)) - Number(isLand(b.card)) || a.card.name.localeCompare(b.card.name),
   );
-  const others = shownOnly.map((card) => ({ card, ids: [], why: notOffered(card, offered) }));
+  const others = shownOnly.map((card) => ({ card, ids: [], why: notOffered(card.id, why) }));
   return [...sorted, ...others];
 }
 

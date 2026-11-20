@@ -324,10 +324,10 @@ jobs:
               attachments printings face-down costs results \
               tracked-state text-effects coin-flip board-data concede mana-cost \
               library-order mana-pool mulligan unreachable dice unset \
-              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top \
+              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
-              'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions|shapes) limit=900;; esac;
+              'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions|shapes|always-choose) limit=900;; esac;
                run() { timeout $limit python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1; };
                run; s=$?;
                if [ $s = 2 ]; then
@@ -651,6 +651,12 @@ jobs:
       - name: Build the spell-choices deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/spell-choices-deck.zip" protocol/fixtures/spell-choices-deck
+
+      # And spec 0104's real-click game (F-0104-I): Appetite for Brains with
+      # one card that fits, really clicked; the victim's window.
+      - name: Build the always-choose deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/always-choose-deck-2.zip" protocol/fixtures/always-choose-deck
 
       # And spec 0101's real-click game (F-0101-F): printed combat squares,
       # a Stifled ping crumbling, a shield counter's silver shield.

@@ -466,6 +466,11 @@ public final class GameHost {
         seen.saw(seat, cardIds);
     }
 
+    /** Spec 0104 -- [seat] was shown this card in the hand it is in now (SeenHands). */
+    boolean seenInHandBy(int cardId, int seat) {
+        return seen.seenBy(cardId, seat);
+    }
+
     Payments payments() {
         return payments;
     }
@@ -568,6 +573,11 @@ public final class GameHost {
             Integer at = seatOf.get(each.getOriginalLobbyPlayer());
             if (at != null && at == seat) {
                 reports.closed(each, upTo);
+                // Spec 0104 -- a plain reveal closes with the same message.
+                Causes now = causes;
+                if (now != null) {
+                    now.closed(seat, upTo);
+                }
                 return true;
             }
         }

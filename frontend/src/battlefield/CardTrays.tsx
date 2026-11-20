@@ -73,6 +73,7 @@ function Tile({
   small,
   disabled,
   pressed,
+  lit,
   label,
   onClick,
 }: {
@@ -84,13 +85,15 @@ function Tile({
   small?: boolean;
   disabled?: boolean;
   pressed?: boolean;
+  /** Spec 0104 -- an offered card among dimmed ones: it breathes gold, the choosable look. */
+  lit?: boolean;
   label?: string;
   onClick?: () => void;
 }) {
   return (
     <button
       type="button"
-      className={`gs-win-tile${small ? " gs-win-tile-small" : ""}`}
+      className={`gs-win-tile${small ? " gs-win-tile-small" : ""}${lit ? " gs-win-tile-lit" : ""}`}
       disabled={disabled}
       aria-pressed={pressed}
       aria-label={label ?? card.name}
@@ -375,19 +378,13 @@ export function HiddenZoneTray(props: TrayProps) {
   const picked = cards.filter((c) => !open.has(c.id) && marks.has(c.id));
   const zone = decision.arrange?.zone ?? "library";
   // Another player's hand: the cards it showed that are not offered, dimmed.
+  // Spec 0104 -- they come with the question itself (its `looking`, beside
+  // the offered ones), each with the game's reason in `arrange.why`; the
+  // page infers none (UI-001).
   const shownOnly = useMemo(() => {
-    if (zone !== "hand" || !board.reveal) return [];
-    const left = new Map<string, number>();
-    for (const c of [...offered, ...picked]) left.set(c.name, (left.get(c.name) ?? 0) + 1);
-    return board.reveal.cards.filter((c) => {
-      const n = left.get(c.name) ?? 0;
-      if (n > 0) {
-        left.set(c.name, n - 1);
-        return false;
-      }
-      return true;
-    });
-  }, [zone, board.reveal, offered, picked]);
+    if (zone !== "hand") return [];
+    return cards.filter((c) => !open.has(c.id) && !marks.has(c.id));
+  }, [zone, cards, open, marks]);
   const few = zone === "hand" || cards.length <= 7;
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "spells" | "lands">("all");
@@ -402,7 +399,11 @@ export function HiddenZoneTray(props: TrayProps) {
             why: null as string | null,
             picked: !open.has(card.id),
           })),
-        ...shownOnly.map((card) => ({ card, ids: [] as string[], why: notOffered(card, offered) })),
+        ...shownOnly.map((card) => ({
+          card,
+          ids: [] as string[],
+          why: notOffered(card.id, decision.arrange?.why),
+        })),
       ]
     : [
         ...picked.map((card) => ({ card, ids: [card.id], why: null, picked: true })),
@@ -416,9 +417,16 @@ export function HiddenZoneTray(props: TrayProps) {
   );
   const name = askingName(board, decision);
   const several = decision.kind === "chooseEntitiesForEffect";
+  // Spec 0104 (canvas Q1) -- "Look at Bob's hand.": whose hand, from the game.
+  const ownerName =
+    zone === "hand" && decision.arrange?.owner != null
+      ? (board.players.find((p) => p.seat === decision.arrange?.owner)?.name ?? null)
+      : null;
   const title =
     zone === "hand"
-      ? "Choose a card from their hand"
+      ? ownerName
+        ? `Look at ${ownerName}’s hand.`
+        : "Choose a card from their hand"
       : few
         ? "Choose from these"
         : "Search your library";
@@ -443,6 +451,7 @@ export function HiddenZoneTray(props: TrayProps) {
       title={title}
       kind={decision.kind}
       prompt={plainPrompt(decision.prompt, name)}
+      wide={zone === "hand"}
       actions={
         !decision.mandatory ? (
           <button
@@ -507,6 +516,7 @@ export function HiddenZoneTray(props: TrayProps) {
               many={g.ids.length}
               caption={g.why}
               disabled={busy || !option}
+              lit={zone === "hand" && !!option && !busy}
               label={`${g.card.name}${g.ids.length > 1 ? ` ×${g.ids.length}` : ""}${g.why ? `, ${g.why}` : ""}`}
               onClick={() => option && props.onAnswer(option.actionId)}
             />

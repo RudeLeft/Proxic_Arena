@@ -210,16 +210,27 @@ describe("a search as one picture per card", () => {
         card("card:2", "Opt"),
         card("card:3", "Island", "Basic Land — Island"),
       ],
-      [card("card:9", "Swamp", "Basic Land — Swamp")],
+      [card("card:9", "Swamp", "Basic Land — Swamp"), card("card:8", "Lightning Bolt", "Instant")],
+      { "card:8": "mana value 1" },
     );
     expect(groups.map((g) => [g.card.name, g.ids.length, g.why])).toEqual([
       ["Opt", 1, null],
       ["Island", 2, null],
       ["Swamp", 0, "can't be chosen"],
+      ["Lightning Bolt", 0, "mana value 1"],
     ]);
-    expect(notOffered(card("card:9", "Swamp", "Basic Land — Swamp"), [card("card:2", "Opt")])).toBe(
-      "a land",
-    );
+    // Spec 0104: the game's words, never the page's guess from the types.
+    expect(notOffered("card:9", { "card:9": "a land" })).toBe("a land");
+    expect(notOffered("card:9", undefined)).toBe("can't be chosen");
+  });
+
+  it("drops a leading card name the tray already shows (spec 0104)", () => {
+    expect(
+      plainPrompt(
+        "Appetite for Brains: You choose a card from it with mana value 4 or greater and exile that card.",
+        "Appetite for Brains",
+      ),
+    ).toBe("You choose a card from it with mana value 4 or greater and exile that card.");
   });
 
   it("keeps the game's words, without the list the pictures already show", () => {

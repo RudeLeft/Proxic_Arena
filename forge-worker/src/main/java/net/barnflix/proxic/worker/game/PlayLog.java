@@ -1183,8 +1183,18 @@ final class PlayLog {
                 fact.key = "move:hand-battlefield:" + id;
                 fact.phrase = (s, items) -> lead(player(owner), " put ", items, " onto the battlefield");
             }
-            case "hand-exile" -> fact.phrase = (s, items) -> lead(player(owner), " exiled ", items,
-                    " from their hand");
+            case "hand-exile" -> {
+                // Spec 0104 -- another player's effect took it (Appetite for
+                // Brains): that player did it, from this one's hand, and with
+                // what. A player's own card stays theirs (Force of Will's cost).
+                Chooser by = chooserOf(owner);
+                if (by != null) {
+                    fact.key = "hand-exile:" + by.seat() + ":" + owner;
+                    fact.phrase = (s, items) -> handExile(by, owner, items);
+                } else {
+                    fact.phrase = (s, items) -> lead(player(owner), " exiled ", items, " from their hand");
+                }
+            }
             case "hand-library" -> {
                 if (fact.turn == 0) {
                     return; // a mulligan: the hand goes back, said as "took a mulligan"
@@ -1263,6 +1273,42 @@ final class PlayLog {
         forge.game.spellability.SpellAbility top = game.getStack().peekAbility();
         Card by = top == null ? null : top.getHostCard();
         return by != null && by.getId() != id;
+    }
+
+    /** Spec 0104 -- who chose a card out of another's hand, and with what card. */
+    record Chooser(int seat, String source) {}
+
+    /**
+     * Spec 0104 -- the player whose resolving effect chooses from another
+     * player's hand (ActionReports#choosesFromAnotherHand), when that is not
+     * [ownerSeat]; null otherwise.
+     */
+    private Chooser chooserOf(int ownerSeat) {
+        if (!game.getStack().isResolving() || game.getStack().isEmpty()) {
+            return null;
+        }
+        forge.game.spellability.SpellAbility top = game.getStack().peekAbility();
+        if (top == null || top.getActivatingPlayer() == null || top.getHostCard() == null) {
+            return null;
+        }
+        boolean chooses = false;
+        for (forge.game.spellability.SpellAbility each = top; each != null; each = each.getSubAbility()) {
+            chooses |= ActionReports.choosesFromAnotherHand(each);
+        }
+        int by = seat(top.getActivatingPlayer());
+        if (!chooses || by <= 0 || by == ownerSeat) {
+            return null;
+        }
+        Card host = top.getHostCard();
+        return new Chooser(by, host.isFaceDown() ? null : host.getName());
+    }
+
+    /** "Alice exiled Hill Giant from Bob's hand (Appetite for Brains)". */
+    static JsonArray handExile(Chooser by, int ownerSeat, List<JsonElement> items) {
+        JsonArray out = lead(player(by.seat()), " exiled ", items, " from ");
+        out.add(player(ownerSeat));
+        text(out, "'s hand" + (by.source() == null ? "" : " (" + by.source() + ")"));
+        return out;
     }
 
     /** "Alice discarded A and B[ rest]". */

@@ -17,6 +17,56 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { basename, extname, join } from "node:path";
 import { importPackage, noticeCard, secondUser, shareOpenDeckWith, testUser } from "./helpers";
 
+/**
+ * A point on the element that the mouse would really hit: inside the
+ * window and not under another card. A hand card stands partly below the
+ * window's edge and under its right-hand neighbour -- CI run 44314547756:
+ * with the host on the draw its first Mountain's middle was at y 1080.3 in
+ * a 1080 window, and 120 s of clicks there hit nothing. Each point tried is
+ * clipped to the window and confirmed with elementFromPoint. Moved here from
+ * match-spell-choices (spec 0104) for the specs that click in hands and trays.
+ */
+export const hitPoint = (l: Locator) =>
+  l
+    .first()
+    .evaluate(
+      (el) => {
+        const r = el.getBoundingClientRect();
+        const top = Math.max(r.top, 0);
+        const bottom = Math.min(r.bottom, window.innerHeight - 2);
+        const left = Math.max(r.left, 0);
+        const right = Math.min(r.right, window.innerWidth - 2);
+        if (bottom <= top || right <= left) return null;
+        for (const fy of [0.5, 0.3, 0.7, 0.15, 0.85])
+          for (const fx of [0.5, 0.3, 0.15, 0.7, 0.85]) {
+            const x = left + (right - left) * fx;
+            const y = top + (bottom - top) * fy;
+            const hit = document.elementFromPoint(x, y);
+            if (hit && (hit === el || el.contains(hit))) return { x, y };
+          }
+        return null;
+      },
+      null,
+      { timeout: 2_000 },
+    )
+    .catch(() => null);
+
+/**
+ * A real mouse click on an element, at [hitPoint]. Aimed again after the
+ * mouse arrives: a hand that fans anew (a card drawn) slides its cards under
+ * the pointer. False when no point of it could be hit.
+ */
+export async function realClick(page: Page, target: Locator): Promise<boolean> {
+  const first = await hitPoint(target);
+  if (!first) return false;
+  await page.mouse.move(first.x, first.y, { steps: 6 });
+  await page.waitForTimeout(150);
+  const at = await hitPoint(target);
+  if (!at) return false;
+  await page.mouse.click(at.x, at.y);
+  return true;
+}
+
 export async function csrfOf(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
   return cookies.find((c) => c.name === "proxicarena_csrf")?.value ?? "";

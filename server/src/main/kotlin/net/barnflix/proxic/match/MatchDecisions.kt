@@ -170,7 +170,8 @@ class MatchDecisions(
         // screen guesses it from priority: the AUTHORISED seat, the
         // one actually deciding (under Mindslaver, the controller).
         everyone(live) { other ->
-            announcer.asking(live.match.matchId, other, request.authorisedSeat, doingWord(request))
+            // Spec 0104: each player's own line (a choice from their hand says so).
+            announcer.asking(live.match.matchId, other, request.authorisedSeat, doingWord(request, live.seatOf(other)))
         }
         // Phase 9 Amendment 22: spectators too -- public, as for the players.
         tell { announcer.spectate(live.match.matchId, askingMessage(request.authorisedSeat, doingWord(request))) }

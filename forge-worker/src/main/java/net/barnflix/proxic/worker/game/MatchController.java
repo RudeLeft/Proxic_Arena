@@ -846,7 +846,11 @@ public final class MatchController extends GeneratedControllerBase {
         if (abilities == null || abilities.isEmpty()) {
             return null;
         }
-        if (abilities.size() == 1) {
+        // Spec 0104 (owner 2026-11-19, "Ask her too") -- one exception: a free
+        // cast (Forge's Play effect: cascade, "you may cast it without paying")
+        // of an adventure card asks for the half even when only one can be
+        // cast. Everywhere else one ability is the card the player clicked.
+        if (abilities.size() == 1 && !freeCastOfAdventure(hostCard)) {
             return abilities.get(0);
         }
 
@@ -870,6 +874,30 @@ public final class MatchController extends GeneratedControllerBase {
             Thread.currentThread().interrupt();
             return null;
         }
+    }
+
+    /**
+     * Spec 0104 -- [hostCard] is an adventure card offered by a Play effect
+     * resolving now (PlayEffect asks getAbilityToPlay for the half to cast).
+     */
+    private boolean freeCastOfAdventure(forge.game.card.Card hostCard) {
+        if (hostCard == null || !hostCard.isAdventureCard()) {
+            return false;
+        }
+        forge.game.Game game = player.getGame();
+        if (!game.getStack().isResolving() || game.getStack().isEmpty()) {
+            return false;
+        }
+        java.util.List<forge.game.ability.ApiType> chain = new java.util.ArrayList<>();
+        for (SpellAbility each = game.getStack().peekAbility(); each != null; each = each.getSubAbility()) {
+            chain.add(each.getApi());
+        }
+        return asksForTheHalf(true, chain);
+    }
+
+    /** Spec 0104 -- the pure rule: an adventure card, and a Play effect in what resolves. */
+    static boolean asksForTheHalf(boolean adventure, java.util.List<forge.game.ability.ApiType> resolving) {
+        return adventure && resolving.contains(forge.game.ability.ApiType.Play);
     }
 
     /**
@@ -1869,12 +1897,11 @@ public final class MatchController extends GeneratedControllerBase {
         if (possible == null || possible.isEmpty()) {
             return null;
         }
-        // Forge's own shortcut: when every mode must be taken there
-        // is nothing to decide. "Choose one" that offers one thing
-        // is not a question.
-        if (!allowRepeat && min == num && num == possible.size()) {
-            return possible;
-        }
+        // Spec 0104 (owner, Q1 A) -- no shortcut: Izzet Charm with nothing
+        // to counter and no small creature offers one mode, and that mode
+        // is asked, lit alone. When the card's own text takes every mode
+        // the modes are still asked one by one (decision default, spec
+        // 0104), so the player sees and clicks each.
 
         List<forge.game.spellability.AbilitySub> remaining =
                 new java.util.ArrayList<>(possible);
@@ -2675,9 +2702,8 @@ public final class MatchController extends GeneratedControllerBase {
         if (allTargets == null || allTargets.isEmpty()) {
             return null;
         }
-        if (allTargets.size() == 1) {
-            return allTargets.get(0);
-        }
+        // Spec 0104 (owner, Q1 A) -- one possible target to change is asked
+        // too (Spellskite on a one-target spell): lit alone, clicked.
         // Each option IS the object targeted -- "card:N" or "player:N" -- so the
         // board lights it and a click answers. Two Lions targeted read the
         // same in words ("Savannah Lions -- Arc Lightning"); on the board
@@ -2742,7 +2768,7 @@ public final class MatchController extends GeneratedControllerBase {
                 entities.add(entity);
             }
         }
-        return chooseSingleEntityForEffect(entities, null, sa, asked, optional, null, null);
+        return chooseOne(entities, null, sa, asked, optional, false);
     }
 
     /**
@@ -2874,8 +2900,10 @@ public final class MatchController extends GeneratedControllerBase {
     @Override
     public SpellAbility chooseSingleSpellForEffect(
             java.util.List<SpellAbility> spells, SpellAbility sa, String title, java.util.Map<String, Object> params) {
-        if (spells.size() < 2) {
-            return spells.isEmpty() ? null : spells.get(0);
+        // Spec 0104 (owner, Q1 A) -- one is asked too (a dungeon's only next
+        // room, the one spell to copy); none is still no question.
+        if (spells.isEmpty()) {
+            return null;
         }
         int picked = askIndex("chooseSingleSpellForEffect", describe(spells), true, title);
         return spells.get(Math.max(picked, 0));
@@ -2895,10 +2923,8 @@ public final class MatchController extends GeneratedControllerBase {
         java.util.List<SpellAbility> remaining = new java.util.ArrayList<>(spells);
         java.util.List<SpellAbility> chosen = new java.util.ArrayList<>();
         while (chosen.size() < num && !remaining.isEmpty()) {
-            if (remaining.size() == 1 || remaining.size() == num - chosen.size()) {
-                chosen.add(remaining.remove(0));
-                continue;
-            }
+            // Spec 0104 (owner, Q1 A) -- asked when one remains, or when all
+            // the remaining must be taken: each is seen and clicked.
             int picked = askIndex("chooseSpellAbilitiesForEffect", describe(remaining), true, title);
             chosen.add(remaining.remove(Math.max(picked, 0)));
         }
@@ -3161,9 +3187,9 @@ public final class MatchController extends GeneratedControllerBase {
             return null; // a cost being checked, not paid: no one is asked
         }
         String card = sa.getHostCard() == null ? "This spell" : sa.getHostCard().getName();
-        return chooseSingleEntityForEffect(optionList, null, sa,
+        return chooseOne(optionList, null, sa,
                 card + " has assist: choose a player to help pay up to " + max + " generic mana, or pass.",
-                true, null, null);
+                true, false);
     }
 
     /**
@@ -3756,6 +3782,106 @@ public final class MatchController extends GeneratedControllerBase {
             }
         }
         return cards;
+    }
+
+    /**
+     * Spec 0104 -- a choice from another player's hand shows the whole hand
+     * the chooser was shown, not only the cards it allows: [showing] (the
+     * candidates) gains the other cards of that hand Forge showed this
+     * player -- revealed to them (SeenHands, from MatchController#reveal)
+     * or in the question's own delayed reveal (Castigate) -- and [how] gets
+     * the hand's owner and, per card not offered, Forge's reason
+     * ({@link NotChosen}). They travel WITH the question, to this seat
+     * alone: the reveal itself may not be shown to the one choosing
+     * (ActionReports#choosingNow). A card Forge did not show stays out.
+     */
+    private void alsoShown(java.util.List<forge.game.card.Card> showing,
+            forge.game.player.DelayedReveal delayedReveal, SpellAbility sa, com.google.gson.JsonObject how) {
+        if (showing.isEmpty() || showing.get(0).getOwner() == null) {
+            return;
+        }
+        Player owner = showing.get(0).getOwner();
+        how.addProperty("owner", seatOfPlayer(owner));
+        java.util.Set<Integer> inReveal = new java.util.HashSet<>();
+        if (delayedReveal != null && delayedReveal.getCards() != null) {
+            delayedReveal.getCards().forEach(view -> inReveal.add(view.getId()));
+        }
+        java.util.Set<Integer> offered = new java.util.HashSet<>();
+        showing.forEach(card -> offered.add(card.getId()));
+        com.google.gson.JsonObject why = new com.google.gson.JsonObject();
+        for (forge.game.card.Card card : owner.getCardsIn(forge.game.zone.ZoneType.Hand)) {
+            if (offered.contains(card.getId())) {
+                continue;
+            }
+            if (!inReveal.contains(card.getId()) && !host.seenInHandBy(card.getId(), actedForSeat)) {
+                continue;
+            }
+            showing.add(card);
+            why.addProperty("card:" + card.getId(), NotChosen.why(card, sa));
+        }
+        if (why.size() > 0) {
+            how.add("why", why);
+        }
+    }
+
+    /**
+     * Spec 0104 -- what a card or player is chosen FOR, in the effect's own
+     * words: the ability's description (a sub-ability's own, else its
+     * spell's), a trigger's text. Built like {@link #targetPrompt} but
+     * whole: Divine Reckoning's "Each player chooses a creature they
+     * control. Destroy the rest." Null when Forge gives no words (its own
+     * title is asked then).
+     */
+    static boolean choiceInCardWords(SpellAbility sa) {
+        // Spec 0104 -- where Forge's own title is generic ("Select a card from
+        // Bob's hand", "Choose a card"): a card moved between zones, a card or
+        // a player chosen. Elsewhere Forge's title already names the choice
+        // ("Choose your Ring-bearer"; the effect's words, "The Ring tempts
+        // you.", would not), and it stays.
+        if (sa == null || sa.getApi() == null) {
+            return false;
+        }
+        return switch (sa.getApi()) {
+            case ChangeZone, ChangeZoneAll, ChooseCard, ChoosePlayer -> true;
+            default -> false;
+        };
+    }
+
+    static String choicePrompt(SpellAbility sa) {
+        if (sa == null || sa.getHostCard() == null) {
+            return null;
+        }
+        String name = sa.getHostCard().getName();
+        SpellAbility root = sa.getRootAbility();
+        String own = sa.getDescription() == null ? "" : sa.getDescription().trim();
+        if (own.isEmpty() && root != null && root.isTrigger() && root.getTrigger() != null) {
+            String said = triggerEffect(root.getTrigger().toString(), name);
+            return said.isEmpty() ? null : (said.startsWith(name) ? said : name + ": " + said);
+        }
+        if (own.isEmpty() && root != null && root != sa && root.getDescription() != null) {
+            own = root.getDescription().trim();
+        }
+        return choiceWords(own, name, sa.isAbility() || (root != null && root.isAbility()));
+    }
+
+    /** [choicePrompt]'s words from [description]: "Name: effect", an ability's cost left out. */
+    static String choiceWords(String description, String name, boolean ability) {
+        if (description == null || description.isBlank() || name == null) {
+            return null;
+        }
+        String effect = description.trim();
+        int colon = effect.indexOf(": ");
+        if (ability && colon > 0 && colon < effect.length() - 2) {
+            effect = effect.substring(colon + 2).trim();
+        }
+        effect = plainSubject(effect.replace("CARDNAME", name), name);
+        if (effect.isEmpty()) {
+            return null;
+        }
+        if (!effect.matches("(?s).*[.!?)]$")) {
+            effect = effect + ".";
+        }
+        return effect.startsWith(name) ? effect : name + ": " + effect;
     }
 
     /** What a player reads for each ability: its own description. */
@@ -5208,6 +5334,23 @@ public final class MatchController extends GeneratedControllerBase {
             boolean isOptional,
             Player targetedPlayer,
             java.util.Map<String, Object> params) {
+        // Spec 0104 -- Forge's own question: asked in the card's words.
+        return chooseOne(optionList, delayedReveal, sa, title, isOptional, true);
+    }
+
+    /**
+     * One card or player for an effect. [cardWords]: the prompt is the
+     * effect's own description (spec 0104, {@link #choicePrompt}), Forge's
+     * [title] only when it has none; false for a question this file words
+     * itself (a vote, assist).
+     */
+    private <T extends forge.game.GameEntity> T chooseOne(
+            forge.util.collect.FCollectionView<T> optionList,
+            forge.game.player.DelayedReveal delayedReveal,
+            SpellAbility sa,
+            String title,
+            boolean isOptional,
+            boolean cardWords) {
         if (optionList == null || optionList.isEmpty()) {
             return null;
         }
@@ -5227,13 +5370,21 @@ public final class MatchController extends GeneratedControllerBase {
         // rather than a guess. It goes in the prompt, which travels
         // to the one authorised seat exactly as the options do.
         String context = revealed(delayedReveal);
-        String prompt = context.isEmpty() ? title : title + " " + context;
+        String words = cardWords && choiceInCardWords(sa) ? choicePrompt(sa) : null;
+        String asked = words == null ? title : words;
+        String prompt = context.isEmpty() ? asked : asked + " " + context;
 
-        // Normally one candidate that cannot be declined is not a
-        // question. It is when there is something to show: Forge
-        // reveals in that case too, and a player who looked at
-        // seven cards should learn what was in them.
-        if (!isOptional && candidates.size() == 1 && context.isEmpty()) {
+        // Spec 0104 (owner, Q1 A) -- a required choice with ONE candidate
+        // is asked like any other: Appetite for Brains with one card of
+        // mana value 4 or more in Bob's hand used to be picked for Alice,
+        // unseen, while Thoughtseize and the edicts always asked. The rules
+        // narrow; the player clicks (FORGE-RULE). No shortcut here -- but
+        // one: Forge's own "Chooser:" step (ChangeZoneEffect, an effect's
+        // `Chooser$ You`) offers this player alone, before the real choice.
+        // That is the card saying who chooses, not a choice the card gives;
+        // the approved flow is one click, on the card (spec 0104, item 1).
+        if (!isOptional && candidates.size() == 1 && candidates.get(0) == player
+                && sa != null && sa.hasParam("Chooser")) {
             return candidates.get(0);
         }
 
@@ -5257,6 +5408,11 @@ public final class MatchController extends GeneratedControllerBase {
         // Phase 9 W-09 -- a search, the top few, another player's hand:
         // the cards as pictures in the tray.
         String zone = hiddenZone(candidates);
+        java.util.List<forge.game.card.Card> showing = cardsAmong(candidates);
+        com.google.gson.JsonObject how = zone == null ? null : layout("zone", zone);
+        if ("hand".equals(zone)) {
+            alsoShown(showing, delayedReveal, sa, how);
+        }
         try {
             Asking<String> asking = () -> host.gate().ask(
                     actedForSeat,
@@ -5268,7 +5424,7 @@ public final class MatchController extends GeneratedControllerBase {
                     pending -> host.publishDecision(pending, labels));
             String choice = zone == null
                     ? asking.ask()
-                    : shown(cardsAmong(candidates), layout("zone", zone), asking);
+                    : shown(showing, how, asking);
             if (DecisionGate.PASS.equals(choice)) {
                 // Only reachable when the choice was optional;
                 // the gate refuses a pass otherwise.

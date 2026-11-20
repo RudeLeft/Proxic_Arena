@@ -196,7 +196,14 @@ final class ActionReports {
          * effect resolves (Forge says nothing when the turn or step is later
          * skipped), to every player but its controller.
          */
-        SKIP }
+        SKIP,
+        /**
+         * Spec 0104 -- a card taken out of a player's hand by an effect another
+         * player chooses for (Appetite for Brains, Castigate, Brain Maggot,
+         * Kitesail Freebooter): "Alice exiled your Hill Giant.", told to the
+         * hand's owner only, never to the one who chose.
+         */
+        HAND_EXILE }
 
     /**
      * Spec 0074, Amendment 1 -- the kinds that hide nothing Forge shows (a
@@ -715,6 +722,15 @@ final class ActionReports {
                 return null;
             }
             subject = mine.stream().map(Move::owner).filter(owner -> owner != actor).findFirst().orElse(actor);
+        }
+        // Spec 0104 -- about the player whose hand it was: another's card the
+        // actor chose; nothing taken from another's hand, no report.
+        if (kind == Kind.HAND_EXILE) {
+            mine = mine.stream().filter(move -> move.owner() != actor).toList();
+            if (mine.isEmpty()) {
+                return null;
+            }
+            subject = mine.get(0).owner();
         }
         // Spec 0102, item 3 -- nothing was exiled with it (Sundial of the
         // Infinite's ability on an empty stack): the card that did it, as it is.
@@ -1303,6 +1319,13 @@ final class ActionReports {
      * ..." line are then not shown: they chose, and the other player gets
      * the report.
      */
+    /**
+     * Spec 0104 -- the stack entries (Forge's own objects, by identity, held
+     * weakly: gone once resolved) whose hand-exile had a card to choose.
+     */
+    private static final java.util.Map<Object, Boolean> CHOSE_FROM_HAND =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
     static boolean choosingNow(Game game, Player player) {
         if (player == null || !game.getStack().isResolving() || game.getStack().isEmpty()) {
             return false;
@@ -1318,6 +1341,24 @@ final class ActionReports {
             // Spec 0102, item 3: ending the turn hides nothing either.
             if (kind == Kind.BOUNCE || kind == Kind.END_TURN) {
                 return false;
+            }
+            // Spec 0104: the one choosing from another's hand is shown it in the
+            // question (MatchController#alsoShown); nothing to choose, the reveal stays.
+            if (kind == Kind.HAND_EXILE) {
+                if (root.getActivatingPlayer() != player) {
+                    return false;
+                }
+                // Once there was a choice, the rest of this resolution is the
+                // choice's too: Forge's reveal of the card taken, after it went.
+                Object entry = game.getStack().peek();
+                if (entry != null && CHOSE_FROM_HAND.containsKey(entry)) {
+                    return true;
+                }
+                boolean choosing = handHasChoice(each, player);
+                if (choosing && entry != null) {
+                    CHOSE_FROM_HAND.put(entry, Boolean.TRUE);
+                }
+                return choosing;
             }
             // Spec 0074, Amendment 1: a mill, a counter, a return hide nothing Forge shows.
             if (kind != null && !toBoth(kind)) {
@@ -1340,6 +1381,9 @@ final class ActionReports {
             case ChangeZone, ChangeZoneAll -> origin.contains("Library")
                     ? Kind.SEARCH
                     : origin.contains("Hand") && destination.contains("Library") ? Kind.PUT_BACK
+                    // Spec 0104: out of a hand another player chooses from.
+                    : origin.contains("Hand") && !destination.isEmpty() && !destination.contains("Hand")
+                    && choosesFromAnotherHand(sa) ? Kind.HAND_EXILE
                     // Spec 0074, Amendment 1: out of a graveyard or exile.
                     : (origin.contains("Graveyard") || origin.contains("Exile")) && !destination.isEmpty()
                     && !destination.contains("Graveyard") ? Kind.RETURN
@@ -1357,6 +1401,41 @@ final class ActionReports {
             case EndTurn -> Kind.END_TURN;
             default -> null;
         };
+    }
+
+    /**
+     * Spec 0104 -- a move out of a hand whose cards the effect's controller
+     * chooses (`Chooser$ You` with `DefinedPlayer$`: Appetite for Brains,
+     * Castigate), not the hand's owner (Arcane Artisan: they exile their own).
+     */
+    static boolean choosesFromAnotherHand(SpellAbility sa) {
+        return sa.hasParam("DefinedPlayer") && "You".equals(sa.getParam("Chooser"));
+    }
+
+    /**
+     * Spec 0104 -- will [chooser] be asked for [sa]? Only when a hand of
+     * another player it names holds a card Forge's own filter allows (as
+     * ChangeZoneEffect filters it): with none there is nothing to choose, and
+     * the hand Forge revealed stays the chooser's to see (Appetite for Brains
+     * on a hand of cheap cards).
+     */
+    private static boolean handHasChoice(SpellAbility sa, Player chooser) {
+        try {
+            for (Player each : AbilityUtils.getDefinedPlayers(sa.getHostCard(), sa.getParam("DefinedPlayer"), sa)) {
+                if (each == chooser) {
+                    continue;
+                }
+                forge.game.card.CardCollectionView hand = each.getCardsIn(ZoneType.Hand);
+                String type = sa.getParam("ChangeType");
+                if (!(type == null ? hand : AbilityUtils.filterListByType(hand, type, sa)).isEmpty()) {
+                    return true;
+                }
+            }
+        } catch (RuntimeException e) {
+            // Not resolvable now: treated as a choice (the reveal is the report's).
+            return true;
+        }
+        return false;
     }
 
     /** Whose library or hand it was about: a targeted or defined player, else the actor. */
@@ -1393,7 +1472,7 @@ final class ActionReports {
         List<Move> out = new ArrayList<>();
         for (Move move : moves) {
             boolean anyOwner = kind == Kind.COUNTER || kind == Kind.RETURN || kind == Kind.BOUNCE
-                    || kind == Kind.END_TURN;
+                    || kind == Kind.END_TURN || kind == Kind.HAND_EXILE;
             if (!anyOwner && move.owner() != subject) {
                 continue;
             }
@@ -1411,6 +1490,9 @@ final class ActionReports {
                 case MILL, SURVEIL -> move.from() == ZoneType.Library && move.to() == ZoneType.Graveyard;
                 // Spec 0102, item 3: every spell exiled off the stack (Time Stop itself too).
                 case END_TURN -> move.from() == ZoneType.Stack && move.to() == ZoneType.Exile;
+                // Spec 0104: out of a hand (or, Covetous Urge, its graveyard) to where the effect put it.
+                case HAND_EXILE -> (move.from() == ZoneType.Hand || move.from() == ZoneType.Graveyard)
+                        && move.to() != move.from() && (host == null || move.cardId() != host.getId());
                 default -> false;
             };
             if (keep && seen.add(move.cardId())) {
@@ -1782,6 +1864,8 @@ final class ActionReports {
                     r.moves.stream().anyMatch(m -> m.from() == ZoneType.Stack && m.cardId() != r.hostId));
             case SKIP -> skipWords(r.actor.getName(), r.subject == w.reader ? null : r.subject.getName(), r.skipped,
                     r.count);
+            // Spec 0104, the spec's words.
+            case HAND_EXILE -> handExileWords(who, its, cards, r.moves.isEmpty() ? null : r.moves.get(0).to());
         };
     }
 
@@ -1849,6 +1933,22 @@ final class ActionReports {
         return "a new target";
     }
 
+    /**
+     * Spec 0104 -- "Alice exiled your Hill Giant." ([who] the chooser as the
+     * reader names them, [whose] the hand's owner: "your"); a card put
+     * anywhere else than exile: "Alice put your Hill Giant into your graveyard."
+     */
+    static String handExileWords(String who, String whose, String cards, ZoneType to) {
+        if (to == null || to == ZoneType.Exile) {
+            return who + " exiled " + whose + " " + cards + ".";
+        }
+        return switch (to) {
+            case Battlefield -> who + " put " + whose + " " + cards + " onto the battlefield.";
+            case Graveyard -> who + " put " + whose + " " + cards + " into " + whose + " graveyard.";
+            default -> who + " took " + whose + " " + cards + ".";
+        };
+    }
+
     /** Spec 0080 -- "Bob's life can't change." ("Your ..." to that player). */
     static String lifeWords(String player) {
         return (player == null ? "Your" : player + "'s") + " life can't change.";
@@ -1899,6 +1999,8 @@ final class ActionReports {
             case CONTROL -> reader == subject && reader != actor;
             // Spec 0102, item 3 (owner, missed Q8 A): every player but the one who did it.
             case END_TURN, SKIP -> reader != actor;
+            // Spec 0104 (owner 2026-11-19): the hand's owner only, never the one who chose.
+            case HAND_EXILE -> reader == subject && reader != actor;
             // Spec 0097, item 7 (owner): never a window for the one who did it.
             case MILL, COUNTER, RETURN, PHASE -> reader != actor;
             default -> reader != chooser;

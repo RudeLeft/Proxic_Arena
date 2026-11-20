@@ -3477,6 +3477,35 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-win-tile:disabled .gs-win-bigcard {
   opacity: 0.55;
 }
+/* Spec 0104 (canvas Q1) -- the card you may take from another player's hand
+   breathes gold among the dimmed ones, as a choosable card on the table does
+   (gs-breathe's colours and clock); nothing happens until it is clicked. */
+.gs-win-tile-lit .gs-win-bigcard {
+  animation: gs-tile-breathe 1.8s ease-in-out infinite;
+}
+@keyframes gs-tile-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 6px 18px rgb(0 0 0 / 55%),
+      0 0 0 1.5px rgb(233 194 122 / 85%),
+      0 0 6px 1px rgb(255 205 110 / 35%);
+  }
+  50% {
+    box-shadow:
+      0 6px 18px rgb(0 0 0 / 55%),
+      0 0 0 1.5px #ffd98a,
+      0 0 18px 5px rgb(255 205 110 / 75%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-win-tile-lit .gs-win-bigcard {
+    animation: none;
+    box-shadow:
+      0 6px 18px rgb(0 0 0 / 55%),
+      0 0 0 1.5px #ffd98a;
+  }
+}
 /* Spec 0071, item 3 -- a card picked so far in a window: it stays, dimmed,
    with the corner sign of what will happen to it (PaySign, 0070's signs)
    and an outline in the sign's colour; a click takes it back. The sign sits

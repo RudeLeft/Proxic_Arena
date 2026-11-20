@@ -38,6 +38,12 @@ compares, round by round (one stateRevision), what each seat was sent:
              otherHands, casting, graveyard, exile, command, libraryTop) hold
              that card, and never on a card hidden from the reader; any other
              card id in a report's cards is still a leak
+  reasons    spec 0104: a question's `arrange.why` (why each card shown with
+             it cannot be chosen: "mana value 1") names only cards in that
+             question's own `looking`, each another seat's card the asked
+             seat was shown (its last board's otherHands, seen, or Forge's delayed
+             reveal in the prompt); no board, for any seat, carries such
+             reasons (they travel with the question, to the chooser alone)
 
     python -I scripts/check-hidden-tops.py --self-test
 
@@ -111,6 +117,33 @@ def report_problems(state, r):
     return problems
 
 
+def why_problems(question, before):
+    """Spec 0104 -- a question's `arrange.why` (why each shown card cannot be
+    chosen) names only cards in the question's own `looking`, each another
+    seat's card the asked seat was shown: in its last board's otherHands
+    (Forge revealed it), or named in the question's prompt (Forge's delayed
+    reveal, Castigate)."""
+    why = (question.get("arrange") or {}).get("why")
+    if not why:
+        return []
+    seat = question.get("authorisedSeat")
+    looking = {c.get("id"): c for c in question.get("looking") or []}
+    # Revealed to it (SeenHands marks them `seen`), not merely looked at for this very question.
+    seen = {c.get("id") for c in (before or {}).get("otherHands") or [] if c.get("seen") is True}
+    prompt = question.get("prompt") or ""
+    problems = []
+    for cid in why:
+        c = looking.get(cid)
+        if c is None:
+            problems.append(f"a reason for {cid}, which the question does not show")
+            continue
+        if c.get("owner", c.get("seat")) == seat:
+            problems.append(f"a reason for {cid}, the asked seat's own card")
+        if cid not in seen and (c.get("name") or "\0") not in prompt:
+            problems.append(f"a reason for {cid} ({c.get('name')}), a card Forge did not show seat {seat}")
+    return problems
+
+
 def self_test():
     """The table-link rule on made-up boards: on the table passes, in a library fails."""
     card = {"id": "action:1:0", "known": True, "name": "Island", "seat": 2, "to": "battlefield"}
@@ -122,8 +155,15 @@ def self_test():
         {"id": "action:1:0", "known": False, "faceDown": True, "seat": 2, "table": "card:5"}]})
     stack = report_problems({"stack": [{"id": "stack:1", "source": "card:9"}]},
                             {"key": "action:1", "cards": [dict(card, table="card:9")]})
+    # Spec 0104: a reason for a card Bob's hand showed Alice passes; for one it never showed, fails.
+    bolt = {"id": "card:7", "owner": 2, "seat": 2, "name": "Lightning Bolt", "known": True}
+    asked = {"authorisedSeat": 1, "prompt": "Exile ...", "looking": [bolt],
+             "arrange": {"zone": "hand", "why": {"card:7": "mana value 1"}}}
+    shown_ok = why_problems(asked, {"otherHands": [dict(bolt, seen=True)]})
+    unshown = why_problems(asked, {"otherHands": [bolt]})
     results = {"on the table passes": not good, "a library card fails": bool(library),
-               "a hidden card's link fails": bool(hidden), "a stack source fails": bool(stack)}
+               "a hidden card's link fails": bool(hidden), "a stack source fails": bool(stack),
+               "a reason for a shown card passes": not shown_ok, "a reason for an unshown card fails": bool(unshown)}
     print(json.dumps(results, indent=1))
     return 0 if all(results.values()) else 1
 
@@ -134,8 +174,10 @@ def rounds(paths):
     cards it is looking at), until that seat's next board."""
     out = defaultdict(dict)
     asked = defaultdict(set)
+    WHY.clear()
     for path in paths:
         last = {}
+        board = {}
         for line in open(path, encoding="utf-8"):
             try:
                 r = json.loads(line)
@@ -144,6 +186,10 @@ def rounds(paths):
             f = r.get("frame") or {}
             if f.get("type") == "DECISION_REQUEST":
                 seat = f.get("authorisedSeat")
+                # Spec 0104: the reasons sent with this question, against the board before it.
+                if (f.get("arrange") or {}).get("why"):
+                    WHY.append((path, f.get("stateVersion"), len(f["arrange"]["why"]),
+                                why_problems(f, board.get(seat))))
                 if seat in last:
                     ids = {o.get("objectId") for o in f.get("options") or []}
                     ids |= {c.get("id") for c in f.get("looking") or []}
@@ -154,7 +200,25 @@ def rounds(paths):
             s = f.get("state") or {}
             out[(path, s.get("stateRevision"))][f.get("seat")] = s
             last[f.get("seat")] = s.get("stateRevision")
+            board[f.get("seat")] = s
     return out, asked
+
+
+# Spec 0104: (trace, version, reasons, problems) for every question that sent reasons.
+WHY = []
+
+
+def reasons_in(node):
+    """A reasons map (`why` holding card ids) anywhere in a board: never sent there."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k == "why" and isinstance(v, dict) and any(CARD.fullmatch(str(x)) for x in v):
+                return True
+            if reasons_in(v):
+                return True
+    elif isinstance(node, list):
+        return any(reasons_in(v) for v in node)
+    return False
 
 
 def main(paths):
@@ -190,6 +254,8 @@ def main(paths):
                 problems.append(f"{path} r{rev}: seat {seat}: a known top survived its library's shuffle")
         all_tops = {cid for m in sent.values() for cid in m}
         for seat, s in seats.items():
+            if reasons_in(s):
+                problems.append(f"{path} r{rev}: seat {seat}: a board carries a question's reasons (why)")
             leaked = (ids_in(s) & all_tops) - set(sent[seat])
             for cid in sorted(leaked):
                 problems.append(f"{path} r{rev}: seat {seat} named library top card {cid} it was not shown")
@@ -209,12 +275,16 @@ def main(paths):
                     problems.append(f"{path} r{rev}: seat {seat}: a gathered report gathers others")
                 cards += len(r.get("cards") or [])
                 problems.extend(f"{path} r{rev}: seat {seat}: {p}" for p in report_problems(s, r))
+    reasons = 0
+    for path, version, n, found in WHY:
+        reasons += n
+        problems.extend(f"{path} v{version}: {p}" for p in found)
     print(json.dumps({"library top cards sent": tops, "known top cards sent": known,
-                      "gathered reports": gathered, "report cards": cards,
+                      "gathered reports": gathered, "report cards": cards, "reasons sent (spec 0104)": reasons,
                       "problems": problems[:40]}, indent=1))
     if problems:
         return 1
-    return 0 if (tops or gathered or known) else 2
+    return 0 if (tops or gathered or known or reasons) else 2
 
 
 if __name__ == "__main__":

@@ -36,6 +36,24 @@ class AskingWordsTest {
     }
 
     @Test
+    fun `a choice from your own hand says so to you, and only to you`() {
+        // Spec 0104: Alice (seat 2 here) chooses from Bob's (seat 1) hand.
+        val hand =
+            buildJsonObject {
+                put("zone", "hand")
+                put("owner", 1)
+            }
+        val asked = question("chooseSingleEntityForEffect", hand)
+        assertEquals("Choosing from your hand", doingWord(asked, 1))
+        // A spectator, or nobody named: the plain word.
+        assertEquals("Choosing", doingWord(asked, null))
+        assertEquals("Choosing", doingWord(asked, 3))
+        // A library search is not a hand.
+        val library = buildJsonObject { put("zone", "library") }
+        assertEquals("Choosing", doingWord(question("chooseSingleEntityForEffect", library), 1))
+    }
+
+    @Test
     fun `the message carries the seat and the word, never the question`() {
         val split = buildJsonObject { put("split", "two") }
         val message = askingMessage(2, doingWord(question("chooseEntitiesForEffect", split)))

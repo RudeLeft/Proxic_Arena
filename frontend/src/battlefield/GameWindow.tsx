@@ -365,6 +365,7 @@ export function Tray({
   prompt,
   children,
   actions,
+  wide,
 }: {
   geometry: Geometry;
   label: string;
@@ -375,12 +376,18 @@ export function Tray({
   prompt?: string | null;
   children: ReactNode;
   actions: ReactNode;
+  /**
+   * Spec 0104 (owner 2026-11-19) -- another player's hand: room for seven
+   * cards in one row at 1920x1080 (more may still wrap), still clear of the
+   * stack on the right.
+   */
+  wide?: boolean;
 }) {
   const peek = usePeek(true);
   // As wide as its cards need (owner 2026-10-30: no dead space), centred
   // on the table, never wider than the room left of the stack.
   const centre = geometry.play.x + geometry.play.w * 0.45;
-  const maxWidth = geometry.play.w * 0.82;
+  const maxWidth = geometry.play.w * (wide ? 0.88 : 0.82);
   // Amendment 22: a wide tray reached under the corner buttons (gear,
   // Report, List choices), which stay on top (rule 5): it then rises
   // just above them instead.

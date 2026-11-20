@@ -363,6 +363,13 @@ action (SKIP)             spec 0102, item 3: a skip effect resolved (Forge
                           Forge fires nothing when the turn or step is later
                           skipped -- to every seat but its controller; its
                           card: the card that did it. Public
+action (HAND_EXILE)       spec 0104: a card taken out of a player's hand by
+                          an effect another player chooses for (`Chooser$ You`
+                          with `DefinedPlayer$`: Appetite for Brains, Castigate,
+                          Brain Maggot): "Alice exiled your Hill Giant.", told
+                          to the hand's owner only, never to the one who
+                          chose; its card: the card taken, with `to`
+                          ("exile"). No fields beyond a report's
 action (RESTART)          spec 0102, item 1: at the restart every open report
                           is forgotten for every seat before the RESTART
                           report is made, so game 1's reports never gather
@@ -435,6 +442,16 @@ playLog                   spec 0064: this round's play log lines for THIS
                           public); the id, a handle on the card wherever it
                           goes, does not (worker HiddenIds;
                           scripts/check-hidden-hands.py)
+decision.arrange.owner    spec 0104, on a choice from another player's hand
+                          (zone "hand"): whose hand (their seat). The server
+                          reads it with `zone` for that seat's waiting line,
+                          "Choosing from your hand" (AskingWords)
+decision.arrange.why      spec 0104, on the same: per card shown with the
+                          question (in `looking`) but not offered, the
+                          worker's reason in plain words ("mana value 1",
+                          "a land", else "can't be chosen"; NotChosen). Only
+                          cards Forge showed the chooser; with the question,
+                          to that seat alone (never in a snapshot)
 decision.arrange.dice     Phase 9 W-17, on the roll questions: {how
                           (reroll|nudge|swap|swapValue|ignore), sides,
                           rolls, by [{id, name}], price?, power?,
@@ -642,7 +659,11 @@ action.gathered           spec 0088 (Q2 A, Q3 C): a report is no longer
                           reader (ReportBook, at most 40) until the server
                           sends the worker REPORTS_CLOSED {seat, upTo}: the
                           reader closed the window, which showed reports up
-                          to `upTo`; those are gone for that seat only
+                          to `upTo`; those are gone for that seat only. Spec 0104: the same message closes
+                          the seat's plain reveal (`snapshot.reveal`, which
+                          shares the stamps) when its stamp is not newer;
+                          a plain reveal is no longer dropped at the next
+                          turn (a newer reveal still replaces it)
 snapshot.libraryTop       spec 0088 (Q4 C): the top card of each library
                           this viewer may see, as Forge says --
                           CardView#canBeShownTo, which reads the card's

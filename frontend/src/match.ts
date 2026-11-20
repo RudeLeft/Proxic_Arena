@@ -207,6 +207,14 @@ export interface DecisionArrange {
   shuffle: boolean;
   /** The hidden zone the cards are in: "library", or another player's "hand". */
   zone: string | null;
+  /** Spec 0104 -- another player's hand: whose (their seat). */
+  owner?: number | null;
+  /**
+   * Spec 0104 -- per card shown with the question but not offered (its id
+   * in `looking`), the game's reason in plain words: "mana value 1", "a
+   * land". Sent to the chooser only, with the question.
+   */
+  why?: Record<string, string> | null;
   /** Fact or Fiction: the cards are being split into two piles. */
   split: boolean;
   /** Fact or Fiction: the two piles to choose from -- the cards you may see, and how many. */
@@ -2331,6 +2339,16 @@ function asNameLayout(value: unknown): NameLayout | null {
   };
 }
 
+/** Spec 0104 -- `arrange.why`: card id to the game's words, strings only. */
+function asWhy(value: unknown): Record<string, string> | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const out: Record<string, string> = {};
+  for (const [id, words] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof words === "string") out[id] = words;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 function asArrange(value: unknown): DecisionArrange | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const v = value as Record<string, unknown>;
@@ -2349,6 +2367,8 @@ function asArrange(value: unknown): DecisionArrange | null {
     first: asString(v["first"]),
     shuffle: v["shuffle"] === true,
     zone: asString(v["zone"]),
+    owner: asNumber(v["owner"]),
+    why: asWhy(v["why"]),
     split: typeof v["split"] === "string" || v["split"] === true,
     piles: piles && piles.length === 2 ? piles : null,
     damage: asFight(v["damage"]),

@@ -36,6 +36,7 @@ import {
   matchPanel,
   passButton,
   passCombat,
+  realClick,
   sharedDeck,
   startAMatch,
   watchGame,
@@ -109,53 +110,7 @@ const landedOf = (page: Page) =>
 const saidOf = (page: Page) =>
   page.evaluate(() => (window as unknown as { __said: string[] }).__said);
 
-/**
- * A point on the element that the mouse would really hit: inside the
- * window and not under another card. A hand card stands partly below the
- * window's edge and under its right-hand neighbour -- CI run 44314547756:
- * with the host on the draw its first Mountain's middle was at y 1080.3 in
- * a 1080 window, and 120 s of clicks there hit nothing.
- */
-const hitPoint = (l: Locator) =>
-  l
-    .first()
-    .evaluate(
-      (el) => {
-        const r = el.getBoundingClientRect();
-        const top = Math.max(r.top, 0);
-        const bottom = Math.min(r.bottom, window.innerHeight - 2);
-        const left = Math.max(r.left, 0);
-        const right = Math.min(r.right, window.innerWidth - 2);
-        if (bottom <= top || right <= left) return null;
-        for (const fy of [0.5, 0.3, 0.7, 0.15, 0.85])
-          for (const fx of [0.5, 0.3, 0.15, 0.7, 0.85]) {
-            const x = left + (right - left) * fx;
-            const y = top + (bottom - top) * fy;
-            const hit = document.elementFromPoint(x, y);
-            if (hit && (hit === el || el.contains(hit))) return { x, y };
-          }
-        return null;
-      },
-      null,
-      { timeout: 2_000 },
-    )
-    .catch(() => null);
-
-/**
- * A real mouse click on an element. Aimed again after the mouse arrives:
- * a hand that fans anew (a card drawn) slides its cards under the pointer
- * -- the same CI run clicked the host's Gray Ogre for a Mountain so.
- */
-async function realClick(page: Page, target: Locator) {
-  const first = await hitPoint(target);
-  if (!first) return false;
-  await page.mouse.move(first.x, first.y, { steps: 6 });
-  await page.waitForTimeout(150);
-  const at = await hitPoint(target);
-  if (!at) return false;
-  await page.mouse.click(at.x, at.y);
-  return true;
-}
+// hitPoint and realClick: match-helpers.ts (spec 0104 moved them there).
 
 /** The stack card whose words start so, on this page. */
 const stackCard = (page: Page, name: string) =>

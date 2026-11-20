@@ -97,7 +97,10 @@ final class Causes {
     /** Forge showed this seat this card in its latest reveal. */
     boolean revealedTo(int seat, int cardId) {
         Reveal reveal = reveals.get(seat);
-        return reveal != null && reveal.cards.contains(cardId);
+        // Spec 0104: a reveal now stays on screen past its turn; what it lets a
+        // report name is still only this turn's (as when it was cleared then).
+        return reveal != null && reveal.cards.contains(cardId)
+                && (reveal.turn == game.getPhaseHandler().getTurn() || reveal.turn == 0);
     }
 
     /** Forge's events, as it fires them (on the game thread). */
@@ -116,15 +119,17 @@ final class Causes {
             } else if (event instanceof forge.game.event.GameEventSpellResolved) {
                 settleReveals();
             } else if (event instanceof forge.game.event.GameEventTurnBegan) {
-                // A reveal is about the moment it happened; a new turn
-                // is the game moving on.
                 settleReveals();
-                // Spec 0083 (17) -- except one made before the game began
-                // (Chancellor of the Annex revealed from an opening hand):
-                // no board was sent in between, so it is shown through the
-                // first turn, until the second begins.
+                // Spec 0104 -- a plain reveal is no longer cleared at the turn
+                // line: it stays until its seat closes it (#closed), as the
+                // report windows have since spec 0088. Appetite for Brains on a
+                // hand with nothing to take showed Alice Bob's hand, and her
+                // turn passing at once took it away unread. Spec 0083 (17)'s
+                // reveal made before the game began (Chancellor of the Annex
+                // from an opening hand) is kept as it was: through the first
+                // turn, until the second begins.
                 int now = game.getPhaseHandler().getTurn();
-                reveals.values().removeIf(reveal -> !(reveal.turn == 0 && now <= 1));
+                reveals.values().removeIf(reveal -> reveal.turn == 0 && now > 1);
                 // The pulse is kept: a cleanup discard exiled by two Leylines
                 // is followed by the next turn before any board is sent. The
                 // page pulses once per key.
@@ -357,6 +362,20 @@ final class Causes {
             }
         }
         return false;
+    }
+
+    /**
+     * Spec 0104 -- [seat] closed its window, which showed everything up to
+     * [upTo] (the stamp reveals share with the reports): its reveal, when no
+     * newer, is gone from its next boards.
+     */
+    void closed(int seat, long upTo) {
+        reveals.computeIfPresent(seat, (at, reveal) -> closes(reveal.key, upTo) ? null : reveal);
+    }
+
+    /** Whether closing up to [upTo] closes the reveal stamped [key]. */
+    static boolean closes(long key, long upTo) {
+        return key <= upTo;
     }
 
     /** The revealing effect finished: where each card went is now fixed. */

@@ -1986,8 +1986,9 @@ export function GameScreen({
 
   const busy = game.awaiting !== null;
 
-  // Spec 0045 -- the cards Forge last showed this player, until closed
-  // (the worker stops sending them at the next turn).
+  // Spec 0045 -- the cards Forge last showed this player, until closed.
+  // Spec 0104: the worker keeps sending them past the turn line until this
+  // player closes the window (closeReports' message closes the reveal too).
   const [closedReveal, setClosedReveal] = useState<string | null>(null);
   // Spec 0088 (Q2 A, Q3 C) -- the newest stamp this player has closed: every
   // report up to it is gone from the window at once (the worker drops them
