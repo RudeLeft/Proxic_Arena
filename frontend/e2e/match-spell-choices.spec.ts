@@ -322,7 +322,14 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
           await page.waitForTimeout(900);
           const id = await idOf(reOnStack);
           const line = page.locator(`[data-line="target"][data-from="${id}"]`).first();
-          const to = await line.getAttribute("data-to", { timeout: 2_000 }).catch(() => null);
+          // Polled, not read once: the other player's spell lands later since
+          // spec 0106's pace (CI 2026-11-20 read the line before it had its
+          // target), so wait for the aim itself.
+          let to: string | null = null;
+          for (let i = 0; i < 40 && !to; i++) {
+            to = await line.getAttribute("data-to", { timeout: 250 }).catch(() => null);
+            if (!to) await page.waitForTimeout(150);
+          }
           const peek = to ? page.locator(`[data-peek-of="${to}"]`) : null;
           // Once it has risen out of the tile (its rise is 450 ms).
           await page.waitForTimeout(1_200);
