@@ -20,17 +20,17 @@ import { Breath } from "./Breath";
 import { memo, useLayoutEffect, useRef, useState } from "react";
 import type { SnapshotCard } from "../match";
 import type { Box, Geometry } from "./layout";
-import { anchors } from "./motion";
+import { paced, anchors } from "./motion";
 import { pictureUrl } from "../closeUp";
 import { besideTile, SHOW_SCALE } from "./graves";
 
 /** The rise out of the tile, the hold, the settle (the canvas's 0.3, 0.6, 0.4 s). */
-export const TOP_RISE_MS = 300;
-export const TOP_HOLD_MS = 600;
-export const TOP_SETTLE_MS = 400;
+export const TOP_RISE_MS = paced(300);
+export const TOP_HOLD_MS = 600; // not paced: a wait (spec 0106)
+export const TOP_SETTLE_MS = paced(400);
 export const TOP_SHOW_MS = TOP_RISE_MS + TOP_HOLD_MS + TOP_SETTLE_MS;
 /** A top card that leaves (drawn, played, cast): it fades where it stood. */
-export const TOP_LEAVE_MS = 250;
+export const TOP_LEAVE_MS = paced(250);
 /**
  * Where the small card stands on [side]'s Library tile, in board pixels:
  * the rail is drawn on a 900-high board scaled to the real one (motion.ts

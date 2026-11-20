@@ -31,8 +31,8 @@ export const ZZ_SYNC_AT = 12;
 export const ZZ_ANIMATIONS: ReadonlySet<string> = new Set(["bf-zz"]);
 
 /** Spec 0092 -- one loop of the z's (battlefield.css `bf-zz`), and a third of it. */
-export const ZZ_LOOP_MS = 2800;
-export const ZZ_GAP_MS = 933;
+export const ZZ_LOOP_MS = 2800; // not paced: a loop (spec 0106)
+export const ZZ_GAP_MS = 933; // not paced: a loop (spec 0106)
 
 /** What a card's movement may change that its glow must follow. */
 const FOLLOWED = ["transform", "translate", "rotate", "scale", "opacity", "filter"];

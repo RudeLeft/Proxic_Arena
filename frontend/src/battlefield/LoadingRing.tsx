@@ -25,11 +25,11 @@ const LIGHT: Record<Pip, readonly [number, number, number]> = {
 };
 
 /** The ending: the symbols fall into the centre... */
-export const COLLAPSE_MS = 300;
+export const COLLAPSE_MS = 300; // not paced: the loading screen, not the table (spec 0106)
 /** ...the flash and the opening circle reach the screen's corners... */
-export const REVEAL_MS = 600;
+export const REVEAL_MS = 600; // not paced: the loading screen, not the table (spec 0106)
 /** ...and the last sparks fade: then the loading screen is gone (under 1.5 s). */
-export const BURST_MS = 1200;
+export const BURST_MS = 1200; // not paced: the loading screen, not the table (spec 0106)
 
 const BACKDROP = "#05070a";
 const ORBIT = 112;

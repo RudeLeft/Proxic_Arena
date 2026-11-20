@@ -19,6 +19,7 @@
 
 import type { Box } from "./layout";
 import type { Point } from "./motion";
+import { paced } from "./motion";
 
 /** What a hit or a fight points at: a permanent, or a player. */
 export type FightRef = { object: string } | { player: number };
@@ -48,34 +49,34 @@ export interface CombatWave {
 // --- timing (the canvas's B2, in milliseconds) ---------------------------------
 
 /** A fight between an attacker and its blockers. */
-export const FIGHT_FOCUS_MS = 250; // the table dims to this fight
-export const FIGHT_REAR_MS = 300; // they rear back
-export const FIGHT_LUNGE_MS = 170; // and lunge, meeting edge to edge
-export const FIGHT_SECOND_MS = 120; // the attacker's own slashes, after the blockers'
-export const FIGHT_KNOCK_MS = 420; // knocked back
-export const FIGHT_BACK_MS = 260; // step back to their places
-export const FIGHT_BEAT_MS = 450; // a beat, then the dead shatter
+export const FIGHT_FOCUS_MS = paced(250); // the table dims to this fight
+export const FIGHT_REAR_MS = paced(300); // they rear back
+export const FIGHT_LUNGE_MS = paced(170); // and lunge, meeting edge to edge
+export const FIGHT_SECOND_MS = paced(120); // the attacker's own slashes, after the blockers'
+export const FIGHT_KNOCK_MS = paced(420); // knocked back
+export const FIGHT_BACK_MS = paced(260); // step back to their places
+export const FIGHT_BEAT_MS = 450; // a beat, then the dead shatter; not paced: a wait (spec 0106)
 /** The next fight starts as the dead have cracked (A-04's shake and crack). */
-export const FIGHT_CRACKED_MS = 520;
+export const FIGHT_CRACKED_MS = paced(520);
 /** An unblocked attacker at a player, planeswalker or battle. */
-export const STRIKE_REAR_MS = 260;
-export const STRIKE_LUNGE_MS = 240;
-export const STRIKE_HOLD_MS = 120;
-export const STRIKE_BACK_MS = 480;
-export const STRIKE_AFTER_MS = 150;
+export const STRIKE_REAR_MS = paced(260);
+export const STRIKE_LUNGE_MS = paced(240);
+export const STRIKE_HOLD_MS = 120; // not paced: a wait (spec 0106)
+export const STRIKE_BACK_MS = paced(480);
+export const STRIKE_AFTER_MS = 150; // not paced: a wait (spec 0106)
 /** The last fight's end to the table's light coming back. */
-export const FIGHTS_FADE_MS = 250;
+export const FIGHTS_FADE_MS = paced(250);
 /** The slash marks (three, 60 ms apart), the number, the screen's red edge. */
-export const SLASH_MS = 650;
-export const SLASH_GAP_MS = 60;
-export const SLASH_NUMBER_MS = 1400;
-export const HURT_EDGE_MS = 700;
+export const SLASH_MS = paced(650);
+export const SLASH_GAP_MS = paced(60);
+export const SLASH_NUMBER_MS = 1400; // not paced: a wait (spec 0106)
+export const HURT_EDGE_MS = paced(700);
 /**
  * Many fights speed up together so a big combat stays readable without
  * holding the table for long: past FIGHTS_MAX_MS in all, every time is
  * scaled down, to at most FIGHTS_FASTEST of it.
  */
-export const FIGHTS_MAX_MS = 8000;
+export const FIGHTS_MAX_MS = 8000; // not paced: a limit (spec 0106)
 export const FIGHTS_FASTEST = 0.3;
 
 // --- distances (of the card's height) and looks --------------------------------

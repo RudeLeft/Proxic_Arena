@@ -30,7 +30,7 @@ import { TWIN } from "./CardBadges";
 import type { Box, Geometry } from "./layout";
 import { manaSymbols, symbolUrl } from "./ManaCost";
 import { assignBalls, litShadow, type PaidStep } from "./manaBalls";
-import { MOVE_EASING, MOVE_MS, glideFramesAs, lateFade } from "./motion";
+import { paced, MOVE_EASING, MOVE_MS, glideFramesAs, lateFade } from "./motion";
 import { castingBox, runFrames, runMs, type AsideRun, type Offset } from "./stepAside";
 
 /**
@@ -51,19 +51,19 @@ export function stillMotion(): boolean {
 }
 
 /** Rises out of the hand, and flies away, in this long. */
-export const FLY_MS = 560;
+export const FLY_MS = paced(560);
 /**
  * Owner 2026-11-01 (item 2) -- how long the cast card waits before it sets
  * off: long enough to hear that nobody answered and the permanent is
  * already on the battlefield (a few hundredths of a second in practice),
  * too short to notice.
  */
-export const DECIDE_MS = 150;
+export const DECIDE_MS = 150; // not paced: a wait (spec 0106)
 /** The short glide after landing when its place moved during the flight. */
-const SETTLE_MS = 140;
+const SETTLE_MS = paced(140);
 /** The opponent's card: turning over, then held face up, before it flies. */
-export const FLIP_MS = 420;
-export const HOLD_MS = 650;
+export const FLIP_MS = paced(420);
+export const HOLD_MS = 650; // not paced: a wait (spec 0106)
 
 // Spec 0068 -- where the card floats (moved to stepAside.ts for spec 0091,
 // so the board can tell what it covers).

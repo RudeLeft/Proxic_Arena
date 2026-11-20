@@ -88,11 +88,11 @@ export function lifeSteps(
 }
 
 /** Spec 0077 -- the pace a change steps at: a point each this, ... */
-export const LIFE_POINT_MS = 90;
+export const LIFE_POINT_MS = 90; // not paced: a wait (spec 0106)
 /** ... never longer than this for the whole change (a drain of 20 does not hold the table). */
-export const LIFE_CHANGE_MAX_MS = 900;
+export const LIFE_CHANGE_MAX_MS = 900; // not paced: a limit (spec 0106)
 /** One change (a trigger) to the next, so each reads as its own. */
-export const LIFE_BEAT_MS = 450;
+export const LIFE_BEAT_MS = 450; // not paced: a wait (spec 0106)
 
 /** Spec 0077 -- one change as it will play: when it lands, and how long its points take. */
 export interface PlayedChange {

@@ -55,13 +55,16 @@ import {
   FAN_TICK_MS,
   FAN_WAIT,
   FanCardView,
+  FAN_MORE_MS,
+  FanMoreView,
+  morePopFrames,
   TILE_PULSE_MS,
   closeFrames,
   fanWords,
   riseFrames,
   sinkFrames,
 } from "./FanCards";
-import { fanBoxes, fanReach, type FanCard } from "./pileFan";
+import { fanBoxes, fanMore, fanReach, type FanCard, type FanMore, type FanZone } from "./pileFan";
 import { ManaCost, ManaText, costChange, symbolUrl } from "./ManaCost";
 import { litShadow, owingWords, type PayPip } from "./manaBalls";
 import { ASIDE_MS, castCoverBox, covers } from "./stepAside";
@@ -84,6 +87,7 @@ import {
   type Viewport,
 } from "./layout";
 import {
+  paced,
   anchors,
   boxAt,
   handReadBox,
@@ -91,6 +95,7 @@ import {
   LIFE_R,
   plateRects,
   MOVE_MS,
+  PACE,
   SETTLE_EASING,
   SETTLE_MS,
   glideFrames,
@@ -673,6 +678,11 @@ export interface BoardProps {
   /** Clicking the opponent's hand: opens the cards shown to the viewer;
    * absent when none are. */
   onOpponentHand?: (() => void) | undefined;
+  /**
+   * Spec 0106 -- clicking a fan's "+N": opens the pile viewer on that side's
+   * pile (graveyard or exile) of the newest card the "+N" stands for.
+   */
+  onFanMore?: ((side: Side, zone: FanZone) => void) | undefined;
   viewerSeat: number;
   /** Turns a picture reference into a URL (a match-scoped asset route in a
    * match, the reference itself for a synthetic board). */
@@ -1507,15 +1517,15 @@ const Z_RETURN_MARK = 9000;
  * forward to its side's front line, the next one a beat later; a blocker
  * glides up to stand facing its attacker.
  */
-const ATTACK_MS = 600;
-const ATTACK_BEAT_MS = 120;
-const BLOCK_MS = 650;
-const BLOCK_BEAT_MS = 160;
+const ATTACK_MS = paced(600);
+const ATTACK_BEAT_MS = paced(120);
+const BLOCK_MS = paced(650);
+const BLOCK_BEAT_MS = paced(160);
 
 /** Spec 0077 -- how long a life change's number floats, its crack shows, its glow lasts. */
-const LIFE_MARK_MS = 1000;
-const LIFE_CRACK_MS = 360;
-const LIFE_GLOW_MS = 600;
+const LIFE_MARK_MS = 1000; // not paced: a wait (spec 0106)
+const LIFE_CRACK_MS = paced(360);
+const LIFE_GLOW_MS = paced(600);
 
 /** Spec 0077 -- the crack across a struck shield (the canvas's), on the shield's 46 x 54. */
 const CRACK = (
@@ -1665,28 +1675,28 @@ function poisonPoint(life: Point, g: Geometry): Point {
 }
 
 /** Spec 0080 -- a fizzled spell's beam reaches a target still there (0079's beam, about). */
-const FIZZLE_WARD_MS = 350;
+const FIZZLE_WARD_MS = paced(350);
 /** Spec 0080 -- a phased-out permanent turning solid again as it phases in. */
-export const PHASE_IN_MS = 500;
+export const PHASE_IN_MS = paced(500);
 
 /** Spec 0083 (17) -- the sources' gold pulse (the canvas's 0.7 s). */
-const PULSE_MS = 700;
+const PULSE_MS = paced(700);
 
 /** Spec 0083 (14 C) -- the day/night wash: up 0.45 s, held 0.25 s, down 0.55 s (the canvas's C). */
-export const WASH_MS = 1250;
+export const WASH_MS = paced(1250);
 
 /** Spec 0083 (18 B) -- a split-second spell's ring lifts over this long as it resolves (the canvas's). */
-const SPLIT_LIFT_MS = 250;
+const SPLIT_LIFT_MS = paced(250);
 
 /** A card a spell killed leaves once its crack has landed. */
-const SPELL_HIT_MS = 150;
+const SPELL_HIT_MS = paced(150);
 
 /**
  * Spec 0084 (5 A) -- a library shuffled after a card came out of it (Rampant
  * Growth's Forest): the riffle starts this long after, once the card has
  * landed (the canvas's 0.85 s from the card setting off).
  */
-const SHUFFLE_AFTER_MS = 850;
+const SHUFFLE_AFTER_MS = paced(850);
 
 /** Phase 10 A-13: the fights' dimming, above the table; the fighters above it. */
 const Z_FIGHT_DIM = 4550;
@@ -1902,7 +1912,7 @@ const MERGE_SPARKS = Array.from({ length: 30 }, (_, i) => {
 });
 
 /** Phase 10 A-08/A-17 -- a safety net: a chain line still there this long after it began is removed. */
-const TETHERS_GONE_MS = 30_000;
+const TETHERS_GONE_MS = 30_000; // not paced: a limit (spec 0106)
 
 /** Phase 10 A-17 -- a card shrunk into its tab is drawn this small (of a card). */
 const TAB_CARD = 0.22;
@@ -1939,10 +1949,10 @@ interface Effect {
 }
 
 /** Spec 0063 -- how long a line takes to fade out when it goes (battlefield.css bf-line-out). */
-const LINE_OUT_MS = 160;
+const LINE_OUT_MS = paced(160);
 
 /** Spec 0100, item 8 (combat Q4 A) -- a beam's end swinging to its new target: 0.4 s. */
-const SWING_MS = 400;
+const SWING_MS = paced(400);
 /** Spec 0100, item 3 -- an overloaded spell's fan: at most this many beams drawn (the canvas's 6); corners on all. */
 const HITS_DRAWN = 6;
 
@@ -2008,7 +2018,7 @@ function PeekCard({
         },
         { transform: "translate(0, 0) scale(1)", opacity: 1 },
       ],
-      { duration: 450, easing: "cubic-bezier(.3,.7,.3,1)" },
+      { duration: paced(450), easing: "cubic-bezier(.3,.7,.3,1)" },
     );
     return () => rise.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as it comes out
@@ -2169,7 +2179,7 @@ function SwingBeam({
 }
 
 /** Spec 0028 — how long a resolving stack card glows, its spark travelling, before it leaves. */
-const RESOLVE_MS = 380;
+const RESOLVE_MS = paced(380);
 
 /** A line, ready to draw. */
 interface Line {
@@ -2872,11 +2882,13 @@ interface FanBefore {
   clones: Map<string, HTMLElement>;
   piles: ReadonlySet<string>;
   gone: Map<string, { box: Box; at: number }>;
+  /** Spec 0106 -- the sides whose fan had a "+N". */
+  more: ReadonlySet<Side>;
 }
 /** How long a card gone from a fan is still risen from there. */
-const FAN_GONE_MS = 10_000;
+const FAN_GONE_MS = 10_000; // not paced: a limit (spec 0106)
 /** A card new to its pile waits for this after what the board brings there has landed. */
-const FAN_AFTER_LAND_MS = 150;
+const FAN_AFTER_LAND_MS = 150; // not paced: a wait (spec 0106)
 
 /**
  * Spec 0087 (the canvas's movements) -- once per board, on the board's clock
@@ -2894,6 +2906,7 @@ const FAN_AFTER_LAND_MS = 150;
  */
 function playFans({
   fans,
+  more = [],
   was,
   boxes,
   piles,
@@ -2906,6 +2919,8 @@ function playFans({
   landed,
 }: {
   fans: readonly FanCard[];
+  /** Spec 0106 -- each side's "+N" now. */
+  more?: readonly FanMore[];
   was: FanBefore;
   boxes: ReadonlyMap<string, Box>;
   piles: ReadonlySet<string> | undefined;
@@ -2924,6 +2939,8 @@ function playFans({
   const settle = hold + (resolved ? RESOLVE_MS : 0);
   // Spec 0087 -- when each tile's first card rises out of it (its glow waits for that).
   const firstRise = new Map<string, number>();
+  // Spec 0106 -- when each side's last new card has risen (a new "+N" pops in then).
+  const risen = new Map<Side, number>();
   for (const card of fans) {
     const el = cards.querySelector<HTMLElement>(`:scope > [data-fan-card="${card.id}"]`);
     const box = boxes.get(card.id);
@@ -2941,6 +2958,7 @@ function playFans({
       );
       if (card.how !== "suspended")
         firstRise.set(tile, Math.min(firstRise.get(tile) ?? Infinity, delay));
+      risen.set(card.side, Math.max(risen.get(card.side) ?? 0, delay + FAN_RISE_MS));
       el.animate(riseFrames(where[tile], box, tileScale(box)), {
         duration: FAN_RISE_MS,
         delay,
@@ -3059,6 +3077,21 @@ function playFans({
     run.onfinish = gone;
     run.oncancel = gone;
   }
+  // Spec 0106 -- a fan that has just gone past its places: its "+N" pops in
+  // once the side's new cards have risen (the canvas: a 0.35 s pop after
+  // the fan), never ahead of them; a "+N" that was there stays as it is.
+  for (const m of more) {
+    if (was.more.has(m.side)) continue;
+    const el = cards.querySelector<HTMLElement>(`:scope > [data-fan-more="${m.side}"]`);
+    if (!el || typeof el.animate !== "function") continue;
+    const delay = Math.max(hold, risen.get(m.side) ?? 0);
+    el.animate(morePopFrames(m.box), {
+      duration: FAN_MORE_MS,
+      delay,
+      easing: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+      fill: "backwards",
+    });
+  }
 }
 
 /** The glow swelling as a card lands in the fan (the canvas: 0.42, up to 0.92, back). */
@@ -3101,13 +3134,13 @@ function floatFrames(rise: number): Keyframe[] {
  * stack in this long (the canvas's 520 ms); a stack card that has no card
  * to rise from slides in (`bf-stack-in`, 260 ms). Its arrows wait for it.
  */
-export const RISE_MS = 520;
+export const RISE_MS = paced(520);
 /**
  * Spec 0088 (Q1 A) -- a trigger of a card in a graveyard or exile tile lifts
  * off it this long after the card has risen there to be shown (the canvas:
  * shown from 1.5 s, the lift at 2.1 s; 0074's hold is 0.6 s).
  */
-export const SHOW_LIFT_AT = 400;
+export const SHOW_LIFT_AT = paced(400);
 /** Spec 0088 (Q1 A) -- a cascade trigger rises out of its spell's middle from this size (of a table card). */
 export const CASCADE_FROM = 0.42;
 /**
@@ -3116,14 +3149,14 @@ export const CASCADE_FROM = 0.42;
  * may say (an unanswered spell's 2000 + 2500 ms), so a safety limit never
  * cuts a rest short.
  */
-export const SPELL_WAIT_MS = 6000;
-export const STACK_IN_MS = 260;
+export const SPELL_WAIT_MS = 6000; // not paced: a limit (spec 0106)
+export const STACK_IN_MS = paced(260);
 /**
  * A cast card that has just landed: its stack card fades in over the
  * flight's last moment, and counts as arrived this long after (spec 0105
  * counts it in the worker's ARRIVE_SPELL_MS).
  */
-export const LANDED_FADE_MS = 176;
+export const LANDED_FADE_MS = paced(176);
 /**
  * Spec 0105 (canvas feedback-1119 "Q2") -- the resting ring: 54 px on the
  * canvas's 293 x 410 stack card, its centre 36 px in from the right edge and
@@ -3383,6 +3416,7 @@ export function Board({
   opponentName = "Your opponent",
   viewerName = null,
   onOpponentHand,
+  onFanMore,
   viewerSeat,
   artUrl,
   arrivals,
@@ -3760,12 +3794,15 @@ export function Board({
     () => (result ? fanBoxes(fans, result.geometry) : new Map<string, Box>()),
     [fans, result],
   );
+  // Spec 0106 -- each side's "+N", past its fan's places.
+  const fanMoreNow = useMemo(() => (result ? fanMore(fans, result.geometry) : []), [fans, result]);
   const fanWas = useRef<FanBefore>({
     fans: NO_FANS,
     boxes: new Map(),
     clones: new Map(),
     piles: new Set(),
     gone: new Map(),
+    more: new Set(),
   });
   const fanBox = (id: string): Box | undefined =>
     fanBoxesNow.get(id) ?? fanWas.current.boxes.get(id) ?? fanWas.current.gone.get(id)?.box;
@@ -4642,13 +4679,13 @@ export function Board({
               `${damage.key}:${k}:shield`,
               numberPoint(box),
               "0",
-              blow + 50,
+              blow + paced(50),
               g.cardH * 0.3,
               k,
             ),
           ]),
         );
-        pulseSquare(at.item, '.bf-badge[data-counter="SHIELD"]', blow + 100);
+        pulseSquare(at.item, '.bf-badge[data-counter="SHIELD"]', blow + paced(100));
         continue;
       }
       if (at && !hit.by) pulseSquare(at.item, ".bf-mark-kw:not([data-folds])", blow);
@@ -4762,7 +4799,7 @@ export function Board({
     timers.current.push(
       window.setTimeout(
         () => setEffects((list) => list.filter((e) => !added.includes(e))),
-        lastLanding + NUMBER_MS + 50,
+        lastLanding + NUMBER_MS + paced(50),
       ),
     );
     spellHits.current = {
@@ -5054,12 +5091,12 @@ export function Board({
           "0 0 0 2px #f2c46a, 0 0 20px rgb(242 196 106 / 80%), inset 0 0 14px rgb(240 190 90 / 35%)";
         const dark =
           "0 0 0 0 rgb(242 196 106 / 0%), 0 0 0 rgb(242 196 106 / 0%), inset 0 0 0 rgb(240 190 90 / 0%)";
-        const total = SHOW_MS + 300;
+        const total = SHOW_MS + paced(300);
         tileEl.animate(
           [
             { offset: 0, boxShadow: dark },
             { offset: 200 / total, boxShadow: lit },
-            { offset: (SHOW_MS - 120) / total, boxShadow: lit },
+            { offset: (SHOW_MS - paced(120)) / total, boxShadow: lit },
             { offset: 1, boxShadow: dark },
           ],
           { duration: total, delay: wait, easing: "linear" },
@@ -5285,7 +5322,7 @@ export function Board({
       const item = positions.get(card)?.item;
       const element = item ? elements.current.get(item) : undefined;
       if (!element) continue;
-      const delay = previous.current?.cards.has(card) ? 0 : MOVE_MS + 120;
+      const delay = previous.current?.cards.has(card) ? 0 : MOVE_MS + paced(120);
       element
         .querySelector<HTMLElement>(":scope > .bf-card")
         ?.animate(glowFrames(), { duration: ORIGINAL_GLOW_MS, delay, easing: "linear" });
@@ -5293,7 +5330,7 @@ export function Board({
       if (mark && typeof mark.animate === "function")
         mark.animate(markFrames(), {
           duration: MARK_GROW_MS,
-          delay: delay + 200,
+          delay: delay + paced(200),
           easing: "linear",
           fill: "backwards",
         });
@@ -5551,7 +5588,8 @@ export function Board({
       at: change.look === "hit" ? hitAt(change.card) : start,
     }));
     const carried = sizesStillPlaying("sizes");
-    const total = Math.max(sizesLength(played), ...carried.map((s) => s.at + 200)) + 50;
+    const total =
+      Math.max(sizesLength(played), ...carried.map((s) => s.at + paced(200))) + paced(50);
     sizeClock.current?.cancel();
     const clock = root.animate([{ opacity: 1 }, { opacity: 1 }], {
       duration: total,
@@ -5960,7 +5998,7 @@ export function Board({
           { offset: 0.3, opacity: 1, transform: "scale(1.1)" },
           { offset: 1, opacity: 0, transform: "scale(1.6)" },
         ],
-        duration: 420 * k,
+        duration: paced(420) * k,
         delay: hold + fight.impact,
         of: fight.attacker,
       });
@@ -5986,13 +6024,13 @@ export function Board({
                   key(`silver:${n}:${strike.target}`),
                   numberPoint(box),
                   "0",
-                  hold + strike.at + 50,
+                  hold + strike.at + paced(50),
                   g.cardH * 0.3,
                   strike.target,
                 ),
               ]),
             );
-            pulseSquare(item, '.bf-badge[data-counter="SHIELD"]', hold + strike.at + 100);
+            pulseSquare(item, '.bf-badge[data-counter="SHIELD"]', hold + strike.at + paced(100));
             continue;
           }
           if (box && !stoppedBy)
@@ -6269,7 +6307,7 @@ export function Board({
       if (how === "umbra") {
         added.push(
           ...asMarks([
-            greyNumber(key, numberPoint(box), "0", umbraTimes(blow).blow + 50, size, item),
+            greyNumber(key, numberPoint(box), "0", umbraTimes(blow).blow + paced(50), size, item),
           ]),
         );
         continue;
@@ -6280,21 +6318,25 @@ export function Board({
         // Spec 0101, row 2 -- the hexagon pulses and stays; a grey number.
         pulseSquare(item, '.bf-mark[data-mark="indestructible"]', blow);
         added.push(
-          ...asMarks([greyNumber(key, numberPoint(box), `${dealt(id)}`, blow + 50, size, item)]),
+          ...asMarks([
+            greyNumber(key, numberPoint(box), `${dealt(id)}`, blow + paced(50), size, item),
+          ]),
         );
       } else if (how === "shield") {
         // Spec 0101, row 3 (missed Q3 A) -- a destroy stopped by a shield
         // counter: the silver shield cracks and shatters; the badge pops as
         // its count ticks (0078's tick). No number on the destroy path.
         added.push(...asMarks(silverShieldMarks(key, box, blow, item)));
-        pulseSquare(item, '.bf-badge[data-counter="SHIELD"]', blow + 100);
+        pulseSquare(item, '.bf-badge[data-counter="SHIELD"]', blow + paced(100));
       } else {
         // Spec 0101, row 1 -- regenerated: the green shield over the card
         // takes the hit and bursts; the badge bursts and goes (0080); a grey number.
         added.push(...asMarks(regenShieldMarks(key, box, blow, item)));
         added.push(...asMarks(shieldBreakMarks(key, box, MARK_H, BADGE_FLOOR, blow, item)));
         added.push(
-          ...asMarks([greyNumber(key, numberPoint(box), `${dealt(id)}`, blow + 50, size, item)]),
+          ...asMarks([
+            greyNumber(key, numberPoint(box), `${dealt(id)}`, blow + paced(50), size, item),
+          ]),
         );
       }
     }
@@ -6999,7 +7041,7 @@ export function Board({
           ?.querySelector<HTMLElement>(":scope > .bf-card")
           ?.animate(glowFrames(), {
             duration: ORIGINAL_GLOW_MS,
-            delay: Math.max(0, delay - 80),
+            delay: Math.max(0, delay - paced(80)),
             easing: "linear",
           });
       };
@@ -7225,7 +7267,7 @@ export function Board({
                 waits: true,
                 zIndex: Z_LINES - 49,
               });
-            glowOriginal(item.id, delay + 80);
+            glowOriginal(item.id, delay + paced(80));
           }
           markIn(element, flipAt + (COPY_MARK_AT - COPY_FLIP_AT));
           landAt.set(item.id, flipAt + FLIP_MS);
@@ -7446,7 +7488,7 @@ export function Board({
             id: "flicker-away",
           });
           tick(`${via}:exile`, start, 1);
-          tick(`${via}:exile`, start + 120, -1);
+          tick(`${via}:exile`, start + paced(120), -1);
           landAt.set(item.id, start + SHOW_MS);
           continue;
         }
@@ -8125,7 +8167,7 @@ export function Board({
                 },
                 { offset: 1, boxShadow: "0 0 0 0 rgb(255 236 180 / 0%)" },
               ],
-              { duration: 500, delay: times.blow, easing: "ease-in-out" },
+              { duration: paced(500), delay: times.blow, easing: "ease-in-out" },
             );
         }
         if (added.length > 0) setMarks((list) => [...list, ...added]);
@@ -8218,7 +8260,7 @@ export function Board({
             { offset: 0.7, opacity: 1, transform: `translate(-50%, calc(-50% - ${21 * k}px))` },
             { offset: 1, opacity: 0, transform: `translate(-50%, calc(-50% - ${30 * k}px))` },
           ],
-          duration: 1100,
+          duration: 1100, // not paced: a number to read (spec 0106)
           delay: madeAt(w * 8) + TOKEN_MS + WAVE_NUMBER_AT,
           text: `+${size}`,
           of: first,
@@ -8666,7 +8708,7 @@ export function Board({
             pile.y - fromY,
             HELD_ARC * h,
             stays,
-            Math.max(0, ghost.delay - 50),
+            Math.max(0, ghost.delay - paced(50)),
           );
           heldFlights.push({
             key: `heldtab:${ghost.id}:${held.id}:${performance.now()}`,
@@ -8730,7 +8772,7 @@ export function Board({
               { offset: 0.7, opacity: 1, transform: `translate(-50%, calc(-50% - ${21 * k}px))` },
               { offset: 1, opacity: 0, transform: `translate(-50%, calc(-50% - ${30 * k}px))` },
             ],
-            duration: 1100,
+            duration: 1100, // not paced: a number to read (spec 0106)
             delay: at + openingDelay,
             text: `${n > 0 ? "+" : "−"}${Math.abs(n)}`,
             of: `library:${side}`,
@@ -8847,11 +8889,22 @@ export function Board({
         if (run) tileRuns.current.set(tile, { run, changes: all, end: shown });
         else tileRuns.current.delete(tile);
       }
+      // Spec 0106 Amendment 1 (owner 2026-11-19) -- what an EARLIER board is
+      // still bringing to a tile (Glimpse's ten-card mill, its cards still
+      // flying when the board that makes them usable arrives): how long
+      // until its last card lands there, on the tile's own count-up run.
+      const coming = (tile: string) => {
+        const run = tileRuns.current.get(tile);
+        if (!run || run.run.playState !== "running") return 0;
+        const last = Math.max(0, ...run.changes.map((c) => c.at));
+        return Math.max(0, last - Number(run.run.currentTime ?? 0));
+      };
       // Spec 0087 -- the fans, once per board: what this board brings
       // (pileFan.ts says which cards, Board draws them at rest).
       if (fanWas.current.fans !== fans)
         playFans({
           fans,
+          more: fanMoreNow,
           was: fanWas.current,
           boxes: fanBoxesNow,
           piles: pileCards,
@@ -8861,7 +8914,7 @@ export function Board({
           g,
           hold,
           resolved: before.stack.some((e) => !(stack ?? []).some((s) => s.id === e.s.id)),
-          landed: (tile) => Math.max(0, ...(ticks.get(tile) ?? []).map((c) => c.at)),
+          landed: (tile) => Math.max(0, ...(ticks.get(tile) ?? []).map((c) => c.at), coming(tile)),
         });
       hold = fightsHold;
       if (landing) {
@@ -8969,7 +9022,7 @@ export function Board({
         timers.current.push(
           window.setTimeout(
             () => setEffects((list) => list.filter((e) => !sparks.includes(e))),
-            RESOLVE_MS + 200,
+            RESOLVE_MS + paced(200),
           ),
         );
       }
@@ -8996,6 +9049,7 @@ export function Board({
         clones,
         piles: pileCards ?? new Set(),
         gone,
+        more: new Set(fanMoreNow.map((m) => m.side)),
       };
     }
     const spots = stackSpotBoxes(g, (stack ?? []).length, stackScale);
@@ -9033,6 +9087,7 @@ export function Board({
     onRestartSwept,
     fans,
     fanBoxesNow,
+    fanMoreNow,
     pileCards,
     items,
     result,
@@ -9765,7 +9820,9 @@ export function Board({
           ["--card-h" as string]: `${g.cardH}px`,
           // CSS settles only what is not a journey (a hand card rising);
           // journeys are Glide, run by glide().
-          ["--move-ms" as string]: `${SETTLE_MS}ms`,
+          // Spec 0106 -- the canvas's time: the sheet paces it (--pa-pace), so
+          // reduce motion's pace of 1 (game.css) reaches it too.
+          ["--move-ms" as string]: `${Math.round(SETTLE_MS / PACE)}ms`,
           ["--move-easing" as string]: SETTLE_EASING,
         }}
       >
@@ -9818,13 +9875,23 @@ export function Board({
                   crop={card.crop ? artUrl(card.crop) : null}
                   faceDown={card.faceDown}
                   known={card.known}
-                  cost={card.manaCost}
-                  costFirst
+                  // Spec 0106 Amendment 1 (owner 2026-11-19, "drop the cost"):
+                  // the whole name, no mana cost (the close-up and the cast
+                  // show it); smaller until it fits, as a stack card's.
+                  fit
                 />
               }
             />
           );
         })}
+        {fanMoreNow.map((more) => (
+          <FanMoreView
+            key={`fan-more:${more.side}`}
+            more={more}
+            who={more.side === "viewer" ? (viewerName ?? "you") : opponentName}
+            onOpen={onFanMore ? (m) => onFanMore(m.side, m.zone) : undefined}
+          />
+        ))}
         {(stack ?? []).length === 0 &&
           stackPayLive &&
           stackPay &&
@@ -11008,7 +11075,7 @@ function FizzleView({
       done();
       return;
     }
-    const total = FIZZLE_BEAM_OUT_AT + 300;
+    const total = FIZZLE_BEAM_OUT_AT + paced(300);
     const at = (ms: number) => ms / total;
     const draw: Keyframe[] = [
       { offset: 0, strokeDashoffset: 1, opacity: 1 },

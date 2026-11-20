@@ -16,20 +16,21 @@
 
 import type { Box } from "./layout";
 import type { Point } from "./motion";
+import { paced } from "./motion";
 
 /** The motes run for this long (the canvas's 0.5 s): each one half of it, spread over the other half. */
-export const ALIVE_MOTES_MS = 500;
+export const ALIVE_MOTES_MS = paced(500);
 export const ALIVE_MOTE_COUNT = 12;
 /** The breath, and the gold ring opening (the canvas's 0.35 s and 0.45 s). */
-export const ALIVE_PULSE_MS = 350;
-export const ALIVE_RING_MS = 450;
+export const ALIVE_PULSE_MS = paced(350);
+export const ALIVE_RING_MS = paced(450);
 /** End of turn: the grey ring closes (0.4 s); it slides back after 0.3 s. */
-export const ALIVE_CLOSE_MS = 400;
-export const ALIVE_BACK_MS = 300;
+export const ALIVE_CLOSE_MS = paced(400);
+export const ALIVE_BACK_MS = paced(300);
 /** The rising number's life (0078's). */
-export const ALIVE_FLOAT_MS = 1100;
+export const ALIVE_FLOAT_MS = 1100; // not paced: a wait (spec 0106)
 /** The number's pop on the card (0078's). */
-export const ALIVE_POP_MS = 240;
+export const ALIVE_POP_MS = paced(240);
 
 /** A mark, as the board draws its fights' marks. */
 export interface AliveMark {

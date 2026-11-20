@@ -19,6 +19,7 @@
 import type { MatchOutcome } from "../lobby";
 import type { Snapshot } from "../match";
 import { poisonOf } from "./PoisonBadge";
+import { paced } from "./motion";
 
 /** How the loser lost, as the plates show it. */
 export type EndHow = "life" | "poison" | "conceded" | "other";
@@ -65,25 +66,25 @@ export function endReady(ending: Ending, board: Snapshot, landed: boolean): bool
 }
 
 /** Never held longer than this for a board that does not come: the banner shows anyway. */
-export const END_WAIT_MAX_MS = 3000;
+export const END_WAIT_MAX_MS = 3000; // not paced: a limit (spec 0106)
 
 // The moments, in ms from the end's start (the canvas's, from the count's 0).
 
 /** The loser's shield cracks apart (the canvas's BREAK: 0.35 s after the 0), over 0.45 s. */
-export const BREAK_AT = 350;
-export const BREAK_MS = 450;
+export const BREAK_AT = paced(350);
+export const BREAK_MS = paced(450);
 /** The crack's lines show on it just before (0.15 s in). */
-export const CRACK_IN_MS = 150;
+export const CRACK_IN_MS = paced(150);
 /** The shield dims from the break (a concession: from the start), over 0.6 s; the plate 0.1 s later. */
-export const DIM_MS = 600;
-export const PLATE_DIM_AFTER = 100;
+export const DIM_MS = paced(600);
+export const PLATE_DIM_AFTER = paced(100);
 /** The winner's plate flares (0.3 s after the break): a light along its top edge (0.85 s), the glow (0.45 s). */
-export const FLARE_AT = 650;
-export const FLARE_MS = 850;
-export const GLOW_MS = 450;
+export const FLARE_AT = paced(650);
+export const FLARE_MS = paced(850);
+export const GLOW_MS = paced(450);
 /** The banner fades in 0.6 s after the flare begins, over 0.45 s. */
-export const BANNER_AT = 1250;
-export const BANNER_MS = 450;
+export const BANNER_AT = paced(1250);
+export const BANNER_MS = paced(450);
 
 /** When the loser's shield and plate start to dim. */
 export function dimAt(how: EndHow): { shield: number; plate: number } {

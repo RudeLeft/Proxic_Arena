@@ -26,9 +26,9 @@ import type { PiledCard } from "./Board";
 /** The replay's speed: half (the owner's "at half speed"). */
 export const REPLAY_RATE = 0.5;
 /** A replay never runs longer than this (a clock that never ends, a hidden tab). */
-export const REPLAY_MAX_MS = 12_000;
+export const REPLAY_MAX_MS = 12_000; // not paced: a limit (spec 0106)
 /** It ends once nothing on its layer has moved for this long (after this much at least). */
-const REPLAY_MIN_MS = 400;
+const REPLAY_MIN_MS = 400; // not paced: a limit (spec 0106)
 
 /** The board pair a report arrived with: the board before it, and its own. */
 export interface ReplayPair {

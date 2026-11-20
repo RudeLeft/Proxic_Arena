@@ -11,7 +11,8 @@ import { Breath } from "./Breath";
 import { Sight } from "./Sight";
 import type { CSSProperties, ReactNode } from "react";
 import type { Box } from "./layout";
-import type { FanCard, FanZone } from "./pileFan";
+import type { FanCard, FanMore, FanZone } from "./pileFan";
+import { paced } from "./motion";
 
 /** The canvas's corner signs: an exile star on blue, a tombstone on grey. */
 const SIGN: Record<FanZone, ReactNode> = {
@@ -153,6 +154,54 @@ export function FanCardView({
   );
 }
 
+/**
+ * Spec 0106 (Q4 B) -- the "+N" in a fan's last place, past seven cards: a
+ * card back with the count. A click (or Enter: it is a button) opens the
+ * pile viewer on the pile of the newest card it stands for -- the player's
+ * own for their fan, the other player's for his, showing what the pile tile
+ * shows (ZoneViewer).
+ */
+export function FanMoreView({
+  more,
+  who,
+  onOpen,
+}: {
+  more: FanMore;
+  /** "you", or the other player's name. */
+  who: string;
+  onOpen?: ((more: FanMore) => void) | undefined;
+}) {
+  const { box } = more;
+  const style: CSSProperties = {
+    width: box.w,
+    height: box.h,
+    transform: `translate3d(${box.x}px, ${box.y}px, 0)`,
+    zIndex: box.z,
+    ["--card-h" as string]: `${box.h}px`,
+  };
+  return (
+    <div
+      className={`bf-fan-card bf-fan-${more.side} bf-fan-more-card`}
+      style={style}
+      data-fan-more={more.side}
+      data-fan-count={more.count}
+      data-fan-zone={more.zone}
+    >
+      <button
+        type="button"
+        className="bf-card bf-fan-face bf-fan-more"
+        aria-label={`${more.count} more cards ${who} may play: open the pile`}
+        onClick={() => onOpen?.(more)}
+      >
+        <span className="bf-card-back" aria-hidden="true" />
+        <b className="bf-fan-more-n" aria-hidden="true">
+          +{more.count}
+        </b>
+      </button>
+    </div>
+  );
+}
+
 /** The words a screen reader hears for a fan card (and pointing says). */
 export function fanWords(card: FanCard, whose: string): string {
   const what = card.known ? card.name : "A face-down card";
@@ -175,18 +224,20 @@ export function fanWords(card: FanCard, whose: string): string {
 // --- the movements (the canvas's, on the board's clock) ------------------------
 
 /** Rising out of its tile into the fan (the canvas: 0.45 s, from 0.6 of the tile's size). */
-export const FAN_RISE_MS = 450;
+export const FAN_RISE_MS = paced(450);
 /** Back into its tile when it can no longer be used. */
-export const FAN_SINK_MS = 400;
+export const FAN_SINK_MS = paced(400);
 /** The fan closing a gap (the canvas: 0.4 s, eased in and out). */
-export const FAN_CLOSE_MS = 400;
+export const FAN_CLOSE_MS = paced(400);
 /** The glow's swell as it lands (the canvas: a bump over 0.5 s, 0.3 s in). */
-export const FAN_GLOW_MS = 500;
+export const FAN_GLOW_MS = paced(500);
 /** The time badge's pop and its rising −1 (the canvas: 0.3 s pop; the number rises 34 px). */
-export const FAN_TICK_MS = 300;
-export const FAN_FLOAT_MS = 1000;
+export const FAN_TICK_MS = paced(300);
+export const FAN_FLOAT_MS = 1000; // not paced: a wait (spec 0106)
+/** Spec 0106 -- a new "+N" popping in after the fan (the canvas: 0.35 s, a slight overshoot). */
+export const FAN_MORE_MS = paced(350);
 /** A tile's pulse as a card rises out of it. */
-export const TILE_PULSE_MS = 500;
+export const TILE_PULSE_MS = paced(500);
 
 /**
  * Spec 0099 (Q2b) -- a new fan card waiting to rise is not drawn at all: never
@@ -227,6 +278,14 @@ export function sinkFrames(box: Box, to: { x: number; y: number }, tileScale: nu
       transform: `translate3d(${box.x + dx}px, ${box.y + dy}px, 0) scale(${tileScale})`,
       opacity: 0,
     },
+  ];
+}
+
+/** Spec 0106 -- the "+N" growing in at its place (hidden until then: `fill: "backwards"`). */
+export function morePopFrames(box: Box): Keyframe[] {
+  return [
+    { transform: `translate3d(${box.x}px, ${box.y}px, 0) scale(0)`, opacity: 0 },
+    { transform: `translate3d(${box.x}px, ${box.y}px, 0) scale(1)`, opacity: 1 },
   ];
 }
 

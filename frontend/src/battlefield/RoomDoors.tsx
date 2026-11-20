@@ -9,6 +9,7 @@
 // (A-00); with reduce motion the door is simply gone.
 
 import { useEffect, useState } from "react";
+import { paced } from "./motion";
 
 export type Half = "top" | "bottom";
 
@@ -21,7 +22,7 @@ export const KEYHOLE = (
 );
 
 /** How long a door takes to open, keyhole to light (the canvas's 0.15 s + 0.9 s). */
-export const DOOR_OPEN_MS = 1050;
+export const DOOR_OPEN_MS = paced(1050);
 
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function"

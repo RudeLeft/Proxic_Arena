@@ -5,7 +5,7 @@
 // it (A-00); with reduce motion it simply shows the new face.
 
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { hurry } from "./motion";
+import { paced, hurry } from "./motion";
 
 const SUN = (
   <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -22,8 +22,8 @@ const MOON = (
 );
 
 /** The turn: over in the first 0.5 s; the swell and glow over 0.9 s (the canvas's). */
-export const MEDALLION_MS = 900;
-const TURN_MS = 500;
+export const MEDALLION_MS = paced(900);
+const TURN_MS = paced(500);
 
 /** The medallion's turning: edge-on at the middle of the turn, a swell and a gold glow round it. */
 export function medallionFrames(): Keyframe[] {

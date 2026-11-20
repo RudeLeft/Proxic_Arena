@@ -15,10 +15,10 @@
 //   number drops, then plays its usual look (Shatter, Banished).
 
 import type { Box } from "./layout";
-import { fateFrames, glideFrames, MOVE_MS, type Fate } from "./motion";
+import { paced, fateFrames, glideFrames, MOVE_MS, type Fate } from "./motion";
 
 /** D · Peel off: the lift off the top of the pile (the canvas's 160 ms, eased out). */
-export const PEEL_MS = 160;
+export const PEEL_MS = paced(160);
 /** It grows this much as it lifts (the canvas's 1.04). */
 export const PEEL_GROW = 1.04;
 
@@ -91,20 +91,20 @@ export function peelFrames(
 // --- Tokens, from their source ------------------------------------------------
 
 /** A token grows out of its spark (the canvas's 150 ms), then Glides. */
-export const TOKEN_GROW_MS = 150;
+export const TOKEN_GROW_MS = paced(150);
 export const TOKEN_MS = TOKEN_GROW_MS + MOVE_MS;
 /** The next token, this far behind: a spell's (150 ms), an ability's (Krenko: 120 ms). */
-export const TOKEN_BEAT_MS = 150;
-export const TOKEN_BEAT_ABILITY_MS = 120;
+export const TOKEN_BEAT_MS = paced(150);
+export const TOKEN_BEAT_ABILITY_MS = paced(120);
 /**
  * The first spark, after the resolving spell has glowed a while: the canvas
  * has the spell leave 150 ms after the first spark, and the board's spell
  * leaves at RESOLVE_MS (380), so the first spark is at 230.
  */
-export const TOKEN_AFTER_MS = 230;
+export const TOKEN_AFTER_MS = paced(230);
 /** The spark: from 60 ms before its token grows, for 400 ms. */
-export const SPARK_LEAD_MS = 60;
-export const SPARK_MS = 400;
+export const SPARK_LEAD_MS = paced(60);
+export const SPARK_MS = paced(400);
 /** It starts this small (of the card) and Glides from its full size. */
 export const TOKEN_FROM = 0.3;
 
@@ -113,12 +113,12 @@ export const TOKEN_FROM = 0.3;
 /** Up to this many tokens at once come one by one, as before; more come in waves of this many. */
 export const WAVE = 8;
 /** One wave to the next (the canvas's 0.33 s), and one token to the next inside a wave (8 ms). */
-export const WAVE_MS = 330;
-export const WAVE_STEP_MS = 8;
+export const WAVE_MS = paced(330);
+export const WAVE_STEP_MS = paced(8);
 /** A wave's spark is this much bigger than one token's (the canvas's 1.7). */
 export const WAVE_SPARK = 1.7;
 /** The wave's "+8" rises this long after its first token lands (the canvas's 50 ms). */
-export const WAVE_NUMBER_AT = 50;
+export const WAVE_NUMBER_AT = paced(50);
 
 /**
  * When the [i]th of [n] tokens made at once sets off, from the first: one
@@ -255,7 +255,7 @@ export function turnUp(frames: Keyframe[], part: "back" | "face"): Keyframe[] {
 
 /** The badge pops as it changes (the canvas's 0.4 over 240 ms). */
 export const BADGE_POP = 0.4;
-export const BADGE_POP_MS = 240;
+export const BADGE_POP_MS = paced(240);
 
 /** One change to a pile's number: at `at` ms from now, by `by` (+1 joined, -1 left). */
 export interface BadgeChange {

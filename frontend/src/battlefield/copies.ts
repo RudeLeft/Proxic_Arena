@@ -27,27 +27,27 @@
 import type { BoardCard, StackView } from "./Board";
 import { glideAt, poseOf, track, type Pose } from "./graves";
 import type { Box } from "./layout";
-import { FLIP_MS, MOVE_MS } from "./motion";
+import { paced, FLIP_MS, MOVE_MS } from "./motion";
 
 // --- Q1 A · the ghost of the original -----------------------------------------------
 
 /** The ghost lifts off the original (the canvas's 150 ms, 12 of 134 px up, to 105%). */
-export const COPY_LIFT_MS = 150;
+export const COPY_LIFT_MS = paced(150);
 /** Then glides onto the copying card. */
-export const COPY_GLIDE_MS = 520;
+export const COPY_GLIDE_MS = paced(520);
 /** And fades as the copying card flips. */
-export const COPY_FADE_MS = 200;
+export const COPY_FADE_MS = paced(200);
 export const COPY_GHOST_MS = COPY_LIFT_MS + COPY_GLIDE_MS + COPY_FADE_MS;
 /** How see-through the ghost is. */
 export const COPY_GHOST_OPACITY = 0.6;
 /** The copying card flips (A-09) as the ghost lands on it, after the ghost set off. */
 export const COPY_FLIP_AT = COPY_LIFT_MS + COPY_GLIDE_MS;
 /** The copy mark grows in once the flip has settled (the canvas: 0.8 s after the flip began). */
-export const COPY_MARK_AT = COPY_FLIP_AT + 800;
+export const COPY_MARK_AT = COPY_FLIP_AT + paced(800);
 /** The mark's grow (0076's backOut): 380 ms. */
-export const MARK_GROW_MS = 380;
+export const MARK_GROW_MS = paced(380);
 /** The original glows while its ghost lifts and goes (the canvas's 700 ms). */
-export const ORIGINAL_GLOW_MS = 700;
+export const ORIGINAL_GLOW_MS = paced(700);
 
 const LIFT = 12 / 134;
 const GROW = 1.05;
@@ -129,14 +129,14 @@ export function glowFrames(): Keyframe[] {
 // --- Q2 A · a copied spell peels off the original -----------------------------------
 
 /** It lifts off the original (150 ms, 14 and 10 of the canvas's px), then settles in front (450 ms). */
-export const PEEL_IN_LIFT_MS = 150;
+export const PEEL_IN_LIFT_MS = paced(150);
 export const PEEL_IN_MS = PEEL_IN_LIFT_MS + MOVE_MS;
 /** See-through as it leaves the original, solid as it settles. */
 export const PEEL_IN_OPACITY = 0.5;
 /** The mark grows as it settles (the canvas: 1.05 s, the copy left at 0.45). */
-export const PEEL_MARK_AT = 600;
+export const PEEL_MARK_AT = paced(600);
 /** The next copy of a storm peels off this far behind the one before (the canvas's 150 ms). */
-export const PEEL_BEAT_MS = 150;
+export const PEEL_BEAT_MS = paced(150);
 
 /**
  * A copied spell's card on the stack: from the original's stack card
@@ -174,7 +174,7 @@ export function peelInFrames(from: Box, to: Box, cardW: number, cardH: number): 
 // --- a copy ending: gold motes where it is ------------------------------------------
 
 /** It resolves (the resolve glow, 380 ms), then breaks into gold motes over 500 ms. */
-export const COPY_END_MS = 500;
+export const COPY_END_MS = paced(500);
 
 /**
  * A copy of a spell that has resolved (or fizzled): where it is -- a little
@@ -216,15 +216,15 @@ export function copyEndFrames(
 // --- Q4 A · reaches, finds nothing --------------------------------------------------
 
 /** Its beam reaches the held spot (300 ms) and finds nothing: the ring breaks up (500 ms). */
-export const FIZZLE_REACH_MS = 300;
-export const FIZZLE_RING_MS = 500;
+export const FIZZLE_REACH_MS = paced(300);
+export const FIZZLE_RING_MS = paced(500);
 /** The beam fades from here, over 300 ms. */
-export const FIZZLE_BEAM_OUT_AT = 550;
+export const FIZZLE_BEAM_OUT_AT = paced(550);
 /** The spell goes grey and see-through, smoke rising, from here over 700 ms. */
-export const FIZZLE_GREY_AT = 500;
-export const FIZZLE_GREY_MS = 700;
+export const FIZZLE_GREY_AT = paced(500);
+export const FIZZLE_GREY_MS = paced(700);
 /** Then it drifts to its graveyard, fading (450 ms); a copy just fades away. */
-export const FIZZLE_GO_AT = 1200;
+export const FIZZLE_GO_AT = paced(1200);
 export const FIZZLE_MS = FIZZLE_GO_AT + MOVE_MS;
 /** The held spot stays until the spell is done with it: then the gap closes. */
 export const FIZZLE_HOLD_MS = FIZZLE_GO_AT;
@@ -270,7 +270,7 @@ export function heldBreakFrames(): Keyframe[] {
   return [
     { offset: 0, opacity: 1, transform: "scale(1)" },
     { offset: at(FIZZLE_REACH_MS), opacity: 1, transform: "scale(1)" },
-    { offset: at(FIZZLE_REACH_MS + 120), opacity: 1, transform: "scale(1.04)" },
+    { offset: at(FIZZLE_REACH_MS + paced(120)), opacity: 1, transform: "scale(1.04)" },
     { offset: at(FIZZLE_REACH_MS + FIZZLE_RING_MS), opacity: 0.25, transform: "scale(1.08)" },
     { offset: 1, opacity: 0, transform: "scale(1.1)" },
   ];

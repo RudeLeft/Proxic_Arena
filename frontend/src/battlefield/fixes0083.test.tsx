@@ -13,7 +13,7 @@ import { Board, WASH_MS, type BoardCard, type StackView } from "./Board";
 import { DayMedallion, MEDALLION_MS } from "./DayMedallion";
 import { PoisonBadge, UNPOISON_GONE_AT, UNPOISON_PILL_MS } from "./PoisonBadge";
 import { SHAKE_MS } from "./sizeTicks";
-import { MERGE_MS, MERGE_PULL_MS, mergeFrames } from "./motion";
+import { MERGE_MS, MERGE_PULL_MS, mergeFrames, paced } from "./motion";
 import { boardFromSnapshot, lockedHalves, roomDoors } from "./fromSnapshot";
 import { EMPTY_MATCH, reduceMatch, type Snapshot } from "../match";
 
@@ -239,17 +239,17 @@ describe("F-0083-A · Lightning Bolt: a crack, never the old starburst; combat s
       Number(calls.filter((x) => x.element === el).at(-1)!.options.delay);
     // The board before still had the Bolt on the stack: everything waits for its spark.
     const crack = marks(c, "crack").find((m) => m.dataset["of"] === "card:30")!;
-    expect(delayOn(crack)).toBe(380);
+    expect(delayOn(crack)).toBe(paced(380));
     const shake = calls.find(
       (x) => x.element === faceOf(c, "card:30") && Number(x.options.duration) === SHAKE_MS,
     )!;
-    expect(Number(shake.options.delay)).toBe(380);
+    expect(Number(shake.options.delay)).toBe(paced(380));
     // The red "−3" rises with it, on the board's clock (never a page timer).
     const number = c.querySelector<HTMLElement>('[data-damage-number="card:30"]')!;
     expect(number.dataset["fight"]).toBe("number");
     expect(number.classList.contains("bf-fight-number")).toBe(true);
     expect(number.textContent).toBe("−3");
-    expect(delayOn(number)).toBe(380);
+    expect(delayOn(number)).toBe(paced(380));
     // The card's own number pops to its new value at that same moment.
     const figure = faceOf(c, "card:30").querySelector(".bf-pt, [data-size]")!;
     const pop = calls.find(
@@ -257,7 +257,7 @@ describe("F-0083-A · Lightning Bolt: a crack, never the old starburst; combat s
         figure.contains(x.element) && String(x.frames[1]?.transform ?? "").includes("scale(1.3)"),
     )!;
     expect(pop).toBeTruthy();
-    expect(Number(pop.options.delay)).toBe(380);
+    expect(Number(pop.options.delay)).toBe(paced(380));
   });
 
   it("a hit on a player told by the life changes is the shield's own (no second crack)", () => {
@@ -323,7 +323,7 @@ describe("F-0083-B · day becomes night (and back): the wash and the medallion",
     view.rerender(draw([], { dayTime: "day" }));
     expect(view.container.querySelector("[data-wash]")!.getAttribute("data-wash")).toBe("day");
     expect(view.container.querySelector(".bf-wash-dark")).toBeNull();
-    expect(WASH_MS).toBe(1250);
+    expect(WASH_MS).toBe(paced(1250));
   });
 
   it("the first day a daybound card makes is not a change: no wash", () => {

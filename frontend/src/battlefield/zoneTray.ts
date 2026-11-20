@@ -6,10 +6,15 @@ import type { SnapshotCard } from "../match";
 export type ZoneName = "graveyard" | "exile" | "hand";
 
 /** Phase 9 W-18 -- identical cards (same name and picture, nothing on them) as one. */
-export function groupCopies(cards: SnapshotCard[]): { card: SnapshotCard; copies: number }[] {
+export function groupCopies(
+  cards: SnapshotCard[],
+  /** Spec 0106 Amendment 1 -- cards kept apart (each one castable from the viewer). */
+  apart: ReadonlySet<string> = new Set(),
+): { card: SnapshotCard; copies: number }[] {
   const out: { card: SnapshotCard; copies: number }[] = [];
   for (const card of cards) {
-    const plain = card.counters.length === 0 && !card.exiledBy && !card.playable;
+    const plain =
+      card.counters.length === 0 && !card.exiledBy && !card.playable && !apart.has(card.id);
     const twin = plain
       ? out.find(
           (o) =>
@@ -17,7 +22,8 @@ export function groupCopies(cards: SnapshotCard[]): { card: SnapshotCard; copies
             o.card.art === card.art &&
             o.card.counters.length === 0 &&
             !o.card.exiledBy &&
-            !o.card.playable,
+            !o.card.playable &&
+            !apart.has(o.card.id),
         )
       : undefined;
     if (twin) twin.copies += 1;

@@ -10,7 +10,7 @@
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, RISE_MS, type BoardCard, type StackView } from "./Board";
-import { COIN_MS, RIFFLE_MS, SPENT_BEAT_MS, SPENT_FLAT, fateMs } from "./motion";
+import { COIN_MS, RIFFLE_MS, SPENT_BEAT_MS, SPENT_FLAT, fateMs, paced } from "./motion";
 import { ALIVE_MOTE_COUNT, ALIVE_MOTES_MS, ALIVE_PULSE_MS } from "./alive";
 import { boardFromSnapshot, type Moments } from "./fromSnapshot";
 import { PEEL_MS } from "./piles";
@@ -209,7 +209,7 @@ describe("F-0084-A · three Treasures pay for a spell: fold and go, coin sparks,
     expect(sorted[1]! - sorted[0]!).toBe(SPENT_BEAT_MS);
     expect(sorted[2]! - sorted[1]!).toBe(SPENT_BEAT_MS);
     expect(c.querySelector(".bf-sweep")).toBeNull();
-    expect(fateMs("spent")).toBe(320);
+    expect(fateMs("spent")).toBe(paced(320));
   });
 
   it("a Treasure gives a coin spark as it goes; nothing else does", () => {
@@ -351,7 +351,7 @@ describe("F-0084-B, D · a library shuffled: the riffle on that player's library
       }),
     );
     const first = view.container.querySelector<HTMLElement>('[data-riffle="library:viewer"]')!;
-    expect(Number(callOn(first).options.delay)).toBe(850);
+    expect(Number(callOn(first).options.delay)).toBe(paced(850));
   });
 
   it("a card shuffled in already riffles it: one riffle, not two", () => {
@@ -461,7 +461,7 @@ describe("F-0084-E · a vehicle crewed: motes from the crew, a gold ring, rising
     expect(pt.textContent).toBe("3/3");
     expect(pt.classList.contains("bf-fight-grey")).toBe(true);
     const slot = faceOf(c, "card:21").closest(".bf-slot")!;
-    expect(Number(callOn(slot).options.delay)).toBe(300);
+    expect(Number(callOn(slot).options.delay)).toBe(paced(300));
     expect(marks(c, "mote")).toHaveLength(0);
   });
 
@@ -540,7 +540,7 @@ describe("F-0084-F · fight and bite spells: the combat fight", () => {
     );
     const spellGhost = ghost(view.container, "stack:4");
     // It glows as it resolves (RESOLVE_MS), then goes: never after the fight.
-    expect(Number(callOn(spellGhost).options.delay)).toBeLessThanOrEqual(380);
+    expect(Number(callOn(spellGhost).options.delay)).toBeLessThanOrEqual(paced(380));
     // The Bears, killed in the fight, still wait for it.
     expect(Number(callOn(ghost(view.container, "card:32")).options.delay)).toBeGreaterThan(1000);
   });

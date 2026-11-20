@@ -25,7 +25,7 @@
 import { Component, useEffect, useLayoutEffect, useRef } from "react";
 import type { ManaRun, Snapshot, SnapshotPlayer } from "../match";
 import { ballBackground, ballColour, ballPath, BALL_MS, BALL_LAG_MS } from "./manaBalls";
-import { hurry } from "./motion";
+import { paced, hurry } from "./motion";
 import { symbolUrl } from "./ManaCost";
 import { pillFrames, COUNT_PILL_MS, reducedMotion } from "./playerMarks";
 import { holdPool, poolKey, releaseAllPools, releasePool } from "./poolHeld";
@@ -40,22 +40,22 @@ interface Rect extends Point {
 }
 
 /** A crown or initiative token in flight (the canvas: 0.75 s, up to x1.7, a glow). */
-export const HOLDER_FLY_MS = 750;
+export const HOLDER_FLY_MS = paced(750);
 /** The landing pulse (x1.25, 0.3 s) and its glow. */
-export const HOLDER_LAND_MS = 300;
+export const HOLDER_LAND_MS = paced(300);
 /** An emblem from the stack to its tile (the canvas's 0.8 s). */
-export const EMBLEM_FLY_MS = 800;
+export const EMBLEM_FLY_MS = paced(800);
 /** It leaves once its ability has resolved (the stack card's resolve glow, 0.38 s). */
-export const EMBLEM_AFTER_MS = 380;
+export const EMBLEM_AFTER_MS = paced(380);
 /** The Ring's ring between bearers. */
-export const RING_FLY_MS = 650;
+export const RING_FLY_MS = paced(650);
 /** Energy's sparks (the canvas: 0.55 s, 70 ms apart, at most 6). */
-export const SPARK_MS = 550;
+export const SPARK_MS = paced(550);
 export const SPARKS_MAX = 6;
 /** Past this many mana from one source, one larger ball flies with "xN" (Amendment 1). */
 export const BALLS_ONE_BY_ONE = 6;
 /** Mana lost at the end of a step: its balls fade out of the chip. */
-export const LOST_MS = 600;
+export const LOST_MS = paced(600);
 
 const ENERGY_BALL = { core: "#fff8d8", body: "#e8c547", glow: "#ffe58a" };
 const easeIO = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -381,7 +381,7 @@ export function PlayerFlights({ board }: { board: Snapshot }) {
           transform: tf({ x: p.x, y: p.y + 5 * i }, s),
           opacity: j === 0 || j === pts.length - 1 ? 0 : 0.75 - 0.22 * i,
         })),
-        { duration: ms, delay: delay + 70 * i, easing: "linear", fill: "both" },
+        { duration: ms, delay: delay + paced(70) * i, easing: "linear", fill: "both" },
       );
       const off = () => trail.remove();
       t.onfinish = off;
@@ -463,7 +463,7 @@ export function PlayerFlights({ board }: { board: Snapshot }) {
             },
             { offset: 1, transform: "scale(1)", opacity: 1 },
           ],
-          { duration: 520, easing: "ease-out" },
+          { duration: paced(520), easing: "ease-out" },
         );
         landing.current.add(dest);
         continue;
@@ -582,7 +582,7 @@ export function PlayerFlights({ board }: { board: Snapshot }) {
                 { transform: "scale(1.3)", offset: 0.4 },
                 { transform: "scale(1)" },
               ],
-              { duration: 300, easing: "ease-out" },
+              { duration: paced(300), easing: "ease-out" },
             );
           if (first) {
             first = false;

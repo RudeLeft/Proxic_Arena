@@ -18,16 +18,17 @@ import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { Snapshot } from "../match";
 import type { Geometry } from "./layout";
 import { reducedMotion, useHurry } from "./playerMarks";
+import { paced } from "./motion";
 
 /** The light along the plate's top edge (the canvas: 0.45 s). */
-export const PLATE_RUN_MS = 450;
+export const PLATE_RUN_MS = paced(450);
 /** The shield's glow: from 0.25 s, for 0.5 s. */
-export const SHIELD_GLOW_AT = 250;
-export const SHIELD_GLOW_MS = 500;
+export const SHIELD_GLOW_AT = paced(250);
+export const SHIELD_GLOW_MS = paced(500);
 /** The turn number and the words rolling over. */
-export const ROLL_MS = 300;
+export const ROLL_MS = paced(300);
 /** The band across the table, toward you. */
-export const SWEEP_MS = 550;
+export const SWEEP_MS = paced(550);
 
 /** A turn began for [seat] on [now] (not the first board seen, not another game's). */
 export function turnBeganFor(was: Snapshot | null, now: Snapshot, seat: number): boolean {

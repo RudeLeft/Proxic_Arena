@@ -17,7 +17,7 @@
 import { sameProps } from "./sameProps";
 import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Snapshot } from "../match";
-import { hurry } from "./motion";
+import { paced, hurry } from "./motion";
 
 type Player = Snapshot["players"][number];
 
@@ -44,7 +44,7 @@ const PULSE_FRAMES: Keyframe[] = [
   { transform: "scale(1.25)", filter: "drop-shadow(0 0 10px #7be08a)" },
   { transform: "scale(1)", filter: "drop-shadow(0 0 0 rgb(123 224 138 / 0%))" },
 ];
-const PULSE_MS = 400;
+const PULSE_MS = paced(400);
 /** The first counter: the badge grows in at its place, then pulses. */
 const GROW_FRAMES: Keyframe[] = [
   { transform: "scale(0)", opacity: 0, offset: 0 },
@@ -56,15 +56,15 @@ const GROW_FRAMES: Keyframe[] = [
     filter: "drop-shadow(0 0 0 rgb(123 224 138 / 0%))",
   },
 ];
-const GROW_MS = 520;
+const GROW_MS = paced(520);
 
 /** Spec 0083 (16 A) -- each notch goes dark this long after the one before (0077's point). */
-export const UNPOISON_STEP_MS = 90;
+export const UNPOISON_STEP_MS = 90; // not paced: a wait (spec 0106)
 /** The "-N" pill's rise (0077's, LIFE_MARK_MS). */
-export const UNPOISON_PILL_MS = 1000;
+export const UNPOISON_PILL_MS = 1000; // not paced: a wait (spec 0106)
 /** At zero, the badge shrinks away from this long after the removal (the canvas's 0.67 s), over 0.3 s. */
-export const UNPOISON_GONE_AT = 670;
-export const UNPOISON_GONE_MS = 300;
+export const UNPOISON_GONE_AT = paced(670);
+export const UNPOISON_GONE_MS = paced(300);
 const UNPOISON_SWELL: Keyframe[] = [
   { offset: 0, transform: "scale(1)" },
   { offset: 0.5, transform: "scale(1.15)" },
@@ -123,7 +123,7 @@ function PoisonBadgeView({
   useLayoutEffect(() => {
     const el = ref.current;
     if (!removed || !el || typeof el.animate !== "function") return;
-    el.animate(UNPOISON_SWELL, { duration: 500, easing: "linear" });
+    el.animate(UNPOISON_SWELL, { duration: paced(500), easing: "linear" });
     const pill = el.querySelector<HTMLElement>(".gs-unpoison");
     const rise = pill?.animate(UNPOISON_PILL, {
       duration: UNPOISON_PILL_MS,

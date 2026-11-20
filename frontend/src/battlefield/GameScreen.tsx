@@ -83,7 +83,7 @@ import { PAY_HOLD_MS, payMarks, withPick, withoutPick, type PayMark } from "./pa
 import { BURST_MS, LoadingRing, useVortexHandover } from "./LoadingRing";
 import { stackSpotBoxes } from "./effects";
 import { OPPONENT_HAND_ORIGIN, type Box, type Geometry } from "./layout";
-import { anchors, boxAt } from "./motion";
+import { PACE, paced, anchors, boxAt } from "./motion";
 import {
   castCancelled,
   castOrigin,
@@ -249,9 +249,9 @@ import "./game.css";
 
 /** A notice stays this long, then fades: the board is the record (§7.57). */
 /** Spec 0005 — the response window on your own spell or trigger (spec 0035, owner 2026-10-29: 5 s). */
-const RESPONSE_WINDOW_MS = 5000;
+const RESPONSE_WINDOW_MS = 5000; // not paced: a wait (spec 0106)
 /** Spec 0105 -- a beat after the other player's card lands on the stack, before the board may move on. */
-export const LANDING_BEAT_MS = 250;
+export const LANDING_BEAT_MS = 250; // not paced: a wait (spec 0106)
 /**
  * How long an opponent's spell nobody could answer stays on screen (owner
  * 2026-10-22). Spec 0105: derived from the flight it must cover -- their
@@ -267,7 +267,7 @@ export const THEIR_SPELL_HOLD_MS = FLIP_MS + REVEAL_HOLD_MS + FLY_MS + LANDING_B
  * changed target is held for its beam's swing (the stack card in front
  * resolving, 380 ms, then the 400 ms swing; the Board says when it lands).
  */
-const SWING_HOLD_MS = 1500;
+const SWING_HOLD_MS = 1500; // not paced: a limit (spec 0106)
 
 /** Spec 0100, item 8 -- a stack entry on both boards aims at something new (as many targets, one changed). */
 export function retargeted(was: Snapshot, now: Snapshot): boolean {
@@ -600,8 +600,20 @@ export function GameScreen({
     const skipped = received.current.filter(
       (s) => !before || s.gameEpoch !== before.gameEpoch || s.stateRevision > before.stateRevision,
     );
+    // Spec 0106 Amendment 1 (found building it) -- a step the game passed
+    // through (MATCH_STEP) re-sends the board already drawn, its revision
+    // unchanged: its moves were played with it, so they are not played
+    // again (Glimpse's ten-card mill streamed four times, 0.4 s apart, over
+    // the fan that had risen after the first).
+    // (The very same list: MATCH_STEP copies the board it steps.)
+    const again =
+      before !== null &&
+      before.gameEpoch === board.gameEpoch &&
+      before.stateRevision === board.stateRevision &&
+      before.moves === board.moves &&
+      (board.moves ?? []).length > 0;
     const next = keepCards(
-      boardFromSnapshot(carryMoments(board, skipped), before),
+      boardFromSnapshot(carryMoments(again ? { ...board, moves: [] } : board, skipped), before),
       dataBefore.current,
     );
     dataBefore.current = next;
@@ -737,6 +749,9 @@ export function GameScreen({
     // plate is clicked as a card, like a hand card: its options are the
     // fan card's, so your move opens no window for it. A pile card the fan
     // does not draw (look-only) stays listed.
+    // Spec 0106 Amendment 1 (owner 2026-11-19) -- one behind a fan's "+N"
+    // too: it is played from the pile viewer the "+N" opens, so it opens
+    // no window either.
     for (const card of fanCards(board)) ids.add(card.id);
     for (const entry of board.stack) ids.add(entry.id);
     for (const player of board.players) ids.add(`player:${player.seat}`);
@@ -752,6 +767,17 @@ export function GameScreen({
     [decision, visible],
   );
   const choosable = useMemo(() => new Set(question?.onBoard.keys() ?? []), [question]);
+  // Spec 0106 Amendment 1 -- the fan's cards this player may play now (not
+  // dimmed): in the pile viewer they breathe and a click plays them.
+  const viewerCastable = useMemo(() => {
+    const out = new Set<string>();
+    if (!board) return out;
+    for (const card of fanCards(board)) {
+      const options = question?.onBoard.get(card.id) ?? [];
+      if (options.some((o) => o.payable !== false)) out.add(card.id);
+    }
+    return out;
+  }, [board, question]);
   const chosenTargets = useMemo(() => new Set(question?.chosen ?? []), [question]);
   // Spec 0070 -- the cards picked so far to pay a cost: marked, and a click takes one back.
   // Held between a pick and the next question (payPicks.ts PAY_HOLD_MS).
@@ -2460,6 +2486,8 @@ export function GameScreen({
     <SeatsContext.Provider value={match.participants}>
       <section
         className={`gs-screen${bigger ? " gs-bigger" : ""}`}
+        // Spec 0106 -- the style sheets' movements read the table's pace from here.
+        style={{ ["--pa-pace" as string]: String(PACE) }}
         aria-label={watching ? "The match" : "Your match"}
       >
         <h1 className="pa-visually-hidden">{watching ? "The match" : "Your match"}</h1>
@@ -2482,6 +2510,14 @@ export function GameScreen({
                   }
                 : undefined
             }
+            onFanMore={(side, zone) => {
+              // Spec 0106 -- a fan's "+N" opens that side's pile in the viewer.
+              const seat =
+                side === "viewer"
+                  ? board.seat
+                  : board.players.find((p) => p.seat !== board.seat)?.seat;
+              if (seat !== undefined) setViewer({ seat, zone });
+            }}
             viewerSeat={board.seat}
             artUrl={pictureUrl}
             arrivals={data.arrivals}
@@ -3011,6 +3047,13 @@ export function GameScreen({
             nameable={nameable}
             onName={nameCard}
             aimed={aimedInPiles}
+            castable={viewerCastable}
+            onCast={(id) => {
+              // Spec 0106 Amendment 1 -- played from the viewer as from the
+              // table (the same click), and the viewer gets out of the way.
+              setViewer(null);
+              pick(id);
+            }}
             onClose={() => setViewer(null)}
           />
         )}
@@ -3096,9 +3139,9 @@ function nameOf(board: Snapshot | null, id: string): string {
 // --- the turn ladder ------------------------------------------------------------------
 
 /** Spec 0034 (M2) — how long the gem takes to sweep to a new step, however far. */
-const SWEEP_MS = 450;
+const SWEEP_MS = paced(450);
 /** Spec 0034 (M4) — how long the steps dim at a new turn before the gem starts again. */
-const HANDOFF_MS = 220;
+const HANDOFF_MS = paced(220);
 /** The ladder's row pitch: a 20px row and a 2px gap (game.css). */
 const ROW_PX = 22;
 
@@ -3154,10 +3197,13 @@ function StepLadder({
           () => setShown({ index: 0, from: 0, still: true, dim: false }),
           HANDOFF_MS,
         ),
-        window.setTimeout(() => {
-          handoff.current = null;
-          setShown({ index: run.target, from: 0, still: false, dim: false });
-        }, HANDOFF_MS + 40),
+        window.setTimeout(
+          () => {
+            handoff.current = null;
+            setShown({ index: run.target, from: 0, still: false, dim: false });
+          },
+          HANDOFF_MS + paced(40),
+        ),
       );
       return;
     }
@@ -3301,7 +3347,7 @@ function StepLadder({
  * onRisen); in case nothing ever draws it, it goes on after this long (four
  * Glides) all the same.
  */
-const FREE_RISE_CAP_MS = 1_800;
+const FREE_RISE_CAP_MS = 1_800; // not paced: a limit (spec 0106)
 
 export function spellOf(entry: { source?: string | null; kind?: string }, card: string): boolean {
   return entry.source === card && (entry.kind ?? "spell") === "spell";
@@ -3829,7 +3875,7 @@ function CurseTab({ card, glowing }: { card: SnapshotCard; glowing: string | nul
         { transform: "scaleX(1)", opacity: 1 },
       ],
       {
-        duration: 300,
+        duration: paced(300),
         easing: "ease-out",
       },
     );
@@ -3861,7 +3907,7 @@ function CurseTab({ card, glowing }: { card: SnapshotCard; glowing: string | nul
         { boxShadow: "0 0 16px 5px rgb(241 195 106 / 90%)", offset: 0.5 },
         { boxShadow: "-1px 0 3px rgb(0 0 0 / 50%)" },
       ],
-      { duration: 600, easing: "ease-in-out" },
+      { duration: paced(600), easing: "ease-in-out" },
     );
     return () => glow.cancel();
   }, [glowing]);
@@ -3967,7 +4013,7 @@ function Coin({ emblem, seconds }: { emblem: keyof typeof EMBLEM; seconds?: numb
 }
 
 /** Spec 0002 — how long nobody must be asked before the rail says "Resolving…". */
-const RESOLVING_AFTER_MS = 500;
+const RESOLVING_AFTER_MS = 500; // not paced: a wait (spec 0106)
 
 /**
  * Spec 0002 — true once nobody has been asked for [RESOLVING_AFTER_MS]:
@@ -3987,9 +4033,9 @@ function useResolving(asking: { seat: number | null } | null): boolean {
 }
 
 /** Spec 0058, item 5 -- how long the act button holds its last state when nothing is asked. */
-export const STEADY_MS = 400;
+export const STEADY_MS = 400; // not paced: a wait (spec 0106)
 /** Spec 0058, item 5 -- while triggers go on the stack, the gaps between their questions. */
-export const PLACING_QUIET_MS = 1500;
+export const PLACING_QUIET_MS = 1500; // not paced: a wait (spec 0106)
 const PLACING_KINDS = new Set(["chooseTargetsFor", "confirmTrigger", "chooseModeForAbility"]);
 
 /**
@@ -5629,7 +5675,16 @@ export function ZoneViewer({
   nameable = null,
   onName,
   aimed = null,
+  castable = null,
+  onCast,
 }: {
+  /**
+   * Spec 0106 Amendment 1 (owner 2026-11-19, "cast from the viewer") -- the
+   * cards here this player may play now (the game's options, as the fan
+   * offers them): they breathe as on the table, and a click plays it.
+   */
+  castable?: ReadonlySet<string> | null;
+  onCast?: (id: string) => void;
   board: Snapshot;
   seat: number;
   zone: ZoneName;
@@ -5667,6 +5722,7 @@ export function ZoneViewer({
       .slice()
       // Newest first: Forge's timestamp is when it arrived where it is.
       .sort((a, b) => (b.enteredAt ?? 0) - (a.enteredAt ?? 0)),
+    castable ?? undefined,
   );
   const count = pile(seat, zone).length;
   const title =
@@ -5728,21 +5784,30 @@ export function ZoneViewer({
         <ul className={`gs-ztray-cards${zone === "hand" ? " board-other-hand" : ""}`}>
           {cards.map(({ card, copies }) => {
             const notes = zoneNotes(card, zone);
+            const naming = !!nameable?.has(card.id);
+            const casts = !naming && !!castable?.has(card.id) && !!onCast;
             return (
               <li key={card.id}>
                 <button
                   type="button"
-                  className={`gs-viewer-card gs-ztray-card${nameable?.has(card.id) ? " gs-nameable" : ""}`}
+                  className={`gs-viewer-card gs-ztray-card${naming ? " gs-nameable" : ""}${casts ? " gs-castable" : ""}`}
                   data-aimed={aimed?.ids.has(card.id) ? "true" : undefined}
+                  data-object-id={card.id}
+                  data-choosable={casts ? "true" : undefined}
                   aria-label={[
                     `${card.name}${copies > 1 ? ` ×${copies}` : ""}`,
                     card.types,
                     ...notes,
+                    casts ? "you may play it now" : "",
                   ]
                     .filter(Boolean)
                     .join(", ")}
                   onClick={() =>
-                    nameable?.has(card.id) && onName ? onName(card.id) : onInspect(card.id)
+                    naming && onName
+                      ? onName(card.id)
+                      : casts
+                        ? onCast?.(card.id)
+                        : onInspect(card.id)
                   }
                 >
                   {card.art && !(card.faceDown && !card.known) ? (
@@ -6031,10 +6096,10 @@ function GearIcon() {
 export const SPECTATE_LOADING_WORDS = "Finding the game…";
 
 /** How long the table and the plates take to turn round (Switch sides): fade out, turn, fade in. */
-const SWITCH_SIDES_MS = 700;
+const SWITCH_SIDES_MS = paced(700);
 
 /** Spec 0067, item 1 -- the shield's short red shake as a blow lands (the canvas's A). */
-const LIFE_HIT_MS = 320;
+const LIFE_HIT_MS = paced(320);
 const LIFE_HIT_FRAMES: Keyframe[] = [
   { transform: "translateX(0)", filter: "drop-shadow(0 0 8px rgb(255 60 40 / 100%))" },
   { transform: "translateX(3px)", offset: 0.17 },

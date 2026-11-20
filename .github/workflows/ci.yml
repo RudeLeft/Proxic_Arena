@@ -696,6 +696,12 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/landing-deck.zip" protocol/fixtures/landing-deck
 
+      # And spec 0106's real-click game (F-0106-I): Glimpse the Unthinkable
+      # mills the host's flashback cards, more than the fan's seven places.
+      - name: Build the pace-fan deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/pace-fan-deck.zip" protocol/fixtures/pace-fan-deck
+
       # Spec 0092 -- every land a two-colour gain land: a colour tapped for
       # is never a report window for the other player.
       - name: Build the mana colours deck package

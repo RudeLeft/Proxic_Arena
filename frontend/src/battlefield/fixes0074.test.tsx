@@ -9,7 +9,7 @@
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, type BoardCard, type BoardHandCard, type StackView } from "./Board";
-import { anchors, AT_ZONE_SCALE, type AnchorId } from "./motion";
+import { anchors, AT_ZONE_SCALE, paced, type AnchorId } from "./motion";
 import { geometry } from "./layout";
 import type { TileMove } from "./fromSnapshot";
 import {
@@ -31,7 +31,7 @@ import {
 const size = { width: 1920, height: 1080 };
 const g = geometry(size);
 const where = anchors(g);
-const RESOLVE_MS = 380;
+const RESOLVE_MS = paced(380);
 type Call = {
   element: Element;
   frames: Keyframe[];
@@ -652,7 +652,7 @@ describe("F-0074-D · out of a graveyard or exile: risen, shown, then where it g
     );
     expect(tileAt(view.container, "viewer:graveyard", 0)).toEqual(["1"]);
     expect(tileAt(view.container, "viewer:graveyard", RESOLVE_MS)).toEqual(["0"]);
-    expect(tileAt(view.container, "viewer:graveyard", RESOLVE_MS + 450)).toEqual(["1"]);
+    expect(tileAt(view.container, "viewer:graveyard", RESOLVE_MS + paced(450))).toEqual(["1"]);
   });
   it("Bojuka Bog: his whole graveyard swept to exile as one", () => {
     const ids = ["card:97", "card:96", "card:85", "card:80", "card:87", "card:74"];

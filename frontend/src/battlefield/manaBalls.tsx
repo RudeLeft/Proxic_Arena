@@ -17,29 +17,29 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { SnapshotPayment } from "../match";
 import type { Box, Geometry } from "./layout";
-import { hurry } from "./motion";
+import { paced, hurry } from "./motion";
 import { offsetAt, type AsideRun } from "./stepAside";
 
 /** One ball's flight (the canvas's look C: 0.62 s). */
-export const BALL_MS = 620;
+export const BALL_MS = paced(620);
 /** Several mana from one tap set off this far apart, flying together. */
-export const BALL_LAG_MS = 70;
+export const BALL_LAG_MS = paced(70);
 /** How high the arc rises, as a share of the distance (look C). */
 const BALL_BOW = 0.42;
 /** The symbol's pop when hit. */
-export const POP_MS = 260;
+export const POP_MS = paced(260);
 /** A spark dropped on the way: it falls and fades. */
-const SPARK_MS = 480;
+const SPARK_MS = paced(480);
 /** The few sparks thrown out when the ball lands. */
-const BURST_MS = 340;
+const BURST_MS = paced(340);
 /** "Still to pay" stays this long once its last ball has landed. */
-export const PILL_HOLD_MS = 600;
+export const PILL_HOLD_MS = 600; // not paced: a wait (spec 0106)
 /**
  * However the balls fare, a cast card waits no longer than this for them
  * (a tab in the background may not run them). Their flight is 0.62 s; this
  * is long enough for one filmed at a tenth of the speed.
  */
-export const BALLS_LONGEST_MS = 8000;
+export const BALLS_LONGEST_MS = 8000; // not paced: a limit (spec 0106)
 
 /**
  * Each mana's ball (the canvas's colours): a bright core, its body, the glow

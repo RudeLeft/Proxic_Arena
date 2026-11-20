@@ -10,11 +10,22 @@
 import type { Box, Geometry, Side } from "./layout";
 
 /**
+ * Spec 0106, item 1 (owner 2026-11-19, Q3 C) -- the pace of every movement
+ * on the table: 1.25x the canvases' times. Each movement constant is written
+ * `paced(<the canvas's ms>)`, so the spec's number still reads in the code;
+ * waits and limits are not paced (each says so). The style sheets read the
+ * same number as `--pa-pace` (GameScreen's root sets it from this).
+ */
+export const PACE = 1.25;
+/** A canvas time at the table's pace. */
+export const paced = (ms: number) => Math.round(ms * PACE);
+
+/**
  * How long a move takes: Phase 10 A-00, "A · Glide" (owner 2026-11-06,
  * Amendment 3) -- 450 ms, a gentle arc, the card lifting as it travels.
  * It replaced Phase 7 Amendment 6's 250 ms straight line.
  */
-export const MOVE_MS = 450;
+export const MOVE_MS = paced(450);
 /** Glide's curve: eases in and out. */
 export const MOVE_EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
 /** How far the path bows upward, as a share of the distance travelled. */
@@ -25,14 +36,14 @@ export const GLIDE_LIFT = 0.08;
  * The quick settle for what is not a journey -- a pointed-at hand card
  * rising, the stack re-ordering (CSS transitions).
  */
-export const SETTLE_MS = 250;
+export const SETTLE_MS = paced(250);
 export const SETTLE_EASING = "cubic-bezier(0.2, 0.7, 0.2, 1)";
 /**
  * Phase 10 (owner 2026-10-30 at lock, shown on the A-00 canvas): when the
  * player acts while things move, what is moving finishes in this long --
  * never snaps.
  */
-export const HURRY_MS = 100;
+export const HURRY_MS = 100; // not paced: a wait (spec 0106)
 /** How small a card is at a rail zone, as it arrives there or leaves it. */
 export const AT_ZONE_SCALE = 0.3;
 /**
@@ -258,7 +269,7 @@ export function lateFade(frames: Keyframe[], from: number, to: number): Keyframe
  * face (a ghost) lifts and turns edge-on; the card itself, already its new
  * face, turns round from edge-on and settles.
  */
-export const FLIP_MS = 760;
+export const FLIP_MS = paced(760);
 const FLIP_LIFT = 0.16; // of the card's height
 const FLIP_GROW = 1.14;
 const EDGE = 0.475; // when it is edge-on
@@ -301,18 +312,18 @@ export function flipFrames(cardH: number, half: "out" | "in"): Keyframe[] {
  * top and mutate underneath all look like this.
  */
 export type MergeKind = "meld" | "mutate";
-export const MERGE_PULL_MS = 560;
-export const MERGE_RISE_MS = 760;
+export const MERGE_PULL_MS = paced(560);
+export const MERGE_RISE_MS = paced(760);
 /** The whole of it: every part runs this long, so a hurry keeps them together. */
 export const MERGE_MS = MERGE_PULL_MS + MERGE_RISE_MS;
 export const MERGE_RISE_SCALE = 1.18;
 /** The table's dimming at its deepest (black, over the table; not the hand). */
 export const MERGE_DIM = 0.45;
 /** The flash, sparks and ring after the slam; the merged card's brightening and glow. */
-export const MERGE_FLASH_MS = 800;
-export const MERGE_RING_MS = 600;
-const MERGE_BRIGHT_MS = 600;
-const MERGE_GLOW_MS = 900;
+export const MERGE_FLASH_MS = paced(800);
+export const MERGE_RING_MS = paced(600);
+const MERGE_BRIGHT_MS = paced(600);
+const MERGE_GLOW_MS = paced(900);
 /** The merge's colour (r g b): a meld purple, a mutate green (the canvas's). */
 export const MERGE_COLOUR: Record<MergeKind, string> = {
   meld: "185 147 232",
@@ -336,8 +347,8 @@ const MERGE_STEPS = 14;
  * layout puts it. `origin` is the element's own transform origin.
  */
 /** Spec 0083 (L1) -- the old face and the merging card fade out from just after the slam (the canvas's 0.05 s, 0.35 s). */
-export const MERGE_FADE_AT = 50;
-export const MERGE_FADE_MS = 350;
+export const MERGE_FADE_AT = paced(50);
+export const MERGE_FADE_MS = paced(350);
 
 export function mergeFrames(
   part: "partner" | "old" | "new",
@@ -439,11 +450,11 @@ export function mergeFrames(
  * to the creature, which is pulled along a wider bow, leaning into the
  * turn, gold-edged, and lands with a gold pulse.
  */
-export const TETHER_MS = 260;
-export const PULL_MS = 560;
+export const TETHER_MS = paced(260);
+export const PULL_MS = paced(560);
 export const PULL_ARC = 0.22;
 export const PULL_LEAN = 9;
-export const PULSE_MS = 420;
+export const PULSE_MS = paced(420);
 
 // --- Defeated and exiled (Phase 10 A-04, A-05, A-07) ---------------------------
 
@@ -456,12 +467,12 @@ export const PULSE_MS = 420;
  */
 export type Fate = "defeated" | "exiled" | "spent";
 /** Shatter: the shake, then the crack and darken. */
-export const SHAKE_MS = 220;
-export const CRACK_MS = 300;
+export const SHAKE_MS = paced(220);
+export const CRACK_MS = paced(300);
 /** Banished: the light rising. */
-export const BANISH_MS = 520;
+export const BANISH_MS = paced(520);
 /** A board wipe: the flash across the table before they all go. */
-export const SWEEP_MS = 220;
+export const SWEEP_MS = paced(220);
 /** This many leaving the table at once is a board wipe (the flash). Spent cards never count (spec 0084). */
 export const WIPE_AT = 3;
 /**
@@ -471,11 +482,11 @@ export const WIPE_AT = 3;
  * fading as it arrives. Several spent at once go one after another, a
  * SPENT_BEAT_MS apart (the canvas's Treasures, one per mana).
  */
-export const SPENT_FOLD_MS = 320;
+export const SPENT_FOLD_MS = paced(320);
 export const SPENT_FLAT = 0.14;
-export const SPENT_BEAT_MS = 220;
+export const SPENT_BEAT_MS = paced(220);
 /** The Treasure's coin spark, as its mana flies (the canvas's 0.6 s). */
-export const COIN_MS = 600;
+export const COIN_MS = paced(600);
 
 /** How long the fate shows before the card sets off. */
 export function fateMs(fate: Fate): number {
@@ -576,8 +587,8 @@ export function fateFrames(
  * on the way (returnBackFrames). The canvas's distances are in its
  * 134-pixel-high card's pixels, scaled to the card.
  */
-export const RETURN_RISE_MS = 180;
-export const RETURN_GLIDE_MS = 520;
+export const RETURN_RISE_MS = paced(180);
+export const RETURN_GLIDE_MS = paced(520);
 /** The whole of it: one animation, so a click hurries all of it. */
 export const RETURN_MS = RETURN_RISE_MS + RETURN_GLIDE_MS;
 export const RETURN_RISE = 12 / 134;
@@ -586,12 +597,12 @@ export const RETURN_ARC = 50 / 134;
 /** The face turns down between these shares of the glide (the canvas's 45%-55%). */
 const RETURN_TURN = [0.45, 0.55] as const;
 /** The gold glow: up by this long into it (the canvas's 30% of 900 ms), gone as it lands. */
-const RETURN_GLOW_PEAK_MS = 270;
+const RETURN_GLOW_PEAK_MS = paced(270);
 /** Into a library, it fades into the pile over the glide's last share. */
 const RETURN_SINK = 0.15;
 /** Shuffled in: the library riffles -- this many backs fan out and back, a beat apart. */
-export const RIFFLE_MS = 700;
-export const RIFFLE_BEAT_MS = 50;
+export const RIFFLE_MS = paced(700);
+export const RIFFLE_BEAT_MS = paced(50);
 export const RIFFLE_CARDS = 6;
 
 const riseEaseOut = cubicBezier(0, 0, 0.58, 1);

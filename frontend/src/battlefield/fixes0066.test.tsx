@@ -8,7 +8,8 @@
 
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Board, RISE_MS, STACK_IN_MS, type StackView } from "./Board";
+import { Board, LANDED_FADE_MS, RISE_MS, STACK_IN_MS, type StackView } from "./Board";
+import { paced } from "./motion";
 import { castOnItsWay, spellOf } from "./GameScreen";
 import { combatScript } from "./fixture";
 import { inCombat, layout } from "./layout";
@@ -100,7 +101,7 @@ describe("arrows wait for their card (F-0066-A)", () => {
     view.rerender(board([shock, bolt], { hiddenStack: null, quietStack: new Set([shock.id]) }));
     expect(lines(view.container, "target")).toEqual([]);
     act(() => {
-      vi.advanceTimersByTime(180);
+      vi.advanceTimersByTime(LANDED_FADE_MS + 4);
     });
     expect(lines(view.container, "target")).toEqual([`${shock.id}>card:202`]);
     expect(view.container.querySelectorAll("[data-stud]")).toHaveLength(1);
@@ -270,7 +271,7 @@ describe("crossed swords fade when combat ends (P10-R1)", () => {
     expect(view.container.querySelectorAll("[data-swords]")).toHaveLength(0);
     expect(view.container.querySelectorAll(".bf-line-out[data-swords-leaving]")).toHaveLength(3);
     act(() => {
-      vi.advanceTimersByTime(170);
+      vi.advanceTimersByTime(paced(160) + 10);
     });
     expect(view.container.querySelectorAll("[data-swords-leaving]")).toHaveLength(0);
     // Pointing at nothing does not leave a mark behind either.

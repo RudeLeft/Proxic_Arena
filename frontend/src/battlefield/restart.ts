@@ -26,16 +26,16 @@
 // where cards go home (their owners', public).
 
 import type { Snapshot } from "../match";
-import { RETURN_MS, RIFFLE_BEAT_MS, RIFFLE_CARDS, RIFFLE_MS } from "./motion";
+import { paced, RETURN_MS, RIFFLE_BEAT_MS, RIFFLE_CARDS, RIFFLE_MS } from "./motion";
 
 /** The window holds the sweep this long at most (round 2 Q6 B). */
-export const RESTART_HOLD_MS = 4000;
+export const RESTART_HOLD_MS = 4000; // not paced: a limit (spec 0106)
 /** Each card sets off this long after the one before (the canvas's 0.05 s)... */
-export const SWEEP_BEAT_MS = 50;
+export const SWEEP_BEAT_MS = paced(50);
 /** ...unless there are many: the whole sweep lands within this (spec "Speed"). */
-export const SWEEP_SPAN_MS = 1500;
+export const SWEEP_SPAN_MS = 1500; // not paced: a limit (spec 0106)
 /** Waiting for game 2's board after the moment between the games: at most this. */
-export const RESTART_WAIT_MS = 30_000;
+export const RESTART_WAIT_MS = 30_000; // not paced: a limit (spec 0106)
 
 /** The beat between cards for a sweep of [n] cards. */
 export function sweepBeat(n: number): number {

@@ -11,6 +11,14 @@
   color: #e6e9ee;
   font-family: var(--pa-text);
 }
+/* Spec 0106 -- with reduce motion, what still plays (a short slide, a fade) is
+ * not paced: the pace is for movement, and reduce motion has none to slow.
+ * (!important: it outranks the inline --pa-pace GameScreen sets from PACE.) */
+@media (prefers-reduced-motion: reduce) {
+  .gs-screen {
+    --pa-pace: 1 !important;
+  }
+}
 .gs-loading {
   position: absolute;
   inset: 0;
@@ -1073,7 +1081,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   background: linear-gradient(135deg, #fbe0a0, #e0a44a 55%, #a06a20);
   box-shadow: 0 0 10px rgb(224 164 74 / 80%);
   pointer-events: none;
-  transition: transform 450ms cubic-bezier(0.22, 0.8, 0.3, 1);
+  transition: transform calc(450ms * var(--pa-pace, 1)) cubic-bezier(0.22, 0.8, 0.3, 1);
 }
 .gs-steps {
   display: flex;
@@ -1578,6 +1586,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   .bf-tag.bf-choosable.bf-breathes,
   .gs-libtop.gs-breathes,
   .gs-life.gs-choosable:not(.gs-targeted),
+  .gs-ztray-card.gs-castable,
   .gs-ztray-card.gs-nameable {
     box-shadow: 0 4px 10px rgb(0 0 0 / 45%);
   }
@@ -1619,7 +1628,9 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-life.gs-choosable:not(.gs-targeted)::before,
 .gs-life.gs-choosable:not(.gs-targeted)::after,
 .gs-ztray-card.gs-nameable::before,
-.gs-ztray-card.gs-nameable::after {
+.gs-ztray-card.gs-castable::before,
+.gs-ztray-card.gs-nameable::after,
+.gs-ztray-card.gs-castable::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -1634,7 +1645,8 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 }
 .bf-breath::before,
 .gs-life.gs-choosable:not(.gs-targeted)::before,
-.gs-ztray-card.gs-nameable::before {
+.gs-ztray-card.gs-nameable::before,
+.gs-ztray-card.gs-castable::before {
   box-shadow:
     0 0 0 1.5px rgb(233 194 122 / 85%),
     0 0 6px 1px rgb(255 205 110 / 35%);
@@ -1642,7 +1654,8 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 }
 .bf-breath::after,
 .gs-life.gs-choosable:not(.gs-targeted)::after,
-.gs-ztray-card.gs-nameable::after {
+.gs-ztray-card.gs-nameable::after,
+.gs-ztray-card.gs-castable::after {
   box-shadow:
     0 0 0 1.5px #ffd98a,
     0 0 18px 5px rgb(255 205 110 / 75%);
@@ -1672,7 +1685,9 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   .gs-life.gs-choosable::before,
   .gs-life.gs-choosable::after,
   .gs-ztray-card.gs-nameable::before,
-  .gs-ztray-card.gs-nameable::after {
+  .gs-ztray-card.gs-castable::before,
+  .gs-ztray-card.gs-nameable::after,
+  .gs-ztray-card.gs-castable::after {
     display: none;
   }
   .bf-card.bf-choosable,
@@ -1773,7 +1788,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   pointer-events: none;
   /* Lifted with its selected card (.bf-marked). */
   translate: 0 calc(var(--card-h) * -0.06);
-  animation: bf-seal-in 0.3s ease-out both;
+  animation: bf-seal-in calc(0.3s * var(--pa-pace, 1)) ease-out both;
 }
 .bf-marked-n svg {
   width: 55%;
@@ -1850,7 +1865,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   background: #0d1014;
   box-shadow: 0 2px 6px rgb(0 0 0 / 67%);
   pointer-events: none;
-  animation: bf-sign-in 0.32s linear both;
+  animation: bf-sign-in calc(0.32s * var(--pa-pace, 1)) linear both;
 }
 /* In a hand each card hides the right of the one before it: the sign goes
    on the left -- and in the other player's hand, whose top is off the
@@ -2748,7 +2763,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
       )
       center / 100% 300px no-repeat,
     rgb(5 8 7 / 55%);
-  animation: gs-over-in 0.45s ease-out;
+  animation: gs-over-in calc(0.45s * var(--pa-pace, 1)) ease-out;
 }
 .gs-over::before,
 .gs-over::after {
@@ -4015,12 +4030,15 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-size: var(--pa-size-xs);
   color: #95a39b;
 }
-/* Spec 0090 (2): its breath is its ::before and ::after (above). */
-.gs-ztray-card.gs-nameable {
+/* Spec 0090 (2): its breath is its ::before and ::after (above). Spec 0106
+   Amendment 1: a card you may cast from the pile viewer breathes the same. */
+.gs-ztray-card.gs-nameable,
+.gs-ztray-card.gs-castable {
   cursor: pointer;
 }
 @media (prefers-reduced-motion: reduce) {
-  .gs-ztray-card.gs-nameable {
+  .gs-ztray-card.gs-nameable,
+  .gs-ztray-card.gs-castable {
     animation: none;
     box-shadow: 0 0 0 1.5px #ffd98a;
   }
@@ -4250,7 +4268,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   position: absolute;
   z-index: 25000;
   pointer-events: none;
-  animation: gs-cast-in 0.3s ease-out;
+  animation: gs-cast-in calc(0.3s * var(--pa-pace, 1)) ease-out;
 }
 @keyframes gs-cast-in {
   from {
@@ -4341,10 +4359,10 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   opacity: 0.5;
   filter: grayscale(0.25);
   transition:
-    opacity 0.25s,
-    filter 0.25s,
-    transform 0.25s,
-    box-shadow 0.25s;
+    opacity calc(0.25s * var(--pa-pace, 1)),
+    filter calc(0.25s * var(--pa-pace, 1)),
+    transform calc(0.25s * var(--pa-pace, 1)),
+    box-shadow calc(0.25s * var(--pa-pace, 1));
 }
 .gs-cast-pip-text {
   display: grid;
@@ -4399,11 +4417,11 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
    it covers is pointed at, it fades almost away (A · see-through). */
 .gs-cast {
   transition:
-    left 0.38s cubic-bezier(0.2, 0.8, 0.2, 1),
-    top 0.38s cubic-bezier(0.2, 0.8, 0.2, 1),
-    width 0.38s cubic-bezier(0.2, 0.8, 0.2, 1),
-    height 0.38s cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 0.12s ease-out;
+    left calc(0.38s * var(--pa-pace, 1)) cubic-bezier(0.2, 0.8, 0.2, 1),
+    top calc(0.38s * var(--pa-pace, 1)) cubic-bezier(0.2, 0.8, 0.2, 1),
+    width calc(0.38s * var(--pa-pace, 1)) cubic-bezier(0.2, 0.8, 0.2, 1),
+    height calc(0.38s * var(--pa-pace, 1)) cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity calc(0.12s * var(--pa-pace, 1)) ease-out;
 }
 .gs-cast.gs-cast-see {
   opacity: 0.14;
@@ -4669,7 +4687,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   pointer-events: none;
   background: var(--bf-table, #18201b);
   opacity: 0;
-  animation: gs-turning 0.7s ease-in-out;
+  animation: gs-turning calc(0.7s * var(--pa-pace, 1)) ease-in-out;
 }
 @keyframes gs-turning {
   45%,
@@ -4744,8 +4762,8 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   background: #1b2129;
   box-shadow: 0 8px 22px rgb(0 0 0 / 65%);
   transition:
-    transform 0.18s ease,
-    filter 0.18s ease;
+    transform calc(0.18s * var(--pa-pace, 1)) ease,
+    filter calc(0.18s * var(--pa-pace, 1)) ease;
 }
 .gs-opening-card:disabled {
   /* Only to read (keeping, or a card not to put back): not greyed. */
@@ -5445,7 +5463,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 }
 /* 10 B -- a turn begins: a light runs along the plate's top edge. */
 .gs-seat {
-  transition: border-top-color 0.25s ease-out;
+  transition: border-top-color calc(0.25s * var(--pa-pace, 1)) ease-out;
 }
 .gs-seat-run {
   position: absolute;
@@ -5603,7 +5621,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   height: 1px;
   overflow: visible;
   pointer-events: none;
-  animation: gs-curse-thread 1.2s ease-out forwards;
+  animation: gs-curse-thread calc(1.2s * var(--pa-pace, 1)) ease-out forwards;
 }
 .gs-curse-thread path {
   fill: none;
@@ -5619,7 +5637,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   stroke-width: 2.4;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: gs-curse-draw 0.4s ease-out forwards;
+  animation: gs-curse-draw calc(0.4s * var(--pa-pace, 1)) ease-out forwards;
 }
 @keyframes gs-curse-draw {
   to {
@@ -5662,7 +5680,7 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   width: 100%;
   height: 100%;
   overflow: visible;
-  animation: gs-control-in 0.6s ease-out both;
+  animation: gs-control-in calc(0.6s * var(--pa-pace, 1)) ease-out both;
 }
 .gs-control-chain rect {
   fill: none;
@@ -5697,7 +5715,8 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   box-shadow:
     0 0 12px #e9c46a99,
     0 2px 5px #000c;
-  animation: gs-control-sign 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s both;
+  animation: gs-control-sign calc(0.35s * var(--pa-pace, 1)) cubic-bezier(0.34, 1.56, 0.64, 1)
+    calc(0.4s * var(--pa-pace, 1)) both;
 }
 .gs-control-sign img {
   position: absolute;

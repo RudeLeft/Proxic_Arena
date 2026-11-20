@@ -66,7 +66,7 @@ export function payWords(mark: PayMark): string {
  * answer travels. Dropped this long after the last question if no new
  * one comes (the next question normally replaces them at once).
  */
-export const PAY_HOLD_MS = 1500;
+export const PAY_HOLD_MS = 1500; // not paced: a wait (spec 0106)
 
 /** The marks with [objectId] picked for the cost [picking] describes. */
 export function withPick(

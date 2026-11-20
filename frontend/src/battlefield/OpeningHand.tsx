@@ -24,6 +24,7 @@ import {
   turnDownFrames,
 } from "./opening";
 import { reducedMotion, useHurry } from "./playerMarks";
+import { paced } from "./motion";
 
 /** The questions this window answers. */
 export const OPENING_KINDS = new Set([
@@ -577,7 +578,7 @@ function useOpeningMotion(
           },
         ],
         {
-          duration: KEEP_MS - 40,
+          duration: KEEP_MS - paced(40),
           delay: 40 + i++ * 10,
           easing: "cubic-bezier(0.4, 0, 0.2, 1)",
           fill: "forwards",

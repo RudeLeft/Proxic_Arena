@@ -25,7 +25,7 @@ import {
   syntheticFans,
   type SyntheticBoard,
 } from "../src/battlefield/fixture";
-import { fanBoxes, fanReach } from "../src/battlefield/pileFan";
+import { fanBoxes, fanMore, fanReach } from "../src/battlefield/pileFan";
 import {
   HAND_ORIGIN,
   TAPPED_ORIGIN,
@@ -494,14 +494,18 @@ test("spec 0087: the fans stand where pileFan says, inside the table, covering n
   let fansSeen = 0;
   // Amendment 2: the nearest a fan (its sign included) comes to a table card, vertically.
   let nearest = Infinity;
+  let moreSeen = 0;
+  // Spec 0106 (F-0106-G): each size's fan card height, to prove the geometry changed.
+  const heights = new Set<number>();
   // [permanents, faces, seed, viewer fan, opponent fan]: a light board, a
-  // busy one with a full hand, a fan long enough to close up, and full
-  // boards whose land lines reach the column (Amendment 2).
+  // busy one with a full hand, fans past seven places ("+N", spec 0106),
+  // and full boards whose land lines reach the column (Amendment 2); fans
+  // of 1, 3, 6 and 9 cards (TEST-008).
   const FANNED: [number, number, number, number, number][] = [
-    [12, 10, 7, 3, 2],
-    [40, 30, 1, 5, 5],
-    [90, 30, 3, 12, 8],
-    [200, 30, 3, 6, 6],
+    [12, 10, 7, 1, 3],
+    [40, 30, 1, 3, 6],
+    [90, 30, 3, 9, 12],
+    [200, 30, 3, 6, 9],
   ];
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize(viewport);
@@ -520,27 +524,51 @@ test("spec 0087: the fans stand where pileFan says, inside the table, covering n
       const result = await differences(page, board, viewport, false, keep);
       expect(result.wrong, where).toEqual([]);
       const drawn = await page.evaluate(() =>
-        [...document.querySelectorAll<HTMLElement>("[data-fan-card]")].map((el) => {
-          const r = el.querySelector("button")!.getBoundingClientRect();
-          const sign = el.querySelector("[data-sign]")?.getBoundingClientRect();
-          return {
-            id: el.dataset.fanCard!,
-            side: el.dataset.fanSide!,
-            rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom },
-            sign: !!sign,
-            // The whole fan card as drawn: the card and its corner sign.
-            all: {
-              left: Math.min(r.left, sign?.left ?? r.left),
-              top: Math.min(r.top, sign?.top ?? r.top),
-              right: Math.max(r.right, sign?.right ?? r.right),
-              bottom: Math.max(r.bottom, sign?.bottom ?? r.bottom),
-            },
-          };
-        }),
+        [...document.querySelectorAll<HTMLElement>("[data-fan-card], [data-fan-more]")].map(
+          (el) => {
+            const r = el.querySelector("button")!.getBoundingClientRect();
+            const sign = el.querySelector("[data-sign]")?.getBoundingClientRect();
+            const name = el.querySelector(".bf-name")?.getBoundingClientRect();
+            return {
+              id: el.dataset.fanCard ?? `more:${el.dataset.fanMore}`,
+              more: el.dataset.fanMore !== undefined,
+              count: Number(el.dataset.fanCount ?? 0),
+              side: el.dataset.fanSide ?? el.dataset.fanMore!,
+              rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom },
+              sign: !!sign,
+              signRect: sign
+                ? { left: sign.left, top: sign.top, right: sign.right, bottom: sign.bottom }
+                : null,
+              name:
+                name && name.width > 0
+                  ? {
+                      left: name.left,
+                      top: name.top,
+                      right: name.right,
+                      bottom: name.bottom,
+                      text: el.querySelector(".bf-name")!.textContent ?? "",
+                      cut: (() => {
+                        const n = el.querySelector<HTMLElement>(".bf-name")!;
+                        return n.scrollWidth > n.clientWidth + 0.5;
+                      })(),
+                    }
+                  : null,
+              // The whole fan card as drawn: the card and its corner sign.
+              all: {
+                left: Math.min(r.left, sign?.left ?? r.left),
+                top: Math.min(r.top, sign?.top ?? r.top),
+                right: Math.max(r.right, sign?.right ?? r.right),
+                bottom: Math.max(r.bottom, sign?.bottom ?? r.bottom),
+              },
+            };
+          },
+        ),
       );
-      expect(drawn.length, where).toBe(fans.length);
-      fansSeen += drawn.length;
       const want = fanBoxes(fans, g);
+      const more = fanMore(fans, g);
+      expect(drawn.length, where).toBe(want.size + more.length);
+      fansSeen += drawn.length;
+      moreSeen += more.length;
       const wrong: string[] = [];
       const hands = board.hand.map((c) =>
         corners(layout({ ...board, keepRight: keep }, viewport).boxes.get(c.id)!, HAND_ORIGIN),
@@ -549,7 +577,16 @@ test("spec 0087: the fans stand where pileFan says, inside the table, covering n
       const table = slots.map((slot) => corners(slot.box, TAPPED_ORIGIN));
       const tableIds = slots.map((slot) => slot.ids[0]!);
       for (const d of drawn) {
-        const box = want.get(d.id)!;
+        const m = d.more ? more.find((x) => `more:${x.side}` === d.id) : undefined;
+        if (d.more) {
+          if (!m) {
+            wrong.push(`${d.id}: a "+N" pileFan does not draw`);
+            continue;
+          }
+          if (d.count !== m.count) wrong.push(`${d.id}: +${d.count}, pileFan says +${m.count}`);
+        }
+        const box = m ? m.box : want.get(d.id)!;
+        heights.add(Math.round(box.h));
         for (const [side, v] of [
           ["left", box.x],
           ["top", box.y],
@@ -558,7 +595,29 @@ test("spec 0087: the fans stand where pileFan says, inside the table, covering n
         ] as const)
           if (Math.abs(d.rect[side] - v) >= TOLERANCE)
             wrong.push(`${d.id}: ${side} is ${d.rect[side]}, pileFan says ${v}`);
-        if (!d.sign) wrong.push(`${d.id} has no corner sign`);
+        if (!d.more && !d.sign) wrong.push(`${d.id} has no corner sign`);
+        // Spec 0106: the sign inside its card's box; the name ends before it.
+        if (d.signRect) {
+          const s = d.signRect;
+          if (
+            s.left < d.rect.left - 0.5 ||
+            s.right > d.rect.right + 0.5 ||
+            s.top < d.rect.top - 0.5 ||
+            s.bottom > d.rect.bottom + 0.5
+          )
+            wrong.push(`${d.id}: its sign stands outside the card`);
+          // Amendment 1: the sign under the name bar, never over the name.
+          const n = d.name;
+          if (
+            n &&
+            Math.min(n.right, s.right) - Math.max(n.left, s.left) > 0.5 &&
+            Math.min(n.bottom, s.bottom) - Math.max(n.top, s.top) > 0.5
+          )
+            wrong.push(`${d.id}: its sign covers its name`);
+          // Amendment 1 (owner 2026-11-19): the real flashback names read whole.
+          if (n?.cut && /^(Think Twice|Deep Analysis|Dream Twist)$/.test(n.text))
+            wrong.push(`${d.id}: "${n.text}" is cut`);
+        }
         // Inside the table, sign included: never on the column (the plates, the act button).
         if (d.all.right > g.rail.x + TOLERANCE) wrong.push(`${d.id} reaches the column`);
         if (d.all.top < -TOLERANCE || d.all.bottom > viewport.height + TOLERANCE)
@@ -594,11 +653,21 @@ test("spec 0087: the fans stand where pileFan says, inside the table, covering n
             d.side === "viewer" ? d.all.top - Math.max(...ys) : Math.min(...ys) - d.all.bottom;
           nearest = Math.min(nearest, gap);
         });
+        // Spec 0106: no two fan places overlap (0 px).
+        for (const e of drawn) {
+          if (e === d || e.side !== d.side) continue;
+          const w = Math.min(d.rect.right, e.rect.right) - Math.max(d.rect.left, e.rect.left);
+          const h = Math.min(d.rect.bottom, e.rect.bottom) - Math.max(d.rect.top, e.rect.top);
+          if (w > 0.5 && h > 0.5) wrong.push(`${d.id} overlaps ${e.id} by ${w.toFixed(1)}px`);
+        }
       }
       expect(wrong, where).toEqual([]);
     }
   }
   expect(fansSeen, "the sweep measured fan cards").toBeGreaterThan(0);
+  expect(moreSeen, 'the sweep measured "+N" places (spec 0106)').toBeGreaterThan(0);
+  // TEST-007: the fan's size really changed with the screen.
+  expect(heights.size, `fan heights seen: ${[...heights].join(", ")}`).toBeGreaterThan(1);
   console.log(
     `spec 0087, Amendment 2: the nearest a fan comes to a table card: ${nearest.toFixed(1)}px clear`,
   );

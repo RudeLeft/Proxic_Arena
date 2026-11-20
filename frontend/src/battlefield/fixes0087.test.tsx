@@ -5,17 +5,23 @@
 // the plate). The board as the game screen draws it, handed one board and
 // then the next, and the pure pieces under it.
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, type StackView } from "./Board";
 import { FAN_CLOSE_MS, FAN_RISE_MS, FAN_SINK_MS, fanWords } from "./FanCards";
 import {
   FAN_H,
+  FAN_PLACES,
   FAN_SIGN,
   Z_FAN,
   fanBoxes,
   fanCards,
+  fanMore,
+  fanPlaces,
   fanReach,
+  fanWidth,
   pileGlows,
   type FanCard,
 } from "./pileFan";
@@ -266,20 +272,26 @@ describe("F-0087-A · E · the fan beside the plate", () => {
     const fans = fanCards(stageBoard(1));
     const boxes = fanBoxes(fans, g);
     const first = boxes.get("card:10")!;
-    // Amendment 2: what the strip past the band holds, sign included (80 px at 1080).
-    expect(first.h).toBeCloseTo(80.4, 0);
+    // Spec 0106 (Q4 B): whole cards 88 x 63 at 1080, tops at 990 (the hand's).
+    expect(first.h).toBeCloseTo(88, 0);
+    expect(Math.abs(first.w - 63)).toBeLessThanOrEqual(1);
+    expect(first.y).toBeCloseTo(990, 0);
     expect(first.x + first.w).toBeCloseTo(g.rail.x - 10, 0);
     const second = boxes.get("card:11")!;
-    expect(first.x - second.x).toBeCloseTo((first.h * 64) / 96, 3);
-    // Each card further left is drawn over the one before.
-    expect(second.z).toBe(Z_FAN + 1);
+    // 4 px apart: never overlapping.
+    expect(first.x - (second.x + second.w)).toBeCloseTo(4, 3);
     expect(Z_FAN).toBeLessThan(10000); // under the hand
   });
 
   it("for the other player's plate, the top-right corner, above their land line", () => {
     const box = fanBoxes(fanCards(stageBoard(2)), g).get("card:10")!;
-    expect(box.y - FAN_SIGN * box.h).toBeGreaterThanOrEqual(0);
-    expect(box.y + box.h).toBeLessThanOrEqual(BAND_EDGE * 1080);
+    // Spec 0106: the same numbers, mirrored at the top edge (2 px in).
+    expect(box.y).toBeCloseTo(2, 0);
+    expect(box.h).toBeCloseTo(88, 0);
+    expect(Math.abs(box.w - 63)).toBeLessThanOrEqual(1);
+    expect(box.y + box.h).toBeLessThanOrEqual(BAND_EDGE * 1080 - 4 + 0.01);
+    const second = fanBoxes(fanCards(stageBoard(2)), g).get("card:11")!;
+    expect(box.x - (second.x + second.w)).toBeCloseTo(4, 3);
   });
 
   // Amendment 2 (owner, 2026-11-14) -- never over the land line, at every size swept.
@@ -289,7 +301,7 @@ describe("F-0087-A · E · the fan beside the plate", () => {
     { width: 2560, height: 1440 },
     { width: 3440, height: 1440 },
   ])
-    it(`keeps off the land line on a full board, both sides, sign included (${size.width}x${size.height})`, () => {
+    it(`keeps off the land line on a full board, both sides, its sign inside it (${size.width}x${size.height})`, () => {
       const gg = geometry(size);
       const full = syntheticBoard(200, 30, 3);
       const laid = layout(full, size);
@@ -305,27 +317,51 @@ describe("F-0087-A · E · the fan beside the plate", () => {
       expect(ys.length).toBeGreaterThan(0);
       for (const card of fans) {
         const b = boxes.get(card.id)!;
-        const signTop = b.y - FAN_SIGN * b.h;
+        // Spec 0106: the sign is inside the card, so the card is the whole of it.
         if (card.side === "viewer") {
-          expect(signTop).toBeGreaterThan(lowest);
+          expect(b.y).toBeGreaterThan(lowest);
           expect(b.y + b.h).toBeLessThanOrEqual(size.height);
         } else {
           expect(b.y + b.h).toBeLessThan(highest);
-          expect(signTop).toBeGreaterThanOrEqual(0);
+          expect(b.y).toBeGreaterThanOrEqual(0);
         }
-        // Its sign stops short of the column (the plates, the act button).
-        expect(b.x + b.w + FAN_SIGN * b.h).toBeLessThan(gg.rail.x);
+        // It stops short of the column (the plates, the act button).
+        expect(b.x + b.w).toBeLessThan(gg.rail.x);
       }
+      // Seven places fit at every supported size (UI-006).
+      expect(fanPlaces(gg)).toBe(FAN_PLACES);
     });
 
-  it("closes up when many cards would reach across the table", () => {
-    const many: FanCard[] = Array.from({ length: 20 }, (_, i) => ({
-      ...fanCards(stageBoard(1))[0]!,
-      id: `card:${100 + i}`,
-    }));
-    const boxes = fanBoxes(many, g);
-    const left = Math.min(...[...boxes.values()].map((b) => b.x));
-    expect(g.rail.x - 10 - left).toBeLessThanOrEqual(0.3 * g.play.w + 1);
+  it('never closes up: past seven places, six cards and a "+N" (spec 0106)', () => {
+    const one = fanCards(stageBoard(1))[0]!;
+    const many = (n: number): FanCard[] =>
+      Array.from({ length: n }, (_, i) => ({ ...one, id: `card:${100 + i}`, at: i }));
+    for (const n of [1, 3, 6, 7, 8, 12]) {
+      const cards = many(n);
+      const boxes = fanBoxes(cards, g);
+      const more = fanMore(cards, g);
+      const shown = n <= 7 ? n : 6;
+      expect(boxes.size, `${n} cards`).toBe(shown);
+      expect(more.length, `${n} cards`).toBe(n <= 7 ? 0 : 1);
+      if (n > 7) {
+        expect(more[0]!.count).toBe(n - 6);
+        // The newest six are the ones shown (the oldest go behind the "+N").
+        expect([...boxes.keys()].sort()).toEqual(
+          cards
+            .slice(n - 6)
+            .map((c) => c.id)
+            .sort(),
+        );
+      }
+      // Every place 63 wide, 4 px apart, none over another: the "+N" too.
+      const all = [...boxes.values(), ...more.map((m) => m.box)].sort((a, b) => b.x - a.x);
+      for (let i = 1; i < all.length; i++) {
+        expect(all[i - 1]!.x - (all[i]!.x + all[i]!.w)).toBeCloseTo(4, 3);
+      }
+      const left = Math.min(...all.map((b) => b.x));
+      expect(g.rail.x - 10 - left).toBeLessThanOrEqual(0.3 * g.play.w + 1);
+      expect(fanWidth(n, g)).toBeCloseTo(g.rail.x - 10 - left, 3);
+    }
   });
 
   it("the hand closes up to keep clear of it, centred as ever (nothing covers the hand)", () => {
@@ -358,6 +394,37 @@ describe("F-0087-A · E · the fan beside the plate", () => {
     const box = fanBoxes(fanCards(stageBoard(1)), g).get("card:12")!;
     expect(dart.style.transform).toBe(`translate3d(${box.x}px, ${box.y}px, 0)`);
     expect(Number(dart.style.zIndex)).toBeLessThan(10000);
+  });
+
+  it("its sign sits inside the card's top-right corner, under the whole-width name bar (spec 0106, Amendment 1)", () => {
+    // jsdom applies no sheet: read the rule as written (battlefield.css).
+    const css = readFileSync(resolve(__dirname, "battlefield.css"), "utf8");
+    const rule = (selector: string) => {
+      const at = css.indexOf(`\n${selector} {`);
+      expect(at, selector).toBeGreaterThanOrEqual(0);
+      return css.slice(at, css.indexOf("}", at));
+    };
+    const k = (body: string, prop: string) => {
+      const m = new RegExp(String.raw`\n\s*${prop}: calc\(var\(--card-h\) \* (-?[\d.]+)\)`).exec(
+        body,
+      );
+      expect(m, prop).toBeTruthy();
+      return Number(m![1]);
+    };
+    const sign = rule(".bf-fan-sign");
+    const right = k(sign, "right");
+    const top = k(sign, "top");
+    const size = k(sign, "width");
+    expect(right).toBeGreaterThanOrEqual(0);
+    expect(top).toBeGreaterThanOrEqual(0);
+    expect(size).toBe(FAN_SIGN);
+    expect(k(sign, "height")).toBe(FAN_SIGN);
+    // Amendment 1: under the name bar (its height), so the name has the bar's whole width;
+    // and inside the card's height.
+    const bar = k(rule(".bf-bar"), "height");
+    expect(top).toBeGreaterThanOrEqual(bar);
+    expect(top + size).toBeLessThanOrEqual(1);
+    expect(css).not.toContain(".bf-fan-face .bf-bar-top {");
   });
 });
 
@@ -703,10 +770,11 @@ describe("A-00 · a click hurries every part; reduce motion skips it", () => {
 // --- sizes ------------------------------------------------------------------------------------
 
 describe("F-0087-E · its size is the canvas's at every height", () => {
-  it("96 px at 1080, in proportion above it", () => {
+  it("FAN_H at every height: 88 px at 1080, 176 at 2160 (spec 0106)", () => {
     const big = geometry({ width: 3840, height: 2160 });
     const box = fanBoxes(fanCards(stageBoard(1)), big).get("card:10")!;
     expect(box.h).toBeCloseTo(FAN_H * 2160, 3);
+    expect(box.h).toBeCloseTo(176, 0);
     expect(box.x + box.w).toBeCloseTo(big.rail.x - 20, 0);
   });
 });

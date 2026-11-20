@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, POISON_DX, POISON_DY, type BoardCard, type StackView } from "./Board";
 import { planFights, type CombatWave, type Stand } from "./fights";
 import { geometry, type Box } from "./layout";
+import { paced } from "./motion";
 import {
   endLifeSteps,
   lifeSteps,
@@ -25,7 +26,7 @@ import { PoisonBadge, poisonOf } from "./PoisonBadge";
 import { StatusTray } from "./StatusTray";
 import { EMPTY_MATCH, reduceMatch, type LifeChange, type Snapshot } from "../match";
 
-const RESOLVE_MS = 380;
+const RESOLVE_MS = paced(380);
 const size = { width: 1920, height: 1080 };
 type Call = {
   element: Element;

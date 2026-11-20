@@ -15,7 +15,7 @@ import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_LOBBY, type MatchView } from "../lobby";
 import { reduceMatch, type MatchState, type Snapshot } from "../match";
-import { AT_ZONE_SCALE, MOVE_MS, anchors } from "./motion";
+import { AT_ZONE_SCALE, MOVE_MS, anchors, paced } from "./motion";
 import { geometry as layoutGeometry } from "./layout";
 import { Board, type BoardHandCard } from "./Board";
 import { boardFromSnapshot, type TileMove } from "./fromSnapshot";
@@ -427,7 +427,7 @@ describe("F-0081-A · a free spell rises from where it was cast", () => {
 
 const g2 = layoutGeometry(size);
 const where = anchors(g2);
-const RESOLVE_MS = 380;
+const RESOLVE_MS = paced(380);
 const backs = (n: number) =>
   Array.from({ length: n }, (_, i) => ({ id: `hidden-hand:2:${i}`, shown: null }));
 const face = (name: string, faceDown = false) => ({

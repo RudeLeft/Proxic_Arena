@@ -71,4 +71,4 @@ export const ROWS = 3;
 /** A row's height at 1920 x 1080, in the canvas's pixels (58 at its 1.2 rail scale). */
 export const ROW_H = 48;
 /** A report folding into its row, and the newest coming in (the canvas's 0.3 s). */
-export const FOLD_MS = 300;
+export const FOLD_MS = 300; // not paced: a wait (spec 0106)

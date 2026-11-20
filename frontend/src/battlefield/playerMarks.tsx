@@ -22,7 +22,7 @@
 import { sameProps } from "./sameProps";
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { CommandWords, SnapshotEmblem, StackEntry } from "../match";
-import { hurry } from "./motion";
+import { paced, hurry } from "./motion";
 
 export function reducedMotion(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function"
@@ -136,12 +136,12 @@ export function countKind(name: string): string {
 }
 
 /** Spec 0077's pace: a point every 90 ms, never more than 0.9 s for the whole change. */
-export const COUNT_POINT_MS = 90;
-export const COUNT_CHANGE_MAX_MS = 900;
+export const COUNT_POINT_MS = 90; // not paced: a wait (spec 0106)
+export const COUNT_CHANGE_MAX_MS = 900; // not paced: a limit (spec 0106)
 /** The +N/-N pill's rise (the canvas's 1.1 s). */
-export const COUNT_PILL_MS = 1100;
+export const COUNT_PILL_MS = 1100; // not paced: a wait (spec 0106)
 /** The badge's swell as its number changes. */
-export const COUNT_PULSE_MS = 400;
+export const COUNT_PULSE_MS = paced(400);
 /** The ms between two points of a change of [amount]. */
 export function countStepMs(amount: number): number {
   const a = Math.abs(amount);
@@ -174,7 +174,7 @@ const PULSE: Keyframe[] = [
   { offset: 1, transform: "scale(1)" },
 ];
 /** A badge new to the tray grows in (0077's poison badge: 0 -> 1.25 -> 1, 0.52 s). */
-export const GROW_MS = 520;
+export const GROW_MS = paced(520);
 function growFrames(col: string): Keyframe[] {
   return [
     { offset: 0, transform: "scale(0)", opacity: 0 },
@@ -380,10 +380,10 @@ export function mapLayout(rooms: readonly Room[]): MapLayout {
 }
 
 /** The venture (the canvas): the map lifts toward the table, the marker steps, it settles. */
-export const MAP_LIFT_MS = 1600;
-export const MAP_STEP_AT = 400;
-export const MAP_STEP_MS = 450;
-export const MAP_GLOW_AT = 850;
+export const MAP_LIFT_MS = paced(1600);
+export const MAP_STEP_AT = paced(400);
+export const MAP_STEP_MS = paced(450);
+export const MAP_GLOW_AT = paced(850);
 /** How far it lifts, in the rail's units, and how big it grows (the canvas's 150 left, 1 + 1.6). */
 export const MAP_LIFT_X = -150;
 export const MAP_LIFT_Y = 50;
@@ -473,7 +473,7 @@ export function DungeonMap({
         { offset: 0.4, boxShadow: "0 0 10px 2px #b9a2ff" },
         { offset: 1, boxShadow: "0 0 0 0 transparent" },
       ],
-      { duration: 500, delay: MAP_GLOW_AT, easing: "ease-out" },
+      { duration: paced(500), delay: MAP_GLOW_AT, easing: "ease-out" },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per step
   }, [here]);

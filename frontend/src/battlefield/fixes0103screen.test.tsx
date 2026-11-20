@@ -42,7 +42,7 @@ vi.mock("../shell/LobbyConnection", () => ({
   useLobbyConnection: () => ({ lobby: EMPTY_LOBBY, setLobby: () => {}, send: () => {} }),
 }));
 
-const { GameScreen } = await import("./GameScreen");
+const { GameScreen, THEIR_SPELL_HOLD_MS } = await import("./GameScreen");
 
 /** A recorded animation: where, its frames, and the speed it was set to. */
 type Recorded = {
@@ -219,8 +219,8 @@ function unsummoned() {
       ],
     }),
   );
-  // The other player's spell is held a moment on the table (0102's carry).
-  wait(2000);
+  // The other player's spell is held a moment on the table (0102's carry), its paced flight with it.
+  wait(THEIR_SPELL_HOLD_MS + 120);
 }
 const layer = (c: HTMLElement) => c.querySelector<HTMLElement>(".gs-replay");
 const medallion = (c: HTMLElement) => c.querySelector<HTMLElement>(".gs-reveal-replay");

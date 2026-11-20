@@ -9,7 +9,7 @@
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, type BoardCard, type BoardHandCard, type StackView } from "./Board";
-import { type AnchorId } from "./motion";
+import { paced, type AnchorId } from "./motion";
 import {
   TOKEN_AFTER_MS,
   TOKEN_BEAT_ABILITY_MS,
@@ -329,14 +329,17 @@ describe("F-0089-D · an umbra destroyed instead: its tab unfolds into a shield 
   it("the shield is whole before the blow; a blow sooner than that waits for it", () => {
     expect(umbraTimes(2000)).toEqual({ start: 2000 - SHIELD_LEAD_MS, blow: 2000 });
     // Spec 0101: whole 150 ms before the blow, after its unfold.
-    expect(umbraTimes(800)).toEqual({ start: 100, blow: 800 });
-    expect(umbraTimes(380).blow).toBe(UNFOLD_MS + 150);
+    expect(umbraTimes(SHIELD_LEAD_MS + 100)).toEqual({ start: 100, blow: SHIELD_LEAD_MS + 100 });
+    expect(umbraTimes(SHIELD_LEAD_MS - 100)).toEqual({ start: 0, blow: SHIELD_LEAD_MS });
+    expect(umbraTimes(380).blow).toBe(UNFOLD_MS + paced(150));
   });
 
   it("its marks: the tab held then swung out, the shield unfolding and gone, 18 pieces", () => {
     const host = { x: 400, y: 600, w: 97, h: 136, scale: 1, rotation: 0, z: 1 };
     const tab = { x: 497, y: 602, w: 16, h: 132, scale: 1, rotation: 0, z: 2 };
-    const marks = umbraMarks("u", "card:9", host, tab, 100, 750, -1);
+    // Spec 0106: the blow a whole (paced) lead after the shield starts.
+    const blow = 100 + SHIELD_LEAD_MS;
+    const marks = umbraMarks("u", "card:9", host, tab, 100, blow, -1);
     const tabMark = marks.find((m) => m.kind === "umbratab")!;
     expect(tabMark.ghostOf).toBe("card:9");
     expect(tabMark.delay).toBe(0);
@@ -349,13 +352,13 @@ describe("F-0089-D · an umbra destroyed instead: its tab unfolds into a shield 
     expect(shield.ghostOf).toBe("card:9");
     expect(shield.frames[0]!.opacity).toBe(0);
     expect(String(shield.frames[0]!.transform)).toContain("scaleX(0.060)");
-    const whole = shield.frames.find((f) => Number(f.offset) >= (750 - 100) / shield.duration)!;
+    const whole = shield.frames.find((f) => Number(f.offset) >= (blow - 100) / shield.duration)!;
     expect(String(whole.transform)).toContain("scaleX(1.000)");
     expect(shield.frames.at(-1)!.opacity).toBe(0);
-    expect(shield.style["--crack-at"]).toBe(`${750 + 80}ms`);
+    expect(shield.style["--crack-at"]).toBe(`${blow + paced(80)}ms`);
     const shards = marks.filter((m) => m.kind === "shard");
     expect(shards.length).toBe(18);
-    expect(shards.every((m) => m.delay === 750 + 250)).toBe(true);
+    expect(shards.every((m) => m.delay === blow + paced(250))).toBe(true);
     // The ghost to the graveyard leaves from the middle, at 0.55 of the creature.
     const ghost = umbraGhostBox(host, 97, 136);
     expect(ghost.w).toBeCloseTo(97 * 0.55, 5);

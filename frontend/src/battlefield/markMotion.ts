@@ -14,11 +14,12 @@
 //   and the card rises out of it (0074's Rise and show) FREED_WAIT_MS after
 //   the holder set off; a card that stays in exile (an imprint, a Hideaway
 //   card) is sunk into the pile with its tab and never rises.
+import { paced } from "./motion";
 
-export const RISE_MS = 500;
-export const RISE_HOLD_MS = 350;
-export const DROP_MS = 450;
-export const POP_MS = 300;
+export const RISE_MS = paced(500);
+export const RISE_HOLD_MS = 350; // not paced: a wait (spec 0106)
+export const DROP_MS = paced(450);
+export const POP_MS = paced(300);
 /** The icon's whole trip: up, held, down into its square. */
 export const RISER_MS = RISE_MS + RISE_HOLD_MS + DROP_MS;
 /** How far up it rises: this share of the card's height, plus RISE_UP_PX (the canvas's 0.42 h + 16 px). */
@@ -32,7 +33,7 @@ export const RISER_APART = 0.33;
 export const RISER_START = 0.24;
 export const RISER_TOP = 0.28;
 /** Several cards gaining at once (Heroic Intervention) start this far apart (the canvas's 0.1 s). */
-export const RISER_BEAT_MS = 100;
+export const RISER_BEAT_MS = paced(100);
 
 const easeOut = (p: number) => 1 - (1 - p) ** 3;
 const easeIO = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2);
@@ -106,7 +107,7 @@ export const MARK_LAND_MS = RISER_MS + POP_MS;
  * Spec 0085 -- the canvas's "the red mark pulses: that is why": a protection
  * mark swells once (x1.35) as a spell aimed at its card does nothing.
  */
-export const WHY_PULSE_MS = 500;
+export const WHY_PULSE_MS = paced(500);
 export function whyPulseFrames(): Keyframe[] {
   return [0, 0.25, 0.5, 0.75, 1].map((p) => ({
     offset: p,
@@ -119,7 +120,7 @@ export function whyPulseFrames(): Keyframe[] {
  * the attack is declared (the canvas's markIn: from nothing, past its size,
  * settling), compositor-only.
  */
-export const COMBAT_POP_MS = 360;
+export const COMBAT_POP_MS = paced(360);
 export function combatPopFrames(): Keyframe[] {
   const backOut = (p: number) => 1 + 2.9 * (p - 1) ** 3 + 1.9 * (p - 1) ** 2;
   return [0, 0.2, 0.4, 0.6, 0.8, 1].map((p) => ({
@@ -132,7 +133,7 @@ export function combatPopFrames(): Keyframe[] {
 // --- 4 A · the held card's tab --------------------------------------------------------
 
 /** The tab grows in with a glow (the canvas: in over 0.12 s, the glow a bump over 0.6 s). */
-export const HELD_IN_MS = 600;
+export const HELD_IN_MS = paced(600);
 export function heldInFrames(): Keyframe[] {
   const glow = (g: number) =>
     `1px 0 3px rgb(0 0 0 / 50%), 0 0 ${(12 * g).toFixed(1)}px ${(4 * g).toFixed(1)}px rgb(241 195 106 / ${(0.9 * g).toFixed(2)})`;
@@ -144,7 +145,7 @@ export function heldInFrames(): Keyframe[] {
 }
 
 /** The tab's flight to the exile pile (the canvas's 0.6 s, a 30 px arc, half its size, gone by the end). */
-export const HELD_FLY_MS = 600;
+export const HELD_FLY_MS = paced(600);
 /** The arc, as a share of the card's height (the canvas's 30 px of a 76 px card). */
 export const HELD_ARC = 0.4;
 /**
@@ -181,10 +182,10 @@ export function heldFlyFrames(
 }
 
 /** The freed card rises out of its pile this long after its holder set off (the canvas's 0.6 s). */
-export const FREED_WAIT_MS = 600;
+export const FREED_WAIT_MS = paced(600);
 /** The pile glows from this long before the card rises, for TILE_GLOW_MS (the canvas's 0.15 s, 0.6 s). */
-export const TILE_GLOW_LEAD_MS = 150;
-export const TILE_GLOW_MS = 600;
+export const TILE_GLOW_LEAD_MS = paced(150);
+export const TILE_GLOW_MS = paced(600);
 export function tileGlowFrames(): Keyframe[] {
   return [0, 0.25, 0.5, 0.75, 1].map((p) => {
     const v = Math.sin(Math.PI * p) * 1.2;

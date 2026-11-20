@@ -12,6 +12,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { LANDED_FADE_MS, RISE_MS, SPELL_WAIT_MS, STACK_IN_MS } from "./Board";
 import { BALL_MS } from "./manaBalls";
+import { PACE, paced } from "./motion";
 import { FLIP_MS, FLY_MS, HOLD_MS, DECIDE_MS } from "./CastingCard";
 import { LANDING_BEAT_MS, THEIR_SPELL_HOLD_MS } from "./GameScreen";
 
@@ -43,9 +44,12 @@ describe("F-0105-F · the page's arrivals fit the worker's allowances", () => {
   const theirArrival = BALL_MS + FLIP_MS + HOLD_MS + FLY_MS + LANDED_FADE_MS;
 
   it("the other player's spell reaches the stack within ARRIVE_SPELL_MS", () => {
+    // Spec 0106: the movements in it are paced (1.25x); the face-up hold is a wait.
+    expect(PACE).toBe(1.25);
+    expect(theirArrival).toBe(paced(620) + paced(420) + 650 + paced(560) + paced(176));
     expect(theirArrival).toBeLessThanOrEqual(worker("ARRIVE_SPELL_MS"));
-    // ...and still at spec 0106's 1.25x pace on movement.
-    expect(theirArrival * 1.25).toBeLessThanOrEqual(worker("ARRIVE_SPELL_MS"));
+    // ...and even were the hold paced too (the worst case 0105 sized 3100 for).
+    expect(theirArrival - HOLD_MS + paced(HOLD_MS)).toBeLessThanOrEqual(worker("ARRIVE_SPELL_MS"));
     // The caster's own: it waits DECIDE_MS, then flies.
     expect(DECIDE_MS + FLY_MS).toBeLessThanOrEqual(worker("ARRIVE_SPELL_MS"));
   });

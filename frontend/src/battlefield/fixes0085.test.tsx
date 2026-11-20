@@ -10,7 +10,7 @@
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, type BoardCard, type StackView } from "./Board";
-import { hurry } from "./motion";
+import { hurry, paced } from "./motion";
 import { SHOW_MS } from "./graves";
 import {
   CardBadges,
@@ -265,7 +265,7 @@ describe("F-0085-A · Heroic Intervention: hexproof and the hexagon rise and set
       }
     }
     const starts = risers.map((r) => delayOf(runsOf(r).at(-1)!));
-    expect(Math.max(...starts) - Math.min(...starts)).toBeLessThanOrEqual(200);
+    expect(Math.max(...starts) - Math.min(...starts)).toBeLessThanOrEqual(paced(200));
     for (const r of risers) expect(Number(runsOf(r).at(-1)!.options.duration)).toBe(RISER_MS);
   });
 

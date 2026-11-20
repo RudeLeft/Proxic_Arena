@@ -15,7 +15,7 @@ import { SHOW_MS } from "./graves";
 import { BADGE_FLOOR, BADGE_ROOF, MARK_H, placeBadges } from "./CardBadges";
 import { boardFromSnapshot, type Survive } from "./fromSnapshot";
 import { planFights, type CombatWave, type Stand } from "./fights";
-import { DOME_MS, WARD_MS } from "./survive";
+import { DOME_MS, SHAPE_IN_MS, SHIELD_UP_MS, WARD_MS } from "./survive";
 import { EMPTY_MATCH, reduceMatch, type Snapshot } from "../match";
 import type { Box } from "./layout";
 
@@ -411,7 +411,9 @@ describe("F-0080-D · Darksteel Myr: the hexagon at rest; a hex dome at the blow
     // The blow and the dome together (spec 0101: the dome fully up 0.15 s
     // before the blow, its 120 ms rise before that, unless that is before now).
     const blow = delayOf(markCall(number));
-    expect(Math.abs(delayOf(markCall(dome[0]!)) - Math.max(0, blow - 270))).toBeLessThan(2);
+    expect(
+      Math.abs(delayOf(markCall(dome[0]!)) - Math.max(0, blow - (SHIELD_UP_MS + SHAPE_IN_MS))),
+    ).toBeLessThan(2);
   });
 
   it("the dome is not the prevention shield: gold hex grid round the card, not pale and in front", () => {

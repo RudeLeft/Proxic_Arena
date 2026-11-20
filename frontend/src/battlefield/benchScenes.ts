@@ -318,7 +318,7 @@ function army(): BenchScene {
 
 /** Storm x10: Grapeshot's copies, as the worker sends them, through the page's parser. */
 export const STORM_COPIES = 10;
-const STORM_BEAT_MS = 250;
+const STORM_BEAT_MS = 250; // not paced: a wait (spec 0106)
 function storm(): BenchScene {
   let revision = 0;
   const ground = [...lands(1, 1), ...lands(2, 11), ...creatures(2, 200, 8)];
@@ -431,7 +431,7 @@ function storm(): BenchScene {
 
 /** Spec 0088 -- a report window gathering five reports, one after another. */
 export const REPORTS = 5;
-const REPORT_BEAT_MS = 600;
+const REPORT_BEAT_MS = 600; // not paced: a wait (spec 0106)
 function reports(): BenchScene {
   const cards = [
     ...lands(1, 1),

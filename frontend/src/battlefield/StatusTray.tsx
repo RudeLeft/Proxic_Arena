@@ -46,6 +46,7 @@ import {
   reducedMotion,
 } from "./playerMarks";
 import { heldPool, poolKey, usePoolHeld } from "./poolHeld";
+import { paced } from "./motion";
 
 type Player = Snapshot["players"][number];
 
@@ -434,7 +435,7 @@ function Leaving({ children, onGone }: { children: ReactNode; onGone: () => void
         { transform: "scale(1)", opacity: 1, filter: "drop-shadow(0 0 8px #b9a2ff)" },
         { transform: "scale(0)", opacity: 0 },
       ],
-      { duration: 450, easing: "cubic-bezier(0.65, 0, 0.35, 1)", fill: "forwards" },
+      { duration: paced(450), easing: "cubic-bezier(0.65, 0, 0.35, 1)", fill: "forwards" },
     );
     shrink.onfinish = onGone;
     shrink.oncancel = onGone;

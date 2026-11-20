@@ -614,8 +614,8 @@ function ReportBody({
 }
 
 /** Spec 0103, item 2 -- the read-through: after the window settles, each report about a second. */
-export const READ_START_MS = FOLD_MS + 250;
-export const READ_MS = 1100;
+export const READ_START_MS = FOLD_MS + 250; // not paced: a wait (spec 0106)
+export const READ_MS = 1100; // not paced: a wait (spec 0106)
 
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function"

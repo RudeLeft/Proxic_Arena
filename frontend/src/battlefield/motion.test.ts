@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   HAND_ORIGIN,
@@ -28,6 +30,8 @@ import {
   MERGE_PULL_MS,
   MERGE_RISE_SCALE,
   mergeFrames,
+  PACE,
+  paced,
   placement,
   RETURN_ARC,
   RETURN_GLIDE_MS,
@@ -545,12 +549,12 @@ describe("Lift and glide (Phase 10 A-14)", () => {
   const at = (frames: Keyframe[], ms: number) =>
     frames.find((f) => Math.abs(Number(f["offset"]) - ms / RETURN_MS) < 1e-9)!;
 
-  it("is the canvas's numbers: 180 ms up, 520 ms across", () => {
-    expect(RETURN_RISE_MS).toBe(180);
-    expect(RETURN_GLIDE_MS).toBe(520);
-    expect(RETURN_MS).toBe(700);
+  it("is the canvas's numbers: 180 ms up, 520 ms across (at spec 0106's pace)", () => {
+    expect(RETURN_RISE_MS).toBe(paced(180));
+    expect(RETURN_GLIDE_MS).toBe(paced(520));
+    expect(RETURN_MS).toBe(paced(180) + paced(520));
     expect(RETURN_GROW).toBe(1.05);
-    expect(RIFFLE_MS).toBe(700);
+    expect(RIFFLE_MS).toBe(paced(700));
   });
 
   it("starts exactly where the card is and lands exactly where the layout puts it", () => {
@@ -632,5 +636,451 @@ describe("Lift and glide (Phase 10 A-14)", () => {
     };
     hurry({ getAnimations: () => [run] } as unknown as Element);
     expect((RETURN_MS - 100) / rate).toBeCloseTo(HURRY_MS, 6);
+  });
+});
+
+// --- Spec 0106, item 1 (F-0106-A): the table's pace -------------------------------------------
+
+type PaceClass = "move" | "wait" | "limit" | "loop" | "screen" | "derived";
+/**
+ * Every timing constant on the battlefield, classified (spec 0106's As built):
+ * a movement is written `paced(<the canvas's ms>)`; a wait, limit, loop or the
+ * loading screen's own time is not paced and says so on its line; a derived one
+ * is made of the others. A new constant fails until it is classified here.
+ */
+const PACE_TABLE: Record<string, Record<string, PaceClass>> = {
+  "motion.ts": {
+    MOVE_MS: "move",
+    SETTLE_MS: "move",
+    HURRY_MS: "wait",
+    FLIP_MS: "move",
+    MERGE_PULL_MS: "move",
+    MERGE_RISE_MS: "move",
+    MERGE_MS: "derived",
+    MERGE_FLASH_MS: "move",
+    MERGE_RING_MS: "move",
+    MERGE_BRIGHT_MS: "move",
+    MERGE_GLOW_MS: "move",
+    MERGE_FADE_MS: "move",
+    MERGE_FADE_AT: "move",
+    TETHER_MS: "move",
+    PULL_MS: "move",
+    PULSE_MS: "move",
+    SHAKE_MS: "move",
+    CRACK_MS: "move",
+    BANISH_MS: "move",
+    SWEEP_MS: "move",
+    SPENT_FOLD_MS: "move",
+    SPENT_BEAT_MS: "move",
+    COIN_MS: "move",
+    RETURN_RISE_MS: "move",
+    RETURN_GLIDE_MS: "move",
+    RETURN_MS: "derived",
+    RETURN_GLOW_PEAK_MS: "move",
+    RIFFLE_MS: "move",
+    RIFFLE_BEAT_MS: "move",
+  },
+  "Board.tsx": {
+    ATTACK_MS: "move",
+    ATTACK_BEAT_MS: "move",
+    BLOCK_MS: "move",
+    BLOCK_BEAT_MS: "move",
+    LIFE_MARK_MS: "wait",
+    LIFE_CRACK_MS: "move",
+    LIFE_GLOW_MS: "move",
+    FIZZLE_WARD_MS: "move",
+    PHASE_IN_MS: "move",
+    PULSE_MS: "move",
+    WASH_MS: "move",
+    SPLIT_LIFT_MS: "move",
+    SPELL_HIT_MS: "move",
+    SHUFFLE_AFTER_MS: "move",
+    TETHERS_GONE_MS: "limit",
+    LINE_OUT_MS: "move",
+    SWING_MS: "move",
+    RESOLVE_MS: "move",
+    FAN_GONE_MS: "limit",
+    FAN_AFTER_LAND_MS: "wait",
+    RISE_MS: "move",
+    SHOW_LIFT_AT: "move",
+    SPELL_WAIT_MS: "limit",
+    STACK_IN_MS: "move",
+    LANDED_FADE_MS: "move",
+  },
+  "GameScreen.tsx": {
+    RESPONSE_WINDOW_MS: "wait",
+    LANDING_BEAT_MS: "wait",
+    THEIR_SPELL_HOLD_MS: "derived",
+    SWING_HOLD_MS: "limit",
+    SWEEP_MS: "move",
+    HANDOFF_MS: "move",
+    FREE_RISE_CAP_MS: "limit",
+    RESOLVING_AFTER_MS: "wait",
+    STEADY_MS: "wait",
+    PLACING_QUIET_MS: "wait",
+    SWITCH_SIDES_MS: "move",
+    LIFE_HIT_MS: "move",
+  },
+  "alive.ts": {
+    ALIVE_MOTES_MS: "move",
+    ALIVE_PULSE_MS: "move",
+    ALIVE_RING_MS: "move",
+    ALIVE_CLOSE_MS: "move",
+    ALIVE_BACK_MS: "move",
+    ALIVE_FLOAT_MS: "wait",
+    ALIVE_POP_MS: "move",
+  },
+  "benchScenes.ts": { STORM_BEAT_MS: "wait", REPORT_BEAT_MS: "wait" },
+  "breathMotion.ts": { ZZ_LOOP_MS: "loop", ZZ_GAP_MS: "loop" },
+  "copies.ts": {
+    COPY_LIFT_MS: "move",
+    COPY_GLIDE_MS: "move",
+    COPY_FADE_MS: "move",
+    COPY_GHOST_MS: "derived",
+    COPY_FLIP_AT: "derived",
+    COPY_MARK_AT: "move",
+    MARK_GROW_MS: "move",
+    ORIGINAL_GLOW_MS: "move",
+    PEEL_IN_LIFT_MS: "move",
+    PEEL_IN_MS: "derived",
+    PEEL_MARK_AT: "move",
+    PEEL_BEAT_MS: "move",
+    COPY_END_MS: "move",
+    FIZZLE_REACH_MS: "move",
+    FIZZLE_RING_MS: "move",
+    FIZZLE_BEAM_OUT_AT: "move",
+    FIZZLE_GREY_AT: "move",
+    FIZZLE_GREY_MS: "move",
+    FIZZLE_GO_AT: "move",
+    FIZZLE_MS: "derived",
+    FIZZLE_HOLD_MS: "derived",
+  },
+  "effects.ts": { NUMBER_MS: "wait" },
+  "fights.ts": {
+    FIGHT_FOCUS_MS: "move",
+    FIGHT_REAR_MS: "move",
+    FIGHT_LUNGE_MS: "move",
+    FIGHT_SECOND_MS: "move",
+    FIGHT_KNOCK_MS: "move",
+    FIGHT_BACK_MS: "move",
+    FIGHT_BEAT_MS: "wait",
+    FIGHT_CRACKED_MS: "move",
+    STRIKE_REAR_MS: "move",
+    STRIKE_LUNGE_MS: "move",
+    STRIKE_HOLD_MS: "wait",
+    STRIKE_BACK_MS: "move",
+    STRIKE_AFTER_MS: "wait",
+    FIGHTS_FADE_MS: "move",
+    SLASH_MS: "move",
+    SLASH_GAP_MS: "move",
+    SLASH_NUMBER_MS: "wait",
+    HURT_EDGE_MS: "move",
+    FIGHTS_MAX_MS: "limit",
+  },
+  "gameEnd.ts": {
+    END_WAIT_MAX_MS: "limit",
+    BREAK_AT: "move",
+    BREAK_MS: "move",
+    CRACK_IN_MS: "move",
+    DIM_MS: "move",
+    PLATE_DIM_AFTER: "move",
+    FLARE_AT: "move",
+    FLARE_MS: "move",
+    GLOW_MS: "move",
+    BANNER_AT: "move",
+    BANNER_MS: "move",
+  },
+  "graves.ts": {
+    DISCARD_LIFT_MS: "move",
+    DISCARD_DROP_MS: "move",
+    DISCARD_MS: "derived",
+    DISCARD_BEAT_MS: "move",
+    MILL_BEAT_MS: "move",
+    MILL_OUT_MS: "move",
+    MILL_IN_MS: "move",
+    MILL_MS: "derived",
+    STRIKE_MS: "move",
+    ASH_MS: "move",
+    COUNTER_GO_MS: "move",
+    COUNTER_MS: "derived",
+    STRIKE_FX_MS: "move",
+    SHOW_RISE_MS: "move",
+    SHOW_HOLD_MS: "wait",
+    SHOW_GLIDE_MS: "move",
+    SHOW_MS: "derived",
+    SHOW_BEAT_MS: "move",
+    SWEPT_LIFT_MS: "move",
+    SWEPT_HOLD_MS: "wait",
+    SWEPT_MS: "derived",
+    TILE_POP_MS: "move",
+  },
+  "lifeTicks.ts": { LIFE_POINT_MS: "wait", LIFE_CHANGE_MAX_MS: "limit", LIFE_BEAT_MS: "wait" },
+  "markMotion.ts": {
+    RISE_MS: "move",
+    RISE_HOLD_MS: "wait",
+    DROP_MS: "move",
+    POP_MS: "move",
+    RISER_MS: "derived",
+    RISER_BEAT_MS: "move",
+    MARK_LAND_MS: "derived",
+    WHY_PULSE_MS: "move",
+    COMBAT_POP_MS: "move",
+    HELD_IN_MS: "move",
+    HELD_FLY_MS: "move",
+    FREED_WAIT_MS: "move",
+    TILE_GLOW_LEAD_MS: "move",
+    TILE_GLOW_MS: "move",
+  },
+  "opening.ts": {
+    DEAL_BEAT_MS: "move",
+    DEAL_MS: "move",
+    DEAL_NUMBER_AT: "move",
+    TURN_DOWN_MS: "move",
+    TURN_DOWN_BEAT_MS: "move",
+    SWEEP_AT: "move",
+    SWEEP_BEAT_MS: "move",
+    SWEEP_MS: "move",
+    RIFFLE_AT: "move",
+    REDEAL_AT: "move",
+    PUT_BACK_MS: "move",
+    KEEP_FADE_MS: "move",
+    KEEP_MS: "move",
+  },
+  "payPicks.ts": { PAY_HOLD_MS: "wait" },
+  "piles.ts": {
+    PEEL_MS: "move",
+    TOKEN_GROW_MS: "move",
+    TOKEN_MS: "derived",
+    TOKEN_BEAT_MS: "move",
+    TOKEN_BEAT_ABILITY_MS: "move",
+    TOKEN_AFTER_MS: "move",
+    SPARK_LEAD_MS: "move",
+    SPARK_MS: "move",
+    WAVE_MS: "move",
+    WAVE_STEP_MS: "move",
+    WAVE_NUMBER_AT: "move",
+    BADGE_POP_MS: "move",
+  },
+  "reports.ts": { FOLD_MS: "wait" },
+  "restart.ts": {
+    RESTART_HOLD_MS: "limit",
+    SWEEP_BEAT_MS: "move",
+    SWEEP_SPAN_MS: "limit",
+    RESTART_WAIT_MS: "limit",
+  },
+  "sizeTicks.ts": {
+    BADGE_LEAD_MS: "move",
+    TICK_LEAD_MS: "move",
+    POP_MS: "move",
+    GLOW_MS: "move",
+    SHAKE_MS: "move",
+    FLOAT_MS: "wait",
+    TINT_AFTER_MS: "move",
+    BADGE_GROW_MS: "move",
+    BADGE_POP_MS: "move",
+    BADGE_OUT_MS: "move",
+    SHRINK_BEAT_MS: "wait",
+  },
+  "stepAside.ts": {
+    ASIDE_MS: "move",
+    BACK_AFTER_MS: "wait",
+    STILL_HOLD_MS: "wait",
+    STILL_FADE_MS: "move",
+  },
+  "survive.ts": {
+    DOME_MS: "move",
+    WARD_MS: "move",
+    BREAK_MS: "move",
+    SPARK_MS: "move",
+    ZERO_MS: "wait",
+    SHIELD_UP_MS: "move",
+    SHAPE_IN_MS: "move",
+    REGEN_BURST_AT: "move",
+    REGEN_BURST_MS: "move",
+    SILVER_SHATTER_AT: "move",
+    SILVER_GONE_MS: "move",
+    SILVER_SHARD_MS: "move",
+    WARD_RING_MS: "move",
+    WARD_FLARE_MS: "move",
+  },
+  "umbra.ts": {
+    TAB_GO_MS: "move",
+    UNFOLD_MS: "move",
+    SLIDE_MS: "move",
+    SHIELD_LEAD_MS: "move",
+    HIT_MS: "move",
+    CRACK_AT: "move",
+    GONE_AT: "move",
+    GONE_MS: "move",
+    SHARD_MS: "move",
+    GHOST_AT: "move",
+  },
+  "CardBadges.tsx": { MARK_OUT_MS: "move", PREVENT_TICK_AT_MS: "move", PREVENT_STEP_MS: "wait" },
+  "CastingCard.tsx": {
+    FLY_MS: "move",
+    DECIDE_MS: "wait",
+    SETTLE_MS: "move",
+    FLIP_MS: "move",
+    HOLD_MS: "wait",
+  },
+  "DayMedallion.tsx": { MEDALLION_MS: "move", TURN_MS: "move" },
+  "DiceWindows.tsx": { ROLL_LINGER_MS: "wait" },
+  "FanCards.tsx": {
+    FAN_RISE_MS: "move",
+    FAN_SINK_MS: "move",
+    FAN_CLOSE_MS: "move",
+    FAN_GLOW_MS: "move",
+    FAN_TICK_MS: "move",
+    FAN_MORE_MS: "move",
+    FAN_FLOAT_MS: "wait",
+    TILE_PULSE_MS: "move",
+  },
+  "LibraryTop.tsx": {
+    TOP_RISE_MS: "move",
+    TOP_HOLD_MS: "wait",
+    TOP_SETTLE_MS: "move",
+    TOP_SHOW_MS: "derived",
+    TOP_LEAVE_MS: "move",
+  },
+  "LoadingRing.tsx": { COLLAPSE_MS: "screen", REVEAL_MS: "screen", BURST_MS: "screen" },
+  "PoisonBadge.tsx": {
+    PULSE_MS: "move",
+    GROW_MS: "move",
+    UNPOISON_STEP_MS: "wait",
+    UNPOISON_PILL_MS: "wait",
+    UNPOISON_GONE_AT: "move",
+    UNPOISON_GONE_MS: "move",
+  },
+  "RevealTray.tsx": { READ_START_MS: "wait", READ_MS: "wait" },
+  "RoomDoors.tsx": { DOOR_OPEN_MS: "move" },
+  "flights.tsx": {
+    HOLDER_FLY_MS: "move",
+    HOLDER_LAND_MS: "move",
+    EMBLEM_FLY_MS: "move",
+    EMBLEM_AFTER_MS: "move",
+    RING_FLY_MS: "move",
+    SPARK_MS: "move",
+    LOST_MS: "move",
+  },
+  "manaBalls.tsx": {
+    BALL_MS: "move",
+    BALL_LAG_MS: "move",
+    POP_MS: "move",
+    SPARK_MS: "move",
+    BURST_MS: "move",
+    PILL_HOLD_MS: "wait",
+    BALLS_LONGEST_MS: "limit",
+  },
+  "playerMarks.tsx": {
+    COUNT_POINT_MS: "wait",
+    COUNT_CHANGE_MAX_MS: "limit",
+    COUNT_PILL_MS: "wait",
+    COUNT_PULSE_MS: "move",
+    GROW_MS: "move",
+    MAP_LIFT_MS: "move",
+    MAP_STEP_AT: "move",
+    MAP_STEP_MS: "move",
+    MAP_GLOW_AT: "move",
+  },
+  "replay.tsx": { REPLAY_MAX_MS: "limit", REPLAY_MIN_MS: "limit" },
+  "turnStart.tsx": {
+    PLATE_RUN_MS: "move",
+    SHIELD_GLOW_AT: "move",
+    SHIELD_GLOW_MS: "move",
+    ROLL_MS: "move",
+    SWEEP_MS: "move",
+  },
+};
+
+/** The waits and limits spec 0106 lists by name: never paced. */
+const UNPACED: [string, string, number][] = [
+  ["motion.ts", "HURRY_MS", 100],
+  ["CastingCard.tsx", "HOLD_MS", 650],
+  ["CastingCard.tsx", "DECIDE_MS", 150],
+  ["fights.ts", "FIGHT_BEAT_MS", 450],
+  ["fights.ts", "SLASH_NUMBER_MS", 1400],
+  ["fights.ts", "FIGHTS_MAX_MS", 8000],
+  ["RevealTray.tsx", "READ_MS", 1100],
+  ["reports.ts", "FOLD_MS", 300],
+  ["manaBalls.tsx", "BALLS_LONGEST_MS", 8000],
+  ["replay.tsx", "REPLAY_MAX_MS", 12_000],
+  ["gameEnd.ts", "END_WAIT_MAX_MS", 3000],
+  ["restart.ts", "RESTART_HOLD_MS", 4000],
+  ["restart.ts", "RESTART_WAIT_MS", 30_000],
+  ["Board.tsx", "SPELL_WAIT_MS", 6000],
+  ["GameScreen.tsx", "RESPONSE_WINDOW_MS", 5000],
+  ["GameScreen.tsx", "SWING_HOLD_MS", 1500],
+];
+
+const here = resolve(__dirname);
+const sourceOf = (file: string) => readFileSync(resolve(here, file), "utf8");
+/** `const NAME... = rhs;` and the rest of its line. */
+function declaration(source: string, name: string): { rhs: string; line: string } | null {
+  const m = new RegExp(`^\\s*(?:export )?const ${name}\\b[^=]*= (.+?);(.*)$`, "m").exec(source);
+  return m ? { rhs: m[1]!, line: m[0] } : null;
+}
+
+describe("F-0106-A · the table's pace (spec 0106, item 1)", () => {
+  it("is 1.25x, rounded to a whole millisecond", () => {
+    expect(PACE).toBe(1.25);
+    expect(paced(450)).toBe(563);
+    expect(MOVE_MS).toBe(paced(450));
+  });
+
+  it("every timing constant on the battlefield is classified (a new one must be)", () => {
+    const files = readdirSync(here).filter(
+      (f) => /\.(ts|tsx)$/.test(f) && !/\.test\.tsx?$/.test(f),
+    );
+    const missing: string[] = [];
+    for (const file of files) {
+      const source = sourceOf(file);
+      const names = [
+        ...source.matchAll(/^\s*(?:export )?const ([A-Z][A-Z0-9_]*_MS)\b[^=]*=/gm),
+        ...source.matchAll(/^\s*(?:export )?const ([A-Z][A-Z0-9_]*_(?:AT|AFTER))\s*=\s*(\d+)/gm),
+      ]
+        .filter((m) => m[2] === undefined || Number(m[2]) >= 20)
+        .map((m) => m[1]!);
+      for (const name of names) if (!PACE_TABLE[file]?.[name]) missing.push(`${file} ${name}`);
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it("each movement is paced(<the canvas's ms>); each wait, limit and loop says it is not", async () => {
+    const modules = import.meta.glob<Record<string, unknown>>("./*.{ts,tsx}");
+    const wrong: string[] = [];
+    for (const [file, names] of Object.entries(PACE_TABLE)) {
+      const source = sourceOf(file);
+      const mod = await modules[`./${file}`]!();
+      for (const [name, how] of Object.entries(names)) {
+        const d = declaration(source, name);
+        if (!d) {
+          wrong.push(`${file} ${name}: not found`);
+          continue;
+        }
+        const base = /^paced\((\d+)\)$/.exec(d.rhs);
+        if (how === "move") {
+          if (!d.rhs.includes("paced(")) wrong.push(`${file} ${name}: not paced`);
+          if (base && name in mod && mod[name] !== paced(Number(base[1])))
+            wrong.push(`${file} ${name}: ${String(mod[name])} is not paced(${base[1]})`);
+        } else if (how === "derived") {
+          if (/(?<![A-Za-z_(\d])\d{2,}(?![\d)])/.test(d.rhs.replace(/paced\([^)]*\)/g, "")))
+            wrong.push(`${file} ${name}: a bare number in a derived time`);
+        } else if (d.rhs.includes("paced(") || !d.line.includes("not paced:")) {
+          wrong.push(`${file} ${name}: a ${how} must not be paced, and must say so`);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  it("the waits and limits spec 0106 names keep their numbers", async () => {
+    const modules = import.meta.glob<Record<string, unknown>>("./*.{ts,tsx}");
+    for (const [file, name, ms] of UNPACED) {
+      expect(PACE_TABLE[file]![name], `${file} ${name}`).toMatch(/wait|limit/);
+      const d = declaration(sourceOf(file), name)!;
+      expect(Number(d.rhs.replace(/_/g, "")), `${file} ${name}`).toBe(ms);
+      const mod = await modules[`./${file}`]!();
+      if (name in mod) expect(mod[name], `${file} ${name}`).toBe(ms);
+    }
   });
 });

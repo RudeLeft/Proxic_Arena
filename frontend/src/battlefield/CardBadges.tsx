@@ -19,6 +19,7 @@ import {
   useBadgeChanges,
   type Playing,
 } from "./sizeTicks";
+import { paced } from "./motion";
 
 const W = "#fff";
 
@@ -385,7 +386,7 @@ export interface GoneMark {
 }
 
 /** Spec 0085 -- a mark shrinks away over this long (the canvas's 0.35 s). */
-export const MARK_OUT_MS = 350;
+export const MARK_OUT_MS = paced(350);
 
 /**
  * A permanent's badges, or nothing. Loyalty is not one: it is the
@@ -701,8 +702,8 @@ function CardBadgesView({
 export const CardBadges = memo(CardBadgesView, sameProps);
 
 /** Spec 0101, row 7 -- when the count starts ticking after the board arrives (a resolving spell's blow, plus a beat), and each step. */
-export const PREVENT_TICK_AT_MS = 430;
-export const PREVENT_STEP_MS = 100;
+export const PREVENT_TICK_AT_MS = paced(430);
+export const PREVENT_STEP_MS = 100; // not paced: a wait (spec 0106)
 
 /** Spec 0101, row 7 -- the square, and its count ticking down when used (CSS on the board's arrival; compositor-only). */
 function PreventSquare({
@@ -858,7 +859,7 @@ function playBadges(root: HTMLElement, changes: readonly Playing[]) {
               { offset: 0.5, boxShadow: `0 0 0 3px ${colour}, 0 1px 3px #000a` },
               { offset: 1, boxShadow: `0 0 0 0px ${colour}, 0 1px 3px #000a` },
             ],
-            { duration: 500, delay: p.wait, easing: "linear" },
+            { duration: paced(500), delay: p.wait, easing: "linear" },
           );
       }
     }

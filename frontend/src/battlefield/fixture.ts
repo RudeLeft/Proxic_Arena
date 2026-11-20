@@ -772,6 +772,9 @@ export function syntheticFans(viewer: number, opponent: number): FanCard[] {
       square: null,
       time: 3,
     },
+    // Spec 0106 Amendment 1 -- real flashback names, to see them whole.
+    { zone: "graveyard", how: "cast", name: "Deep Analysis", types: "Sorcery", square: null },
+    { zone: "graveyard", how: "cast", name: "Dream Twist", types: "Instant", square: null },
   ].map((k) => ({
     mine: false,
     kind: "other",
@@ -796,6 +799,8 @@ export function syntheticFans(viewer: number, opponent: number): FanCard[] {
         id: `card:fan-${side}-${i}`,
         side,
         mine: side === "viewer",
+        // Spec 0106: each arrived after the one before (the newest last).
+        at: i,
       });
   return out;
 }

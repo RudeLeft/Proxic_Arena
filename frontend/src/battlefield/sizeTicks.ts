@@ -19,6 +19,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { LIFE_CHANGE_MAX_MS, LIFE_POINT_MS } from "./lifeTicks";
+import { paced } from "./motion";
 
 /** What a card's number says: power, the toughness it has left, loyalty. */
 export interface Size {
@@ -170,25 +171,25 @@ export function sizeChanges(
 // --- timing (the canvas's) ------------------------------------------------------
 
 /** The badge goes first; the number pops this long after (2 A). */
-export const BADGE_LEAD_MS = 120;
+export const BADGE_LEAD_MS = paced(120);
 /** The first point lands this long after the pop starts. */
-export const TICK_LEAD_MS = 40;
+export const TICK_LEAD_MS = paced(40);
 /** The number pops (scale 1.3) over this long. */
-export const POP_MS = 380;
+export const POP_MS = paced(380);
 /** The card's edge glows (soft, in the change's colour) over this long. */
-export const GLOW_MS = 900;
+export const GLOW_MS = paced(900);
 /** The small shake (0077's impact), on a change that harms. */
-export const SHAKE_MS = 360;
+export const SHAKE_MS = paced(360);
 /** The rising number's life. */
-export const FLOAT_MS = 1150;
+export const FLOAT_MS = 1150; // not paced: a wait (spec 0106)
 /** The tint on the number lasts its pop, and this. */
-export const TINT_AFTER_MS = 120;
+export const TINT_AFTER_MS = paced(120);
 /** A badge grows in, pops its number, shrinks away. */
-export const BADGE_GROW_MS = 380;
-export const BADGE_POP_MS = 360;
-export const BADGE_OUT_MS = 320;
+export const BADGE_GROW_MS = paced(380);
+export const BADGE_POP_MS = paced(360);
+export const BADGE_OUT_MS = paced(320);
 /** Item 4 -- a creature shrunk to death breaks this long after it reached its last size. */
-export const SHRINK_BEAT_MS = 600;
+export const SHRINK_BEAT_MS = 600; // not paced: a wait (spec 0106)
 
 /** The colours, as the canvas's (and 0077's): up, down, gold, quiet. */
 export const SIZE_COLOUR: Record<SizeLook, string> = {
@@ -420,6 +421,6 @@ export function useShownSize(card: string, size: Size): { size: Size; tint: stri
 export function useBadgeChanges(card: string): Playing[] {
   useSizeClock(card);
   return playingOf(card).filter(
-    (p) => p.change.badges.length > 0 && p.wait + BADGE_OUT_MS + 60 > 0,
+    (p) => p.change.badges.length > 0 && p.wait + BADGE_OUT_MS + paced(60) > 0,
   );
 }

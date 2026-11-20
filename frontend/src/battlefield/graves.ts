@@ -27,7 +27,7 @@
 // the real card by its height.
 
 import type { Box } from "./layout";
-import { cubicBezier, MOVE_MS, placement, type Point } from "./motion";
+import { paced, cubicBezier, MOVE_MS, placement, type Point } from "./motion";
 
 /** A card drawn at a moment: centre, rotation, scale (sx squeezes it edge-on), opacity, filter. */
 export interface Pose {
@@ -137,11 +137,11 @@ function turning(q: number, half: Side2): { sx: number; seen: boolean } {
 // --- A · Lift and drop (discarded) ----------------------------------------------
 
 /** The lift (A-14's: 12 of the canvas card's 134 pixels, growing to 1.05), then the drop. */
-export const DISCARD_LIFT_MS = 180;
-export const DISCARD_DROP_MS = 520;
+export const DISCARD_LIFT_MS = paced(180);
+export const DISCARD_DROP_MS = paced(520);
 export const DISCARD_MS = DISCARD_LIFT_MS + DISCARD_DROP_MS;
 /** Several discards: each this far behind the one before. */
-export const DISCARD_BEAT_MS = 120;
+export const DISCARD_BEAT_MS = paced(120);
 const DISCARD_RISE = 12 / 134;
 const DISCARD_GROW = 1.05;
 /** The drop's arc, in the canvas card's 50/134; the other player's bows down toward the table. */
@@ -218,10 +218,10 @@ export function discardFrames(
 // --- C · Stream (milled) ------------------------------------------------------------
 
 /** Each card this far behind the one before (the canvas's 90 ms). */
-export const MILL_BEAT_MS = 90;
+export const MILL_BEAT_MS = paced(90);
 /** Off the library to beside the plate, turning face up; then into the graveyard. */
-export const MILL_OUT_MS = 300;
-export const MILL_IN_MS = 420;
+export const MILL_OUT_MS = paced(300);
+export const MILL_IN_MS = paced(420);
 export const MILL_MS = MILL_OUT_MS + MILL_IN_MS;
 /** This many go one by one; the rest go together as one bundle with its number. */
 export const MILL_SHOWN = 10;
@@ -308,14 +308,14 @@ export function millFrames(
 // --- F · Struck by the beam (countered) ---------------------------------------------
 
 /** The pulse runs down the countering spell's beam. */
-export const STRIKE_MS = 300;
+export const STRIKE_MS = paced(300);
 /** Then the spell drains to grey and crumbles. */
-export const ASH_MS = 600;
+export const ASH_MS = paced(600);
 /** It sets off for its graveyard after the countering spell has resolved (380) and a beat. */
-export const COUNTER_GO_MS = 380 + 40 + ASH_MS;
+export const COUNTER_GO_MS = paced(380 + 40) + ASH_MS;
 export const COUNTER_MS = COUNTER_GO_MS + MOVE_MS;
 /** The beam: it flares (2.6 times as thick at most) and fades by this long. */
-export const STRIKE_FX_MS = STRIKE_MS + 260;
+export const STRIKE_FX_MS = STRIKE_MS + paced(260);
 const ASHEN = (p: number, grey: number) =>
   `grayscale(${grey}) brightness(${lerp(1, 0.62, ease(p))}) contrast(${lerp(1, 0.8, p)})`;
 
@@ -359,7 +359,7 @@ export function counterFrames(
 
 /** The beam's flare: how much thicker, at `ms` (the canvas's: 1 + 1.6 over its first 420 ms). */
 export function strikeFlare(ms: number): number {
-  const q = S(ms, 0, STRIKE_MS + 120);
+  const q = S(ms, 0, STRIKE_MS + paced(120));
   return 1 + 1.6 * (q <= 0 || q >= 1 ? 0 : Math.sin(Math.PI * q));
 }
 
@@ -372,7 +372,7 @@ export function strikeBeamFrames(w: number): Keyframe[] {
       offset: at(ms),
       strokeWidth: `${w * strikeFlare(ms)}px`,
       stroke: ms < 40 ? "#f1c36a" : "#fff3c9",
-      opacity: 1 - S(ms, STRIKE_MS + 80, STRIKE_FX_MS),
+      opacity: 1 - S(ms, STRIKE_MS + paced(80), STRIKE_FX_MS),
     });
   }
   return frames;
@@ -405,15 +405,15 @@ export function strikePulseFrames(points: readonly Point[]): Keyframe[] {
 /** The ripple on the countered spell bursting (by 40 canvas pixels), fading. */
 export function strikeRingFrames(r: number, k: number): Keyframe[] {
   const at = (ms: number) => ms / STRIKE_FX_MS;
-  const big = (ms: number) => easeOut(S(ms, STRIKE_MS - 40, STRIKE_MS + 260));
+  const big = (ms: number) => easeOut(S(ms, STRIKE_MS - paced(40), STRIKE_MS + paced(260)));
   const frames: Keyframe[] = [
     { offset: 0, opacity: 0, transform: "translate(-50%, -50%) scale(1)" },
   ];
   for (const ms of [
-    STRIKE_MS - 40,
-    STRIKE_MS + 20,
-    STRIKE_MS + 80,
-    STRIKE_MS + 160,
+    STRIKE_MS - paced(40),
+    STRIKE_MS + paced(20),
+    STRIKE_MS + paced(80),
+    STRIKE_MS + paced(160),
     STRIKE_FX_MS,
   ]) {
     const b = big(ms);
@@ -429,14 +429,14 @@ export function strikeRingFrames(r: number, k: number): Keyframe[] {
 // --- H · Rise and show (out of a graveyard or exile) ---------------------------------
 
 /** It rises out of the tile to beside the plate, enlarged ... */
-export const SHOW_RISE_MS = 300;
+export const SHOW_RISE_MS = paced(300);
 /** ... stays there to be read ... */
-export const SHOW_HOLD_MS = 600;
+export const SHOW_HOLD_MS = 600; // not paced: a wait (spec 0106)
 /** ... then glides where it goes. */
-export const SHOW_GLIDE_MS = 520;
+export const SHOW_GLIDE_MS = paced(520);
 export const SHOW_MS = SHOW_RISE_MS + SHOW_HOLD_MS + SHOW_GLIDE_MS;
 /** Several: each this far behind the one before. */
-export const SHOW_BEAT_MS = 110;
+export const SHOW_BEAT_MS = paced(110);
 /** Its size while shown, of a table card. */
 export const SHOW_SCALE = 1.2;
 /** Into a hidden place it turns face down between these shares of the glide. */
@@ -566,8 +566,8 @@ export function showFrames(
 // --- Swept as one (a whole graveyard exiled) -----------------------------------------
 
 /** They lift out together, fanned, glowing; hold; then slide into exile together. */
-export const SWEPT_LIFT_MS = 520;
-export const SWEPT_HOLD_MS = 250;
+export const SWEPT_LIFT_MS = paced(520);
+export const SWEPT_HOLD_MS = 250; // not paced: a wait (spec 0106)
 export const SWEPT_MS = SWEPT_LIFT_MS + SWEPT_HOLD_MS + MOVE_MS;
 export const SWEPT_SCALE = 0.66;
 
@@ -620,7 +620,7 @@ export function sweptFrames(
 
 /** The canvas's pop as a tile's number changes: 0.35 over 220 ms. */
 export const TILE_POP = 0.35;
-export const TILE_POP_MS = 220;
+export const TILE_POP_MS = paced(220);
 
 /** One change to a tile's number: at `at` ms, by `by`. */
 export interface TileChange {

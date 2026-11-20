@@ -18,6 +18,7 @@
 
 import type { Box } from "./layout";
 import type { Point } from "./motion";
+import { paced } from "./motion";
 
 /** One mark, as the Board's FightMark takes it. */
 export interface SurviveMark {
@@ -43,17 +44,17 @@ export interface SurviveMark {
 }
 
 /** The dome: up in 120 ms, flickering; held; gone by 1 s (the canvas's F1). */
-export const DOME_MS = 1000;
+export const DOME_MS = paced(1000);
 /** Its size round the card (the canvas's 1.7 x 1.32 of the card). */
 export const DOME_W = 1.7;
 export const DOME_H = 1.32;
 /** The prevention shield: up, the ripple at the blow, gone (the canvas's domeAt). */
-export const WARD_MS = 1200;
+export const WARD_MS = paced(1200);
 /** The shield mark breaking. */
-export const BREAK_MS = 600;
-export const SPARK_MS = 450;
+export const BREAK_MS = paced(600);
+export const SPARK_MS = paced(450);
 /** A grey "0" (or the gold number off the dome), rising as the fights' numbers do. */
-export const ZERO_MS = 1400;
+export const ZERO_MS = 1400; // not paced: a wait (spec 0106)
 
 const centre = (b: Box): Point => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
 
@@ -65,9 +66,9 @@ const centre = (b: Box): Point => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
 // silver heater shield that cracks and shatters, ward's ring.
 
 /** Spec 0101 -- every shield shape is fully up this long before the blow. */
-export const SHIELD_UP_MS = 150;
+export const SHIELD_UP_MS = paced(150);
 /** ...and takes this long to come up. */
-export const SHAPE_IN_MS = 120;
+export const SHAPE_IN_MS = paced(120);
 /** When a shape starts coming up, for a blow at `delay` (never before now). */
 export const shapeStart = (delay: number) => Math.max(0, delay - SHIELD_UP_MS - SHAPE_IN_MS);
 
@@ -109,8 +110,8 @@ export const numberPoint = (box: Box): Point => ({
 });
 
 /** Spec 0101, row 1 -- the green shield holds this long after the blow, then bursts. */
-export const REGEN_BURST_AT = 350;
-export const REGEN_BURST_MS = 200;
+export const REGEN_BURST_AT = paced(350);
+export const REGEN_BURST_MS = paced(200);
 
 /**
  * Spec 0101, row 1 (combat Q6 v3) -- a green shield comes up over the card
@@ -134,7 +135,7 @@ export function regenShieldMarks(key: string, box: Box, delay: number, of: strin
         { offset: 0, opacity: 0, transform: "scale(0.5)" },
         { offset: at(start + SHAPE_IN_MS), opacity: 1, transform: "scale(1)" },
         { offset: at(delay), opacity: 1, transform: "scale(1)" },
-        { offset: at(delay + 60), opacity: 1, transform: "scale(1.06)" },
+        { offset: at(delay + paced(60)), opacity: 1, transform: "scale(1.06)" },
         { offset: at(delay + REGEN_BURST_AT), opacity: 1, transform: "scale(1)" },
         { offset: 1, opacity: 0, transform: "scale(1.5)" },
       ],
@@ -147,10 +148,10 @@ export function regenShieldMarks(key: string, box: Box, delay: number, of: strin
 }
 
 /** Spec 0101, row 3 -- the silver shield cracks at the blow and shatters this long after. */
-export const SILVER_SHATTER_AT = 550;
-export const SILVER_GONE_MS = 120;
+export const SILVER_SHATTER_AT = paced(550);
+export const SILVER_GONE_MS = paced(120);
 export const SILVER_SHARDS = 10;
-export const SILVER_SHARD_MS = 600;
+export const SILVER_SHARD_MS = paced(600);
 
 /**
  * Spec 0101, row 3 (missed Q3 A) -- a shield counter used: the silver
@@ -182,8 +183,8 @@ export function silverShieldMarks(key: string, box: Box, delay: number, of: stri
         { offset: 0, opacity: 0, transform: "scale(0.72)" },
         { offset: at(start + SHAPE_IN_MS), opacity: 1, transform: "scale(1)" },
         { offset: at(delay), opacity: 1, transform: "scale(1)" },
-        { offset: at(delay + 120), opacity: 1, transform: "scale(1.08)" },
-        { offset: at(delay + 250), opacity: 1, transform: "scale(1)" },
+        { offset: at(delay + paced(120)), opacity: 1, transform: "scale(1.08)" },
+        { offset: at(delay + paced(250)), opacity: 1, transform: "scale(1)" },
         { offset: at(delay + SILVER_SHATTER_AT), opacity: 1, transform: "scale(1)" },
         { offset: 1, opacity: 0, transform: "scale(1)" },
       ],
@@ -220,7 +221,7 @@ export function silverShieldMarks(key: string, box: Box, delay: number, of: stri
 }
 
 /** Spec 0101, row 6 -- the ring pulsing out from a warded creature (the canvas's 0.8 s, to 240 of a 135 card). */
-export const WARD_RING_MS = 800;
+export const WARD_RING_MS = paced(800);
 export function wardRingMarks(key: string, box: Box, delay: number, of: string): SurviveMark[] {
   const c = centre(box);
   const r = (240 / 135) * box.h * 0.5;
@@ -242,7 +243,7 @@ export function wardRingMarks(key: string, box: Box, delay: number, of: string):
 }
 
 /** Spec 0101, rows 2, 5, 6 -- a square's pulse or flare (the canvas's bump over 0.55 s). */
-export const WARD_FLARE_MS = 550;
+export const WARD_FLARE_MS = paced(550);
 /** Ward's flare: swells x2.5 and glows pale blue. */
 export function wardFlareFrames(): Keyframe[] {
   return [0, 0.25, 0.5, 0.75, 1].map((p) => {
@@ -299,7 +300,7 @@ export function domeMarks(key: string, box: Box, delay: number, of: string): Sur
   const h = box.h * DOME_H;
   // Spec 0101: fully up (its 120 ms frame) SHIELD_UP_MS before the blow.
   const start = shapeStart(delay);
-  const at = (ms: number) => Math.min(1, ms / DOME_MS);
+  const at = (ms: number) => Math.min(1, paced(ms) / DOME_MS);
   return [
     {
       key: `${key}:dome`,
@@ -324,7 +325,7 @@ export function domeMarks(key: string, box: Box, delay: number, of: string): Sur
       `${key}:bottom`,
       { x: c.x, y: c.y + h / 2 - 4 },
       box.h * 0.32,
-      delay + 40,
+      delay + paced(40),
       of,
       "gold",
     ),
@@ -382,7 +383,7 @@ export function wardMarks(
         { offset: 1, opacity: 0, transform: "translate(-50%, -50%) translateY(-40%) scale(1)" },
       ],
       duration: ZERO_MS,
-      delay: delay + 50,
+      delay: delay + paced(50),
       text: "0",
       of,
       tone: "grey",
@@ -424,7 +425,7 @@ export function shieldBreakMarks(
       key,
       { x: left + size / 2, y: top + size / 2 },
       box.h * 0.3,
-      delay + 120,
+      delay + paced(120),
       of,
       "green",
       10,

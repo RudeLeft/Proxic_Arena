@@ -38,6 +38,7 @@ vi.mock("../shell/LobbyConnection", () => ({
 }));
 
 const { GameScreen } = await import("./GameScreen");
+const { STACK_IN_MS } = await import("./Board");
 
 type Recorded = { element: Element; frames: Keyframe[]; animation: Animation };
 let animations: Recorded[] = [];
@@ -196,13 +197,14 @@ describe("F-0105-E · the ring runs from landing; the stack card leaves with the
     send(state(2, { battlefield: [bears], stack: [victim] }));
     expect(c.querySelector('[data-object-id="stack:6"]')).toBeTruthy();
     expect(ring(c)).toBeNull();
-    // It slides in (STACK_IN_MS) and lands 300 ms after the board came.
-    advance(300);
+    // It slides in (STACK_IN_MS, paced by spec 0106) and has landed this long after the board came.
+    const landing = STACK_IN_MS + 40;
+    advance(landing);
     const r = ring(c);
     expect(r).toBeTruthy();
-    expect(r!.dataset["restMs"]).toBe("5300");
+    expect(r!.dataset["restMs"]).toBe(`${5600 - landing}`);
     expect(r!.querySelector<SVGCircleElement>(".gs-coin-ring")!.style.animationDuration).toBe(
-      "5300ms",
+      `${5600 - landing}ms`,
     );
     // No words, nothing to click, no pause sign.
     expect(r!.getAttribute("aria-hidden")).toBe("true");
@@ -218,7 +220,7 @@ describe("F-0105-E · the ring runs from landing; the stack card leaves with the
     expect(ring(c)).toBeTruthy();
     // The page's own record (the real-click game reads it).
     expect(record()).toHaveLength(1);
-    expect(record()[0]!.landed - record()[0]!.seen).toBe(300);
+    expect(record()[0]!.landed - record()[0]!.seen).toBe(landing);
     expect(record()[0]!.left).toBeNull();
     // The resolution's board: gone.
     send(state(2, { graveyard: [card("card:30", 1, "Victim of Night", { kind: "other" })] }));

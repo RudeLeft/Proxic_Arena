@@ -8,6 +8,7 @@
 // sends.
 
 import { render } from "@testing-library/react";
+import { paced } from "./motion";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, type BoardCard, type StackView } from "./Board";
 import { boardFromSnapshot, type Survive } from "./fromSnapshot";
@@ -148,7 +149,7 @@ const greys = (c: HTMLElement, of: string) =>
 
 // Bob's Lightning Bolt on the stack, aimed at the creature, resolves on the
 // next board: the blow lands when its spark does (RESOLVE_MS = 380).
-const BLOW = 380;
+const BLOW = paced(380);
 const FRAME = 17;
 function bolt(target: string): StackView {
   return {
@@ -258,7 +259,7 @@ describe("F-0101-C · the seven survive rows: shield up 0.15 s before the hit, a
     );
     const zero = greys(view.container, lion.id);
     expect(zero.map((m) => m.textContent)).toEqual(["0"]);
-    expect(delayOf(callOf(zero[0]!))).toBe(umbraTimes(BLOW).blow + 50);
+    expect(delayOf(callOf(zero[0]!))).toBe(umbraTimes(BLOW).blow + paced(50));
   });
 
   it("5 · protection from red: the pale shield up before the hit, the square pulses and stays, a grey 0", () => {
@@ -346,8 +347,8 @@ describe("F-0101-C · the seven survive rows: shield up 0.15 s before the hit, a
   });
 
   it("every shape takes SHAPE_IN_MS to come up (the shared lead)", () => {
-    expect(SHIELD_UP_MS).toBe(150);
-    expect(SHAPE_IN_MS).toBe(120);
+    expect(SHIELD_UP_MS).toBe(paced(150));
+    expect(SHAPE_IN_MS).toBe(paced(120));
   });
 });
 

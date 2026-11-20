@@ -21,7 +21,7 @@ export const Z_EFFECTS = 6000;
 
 /** A spell's damage number (AMENDMENT 7 item 5). Combat's fights are fights.ts
  * (Phase 10 A-13), which replaced AMENDMENT 7's swoop. */
-export const NUMBER_MS = 1000;
+export const NUMBER_MS = 1000; // not paced: a wait (spec 0106)
 
 /** What a line or a hit points at: a permanent, or a player. */
 export type TargetRef = { object: string } | { player: number };

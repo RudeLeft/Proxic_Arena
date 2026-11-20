@@ -12,6 +12,7 @@
 // `by` the Aura -- Forge's own replacement record, never a card's name).
 
 import type { Box } from "./layout";
+import { paced } from "./motion";
 
 /** One mark, as the Board's FightMark takes it. */
 export interface UmbraMark {
@@ -27,26 +28,26 @@ export interface UmbraMark {
 }
 
 /** The tab leaves the creature's edge, widening and fading (the canvas's 0.3 s). */
-export const TAB_GO_MS = 300;
+export const TAB_GO_MS = paced(300);
 /** The shield unfolds from the tab (0.55 s), first sliding over the creature (0.3 s). */
-export const UNFOLD_MS = 550;
-export const SLIDE_MS = 300;
+export const UNFOLD_MS = paced(550);
+export const SLIDE_MS = paced(300);
 /**
  * Spec 0101 (combat Q6 v3) -- it starts unfolding this long before the
  * blow: its unfold, then whole 150 ms before the blow, the lead every shield
  * shape shares (survive.ts SHIELD_UP_MS). Was 650 (0089: whole 100 ms before).
  */
-export const SHIELD_LEAD_MS = 550 + 150;
+export const SHIELD_LEAD_MS = UNFOLD_MS + paced(150);
 /** The blow: it brightens (0.3 s); it cracks 80 ms in; it goes from 250 ms over 200. */
-export const HIT_MS = 300;
-export const CRACK_AT = 80;
-export const GONE_AT = 250;
-export const GONE_MS = 200;
+export const HIT_MS = paced(300);
+export const CRACK_AT = paced(80);
+export const GONE_AT = paced(250);
+export const GONE_MS = paced(200);
 /** Its pieces fly from 250 ms after the blow, for 0.6 s. */
 export const SHARDS = 18;
-export const SHARD_MS = 600;
+export const SHARD_MS = paced(600);
 /** A small ghost of the umbra leaves for the graveyard 400 ms after the blow, at 0.55 of a card. */
-export const GHOST_AT = 400;
+export const GHOST_AT = paced(400);
 export const GHOST_SCALE = 0.55;
 /** The shield's size over its creature (the canvas's 1.35 x 1.22 of the card). */
 export const SHIELD_W = 1.35;

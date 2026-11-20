@@ -19,7 +19,7 @@ import {
 } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { geometry, type Box } from "./layout";
-import { anchors, fateMs, MOVE_MS } from "./motion";
+import { anchors, fateMs, MOVE_MS, paced } from "./motion";
 import { DISCARD_MS, SHOW_MS, SHOW_RISE_MS, SHOW_SCALE, besideTile } from "./graves";
 import { ROWS, layoutOf, openReports } from "./reports";
 import { RevealTray } from "./RevealTray";
@@ -719,7 +719,8 @@ describe("F-0088-D · the top card's place and its rise and show", () => {
     const held = frames.find((f) => f.offset === (TOP_RISE_MS + TOP_HOLD_MS) / TOP_SHOW_MS)!;
     expect(held.transform).toBe(shown.transform);
     expect(frames[frames.length - 1]!.transform).toBe("translate(0px, 0px) scale(1, 1)");
-    expect(TOP_SHOW_MS).toBe(1300);
+    // Spec 0106: the rise and settle paced; the hold (to be read) is not.
+    expect(TOP_SHOW_MS).toBe(paced(300) + 600 + paced(400));
     // The back covers it for the first 40% of the rise, then is gone.
     const back = topBackFrames();
     expect(back[1]!.opacity).toBe(1);

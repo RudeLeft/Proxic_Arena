@@ -11,6 +11,7 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, type BoardCard, type StackView } from "./Board";
 import { combatScript } from "./fixture";
+import { BALL_LAG_MS } from "./manaBalls";
 import {
   COUNT_PILL_MS,
   CountBadge,
@@ -749,7 +750,7 @@ describe("mana flies into the pool, a ball per mana (F-0086-F)", () => {
     const chip = () => view.container.querySelector<HTMLElement>('[data-pool="1:B"]')!;
     expect(chip().dataset["shown"]).toBe("0");
     const delays = [...new Set(fromRitual.map((c) => c.options.delay))];
-    expect(delays.slice(0, 3)).toEqual([0, 70, 140]);
+    expect(delays.slice(0, 3)).toEqual([0, BALL_LAG_MS, 2 * BALL_LAG_MS]);
     const first = fromRitual.filter((c) => c.options.delay === 0)[0]!;
     finish(first);
     expect(chip().dataset["shown"]).toBe("1");

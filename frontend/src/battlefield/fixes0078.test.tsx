@@ -10,6 +10,7 @@
 import { cloneElement } from "react";
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { paced } from "./motion";
 import { Board, type BoardCard, type StackView } from "./Board";
 import {
   BADGE_LEAD_MS,
@@ -24,7 +25,7 @@ import {
 import { boardFromSnapshot } from "./fromSnapshot";
 import type { Snapshot, SnapshotCard } from "../match";
 
-const RESOLVE_MS = 380;
+const RESOLVE_MS = paced(380);
 const GREEN = "#7be08a";
 const RED = "#ff6b57";
 const GREY = "#c9d2cc";
@@ -380,7 +381,7 @@ describe("Glorious Anthem (F-0078-D)", () => {
     const delays = all.map((f) => callOf(f)[0]!.options.delay);
     // Together, once the Anthem has landed on the table.
     expect(new Set(delays).size).toBe(1);
-    expect(delays[0]).toBe(450);
+    expect(delays[0]).toBe(paced(450));
   });
 });
 

@@ -428,7 +428,7 @@ export function CrankWindow(props: Common) {
 }
 
 /** How long a die stays after its ability has left the stack. */
-export const ROLL_LINGER_MS = 3000;
+export const ROLL_LINGER_MS = 3000; // not paced: a wait (spec 0106)
 const ROLL_SIZE = 60;
 
 /**

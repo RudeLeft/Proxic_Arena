@@ -11,7 +11,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, type BoardCard, type StackView } from "./Board";
 import { RevealTray } from "./RevealTray";
-import { anchors, FLIP_MS, MOVE_MS } from "./motion";
+import { anchors, FLIP_MS, MOVE_MS, paced } from "./motion";
 import { geometry } from "./layout";
 import {
   COPY_FLIP_AT,
@@ -31,7 +31,7 @@ import { boardFromSnapshot } from "./fromSnapshot";
 const size = { width: 1920, height: 1080 };
 const g = geometry(size);
 const where = anchors(g);
-const RESOLVE_MS = 380;
+const RESOLVE_MS = paced(380);
 type Call = {
   element: Element;
   frames: Keyframe[];
@@ -441,7 +441,7 @@ describe("F-0079-C · storm: one copy card xN, ticking", () => {
       ...view.container.querySelectorAll<HTMLElement>('[data-ghost-of^="peel:stack:9:"]'),
     ];
     expect(peels.length).toBe(3);
-    expect(peels.map((p) => delayOf(runOf(p)!))).toEqual([150, 300, 450]);
+    expect(peels.map((p) => delayOf(runOf(p)!))).toEqual([1, 2, 3].map((k) => k * paced(150)));
     // The number ticks: held copies of the earlier numbers (x2, x3) while they land.
     const held = [...lead.parentElement!.querySelectorAll<HTMLElement>(".bf-stack-many-was")].map(
       (h) => h.dataset.manyWas,

@@ -23,7 +23,7 @@ import { EMPTY_MATCH, reduceMatch, type Snapshot } from "../match";
 import { Board, peekBox, type PiledCard, type StackView } from "./Board";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { geometry } from "./layout";
-import { anchors } from "./motion";
+import { anchors, paced } from "./motion";
 
 const size = { width: 1920, height: 1080 };
 type Clock = { element: Element; options: KeyframeAnimationOptions; animation: Animation };
@@ -443,7 +443,7 @@ describe("F-0100-E · whose beam, a beam that swings, pointing lifts", () => {
     expect(view.container.querySelector("[data-line-leaving]")).toBeNull();
     // Its clock is a Web Animation of SWING_MS (a click hurries it); it lands.
     const clock = clocks.find((k) => k.element === swing)!;
-    expect(Number(clock.options.duration)).toBe(400);
+    expect(Number(clock.options.duration)).toBe(paced(400));
     act(() => (clock.animation.onfinish as unknown as () => void)());
     expect(slotOf(view.container, SKITE.id).querySelector('[data-sight="true"]')).toBeTruthy();
     expect(beams(view.container)[0]).toBe(before[0]);

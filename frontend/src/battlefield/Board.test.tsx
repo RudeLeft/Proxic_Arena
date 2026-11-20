@@ -12,7 +12,7 @@ import {
 } from "./Board";
 import { applyChanges, combatScript, syntheticBoard } from "./fixture";
 import { TAPPED_ORIGIN, inCombat, layout } from "./layout";
-import { anchors, LIFE_R, placement, RETURN_MS, type AnchorId } from "./motion";
+import { anchors, LIFE_R, paced, placement, RETURN_MS, type AnchorId } from "./motion";
 import { pointOn, STACK_READ_SCALE, stackSpotBoxes, STUD_AT, TIP_GAP } from "./effects";
 
 /**
@@ -327,7 +327,7 @@ describe("Board movement", () => {
     for (const id of ids) {
       const ghost = view.container.querySelector(`[data-ghost-of="${id}"]`)!;
       expect(ghost.getAttribute("data-fate")).toBe("defeated");
-      expect((ghost as HTMLElement).style.getPropertyValue("--fx-delay")).toBe("220ms");
+      expect((ghost as HTMLElement).style.getPropertyValue("--fx-delay")).toBe(`${paced(220)}ms`);
     }
   });
 
@@ -1176,7 +1176,7 @@ describe("Board lines and effects", () => {
       const leaving = c.querySelectorAll(".bf-line-out[data-line-leaving]");
       expect(leaving).toHaveLength(1);
       act(() => {
-        vi.advanceTimersByTime(170);
+        vi.advanceTimersByTime(paced(160) + 10);
       });
       expect(c.querySelectorAll("[data-line-leaving]")).toHaveLength(0);
       reduced = true;
@@ -1199,9 +1199,11 @@ describe("Board lines and effects", () => {
       )!;
       return call;
     });
-    expect(steps.map((c) => c.options.duration)).toEqual([600, 600, 600]);
+    expect(steps.map((c) => c.options.duration)).toEqual([paced(600), paced(600), paced(600)]);
     expect(steps.map((c) => c.options.delay).sort((p, q) => Number(p) - Number(q))).toEqual([
-      0, 120, 240,
+      0,
+      paced(120),
+      2 * paced(120),
     ]);
     // Each ends exactly where the layout puts it: the front line.
     for (const [i, id] of ["card:201", "card:202", "card:203"].entries()) {
@@ -1222,9 +1224,11 @@ describe("Board lines and effects", () => {
           (c) => c.element.querySelector(`:scope > button[data-object-id="${id}"]`) !== null,
         )!,
     );
-    expect(moved.map((c) => c.options.duration)).toEqual([650, 650, 650]);
+    expect(moved.map((c) => c.options.duration)).toEqual([paced(650), paced(650), paced(650)]);
     expect(moved.map((c) => c.options.delay).sort((p, q) => Number(p) - Number(q))).toEqual([
-      0, 160, 320,
+      0,
+      paced(160),
+      2 * paced(160),
     ]);
   });
 
@@ -1573,7 +1577,7 @@ describe("Board lines and effects", () => {
       Array.from({ length: 20 }, () => "player:1 −15"),
     );
     // Twenty fights speed up together (to 0.3 of their time at most): one clock.
-    expect(Number(lunges[0]!.options.duration)).toBeLessThan(20 * 1500 * 0.31 + 250);
+    expect(Number(lunges[0]!.options.duration)).toBeLessThan(20 * paced(1500) * 0.31 + paced(250));
     expect(new Set(lunges.map((c) => c.options.duration)).size).toBe(1);
     // Each lunges toward your plate and back.
     expect(lunges[0]!.frames.some((f) => f.transform !== rest)).toBe(true);
@@ -1842,7 +1846,7 @@ describe("Board: back to a hand or a library (A-14)", () => {
     expect(riffles).toHaveLength(6);
     const delays = riffles.map((r) => calls.find((c) => c.element === r)!.options.delay!);
     expect(delays[0]).toBe(RETURN_MS);
-    expect(delays[5]! - delays[0]!).toBe(250);
+    expect(delays[5]! - delays[0]!).toBe(5 * paced(50));
     // Unseen until each starts: not held at rest on the pile while the card flies.
     for (const r of riffles) {
       expect(calls.find((c) => c.element === r)!.options.fill).toBe("forwards");

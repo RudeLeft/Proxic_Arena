@@ -12,7 +12,7 @@
 // and the card (CastingCard.tsx) all read the same answers.
 
 import type { Box, Geometry } from "./layout";
-import { MOVE_MS, SPENT_BEAT_MS, SPENT_FOLD_MS } from "./motion";
+import { paced, MOVE_MS, SPENT_BEAT_MS, SPENT_FOLD_MS } from "./motion";
 import { PEEL_MS } from "./piles";
 
 /** How much bigger than a card on the table. */
@@ -38,12 +38,12 @@ export function castingBox(g: Geometry): Box {
 }
 
 /** Spec 0091, item 1 -- the slide aside, and the glide back (about 0.25 s each). */
-export const ASIDE_MS = 250;
+export const ASIDE_MS = paced(250);
 /** Spec 0091, item 3 -- it starts back this long after the last card has finished. */
-export const BACK_AFTER_MS = 250;
+export const BACK_AFTER_MS = 250; // not paced: a wait (spec 0106)
 /** Spec 0091, item 6 -- reduce motion: see-through this long, fading in and out quickly. */
-export const STILL_HOLD_MS = 700;
-export const STILL_FADE_MS = 120;
+export const STILL_HOLD_MS = 700; // not paced: a wait (spec 0106)
+export const STILL_FADE_MS = paced(120);
 /** The gap left between the moved card (with its line) and what it uncovers. */
 const CLEAR_GAP = 14;
 /** The line under the card -- the cost pips (yours; theirs has no caption since spec 0097 item 8). */

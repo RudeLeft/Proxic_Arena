@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { paced } from "./motion";
 import { TAPPED_ORIGIN, inCombat, layout, type Box } from "./layout";
 import { pointOn } from "./effects";
 import { combatScript } from "./fixture";
@@ -292,7 +293,7 @@ describe("the frames (A-13)", () => {
     })!;
     expect(plan.fights).toHaveLength(20);
     expect(plan.speed).toBe(FIGHTS_FASTEST);
-    expect(plan.total).toBeLessThan(20 * 1500 * FIGHTS_FASTEST + 300);
+    expect(plan.total).toBeLessThan(20 * paced(1500) * FIGHTS_FASTEST + paced(300));
   });
 });
 

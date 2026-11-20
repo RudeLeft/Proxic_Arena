@@ -139,6 +139,7 @@ const fanOf = (c: BoardCard): FanCard => ({
   known: true,
   time: null,
   square: null,
+  at: 0,
 });
 
 function draw(

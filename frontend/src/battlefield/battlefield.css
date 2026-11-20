@@ -102,7 +102,7 @@
   top: 0;
   pointer-events: auto;
   /* Movement (PHASE 7 AMENDMENT 6): a changed box glides there. */
-  transition: transform var(--move-ms) var(--move-easing);
+  transition: transform calc(var(--move-ms) * var(--pa-pace, 1)) var(--move-easing);
 }
 /* A new window size is not a move. */
 .bf-cards[data-instant] .bf-slot {
@@ -137,7 +137,7 @@
 }
 @media (prefers-reduced-motion: no-preference) {
   .bf-read {
-    animation: bf-read-in var(--move-ms) var(--move-easing);
+    animation: bf-read-in calc(var(--move-ms) * var(--pa-pace, 1)) var(--move-easing);
   }
 }
 @keyframes bf-read-in {
@@ -212,7 +212,7 @@
   pointer-events: none;
   background: rgb(255 60 40);
   opacity: 0;
-  animation: bf-fate-flash 380ms ease-out var(--fx-delay, 0ms) both;
+  animation: bf-fate-flash calc(380ms * var(--pa-pace, 1)) ease-out var(--fx-delay, 0ms) both;
 }
 @keyframes bf-fate-flash {
   25% {
@@ -236,19 +236,20 @@
 .bf-fate-cracks path {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: bf-fate-crack 220ms ease-out calc(var(--fx-delay, 0ms) + 220ms) both;
+  animation: bf-fate-crack calc(220ms * var(--pa-pace, 1)) ease-out
+    calc(var(--fx-delay, 0ms) + calc(220ms * var(--pa-pace, 1))) both;
 }
 .bf-fate-cracks path:nth-child(2) {
-  animation-delay: calc(var(--fx-delay, 0ms) + 250ms);
+  animation-delay: calc(var(--fx-delay, 0ms) + calc(250ms * var(--pa-pace, 1)));
 }
 .bf-fate-cracks path:nth-child(3) {
-  animation-delay: calc(var(--fx-delay, 0ms) + 280ms);
+  animation-delay: calc(var(--fx-delay, 0ms) + calc(280ms * var(--pa-pace, 1)));
 }
 .bf-fate-cracks path:nth-child(4) {
-  animation-delay: calc(var(--fx-delay, 0ms) + 310ms);
+  animation-delay: calc(var(--fx-delay, 0ms) + calc(310ms * var(--pa-pace, 1)));
 }
 .bf-fate-cracks path:nth-child(5) {
-  animation-delay: calc(var(--fx-delay, 0ms) + 340ms);
+  animation-delay: calc(var(--fx-delay, 0ms) + calc(340ms * var(--pa-pace, 1)));
 }
 @keyframes bf-fate-crack {
   to {
@@ -270,7 +271,8 @@
   background: #cfe6ff;
   box-shadow: 0 0 6px #bfe0ff;
   opacity: 0;
-  animation: bf-mote 800ms ease-out calc(var(--fx-delay, 0ms) + var(--late, 0ms)) both;
+  animation: bf-mote calc(800ms * var(--pa-pace, 1)) ease-out
+    calc(var(--fx-delay, 0ms) + var(--late, 0ms)) both;
 }
 @keyframes bf-mote {
   25% {
@@ -320,7 +322,7 @@
   }
 }
 .bf-pulled .bf-card {
-  animation: bf-pulled 1240ms ease-out both;
+  animation: bf-pulled calc(1240ms * var(--pa-pace, 1)) ease-out both;
 }
 @keyframes bf-pulled {
   0% {
@@ -816,7 +818,7 @@
     0 0 12px 2px rgb(255 90 31 / 60%),
     inset 0 0 8px rgb(255 90 31 / 35%);
   opacity: 0.6;
-  transition: opacity 200ms ease-out;
+  transition: opacity calc(200ms * var(--pa-pace, 1)) ease-out;
 }
 .bf-attacked-hot::before {
   opacity: 1;
@@ -885,7 +887,7 @@
 /* Phase 10 A-17 -- Chained on: the tab shows as its card lands on it (after
    the chain, 260 ms, and the pull, 560 ms), with a glow; the host pulses. */
 .bf-tag.bf-tab-arrive {
-  animation: bf-tab-arrive 1240ms ease-out both;
+  animation: bf-tab-arrive calc(1240ms * var(--pa-pace, 1)) ease-out both;
 }
 @keyframes bf-tab-arrive {
   0%,
@@ -903,7 +905,7 @@
   }
 }
 .bf-clink > .bf-card {
-  animation: bf-clink 1240ms ease-out both;
+  animation: bf-clink calc(1240ms * var(--pa-pace, 1)) ease-out both;
 }
 @keyframes bf-clink {
   0%,
@@ -963,10 +965,11 @@
  * (bf-line-out); spec 0069: only opacity, transforms and dash offsets move. */
 .bf-line-chip {
   opacity: 0;
-  animation: bf-line-in 120ms ease-out 160ms forwards;
+  animation: bf-line-in calc(120ms * var(--pa-pace, 1)) ease-out calc(160ms * var(--pa-pace, 1))
+    forwards;
 }
 .bf-line-out {
-  animation: bf-line-out 160ms ease-in forwards;
+  animation: bf-line-out calc(160ms * var(--pa-pace, 1)) ease-in forwards;
 }
 .bf-line-out .bf-blade,
 .bf-line-out .bf-beam,
@@ -1010,11 +1013,11 @@
   opacity: 0.42;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: bf-line-draw 300ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  animation: bf-line-draw calc(300ms * var(--pa-pace, 1)) cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
 }
 .bf-line-thread {
   opacity: 0;
-  animation: bf-line-thread 300ms ease-out forwards;
+  animation: bf-line-thread calc(300ms * var(--pa-pace, 1)) ease-out forwards;
 }
 .bf-line-thread-aura {
   opacity: 0.25;
@@ -1031,7 +1034,7 @@
    haze flickers and its glow breathes; embers drift up off it. */
 .bf-blade,
 .bf-beam {
-  animation: bf-arrow-in 220ms ease-out both;
+  animation: bf-arrow-in calc(220ms * var(--pa-pace, 1)) ease-out both;
 }
 @keyframes bf-arrow-in {
   from {
@@ -1160,7 +1163,7 @@
   white-space: nowrap;
   overflow: hidden;
   box-shadow: 0 0 10px 2px rgb(241 195 106 / 55%);
-  animation: bf-arrow-in 140ms ease-out both;
+  animation: bf-arrow-in calc(140ms * var(--pa-pace, 1)) ease-out both;
 }
 .bf-tab-preview[data-off="true"] {
   display: none;
@@ -1178,7 +1181,7 @@
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
   filter: drop-shadow(0 0 2px rgb(255 244 214 / 90%));
   pointer-events: none;
-  animation: bf-stud-in 160ms ease-out both;
+  animation: bf-stud-in calc(160ms * var(--pa-pace, 1)) ease-out both;
 }
 @keyframes bf-stud-in {
   from {
@@ -1192,7 +1195,7 @@
    they meet; then its halo breathes and light glints along the blades.
    Pointing at an attacker brightens its fights and dims the rest. */
 .bf-swords {
-  transition: opacity 160ms ease-out;
+  transition: opacity calc(160ms * var(--pa-pace, 1)) ease-out;
 }
 .bf-swords-dim {
   opacity: 0.4;
@@ -1200,8 +1203,9 @@
 .bf-swords-mark {
   transform-origin: 0 0;
   filter: drop-shadow(0 2px 4px rgb(0 0 0 / 70%));
-  transition: transform 160ms ease-out;
-  animation: bf-swords-in 240ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--swords-delay, 0ms) both;
+  transition: transform calc(160ms * var(--pa-pace, 1)) ease-out;
+  animation: bf-swords-in calc(240ms * var(--pa-pace, 1)) cubic-bezier(0.2, 0.7, 0.2, 1)
+    var(--swords-delay, 0ms) both;
 }
 .bf-swords-hot .bf-swords-mark {
   transform: scale(1.1);
@@ -1218,7 +1222,8 @@
 }
 .bf-swords-swing-r,
 .bf-swords-swing-l {
-  animation: bf-swords-swing-r 260ms cubic-bezier(0.5, 0, 0.8, 1.4) var(--swords-delay, 0ms) both;
+  animation: bf-swords-swing-r calc(260ms * var(--pa-pace, 1)) cubic-bezier(0.5, 0, 0.8, 1.4)
+    var(--swords-delay, 0ms) both;
 }
 .bf-swords-swing-l {
   animation-name: bf-swords-swing-l;
@@ -1235,7 +1240,8 @@
 }
 .bf-swords-burst {
   opacity: 0;
-  animation: bf-swords-burst 430ms ease-out calc(var(--swords-delay, 0ms) + 220ms) 1 both;
+  animation: bf-swords-burst calc(430ms * var(--pa-pace, 1)) ease-out
+    calc(var(--swords-delay, 0ms) + calc(220ms * var(--pa-pace, 1))) 1 both;
 }
 @keyframes bf-swords-burst {
   0% {
@@ -1271,7 +1277,7 @@
 /* The stack, as cards (owner 2026-10-21): a spell waiting to resolve is
  * drawn large at the right edge of the play area, the next under it. */
 .bf-stack-slot {
-  animation: bf-stack-in 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation: bf-stack-in calc(260ms * var(--pa-pace, 1)) cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .bf-stack-card {
   box-shadow:
@@ -1407,8 +1413,8 @@
    targets (bf-lifted, spec 0100 item 9); nothing on the stack fades. */
 .bf-stack-slot {
   transition:
-    transform var(--move-ms, 320ms) var(--move-easing, ease),
-    opacity 160ms ease;
+    transform calc(var(--move-ms, 320ms) * var(--pa-pace, 1)) var(--move-easing, ease),
+    opacity calc(160ms * var(--pa-pace, 1)) ease;
 }
 .bf-stack-mine {
   outline: 2px solid #e0a44a;
@@ -2405,7 +2411,7 @@ img.bf-makes-pip {
   margin: calc(var(--card-h) * -0.08) 0 0 calc(var(--card-h) * -0.08);
   background: radial-gradient(circle, rgb(170 185 200 / 55%), transparent 70%);
   box-shadow: none;
-  animation-duration: 1100ms;
+  animation-duration: calc(1100ms * var(--pa-pace, 1));
 }
 /* No resolve glow on a spell that did nothing. */
 .bf-ghost[data-fizzled] .bf-card {
@@ -2459,15 +2465,15 @@ img.bf-makes-pip {
   cursor: default;
   box-shadow: 0 0 calc(var(--card-h) * 0.12) rgb(207 230 255 / 40%);
   transition:
-    background-color 450ms ease-in-out,
-    box-shadow 450ms ease-in-out;
+    background-color calc(450ms * var(--pa-pace, 1)) ease-in-out,
+    box-shadow calc(450ms * var(--pa-pace, 1)) ease-in-out;
 }
 .bf-card[data-phased="true"] > :not(.bf-badges) {
   opacity: 0.34;
   filter: grayscale(0.7) brightness(1.15);
   transition:
-    opacity 450ms ease-in-out,
-    filter 450ms ease-in-out;
+    opacity calc(450ms * var(--pa-pace, 1)) ease-in-out,
+    filter calc(450ms * var(--pa-pace, 1)) ease-in-out;
 }
 .bf-card[data-phased="true"]::after {
   content: "";
@@ -2612,7 +2618,8 @@ img.bf-makes-pip {
   bottom: calc(var(--card-h) * 0.15);
   z-index: 3;
   pointer-events: none;
-  animation: bf-spell-mark-in 380ms cubic-bezier(0.34, 1.9, 0.5, 1) 100ms both;
+  animation: bf-spell-mark-in calc(380ms * var(--pa-pace, 1)) cubic-bezier(0.34, 1.9, 0.5, 1)
+    calc(100ms * var(--pa-pace, 1)) both;
 }
 .bf-spell-mark-above {
   bottom: calc(var(--card-h) * 0.34);
@@ -2639,7 +2646,7 @@ img.bf-makes-pip {
     0 2px 6px #000c;
   pointer-events: none;
   z-index: 5;
-  animation: bf-stack-rest-in 150ms ease-out both;
+  animation: bf-stack-rest-in calc(150ms * var(--pa-pace, 1)) ease-out both;
 }
 .bf-stack-rest .gs-coin-dial {
   position: absolute;
@@ -2697,7 +2704,7 @@ img.bf-makes-pip {
     0 0 12px #f2c46a88,
     inset 0 0 10px #f2c46a44;
   animation:
-    bf-split-ring-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    bf-split-ring-in calc(300ms * var(--pa-pace, 1)) cubic-bezier(0.22, 1, 0.36, 1) both,
     bf-split-ring-breathe 1050ms ease-in-out 300ms infinite alternate;
 }
 @keyframes bf-split-ring-in {
@@ -2726,7 +2733,7 @@ img.bf-makes-pip {
    stack, and brightens as it resolves. */
 .bf-card[data-zone="viewer:hand"],
 .bf-card[data-zone="opponent:hand"] {
-  transition: filter 300ms ease-out;
+  transition: filter calc(300ms * var(--pa-pace, 1)) ease-out;
 }
 .bf-board[data-split-second="viewer"] .bf-card[data-zone="viewer:hand"],
 .bf-board[data-split-second="opponent"] .bf-card[data-zone="opponent:hand"] {
@@ -2823,13 +2830,15 @@ img.bf-makes-pip {
 /* Opening (the canvas's: the square 0.2 s; the door 0.6 s from 0.15 s; the
    light rising and falling over 0.9 s from 0.15 s). */
 [data-door-state="opening"] > .bf-room-key {
-  animation: bf-room-key-out 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: bf-room-key-out calc(200ms * var(--pa-pace, 1)) cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 [data-door-state="opening"] > .bf-room-door {
-  animation: bf-room-swing 600ms cubic-bezier(0.65, 0, 0.35, 1) 150ms both;
+  animation: bf-room-swing calc(600ms * var(--pa-pace, 1)) cubic-bezier(0.65, 0, 0.35, 1)
+    calc(150ms * var(--pa-pace, 1)) both;
 }
 [data-door-state="opening"] > .bf-room-light {
-  animation: bf-room-light 900ms linear 150ms both;
+  animation: bf-room-light calc(900ms * var(--pa-pace, 1)) linear calc(150ms * var(--pa-pace, 1))
+    both;
 }
 @keyframes bf-room-key-out {
   from {
@@ -2869,7 +2878,8 @@ img.bf-makes-pip {
   border-radius: inherit;
   pointer-events: none;
   z-index: 6;
-  animation: bf-room-glow 500ms linear 600ms both;
+  animation: bf-room-glow calc(500ms * var(--pa-pace, 1)) linear calc(600ms * var(--pa-pace, 1))
+    both;
 }
 @keyframes bf-room-glow {
   0%,
@@ -2899,7 +2909,7 @@ img.bf-makes-pip {
 }
 .bf-wash-tint {
   mix-blend-mode: screen;
-  animation: bf-wash-tint 1250ms linear both;
+  animation: bf-wash-tint calc(1250ms * var(--pa-pace, 1)) linear both;
 }
 .bf-wash-night .bf-wash-tint {
   background: linear-gradient(
@@ -2919,7 +2929,7 @@ img.bf-makes-pip {
 }
 .bf-wash-dark {
   background: #03061a;
-  animation: bf-wash-dark 1250ms linear both;
+  animation: bf-wash-dark calc(1250ms * var(--pa-pace, 1)) linear both;
 }
 @keyframes bf-wash-tint {
   0% {
@@ -3261,7 +3271,7 @@ img.bf-makes-pip {
   animation: bf-prevent-last 1ms linear var(--step-at, 0ms) forwards;
 }
 .bf-mark-prevent[data-used] {
-  animation: bf-prevent-gone 150ms ease-in var(--gone-at, 0ms) forwards;
+  animation: bf-prevent-gone calc(150ms * var(--pa-pace, 1)) ease-in var(--gone-at, 0ms) forwards;
 }
 @keyframes bf-prevent-step {
   0%,
@@ -3288,7 +3298,7 @@ img.bf-makes-pip {
 }
 
 /* ---- Spec 0087: the fan of cards still usable from a pile, beside its plate ---- */
-/* Sized by its own --card-h (pileFan.ts: 96 px at 1080), so the card face,
+/* Sized by its own --card-h (pileFan.ts FAN_H: 88 px at 1080), so the card face,
    its sign and its badge are drawn at the fan's size, as the canvas's. */
 .bf-fan-card {
   position: absolute;
@@ -3311,21 +3321,47 @@ img.bf-makes-pip {
 .bf-fan-leaving {
   pointer-events: none;
 }
-/* Its pile's corner sign: the exile's star on blue, the graveyard's stone on grey. */
+/* Its pile's corner sign: the exile's star on blue, the graveyard's stone on grey.
+   Spec 0106 (Q4 B) -- inside the card's top-right corner, 0.2 of its height
+   (pileFan.ts FAN_SIGN), never over the next card. Amendment 1 (owner
+   2026-11-19, the whole name): just under the name bar (0.132 of the
+   height), so the bar's whole width is the name's. */
 .bf-fan-sign {
   position: absolute;
-  right: calc(var(--card-h) * -0.094);
-  top: calc(var(--card-h) * -0.094);
-  width: calc(var(--card-h) * 0.271);
-  height: calc(var(--card-h) * 0.271);
+  right: calc(var(--card-h) * 0.03);
+  top: calc(var(--card-h) * 0.152);
+  width: calc(var(--card-h) * 0.2);
+  height: calc(var(--card-h) * 0.2);
   border-radius: 50%;
   display: grid;
   place-items: center;
   z-index: 4;
   box-shadow:
-    0 0 0 calc(var(--card-h) * 0.026) #0e1512,
+    0 0 0 2px #0e1512,
     0 1px 3px #000a;
   pointer-events: none;
+}
+/* Spec 0106 -- the "+N" in a fan's last place: a card back with the count. */
+.bf-fan-more {
+  border: 1.5px solid #c9a35a;
+  box-sizing: border-box;
+  background: #3a1a08;
+}
+.bf-fan-more-n {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 12%;
+  text-align: center;
+  font: 700 calc(var(--card-h) * 0.26) / 1 var(--pa-card, Inter, sans-serif);
+  color: #fff3d0;
+  text-shadow:
+    0 2px 0 #000,
+    0 0 10px #000;
+}
+.bf-fan-opponent .bf-fan-more-n {
+  top: auto;
+  bottom: 12%;
 }
 .bf-fan-sign svg {
   width: 65%;
@@ -3480,9 +3516,9 @@ img.bf-makes-pip {
     0 0 calc(var(--card-h) * 0.18) calc(var(--card-h) * 0.04) rgb(240 168 48 / 70%);
   z-index: 3;
   transition:
-    translate 180ms ease-out,
-    scale 180ms ease-out,
-    box-shadow 180ms ease-out;
+    translate calc(180ms * var(--pa-pace, 1)) ease-out,
+    scale calc(180ms * var(--pa-pace, 1)) ease-out,
+    box-shadow calc(180ms * var(--pa-pace, 1)) ease-out;
 }
 /* Item 1 (round 2 Q1 B) -- the X medallion: on the stack card's top-right
    corner at 0.8 the casting card's size (the canvas: 84 px on a 410 px
@@ -3539,7 +3575,7 @@ img.bf-makes-pip {
     0 0 18px #f2c46aaa,
     0 4px 10px #000c;
   pointer-events: none;
-  animation: bf-xmed-pop 350ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: bf-xmed-pop calc(350ms * var(--pa-pace, 1)) cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 @keyframes bf-xmed-pop {
   from {
@@ -3567,7 +3603,7 @@ img.bf-makes-pip {
   border-radius: calc(var(--card-h) * 0.03);
   background: rgb(18 24 34 / 92%);
   pointer-events: none;
-  animation: bf-modes-in 300ms ease-out both;
+  animation: bf-modes-in calc(300ms * var(--pa-pace, 1)) ease-out both;
 }
 @keyframes bf-modes-in {
   from {

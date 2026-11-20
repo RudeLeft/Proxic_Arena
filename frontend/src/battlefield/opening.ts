@@ -15,29 +15,30 @@
 // game deals, sweeps back and deals again in one update). Each card's
 // movement is a Web Animation (A-00: a click hurries it); with reduce motion
 // nothing moves -- the cards simply are where the game says.
+import { paced } from "./motion";
 
 /** One card dealt to the next (the canvas's 0.1 s); each glides 0.5 s. */
-export const DEAL_BEAT_MS = 100;
-export const DEAL_MS = 500;
+export const DEAL_BEAT_MS = paced(100);
+export const DEAL_MS = paced(500);
 /** A card leaves the tile this small (of the window's card; of a fan's back: 0.42). */
 export const DEAL_FROM = 0.3;
 export const DEAL_FROM_FAN = 0.42;
 /** The "−7" rises off the tile 0.3 s after the deal begins. */
-export const DEAL_NUMBER_AT = 300;
+export const DEAL_NUMBER_AT = paced(300);
 /** A mulligan: each turns face down (0.2 s, 40 ms apart), then glides back (0.45 s, 60 ms apart, from 0.2 s). */
-export const TURN_DOWN_MS = 200;
-export const TURN_DOWN_BEAT_MS = 40;
-export const SWEEP_AT = 200;
-export const SWEEP_BEAT_MS = 60;
-export const SWEEP_MS = 450;
+export const TURN_DOWN_MS = paced(200);
+export const TURN_DOWN_BEAT_MS = paced(40);
+export const SWEEP_AT = paced(200);
+export const SWEEP_BEAT_MS = paced(60);
+export const SWEEP_MS = paced(450);
 /** The riffle plays on the tile once the seven are in (the canvas's 1.05 s); then the deal again (2.05 s). */
-export const RIFFLE_AT = 1050;
-export const REDEAL_AT = 2050;
+export const RIFFLE_AT = paced(1050);
+export const REDEAL_AT = paced(2050);
 /** A card put back glides to the bottom of the library (0.5 s), turning face down half-way. */
-export const PUT_BACK_MS = 500;
+export const PUT_BACK_MS = paced(500);
 /** Keep: the window fades (0.3 s) as the hand glides down into place (0.62 s). */
-export const KEEP_FADE_MS = 300;
-export const KEEP_MS = 620;
+export const KEEP_FADE_MS = paced(300);
+export const KEEP_MS = paced(620);
 
 /** When the [i]th card of a deal sets off: at once, or after a mulligan's sweep and riffle. */
 export function dealAt(i: number, afterSweep: boolean): number {
