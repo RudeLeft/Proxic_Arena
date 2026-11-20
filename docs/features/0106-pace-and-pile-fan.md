@@ -1,6 +1,7 @@
 # 0106 — Animation pace 1.25× on movement; the pile fan beside the graveyard: whole 88×63 cards, apart, up to 7, then "+N"
 
 **Status:** Approved 2026-11-19 (owner, by prompt, feedback batch). Not part of a phase.
+**Built:** 2026-11-20 (commit 8a7c095e). **Released:** in 1.74.0, 2026-11-20.
 **Owner decisions** (owner feedback batch 2026-11-19; canvas `frontend/zz-canvas/feedback-1119.html`):
 Q3 **C** (1.25× on every movement; today 1.0×, A 1.15×, B 1.2× not taken): glides, flips, the cast, attacks, blocks, deaths take 25% longer; waits do not change. Q4 **B** (88×63 whole cards, tops at 990, 4 px apart, the corner sign inside the card, up to 7; A hand size with 5 places and C 102×73 hanging with 6 not taken).
 

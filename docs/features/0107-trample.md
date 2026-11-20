@@ -1,6 +1,7 @@
 # 0107 — Trample: the attacker carries on to the life shield; the split is made for you, with "Change split"; the defender is told when nothing trampled over
 
 **Status:** Approved 2026-11-19 (owner, by prompt, feedback batch). Not part of a phase.
+**Built:** 2026-11-20 (commit 4948cdbc). **Released:** in 1.74.0, 2026-11-20.
 **Owner decisions** (owner feedback batch 2026-11-19; canvas `frontend/zz-canvas/feedback-1119.html`):
 Q5 **A** (one continuous lunge: the attacker strikes the blocker as in any fight, then drives on through the blocker's spot to the defending player's life shield and back; B, back then a second lunge, and C, a pale copy carries on, not taken) and "no captions over the table" (owner: "remove any captions"). Q5b (chosen): the trample split is automatic, lethal to each blocker and the rest to the player; a small "Change split" under the attacker opens today's damage window, filled in. Q5c **A**: the defender gets the standard report window only when trample was possible and extra damage was kept on a blocker.
 

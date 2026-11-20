@@ -3,6 +3,39 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.74.0 — 2026-11-20
+
+From the owner's play-through: the game never chooses for you, every spell nobody can answer rests on the stack long enough to read, the table moves a little slower, cards you can play from your graveyard sit in a row beside it, and trample damage is split for you.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+
+**You always choose**
+- When an effect has you choose a card or player, you're always asked, even when only one fits. Appetite for Brains shows Bob's whole hand: the one card you can take glows, and each other card says why it can't be taken ("a land", "mana value 2").
+- The window uses the card's own words. When your card is exiled from your hand, you get a window saying so; the caster doesn't.
+- A free adventure cast (a cascade into Giant Killer) asks which half, even when only one can be cast.
+- Windows that show cards stay open until you close them, even past the end of the turn.
+- While the other player chooses from your hand, your button says "Choosing from your hand".
+
+**The stack always shows**
+- A spell or ability nobody can answer now rests on the stack before it resolves, with a countdown ring on its corner: about 5.9 seconds for a spell, 3.2 for an ability, and 0.8 for each further trigger in a row. Each player gets at least 2.5 seconds to read it after it lands on their screen.
+- The button says "One moment · Resolving · nobody can answer". If you were asked whether to respond, there's no rest. Conceding ends a rest at once.
+- Your creature spell flies to the stack, rests, then glides out onto the battlefield.
+
+**Pace and pile cards**
+- Every movement on the table runs a quarter slower, so it's easier to follow. With reduced motion turned on, nothing moves.
+- Cards you can play from your graveyard or exile (flashback and the like) sit in a row beside the pile at hand height, up to seven, with full names. Past seven, a "+N" card opens the pile, where the ones you can cast glow and are cast with a click.
+- A mill now plays once. Before, it could replay up to four times and look like many more cards than it was.
+
+**Trample**
+- When your trampler is blocked, the damage is split for you: just enough to each blocker, the rest to the player. A "Change split" button under the attacker lets you set it yourself.
+- The other player gets one window, e.g. "RudeLeft put all three on your Llanowar Elves; none trampled over."
+- The attacker hits the blocker and carries on to the shield. The words that used to pop up in the corner during combat are gone.
+
+**Fixes**
+- The waiting line under the button wraps instead of cutting off words on screens whose font is wider.
+- Graveyard pile cards no longer rise before the milled cards have landed.
+
 ## 1.73.0 — 2026-11-19
 
 Everything a spell chose and everything it aims at is now on the table; every way a creature survives has its own badge and look; Karn's restart, Mindslaver and skipped turns are shown; and report windows point at the cards they talk about, can replay what happened, and remember what you put on top of your library.

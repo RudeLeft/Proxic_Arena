@@ -1,6 +1,7 @@
 # 0105 — The stack always shows: a spell or ability nobody can answer rests on the stack 2.5 s, with a countdown ring, then resolves
 
 **Status:** Approved 2026-11-19 (owner, by prompt, feedback batch). Not part of a phase.
+**Built:** 2026-11-19 (commit 61ce7fed). **Released:** in 1.74.0, 2026-11-20.
 **Owner decisions** (owner feedback batch 2026-11-19; canvas `frontend/zz-canvas/feedback-1119.html`):
 Q2 **B** (2.5 s; A was 2 s, C 3 s). A spell or ability nobody can answer rests on the stack 2.5 s with a countdown ring, the act button's "Resolves in" coin look with no words and nothing to click, then resolves. Several in a row: the first rests the full 2.5 s, each after it about 0.8 s. The game itself (the worker) holds, as research A recommended (its option 2A), not only the screen.
 

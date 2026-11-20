@@ -1,6 +1,7 @@
 # 0104 — You always choose: every card or player an effect has you choose is asked, even when only one fits; the reveal and victim windows
 
 **Status:** Approved 2026-11-19 (owner, by prompt, feedback batch). Not part of a phase.
+**Built:** 2026-11-19 (commit 8263532a). **Released:** in 1.74.0, 2026-11-20.
 **Owner decisions** (owner feedback batch 2026-11-19; canvas `frontend/zz-canvas/feedback-1119.html`):
 Q1 **A** (every card or player an effect has you choose is asked, even with one legal option; B, only cards from a hidden place, and C, colours and numbers too, not taken). With it: the only legal card is lit and the others are dimmed with the reason; the prompt is the card's own words; a hand-exile effect gives its victim the standard report window and the caster none; the play log names the right player; plain reveal and look windows stay until closed.
 
