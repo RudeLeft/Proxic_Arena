@@ -7,7 +7,8 @@
 // many turns of luck, so here the guest's own snapshot is said again with
 // those fields filled the way the worker fills them (routeWebSocket) -- and
 // every later snapshot the server sends is filled the same way, so the game
-// moving on cannot take them away mid-check -- and the page is checked: short names, never a lone "+N"; the list beside the
+// moving on cannot take them away mid-check; never a pregame board said
+// again once the turn has begun -- and the page is checked: short names, never a lone "+N"; the list beside the
 // tray, clear of the turn steps, the action button and both plates; what
 // each thing does; Esc, a click away and the chip close it; one list at a
 // time; Space and the Peek button fade it -- and the opening windows too.
@@ -149,7 +150,20 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
     await expect(matchPanel(guest).getByText(/The game is running/)).toBeAttached({
       timeout: 600_000,
     });
-    await expect.poll(() => last !== "").toBe(true);
+    // Said again only once the last board is a game board (turn 1 or
+    // later). "The game is running" comes with the turn's steps
+    // (MATCH_STEP), which move the page's board to turn 1 without a new
+    // snapshot; the pregame board (turn 0) said again after them reads to
+    // the page as Karn restarting the game (restart.ts isRestart), and it
+    // holds the old board, emblem-less, for good (CI 44741449950: turn 0's
+    // rev 4 said 13 ms after "running", turn 1's rev 5 44 ms later).
+    const turnOf = (message: string) =>
+      message === ""
+        ? -1
+        : ((JSON.parse(message) as { state?: { turn?: number } }).state?.turn ?? -1);
+    await expect
+      .poll(() => turnOf(last), { timeout: 60_000, message: "a turn-1 board reached the guest" })
+      .toBeGreaterThan(0);
 
     const send = (mine: Partial<Player>, theirs: Partial<Player>) => {
       extra = { mine, theirs };

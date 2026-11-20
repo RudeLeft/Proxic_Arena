@@ -10,10 +10,10 @@ says otherwise. Every trace line carries `t`, when the Lab read or sent it
 
   victim-unanswered  F-0105-A: Alice casts Victim of Night at Bob's Grizzly
              Bears; Bob holds only Bears and Forests. One board shows it on
-             the stack with `rest` {ms: 5600, arriveMs: 3100}, the same on
+             the stack with `rest` {ms: 5900, arriveMs: 3400}, the same on
              both seats' boards and nothing else in it; the board that has it
              gone (resolved: the Bears dead, the spell in her graveyard) comes
-             no sooner than 5600 ms after the rest board
+             no sooner than 5900 ms after the rest board
   victim-stops-off   F-0105-A: the same game with neither seat on the stops
              rule (every question asked; the Lab passes): no `rest` anywhere,
              and the spell is gone within 1.5 s of first being shown
@@ -50,7 +50,7 @@ TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 SCRATCH = tempfile.mkdtemp(prefix="stack-rests-")
 
-REST_MS, REST_NEXT_MS, ARRIVE_SPELL_MS, ARRIVE_ABILITY_MS = 2500, 800, 3100, 700
+REST_MS, REST_NEXT_MS, ARRIVE_SPELL_MS, ARRIVE_ABILITY_MS = 2500, 800, 3400, 700
 
 
 def trace_for(name):

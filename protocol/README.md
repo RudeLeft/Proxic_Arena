@@ -959,9 +959,9 @@ stack[]             B2  per entry, besides id and description:
                                     about it (StackRests): the worker waits
                                     `ms` after this board (`arriveMs` of it is
                                     the allowance for the card to reach the
-                                    stack on the slowest screen: 3100 a cast
+                                    stack on the slowest screen: 3400 a cast
                                     spell, 700 an ability, trigger or copy, 0
-                                    in a run; `ms` 5600 / 3200 / 800). The
+                                    in a run; `ms` 5900 / 3200 / 800). The
                                     same on every seat's board and the public
                                     view; no card, reason or seat. Presentation
                                     only (PROTO-007): the page draws its ring;

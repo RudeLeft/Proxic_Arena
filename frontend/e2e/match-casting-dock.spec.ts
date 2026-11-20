@@ -54,6 +54,13 @@ const castCard = (page: Page) =>
       : null;
   });
 
+/** The card being cast is drawn and has stopped moving: none of its own animations still running. */
+const risen = (page: Page) =>
+  page.evaluate(() => {
+    const el = document.querySelector<HTMLElement>(".gs-cast:not(.gs-cast-leaving)");
+    return !!el && el.getAnimations().every((a) => a.playState !== "running" && !a.pending);
+  });
+
 const playable = (page: Page, name: string) =>
   page.locator('[data-zone="viewer:hand"][data-choosable="true"]:not([data-unpayable="true"])', {
     hasText: name,
@@ -107,8 +114,15 @@ test("the card being cast stays centred, hides from the opponent, then turns ove
           ) {
             await clickNow(playable(page, "Swords to Plowshares").first());
             await expect.poll(() => kind(page), { timeout: 15_000 }).toBe("chooseTargetsFor");
-            // F-0068-A: still in the middle of the window, full size.
-            await page.waitForTimeout(700);
+            // F-0068-A: still in the middle of the window, full size. Read
+            // once its rise out of the hand (FLY_MS, 700 ms paced) is over:
+            // a fixed 700 ms wait read the rise's last frames on a slow CI
+            // runner (44741449950: 2.5 px short). The card's own
+            // animations are its rise, fade-in and step aside, never the
+            // sway (on a child, which does not move its box).
+            await expect
+              .poll(() => risen(page), { timeout: 15_000, message: "the cast card's rise ended" })
+              .toBe(true);
             const centre = (await castCentre(page))!;
             expect(Math.abs(centre.dx), "centred across for a target").toBeLessThan(2);
             expect(Math.abs(centre.dy), "centred down for a target").toBeLessThan(2);

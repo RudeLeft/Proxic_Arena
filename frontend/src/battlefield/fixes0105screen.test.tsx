@@ -186,7 +186,7 @@ describe("F-0105-E · the ring runs from landing; the stack card leaves with the
     description: "Victim of Night - Destroy target non-Vampire, non-Werewolf, non-Zombie creature.",
     manaCost: "{B}{B}",
     targets: [{ object: "card:41" }],
-    rest: { ms: 5600, arriveMs: 3100 },
+    rest: { ms: 5900, arriveMs: 3400 },
   };
   const bears = card("card:41", 2, "Grizzly Bears");
 
@@ -202,9 +202,9 @@ describe("F-0105-E · the ring runs from landing; the stack card leaves with the
     advance(landing);
     const r = ring(c);
     expect(r).toBeTruthy();
-    expect(r!.dataset["restMs"]).toBe(`${5600 - landing}`);
+    expect(r!.dataset["restMs"]).toBe(`${5900 - landing}`);
     expect(r!.querySelector<SVGCircleElement>(".gs-coin-ring")!.style.animationDuration).toBe(
-      `${5600 - landing}ms`,
+      `${5900 - landing}ms`,
     );
     // No words, nothing to click, no pause sign.
     expect(r!.getAttribute("aria-hidden")).toBe("true");
@@ -267,7 +267,7 @@ describe("F-0105-G · a permanent spell with a rest flies to the stack, then gli
     description: "Grizzly Bears",
     manaCost: "{1}{G}",
     targets: [],
-    rest: { ms: 5600, arriveMs: 3100 },
+    rest: { ms: 5900, arriveMs: 3400 },
   };
 
   it("Alice's Bears: to the stack (not the battlefield), ring, then from the stack card's box", () => {

@@ -26,7 +26,7 @@ class StackRestsTest {
     void theOwnersNumbers() {
         assertEquals(2500, StackRests.REST_MS);
         assertEquals(800, StackRests.REST_NEXT_MS);
-        assertEquals(3100, StackRests.ARRIVE_SPELL_MS);
+        assertEquals(3400, StackRests.ARRIVE_SPELL_MS);
         assertEquals(700, StackRests.ARRIVE_ABILITY_MS);
     }
 
@@ -36,7 +36,7 @@ class StackRestsTest {
         assertNull(rests.passing(1, 7, 2, true), "the caster's own pass: the other seat has not passed yet");
         StackRests.Rest rest = rests.passing(2, 7, 2, true);
         assertNotNull(rest);
-        assertEquals(new StackRests.Rest(7, 5600, 3100), rest);
+        assertEquals(new StackRests.Rest(7, 5900, 3400), rest);
         assertNull(rests.passing(1, 7, 2, true), "it rests once");
     }
 
@@ -86,7 +86,7 @@ class StackRestsTest {
         assertEquals(3200, rests.passing(2, 8, 2, false).ms(), "a question between: the full rest");
         rests.see(-1);
         rests.passing(1, 4, 2, true);
-        assertEquals(5600, rests.passing(2, 4, 2, true).ms(), "the stack emptied between: the full rest");
+        assertEquals(5900, rests.passing(2, 4, 2, true).ms(), "the stack emptied between: the full rest");
     }
 
     @Test
@@ -122,11 +122,11 @@ class StackRestsTest {
         board.add("stack", stack);
         rests.mark(board);
         assertFalse(top.has("rest"), "nothing resting: nothing said");
-        rests.show(new StackRests.Rest(7, 5600, 3100));
+        rests.show(new StackRests.Rest(7, 5900, 3400));
         rests.mark(board);
         JsonObject rest = top.getAsJsonObject("rest");
-        assertEquals(5600, rest.get("ms").getAsLong());
-        assertEquals(3100, rest.get("arriveMs").getAsLong());
+        assertEquals(5900, rest.get("ms").getAsLong());
+        assertEquals(3400, rest.get("arriveMs").getAsLong());
         assertEquals(2, rest.size(), "no reason, no seat, no card");
         assertFalse(under.has("rest"));
     }

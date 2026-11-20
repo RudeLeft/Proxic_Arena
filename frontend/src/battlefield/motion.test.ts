@@ -1008,7 +1008,7 @@ const UNPACED: [string, string, number][] = [
   ["gameEnd.ts", "END_WAIT_MAX_MS", 3000],
   ["restart.ts", "RESTART_HOLD_MS", 4000],
   ["restart.ts", "RESTART_WAIT_MS", 30_000],
-  ["Board.tsx", "SPELL_WAIT_MS", 6000],
+  ["Board.tsx", "SPELL_WAIT_MS", 6500],
   ["GameScreen.tsx", "RESPONSE_WINDOW_MS", 5000],
   ["GameScreen.tsx", "SWING_HOLD_MS", 1500],
 ];

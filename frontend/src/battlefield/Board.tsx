@@ -3167,10 +3167,11 @@ export const CASCADE_FROM = 0.42;
 /**
  * Spec 0088 (Q1 A) -- a cascade trigger waits, unseen, at most this long for
  * its spell to land. Spec 0105: longer than the longest stack rest a board
- * may say (an unanswered spell's 2000 + 2500 ms), so a safety limit never
- * cuts a rest short.
+ * may say (an unanswered spell's ARRIVE_SPELL_MS + REST_MS, 3400 + 2500 ms
+ * since Amendment 2), with room for a slow board, so a safety limit never
+ * cuts a rest short. 6500, was 6000 (100 ms over 5900 was too close).
  */
-export const SPELL_WAIT_MS = 6000; // not paced: a limit (spec 0106)
+export const SPELL_WAIT_MS = 6500; // not paced: a limit (spec 0106)
 export const STACK_IN_MS = paced(260);
 /**
  * A cast card that has just landed: its stack card fades in over the

@@ -8,12 +8,14 @@
 //    the Goblin is on the battlefield. From each page's own record
 //    (`window.__proxicStackRests`, performance.now() stamps the page writes
 //    when the resting card is first drawn, when it lands and when a board no
-//    longer has it) it stayed on the stack the whole rest, 5.6 s, from the
+//    longer has it) it stayed on the stack the whole rest, 5.9 s, from the
 //    board that said so, and at least 2.5 s after it landed on EACH page
 //    (spec 0105 Amendment 1, owner 2026-11-19: the guest's card lands about
-//    2.5 s after the rest board -- its mana balls, then the flip, hold and
-//    flight -- inside the 3100 ms allowance) -- "at least", which slow CI
-//    frames cannot break. Each page's time after landing is logged.
+//    3.0 s after the rest board -- its mana balls, then the flip, hold and
+//    flight -- inside the 3400 ms allowance since Amendment 2, owner
+//    2026-11-20, after a slow runner's 3150.7 ms arrival) -- "at least",
+//    which slow CI frames cannot break. Each page's time after landing is
+//    logged.
 // 2. The guest casts Shock at the host, who holds Lightning Bolt with a
 //    Mountain up: the host is asked (no ring), passes, and it resolves with
 //    no rest on either page.
@@ -285,7 +287,7 @@ test("a creature nobody can answer rests on the stack with its ring on both page
     expect(goblinDown, "the Goblin landed on the battlefield").toBe(true);
     expect(goblin(guestSeen), "the guest's page recorded the resting card").toBeTruthy();
     expect(goblin(hostSeen), "the host's page recorded the resting card").toBeTruthy();
-    expect(goblin(guestSeen)!.ms).toBe(5600);
+    expect(goblin(guestSeen)!.ms).toBe(5900);
     // F-0105-I: the least any seat sees is the owner's 2.5 s (Amendment 1).
     expect(
       afterLanding(goblin(guestSeen)),

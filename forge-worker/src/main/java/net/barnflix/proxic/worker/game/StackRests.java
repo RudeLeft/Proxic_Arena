@@ -43,14 +43,18 @@ public final class StackRests {
      * the other player's screen the caster's mana balls land first
      * (manaBalls.tsx BALL_MS, 620 ms), then the card flips, is held face up
      * and flies (CastingCard.tsx FLIP_MS + HOLD_MS + FLY_MS, 1630 ms), then
-     * its stack card fades in (Board.tsx LANDED_FADE_MS, 176 ms): 2426 ms,
-     * about 3030 at spec 0106's 1.25 pace. A presentation allowance held here
-     * so each seat's ring runs at least REST_MS after its card lands; the page
-     * tests pin the page to it (fixes0105.test.ts). Spec 0105 Amendment 1
-     * (owner 2026-11-19, "Wait 1 s longer"): 3100, was 2000, which left the
-     * other player about 2.0 s of ring.
+     * its stack card fades in (Board.tsx LANDED_FADE_MS, 176 ms): 2426 ms
+     * unpaced, 2870 at spec 0106's 1.25 pace (the face-up hold is a wait, not
+     * paced). A presentation allowance held here so each seat's ring runs at
+     * least REST_MS after its card lands; the page tests pin the page to it
+     * (fixes0105.test.ts). Spec 0105 Amendment 1 (owner 2026-11-19, "Wait 1 s
+     * longer"): 3100, was 2000, which left the other player about 2.0 s of
+     * ring. Spec 0105 Amendment 2 (owner 2026-11-20, "Wait 0.3 s longer"):
+     * 3400, was 3100 -- on a slow CI runner the other player's card arrived
+     * at 3150.7 ms and its ring ran 2493.5 ms; the spare time over the paper
+     * arrival goes from 230 ms to 530 ms.
      */
-    public static final long ARRIVE_SPELL_MS = 3100;
+    public static final long ARRIVE_SPELL_MS = 3400;
     /** An ability or trigger rising to the stack (Board.tsx RISE_MS, 520 ms; 650 after 0106); a copy too. */
     public static final long ARRIVE_ABILITY_MS = 700;
 

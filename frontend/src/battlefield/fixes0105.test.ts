@@ -34,7 +34,7 @@ describe("F-0105-F · the page's arrivals fit the worker's allowances", () => {
   it("the worker's numbers are the owner's (Q2 B)", () => {
     expect(worker("REST_MS")).toBe(2500);
     expect(worker("REST_NEXT_MS")).toBe(800);
-    expect(worker("ARRIVE_SPELL_MS")).toBe(3100);
+    expect(worker("ARRIVE_SPELL_MS")).toBe(3400);
     expect(worker("ARRIVE_ABILITY_MS")).toBe(700);
   });
 
@@ -48,7 +48,12 @@ describe("F-0105-F · the page's arrivals fit the worker's allowances", () => {
     expect(PACE).toBe(1.25);
     expect(theirArrival).toBe(paced(620) + paced(420) + 650 + paced(560) + paced(176));
     expect(theirArrival).toBeLessThanOrEqual(worker("ARRIVE_SPELL_MS"));
-    // ...and even were the hold paced too (the worst case 0105 sized 3100 for).
+    // Amendment 2 (owner 2026-11-20, "Wait 0.3 s longer"): a slow CI runner's
+    // card arrived at 3150.7 ms against the paper 2870, so the allowance keeps
+    // 530 ms spare over the paper arrival (was 230).
+    expect(theirArrival).toBe(2870);
+    expect(worker("ARRIVE_SPELL_MS") - theirArrival).toBe(530);
+    // ...and even were the hold paced too (the worst case 0105 first sized 3100 for).
     expect(theirArrival - HOLD_MS + paced(HOLD_MS)).toBeLessThanOrEqual(worker("ARRIVE_SPELL_MS"));
     // The caster's own: it waits DECIDE_MS, then flies.
     expect(DECIDE_MS + FLY_MS).toBeLessThanOrEqual(worker("ARRIVE_SPELL_MS"));
@@ -66,5 +71,9 @@ describe("F-0105-F · the page's arrivals fit the worker's allowances", () => {
 
   it("the cascade trigger's safety wait outlasts the longest rest", () => {
     expect(SPELL_WAIT_MS).toBeGreaterThan(worker("ARRIVE_SPELL_MS") + worker("REST_MS"));
+    // ...with room for a slow board (Amendment 2: 6500 over 5900).
+    expect(SPELL_WAIT_MS - worker("ARRIVE_SPELL_MS") - worker("REST_MS")).toBeGreaterThanOrEqual(
+      500,
+    );
   });
 });

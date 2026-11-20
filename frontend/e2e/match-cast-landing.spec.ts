@@ -206,7 +206,7 @@ test("a creature nobody can answer goes by the stack, drawn once", async ({ brow
             await page.waitForTimeout(100);
             continue;
           }
-          // Spec 0105: the card flies to the stack and rests there (5.6 s
+          // Spec 0105: the card flies to the stack and rests there (5.9 s
           // from the board that says so) before the creature comes out.
           const watching = watch(page, 15_000, 2_600);
           await clickNow(owing);
