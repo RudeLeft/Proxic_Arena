@@ -42,7 +42,8 @@ vi.mock("../shell/LobbyConnection", () => ({
   useLobbyConnection: () => ({ lobby: EMPTY_LOBBY, setLobby: () => {}, send: () => {} }),
 }));
 
-const { GameScreen } = await import("./GameScreen");
+// Spec 0105: the other player's hold is derived from the flight it covers.
+const { GameScreen, THEIR_SPELL_HOLD_MS } = await import("./GameScreen");
 
 type Recorded = {
   element: Element;
@@ -410,7 +411,7 @@ describe("F-0102-A · Karn's restart: the window holds the table; the sweep to t
     send(game2({ action: restartReport }));
     // (The other player's ability is held on the stack HOLD_MS, as any.)
     act(() => {
-      vi.advanceTimersByTime(1600);
+      vi.advanceTimersByTime(THEIR_SPELL_HOLD_MS + 100);
     });
     expect(onTable(c, "card:30")).toBeNull();
     expect(sweeps(c)).toHaveLength(0);
@@ -529,7 +530,7 @@ describe("fixed while building 0102 · a board skipped during a hold gives its m
     // ...by the next, in combat, inside the hold.
     send(state({ battlefield: [saved], phase: "COMBAT_DECLARE_ATTACKERS" }));
     act(() => {
-      vi.advanceTimersByTime(1600);
+      vi.advanceTimersByTime(THEIR_SPELL_HOLD_MS + 100);
     });
     const silver = [...c.querySelectorAll<HTMLElement>('[data-fight="silvershield"]')].filter(
       (m) => m.dataset.of === "card:70",

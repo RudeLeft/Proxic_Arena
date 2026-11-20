@@ -943,6 +943,19 @@ stack[]             B2  per entry, besides id and description:
                                     page raises it from the crown or token
                         ward        spec 0101: true on a ward trigger
                                     (Forge's keyword origin, Keyword.WARD)
+                        rest        spec 0105: {ms, arriveMs} on the TOP entry
+                                    alone, while the game holds the pass that
+                                    lets it resolve because nobody was asked
+                                    about it (StackRests): the worker waits
+                                    `ms` after this board (`arriveMs` of it is
+                                    the allowance for the card to reach the
+                                    stack on the slowest screen: 3100 a cast
+                                    spell, 700 an ability, trigger or copy, 0
+                                    in a run; `ms` 5600 / 3200 / 800). The
+                                    same on every seat's board and the public
+                                    view; no card, reason or seat. Presentation
+                                    only (PROTO-007): the page draws its ring;
+                                    the entry leaves with the next board
                         cantBeCountered spec 0083: true on a spell Forge's
                                     Spell#isCounterableBy says no counterspell
                                     can counter (Abrupt Decay). splitSecond and

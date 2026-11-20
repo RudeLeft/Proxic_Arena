@@ -42,7 +42,8 @@ vi.mock("../shell/LobbyConnection", () => ({
   useLobbyConnection: () => ({ lobby: EMPTY_LOBBY, setLobby: () => {}, send: () => {} }),
 }));
 
-const { GameScreen } = await import("./GameScreen");
+// Spec 0105: the other player's hold is derived from the flight it covers.
+const { GameScreen, THEIR_SPELL_HOLD_MS } = await import("./GameScreen");
 
 type Recorded = {
   element: Element;
@@ -155,7 +156,7 @@ function send(message: Record<string, unknown>) {
   act(() => socket.onState!((previous) => reduceMatch(previous, message)));
 }
 /** Time passes (a held board lets the next be drawn; peels land). */
-function wait(ms = 1600) {
+function wait(ms = THEIR_SPELL_HOLD_MS + 100) {
   act(() => {
     vi.advanceTimersByTime(ms);
   });

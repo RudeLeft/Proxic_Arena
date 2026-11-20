@@ -620,7 +620,10 @@ public final class MatchController extends GeneratedControllerBase {
         if (byId.isEmpty()) {
             // Everything Forge offered has already failed here.
             // Passing is the honest answer and ends the window.
-            showTheirStack();
+            // Spec 0105: the pass that lets an unanswered top resolve rests first.
+            if (!host.restBeforePass(actedForSeat)) {
+                showTheirStack();
+            }
             return null;
         }
 
@@ -740,7 +743,13 @@ public final class MatchController extends GeneratedControllerBase {
                     Thread.currentThread().interrupt();
                 }
             }
-            showTheirStack();
+            // Spec 0105 -- the stack always shows: when this pass lets the
+            // top resolve and nobody was asked about it, it rests there first
+            // (StackRests), every board marking it; otherwise the other
+            // player's top is shown before the pass, as before.
+            if (!host.restBeforePass(actedForSeat)) {
+                showTheirStack();
+            }
             return null;
         }
         // Spec 0005 -- your own spell or trigger on top: the page counts down.
@@ -764,10 +773,14 @@ public final class MatchController extends GeneratedControllerBase {
                 // window again -- forever, per the guard above.
                 // `null` is the pass. One character between a game
                 // and a hang, and the hang is silent.
+                // Spec 0105: a pass counts (as Forge counts it); asked, it never rests.
+                host.passedWhenAsked(actedForSeat);
                 return null;
             }
             lastOffered = choice;
             passesWhenOffered = host.gate().playerPasses();
+            // Spec 0105 -- a seat played something: Forge counts passes afresh (CR 117.3c).
+            host.rests().acted(StackRests.topOf(player.getGame()));
             SpellAbility chosen = byId.get(choice);
             // The gate already refused a choice that was not on the
             // list, so null here means the list changed underneath

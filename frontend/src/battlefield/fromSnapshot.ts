@@ -800,6 +800,8 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
     // Spec 0083 (18 B) -- what the spell is: its gold squares.
     ...(entry.splitSecond ? { splitSecond: true } : {}),
     ...(entry.cantBeCountered ? { cantBeCountered: true } : {}),
+    // Spec 0105 -- resting before it resolves: the ring on its corner.
+    ...(entry.rest ? { rest: entry.rest } : {}),
     // Spec 0101, row 6 -- a ward trigger, and the creature it wards.
     ...(entry.ward && entry.source ? { ward: entry.source } : {}),
     // Spec 0100 -- what its caster chose: X, the modes, the extra costs, an

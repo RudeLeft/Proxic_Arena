@@ -41,7 +41,8 @@ vi.mock("../shell/LobbyConnection", () => ({
   }),
 }));
 
-const { GameScreen } = await import("./GameScreen");
+// Spec 0105: the other player's hold is derived from the flight it covers.
+const { GameScreen, THEIR_SPELL_HOLD_MS } = await import("./GameScreen");
 
 const RAIL: Rect = { x: 1600, y: 0, w: 320, h: 947 };
 const HAND: Rect = { x: 500, y: 800, w: 900, h: 147 };
@@ -286,7 +287,7 @@ describe("the play log on the page", () => {
     const rows = () => [...chat().querySelectorAll(".gs-log-ent")].map(text);
     expect(rows()).toContain("Bob cast Shock");
     expect(rows()).not.toContain("Shock dealt 2 damage to Alice");
-    act(() => void vi.advanceTimersByTime(1600));
+    act(() => void vi.advanceTimersByTime(THEIR_SPELL_HOLD_MS + 100));
     expect(rows()).toContain("Shock dealt 2 damage to Alice");
   });
 

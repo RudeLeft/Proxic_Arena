@@ -324,7 +324,7 @@ jobs:
               attachments printings face-down costs results \
               tracked-state text-effects coin-flip board-data concede mana-cost \
               library-order mana-pool mulligan unreachable dice unset \
-              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose \
+              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose stack-rests \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
               'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions|shapes|always-choose) limit=900;; esac;
@@ -354,6 +354,8 @@ jobs:
           # report's cards carry the report's own ids, hidden ones nameless.
           # Spec 0103: `knownTop` reaches its owner alone, under stand-in ids,
           # and a report card's `table` link only to a card the board shows.
+          # Spec 0105: a stack entry's `rest` is {ms, arriveMs} only, on the
+          # top, the same on every seat's board.
           python3 -I scripts/check-hidden-tops.py "$traces"/*.jsonl || [ $? = 2 ]
           # Spec 0089, over the same games: before the first turn the other
           # player's deal, mulligan and put-back are told as backs only.

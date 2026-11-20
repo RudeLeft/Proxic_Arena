@@ -148,6 +148,9 @@ export function passWords(board: Snapshot, mySeat: number): { word: string; sub:
   }
 }
 
+/** Spec 0105 -- the act line while the top of the stack rests (canvas feedback-1119 "Q2"). */
+export const RESTING_WORDS = "Resolving · nobody can answer";
+
 /** The canvas's eight steps; Forge's phase names fold into them. */
 export const STEPS: { label: string; phases: string[] }[] = [
   { label: "Untap", phases: ["UNTAP"] },
@@ -181,6 +184,10 @@ export const STEPS: { label: string; phases: string[] }[] = [
  * long enough to say so. Owner report 2026-10-23: while Krenko made
  * Goblins, each player's screen said it was waiting for the other.
  * A spectator passes a seat nobody has (-1): every seat is "theirs".
+ *
+ * Spec 0105 -- `resting`: the top of the stack rests before it resolves,
+ * nobody able to answer it, its card landed on this screen: "One moment ·
+ * Resolving · nobody can answer" (the canvas's words), whoever's it is.
  */
 export function waitingLine(
   board: Snapshot,
@@ -188,9 +195,11 @@ export function waitingLine(
   asking: { seat: number | null; doing?: string | null } | null,
   lastAsked: number | null,
   resolving: boolean,
+  resting = false,
 ): { word: string; sub: string; seat: number | null } {
   const top = board.stack[0];
   const moment = { word: "One moment", sub: "", seat: null };
+  if (resting && top?.rest) return { ...moment, sub: RESTING_WORDS };
   if (asking === null) {
     // Never told (an older server): guessed from priority, as before. Their
     // spell on the stack and you not asked: it is theirs that is going on.

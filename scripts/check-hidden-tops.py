@@ -44,14 +44,21 @@ compares, round by round (one stateRevision), what each seat was sent:
              seat was shown (its last board's otherHands, seen, or Forge's delayed
              reveal in the prompt); no board, for any seat, carries such
              reasons (they travel with the question, to the chooser alone)
+  rests      spec 0105: a stack entry's `rest` (the top of the stack resting,
+             nobody able to answer it) is {ms, arriveMs} and nothing else --
+             no card, no reason, no seat -- only on the top entry, and every
+             seat's board of that round carries the same rest on the same
+             entry (it does not vary with what any player holds, HID-005)
 
     python -I scripts/check-hidden-tops.py --self-test
 
 checks the table-link rule itself on made-up boards: a link to a card on
-the table passes; a link to a card in a library (in no board list) fails.
+the table passes; a link to a card in a library (in no board list) fails;
+and the rest rule: {ms, arriveMs} on the top passes, anything more fails.
 
 Exit 0 when nothing leaked, 1 when something did, 2 when the traces held
-no library top card, no known top and no gathered report to check.
+no library top card, no known top, no gathered report, no reasons and no
+rest to check.
 """
 import json
 import re
@@ -144,6 +151,27 @@ def why_problems(question, before):
     return problems
 
 
+def rest_problems(seats):
+    """Spec 0105 -- what is wrong with the rests in one round's boards, {seat: state}."""
+    problems = []
+    said = {}
+    for seat, s in seats.items():
+        for i, e in enumerate(s.get("stack") or []):
+            rest = e.get("rest")
+            if rest is None:
+                continue
+            if set(rest) != {"ms", "arriveMs"} or not all(isinstance(rest[k], int) for k in ("ms", "arriveMs")):
+                problems.append(f"seat {seat}: a rest carries {sorted(rest)}: only ms and arriveMs may be sent")
+            if i != 0:
+                problems.append(f"seat {seat}: {e.get('id')} rests below the top of the stack")
+            said[seat] = (e.get("id"), json.dumps(rest, sort_keys=True))
+    if len(set(said.values())) > 1:
+        problems.append(f"the seats' boards say different rests: {said}")
+    if said and len(said) != len([s for s in seats.values() if s.get("stack")]):
+        problems.append(f"only seats {sorted(said)} were told of the rest")
+    return problems, len(said)
+
+
 def self_test():
     """The table-link rule on made-up boards: on the table passes, in a library fails."""
     card = {"id": "action:1:0", "known": True, "name": "Island", "seat": 2, "to": "battlefield"}
@@ -161,7 +189,14 @@ def self_test():
              "arrange": {"zone": "hand", "why": {"card:7": "mana value 1"}}}
     shown_ok = why_problems(asked, {"otherHands": [dict(bolt, seen=True)]})
     unshown = why_problems(asked, {"otherHands": [bolt]})
-    results = {"on the table passes": not good, "a library card fails": bool(library),
+    # Spec 0105: a rest of {ms, arriveMs} on the top, the same for both, passes; a card in it fails.
+    top = {"id": "stack:3", "source": "card:9", "rest": {"ms": 4500, "arriveMs": 2000}}
+    rest_ok, _ = rest_problems({1: {"stack": [top]}, 2: {"stack": [dict(top)]}})
+    rest_card, _ = rest_problems({1: {"stack": [dict(top, rest={"ms": 4500, "arriveMs": 2000, "card": "card:9"})]}})
+    rest_one, _ = rest_problems({1: {"stack": [top]}, 2: {"stack": [dict(top, rest=None)]}})
+    results = {"a plain rest passes": not rest_ok, "a rest naming a card fails": bool(rest_card),
+               "a rest told to one seat fails": bool(rest_one),
+               "on the table passes": not good, "a library card fails": bool(library),
                "a hidden card's link fails": bool(hidden), "a stack source fails": bool(stack),
                "a reason for a shown card passes": not shown_ok, "a reason for an unshown card fails": bool(unshown)}
     print(json.dumps(results, indent=1))
@@ -275,16 +310,22 @@ def main(paths):
                     problems.append(f"{path} r{rev}: seat {seat}: a gathered report gathers others")
                 cards += len(r.get("cards") or [])
                 problems.extend(f"{path} r{rev}: seat {seat}: {p}" for p in report_problems(s, r))
+    rested = 0
+    for (path, rev), seats in boards.items():
+        found, n = rest_problems(seats)
+        rested += n
+        problems.extend(f"{path} r{rev}: {p}" for p in found)
     reasons = 0
     for path, version, n, found in WHY:
         reasons += n
         problems.extend(f"{path} v{version}: {p}" for p in found)
     print(json.dumps({"library top cards sent": tops, "known top cards sent": known,
                       "gathered reports": gathered, "report cards": cards, "reasons sent (spec 0104)": reasons,
+                      "rest boards (spec 0105)": rested,
                       "problems": problems[:40]}, indent=1))
     if problems:
         return 1
-    return 0 if (tops or gathered or known or reasons) else 2
+    return 0 if (tops or gathered or known or reasons or rested) else 2
 
 
 if __name__ == "__main__":

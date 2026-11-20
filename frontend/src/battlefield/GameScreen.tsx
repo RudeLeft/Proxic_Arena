@@ -250,8 +250,18 @@ import "./game.css";
 /** A notice stays this long, then fades: the board is the record (§7.57). */
 /** Spec 0005 — the response window on your own spell or trigger (spec 0035, owner 2026-10-29: 5 s). */
 const RESPONSE_WINDOW_MS = 5000;
-/** How long an opponent's spell nobody could answer stays on screen (owner 2026-10-22). */
-const HOLD_MS = 1500;
+/** Spec 0105 -- a beat after the other player's card lands on the stack, before the board may move on. */
+export const LANDING_BEAT_MS = 250;
+/**
+ * How long an opponent's spell nobody could answer stays on screen (owner
+ * 2026-10-22). Spec 0105: derived from the flight it must cover -- their
+ * card's flip, face-up hold and flight to the stack (CastingCard.tsx) plus a
+ * landing beat -- never a fixed number shorter than the flight (it was 1500
+ * against a 1630 ms flight, so the card never reached the stack). With the
+ * worker's stack rest the next board comes later anyway; this matters for a
+ * board that arrives without one (a Lab game, "Let it all resolve").
+ */
+export const THEIR_SPELL_HOLD_MS = FLIP_MS + REVEAL_HOLD_MS + FLY_MS + LANDING_BEAT_MS;
 /**
  * Spec 0100, item 8 (owner 2026-11-18) -- the longest a board whose spell
  * changed target is held for its beam's swing (the stack card in front
@@ -364,7 +374,7 @@ export function GameScreen({
 
   // Owner 2026-10-22: a spell the other player cast, that you could not
   // answer, resolved before it was ever drawn -- it read as being skipped.
-  // A board that shows it on the stack is held HOLD_MS before the next is
+  // A board that shows it on the stack is held THEIR_SPELL_HOLD_MS before the next is
   // drawn, unless a question for you arrives first (then you see it on
   // the question's board anyway).
   const latest = game.board;
@@ -395,7 +405,7 @@ export function GameScreen({
   }, [askedNow]);
   useEffect(() => {
     if (!held) return undefined;
-    const timer = window.setTimeout(() => setHeld(null), HOLD_MS);
+    const timer = window.setTimeout(() => setHeld(null), THEIR_SPELL_HOLD_MS);
     return () => window.clearTimeout(timer);
   }, [held]);
 
@@ -2635,6 +2645,7 @@ export function GameScreen({
                   setResolveAll(new Set(board.stack.map((entry) => entry.id)));
                   answer(null);
                 }}
+                resting={!!board.stack[0]?.rest && board.stack[0].id !== hiddenStack}
                 onView={setViewer}
                 over={over}
                 onLeave={onLeave}
@@ -4134,7 +4145,10 @@ function Rail({
   discard = null,
   onDiscard,
   stackFocus = null,
+  resting = false,
 }: {
+  /** Spec 0105 -- the top of the stack is resting (nobody can answer it), its card landed here. */
+  resting?: boolean;
   /** Spec 0100, item 9 -- the stack entry whose beams show (the Board's focus). */
   stackFocus?: string | null;
   board: Snapshot;
@@ -4202,7 +4216,7 @@ function Rail({
   // W-25 — whose move it is, when nothing is asked of you; their corner glows.
   const waiting =
     !over && !combat && !cancel && !myPriority && !question && !passing
-      ? waitingLine(board, board.spectator ? -1 : mySeat, asking, lastAsked, resolving)
+      ? waitingLine(board, board.spectator ? -1 : mySeat, asking, lastAsked, resolving, resting)
       : null;
   const act = over?.aside ? (
     // W-24 — the banner put away to look at the board: this leaves.

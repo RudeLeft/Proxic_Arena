@@ -622,6 +622,53 @@ public final class GameHost {
         return stops;
     }
 
+    /** Spec 0105 -- a spell or ability nobody can answer rests on the stack before it resolves. */
+    private final StackRests rests = new StackRests(stops::active);
+
+    public StackRests rests() {
+        return rests;
+    }
+
+    /**
+     * Spec 0105 -- `seat` is passed for (not asked) with something on the
+     * stack. When this pass is the one that lets the top resolve with nobody
+     * asked about it, the boards say it is resting and the game thread waits
+     * the rest out here, before the pass goes back to Forge. True when it
+     * rested (the boards were published).
+     */
+    /**
+     * Spec 0105 -- `seat` was asked the priority question and passed: counted
+     * as Forge counts it (every player passing in succession resolves the
+     * top), never rested on -- somebody was asked while it was on top.
+     */
+    void passedWhenAsked(int seat) {
+        Game current = game;
+        if (current != null) {
+            rests.passing(seat, StackRests.topOf(current), current.getPlayers().size(),
+                    StackRests.flies(current));
+        }
+    }
+
+    boolean restBeforePass(int seat) {
+        Game current = game;
+        if (current == null) {
+            return false;
+        }
+        StackRests.Rest rest = rests.passing(seat, StackRests.topOf(current),
+                current.getPlayers().size(), StackRests.flies(current));
+        if (rest == null) {
+            return false;
+        }
+        rests.show(rest);
+        try {
+            publishSnapshots();
+            rests.sleep(rest.ms(), gate::interjectionsNow, () -> gate.closed() || current.isGameOver());
+        } finally {
+            rests.show(null);
+        }
+        return true;
+    }
+
     public void onDecision(
             java.util.function.BiConsumer<DecisionGate.Pending,
                     java.util.Map<String, String>> sink) {
@@ -1809,6 +1856,8 @@ public final class GameHost {
             snapshot.addProperty("noticesTotal", noticesTotal(seat));
             // Spec 0097, item 2 -- this seat's own turn is being passed for
             // it (nothing it can play): the act button says so, this turn only.
+            // Spec 0105 -- the resting stack entry says so, the same on every board.
+            rests.mark(snapshot);
             com.google.gson.JsonObject passing = stops().passingFor(seat, player, current);
             if (passing != null) {
                 snapshot.add("passing", passing);
@@ -1881,6 +1930,7 @@ public final class GameHost {
                 everyone.add("life", life.deepCopy());
             }
             addControlSources(everyone, current);
+            rests.mark(everyone);
             everyone.add("rolls", rollsSoFar());
             everyone.add("payments", payments.forViewer(null));
             if (!moved.isEmpty()) {
@@ -2421,6 +2471,8 @@ public final class GameHost {
             searchable = new Searchable(pending.decisionId(), pending.authorisedSeat(), ids, names, folded);
         }
         decisionCounts.merge(pending.kind(), 1, Integer::sum);
+        // Spec 0105 -- somebody is asked: the top of the stack never rests now.
+        rests.asked(StackRests.topOf(game));
         flushGameLog();
         // §6.48 — the state the question refers to, before it.
         publishSnapshots();
@@ -2636,6 +2688,8 @@ public final class GameHost {
             return "NO_SEAT";
         }
         Player conceding = player;
+        // Spec 0105 -- a rest on the stack runs this within 20 ms (StackRests#sleep
+        // runs the interjections as it waits) and then ends: the game is over.
         gate.interject(() -> {
             if (g.isGameOver()) {
                 return;
@@ -2652,6 +2706,7 @@ public final class GameHost {
 
     /** Stop the game thread. Used when a match is terminated. */
     public void stop() {
+        rests.wake();
         Thread t = gameThread;
         if (t != null) {
             t.interrupt();

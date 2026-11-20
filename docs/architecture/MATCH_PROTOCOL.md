@@ -235,6 +235,11 @@ they pass; a tab not in front never counts down (Phase 9 Amendments 13,
 15). A sacrifice that makes mana
 counts while something is on the stack; tapping for mana alone never
 does. A seat without `stops` (the Mechanics Lab) is asked at every step.
+Spec 0105: when both seats are passed for and nobody was asked anything
+while the top of the stack was there, the pass that lets it resolve is
+held -- the boards mark the top entry `rest: {ms, arriveMs}` and the
+worker waits `ms` (`StackRests`; `protocol/README.md`, `stack[]`); the
+page draws a ring on that stack card and moves on with the next board.
 
 **Only `decisionId` and `actionId` are read.** Not a seat, not a user,
 not a Forge player id, not a state version: a client that could supply

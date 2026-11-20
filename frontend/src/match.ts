@@ -781,6 +781,13 @@ export interface StackEntry {
   aiming?: boolean | undefined;
   /** Spec 0083 (18 B) -- a split-second spell (nobody may answer while it is on the stack). */
   splitSecond?: boolean | undefined;
+  /**
+   * Spec 0105 -- the top of the stack resting before it resolves, nobody
+   * having been asked about it: the game waits `ms` from this board
+   * (`arriveMs` of it allowed for the card to reach the stack on the
+   * slowest screen). Presentation only (PROTO-007): absent, there is no ring.
+   */
+  rest?: StackRest | undefined;
   /** Spec 0083 (18 B) -- a spell that can't be countered (Abrupt Decay). */
   cantBeCountered?: boolean | undefined;
   /** Spec 0101, row 6 -- a ward trigger (Forge's keyword origin). */
@@ -802,6 +809,22 @@ export interface StackEntry {
    * (the target's `object`, or "player:N"), when the caster chose the split.
    */
   shares?: Record<string, number> | undefined;
+}
+
+/** Spec 0105 -- how long the top of the stack rests (`StackEntry.rest`). */
+export interface StackRest {
+  ms: number;
+  arriveMs: number;
+}
+
+/** Spec 0105 -- a stack entry's `rest`, when it is a whole one; anything else is no rest. */
+export function asRest(value: unknown): StackRest | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const row = value as Record<string, unknown>;
+  const ms = row["ms"];
+  const arriveMs = row["arriveMs"];
+  if (typeof ms !== "number" || typeof arriveMs !== "number" || ms <= 0) return undefined;
+  return { ms, arriveMs };
 }
 
 /** Spec 0100, item 2 -- one mode of a modal spell. */
@@ -2196,6 +2219,8 @@ function asStack(value: unknown): StackEntry[] {
       splitSecond: row["splitSecond"] === true ? true : undefined,
       cantBeCountered: row["cantBeCountered"] === true ? true : undefined,
       ward: row["ward"] === true ? true : undefined,
+      // Spec 0105 -- resting before it resolves.
+      rest: asRest(row["rest"]),
       // Spec 0086, Amendment 1 -- the monarch's or the initiative's own trigger.
       from: row["from"] === "monarch" || row["from"] === "initiative" ? row["from"] : undefined,
       targets: Array.isArray(row["targets"])

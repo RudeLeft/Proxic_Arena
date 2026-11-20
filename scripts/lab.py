@@ -28,6 +28,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 
 DEFAULT = object()
@@ -38,6 +39,11 @@ HOLD = object()
 # worker's own log is kept beside the trace.
 SILENCE_S = 120
 CARD = re.compile(r"card:(\d+)")
+
+
+def now_ms():
+    """Spec 0105 -- when a frame was read or sent (wall clock, ms), on every trace line as `t`."""
+    return int(time.time() * 1000)
 
 
 def card_of(action_id):
@@ -98,7 +104,7 @@ class Game:
 
     def send(self, obj):
         if self.trace:
-            self.trace.write(json.dumps({"dir": "out", "frame": obj}) + "\n")
+            self.trace.write(json.dumps({"dir": "out", "t": now_ms(), "frame": obj}) + "\n")
         self.proc.stdin.write(json.dumps(obj) + "\n")
         self.proc.stdin.flush()
 
@@ -226,7 +232,7 @@ class Game:
             except ValueError:
                 continue
             if self.trace:
-                self.trace.write(json.dumps({"dir": "in", "frame": frame}) + "\n")
+                self.trace.write(json.dumps({"dir": "in", "t": now_ms(), "frame": frame}) + "\n")
             kind = frame.get("type")
             if kind == "WORKER_READY":
                 def cards(deck):

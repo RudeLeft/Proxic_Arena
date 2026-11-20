@@ -305,6 +305,15 @@ public final class DecisionGate {
         return null;
     }
 
+    /**
+     * Spec 0105 -- run the pending interjections now, from Forge's thread
+     * while it waits out a stack rest (StackRests), as a question's wait
+     * does: a concession during a rest is not held up by it.
+     */
+    public void interjectionsNow() {
+        runInterjections();
+    }
+
     private void runInterjections() {
         Runnable task;
         while ((task = interjections.poll()) != null) {

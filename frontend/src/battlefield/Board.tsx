@@ -591,6 +591,12 @@ export interface StackView {
   ward?: string;
   /** Spec 0100, item 1 -- the X its caster paid: the gold X medallion. */
   x?: number;
+  /**
+   * Spec 0105 -- resting before it resolves, nobody able to answer it: the
+   * game waits `ms` from the board that said so (`arriveMs` of it allowed
+   * for the card to reach the stack). The ring on its corner empties over it.
+   */
+  rest?: { ms: number; arriveMs: number };
   /** Spec 0100, item 2 -- every mode as printed, the chosen ones lit, the rest struck through. */
   modes?: readonly { text: string; chosen: boolean }[];
   /** Spec 0100, item 3 -- the extra costs paid: "kicked" (a doubled beam), "overloaded" (the fan to `hits`), "evoked" (a grey beam to its caster's graveyard). */
@@ -3104,9 +3110,55 @@ export const RISE_MS = 520;
 export const SHOW_LIFT_AT = 400;
 /** Spec 0088 (Q1 A) -- a cascade trigger rises out of its spell's middle from this size (of a table card). */
 export const CASCADE_FROM = 0.42;
-/** Spec 0088 (Q1 A) -- a cascade trigger waits, unseen, at most this long for its spell to land. */
-export const SPELL_WAIT_MS = 4000;
+/**
+ * Spec 0088 (Q1 A) -- a cascade trigger waits, unseen, at most this long for
+ * its spell to land. Spec 0105: longer than the longest stack rest a board
+ * may say (an unanswered spell's 2000 + 2500 ms), so a safety limit never
+ * cuts a rest short.
+ */
+export const SPELL_WAIT_MS = 6000;
 export const STACK_IN_MS = 260;
+/**
+ * A cast card that has just landed: its stack card fades in over the
+ * flight's last moment, and counts as arrived this long after (spec 0105
+ * counts it in the worker's ARRIVE_SPELL_MS).
+ */
+export const LANDED_FADE_MS = 176;
+/**
+ * Spec 0105 (canvas feedback-1119 "Q2") -- the resting ring: 54 px on the
+ * canvas's 293 x 410 stack card, its centre 36 px in from the right edge and
+ * 29 px up from the bottom; as fractions of the card.
+ */
+export const REST_RING = 54 / 293;
+export const REST_RING_X = (293 - 36) / 293;
+export const REST_RING_Y = (410 - 29) / 410;
+
+/** Spec 0105 -- one resting stack card as this page drew it (performance.now() times). */
+export interface StackRestSeen {
+  id: string;
+  name: string;
+  /** The rest the board said. */
+  ms: number;
+  /** First drawn with its rest; landed on the stack here; its ring's length. */
+  seen: number;
+  landed: number;
+  ring: number;
+  /** When a board no longer had it (it resolved), or null while it is there. */
+  left: number | null;
+}
+
+/**
+ * Spec 0105 -- the page's own record of the resting stack cards it drew, on
+ * the window (`__proxicStackRests`), for the real-click game to read at its
+ * end (F-0105-I): presentation only, the last 50.
+ */
+export function stackRestRecord(): StackRestSeen[] {
+  if (typeof window === "undefined") return [];
+  const holder = window as unknown as { __proxicStackRests?: StackRestSeen[] };
+  const list = (holder.__proxicStackRests ??= []);
+  if (list.length > 50) list.splice(0, list.length - 50);
+  return list;
+}
 
 /** The board fills its container and lays itself out for that size. */
 /**
@@ -4405,6 +4457,47 @@ export function Board({
     s.id === justLanded ||
     freshOnStack(s) ||
     (arriving.current.get(s.id) ?? 0) > performance.now();
+  // Spec 0105 -- the top of the stack resting (nobody can answer it): the
+  // ring on its corner empties from the moment its card has landed on this
+  // screen until `rest.ms` after the board that said so arrived -- one CSS
+  // animation of that length. The card itself leaves with the next board
+  // (the resolution), never on a page timer: the screen cannot run ahead of
+  // the game (ARCH-003). `restSeen`: when each resting entry was first drawn
+  // with its rest; `restLanded`: when it had landed.
+  const restSeen = useRef(new Map<string, number>());
+  const restLanded = useRef(new Map<string, number>());
+  const restRing = (s: StackView, i: number): number | null => {
+    if (!s.rest || i !== 0 || s.waiting) return null;
+    const now = performance.now();
+    const seen = restSeen.current.get(s.id) ?? now;
+    restSeen.current.set(s.id, seen);
+    if (stackWaiting(s)) return null;
+    let landed = restLanded.current.get(s.id);
+    if (landed === undefined) {
+      landed = now;
+      restLanded.current.set(s.id, landed);
+      stackRestRecord().push({
+        id: s.id,
+        name: s.name,
+        ms: s.rest.ms,
+        seen,
+        landed,
+        ring: Math.max(0, s.rest.ms - (landed - seen)),
+        left: null,
+      });
+    }
+    return Math.max(0, s.rest.ms - (landed - seen));
+  };
+  useLayoutEffect(() => {
+    const here = new Set((stack ?? []).map((s) => s.id));
+    const now = performance.now();
+    for (const r of stackRestRecord()) if (r.left === null && !here.has(r.id)) r.left = now;
+    for (const id of [...restSeen.current.keys()]) {
+      if (here.has(id)) continue;
+      restSeen.current.delete(id);
+      restLanded.current.delete(id);
+    }
+  }, [stack]);
   useLayoutEffect(() => {
     const was = wasHidden.current;
     wasHidden.current = hiddenStack;
@@ -4425,7 +4518,7 @@ export function Board({
         ? el.getAnimations().find((a) => a instanceof CSSTransition)
         : undefined;
     arriving.current.set(was, Infinity);
-    timers.current.push(window.setTimeout(done, fading ? 160 * 20 : 176));
+    timers.current.push(window.setTimeout(done, fading ? 160 * 20 : LANDED_FADE_MS));
     if (fading) void fading.finished.then(done, done);
   }, [hiddenStack]);
   // Damage, once per wave. Declared before the stack's and the movement
@@ -9784,6 +9877,8 @@ export function Board({
           // viewer may see; a trigger or ability with its own words on it.
           const whole = box.scale >= STACK_READ_SCALE && !!s.art && s.name !== "Face-down";
           const kind = STACK_KIND[s.kind ?? "spell"] ?? "Spell";
+          // Spec 0105 -- resting, nobody able to answer: how long its ring runs here.
+          const ringMs = restRing(s, i);
           return (
             <div
               key={`stack-spot:${rk}`}
@@ -9915,6 +10010,35 @@ export function Board({
                   the card while it is on the stack (nobody may answer). */}
               {s.splitSecond && !waiting && (
                 <span className="bf-split-ring" data-split-ring={s.id} aria-hidden="true" />
+              )}
+              {/* Spec 0105 (owner Q2 B) -- the act button's "Resolves in" coin
+                  on the card's corner, no words and nothing to click: its gold
+                  ring empties until the game resolves it. */}
+              {ringMs !== null && (
+                <span
+                  className="bf-stack-rest gs-coin-timer"
+                  data-rest-ring={s.id}
+                  data-rest-ms={Math.round(ringMs)}
+                  aria-hidden="true"
+                  style={{
+                    width: g.cardW * REST_RING,
+                    height: g.cardW * REST_RING,
+                    left: g.cardW * (REST_RING_X - REST_RING / 2),
+                    top: g.cardH * REST_RING_Y - (g.cardW * REST_RING) / 2,
+                  }}
+                >
+                  <svg className="gs-coin-dial" viewBox="0 0 46 46">
+                    <circle
+                      className="gs-coin-ring"
+                      cx="23"
+                      cy="23"
+                      r="20"
+                      pathLength={100}
+                      style={{ animationDuration: `${Math.round(ringMs)}ms` }}
+                    />
+                  </svg>
+                  <i className="bf-stack-rest-dot" />
+                </span>
               )}
               {/* Amendment 13 (item 8) -- paying for this one: what's still due,
                   under its words, as on a card being cast. */}
