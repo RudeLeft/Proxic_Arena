@@ -41,6 +41,12 @@ export interface Question {
   cancel: string | null;
   /** Phase 9 Amendment 17 -- the targets already chosen (snapshot ids). */
   chosen: readonly string[];
+  /**
+   * Spec 0107 -- "Change split" options (a blocked trampler's, on your move
+   * at declare blockers): neither a card's action nor listed; the board
+   * draws each as a small button under its attacker.
+   */
+  splits: readonly { attacker: string; actionId: string }[];
 }
 
 /**
@@ -54,7 +60,10 @@ export function questionOf(decision: Decision, visible: ReadonlySet<string>): Qu
   const cancelId = decision.arrange?.targets?.cancel ?? null;
   const cancel =
     cancelId && decision.options.some((o) => o.actionId === cancelId) ? cancelId : null;
-  const options = decision.options.filter((option) => option.actionId !== cancel);
+  const splits = decision.options.flatMap((o) =>
+    o.fight?.attacker ? [{ attacker: o.fight.attacker, actionId: o.actionId }] : [],
+  );
+  const options = decision.options.filter((option) => option.actionId !== cancel && !option.fight);
   const onBoard = new Map<string, DecisionOption[]>();
   for (const option of options) {
     if (option.objectId && visible.has(option.objectId)) {
@@ -75,6 +84,7 @@ export function questionOf(decision: Decision, visible: ReadonlySet<string>): Qu
     canPass: !decision.mandatory,
     cancel,
     chosen: decision.arrange?.targets?.chosen ?? [],
+    splits,
   };
 }
 

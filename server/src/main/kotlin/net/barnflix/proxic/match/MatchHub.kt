@@ -238,20 +238,7 @@ fun decisionMessage(request: DecisionRequest): JsonObject =
         putLayout(request)
         putJsonArray("options") {
             request.options.forEach { option ->
-                add(
-                    buildJsonObject {
-                        put("actionId", option.actionId)
-                        put("label", option.label)
-                        // PHASE_07 §7.61 B5, B8 -- the worker sent them; the
-                        // first build of the board found they stopped here.
-                        option.objectId?.let { put("objectId", it) }
-                        if (!option.payable) put("payable", false)
-                        option.cost?.let { put("cost", it) }
-                        option.types?.let { put("types", it) }
-                        // Spec 0057, item 5 -- play it, or discard it for something.
-                        option.use?.let { put("use", it) }
-                    },
-                )
+                add(option.toJson())
             }
         }
     }
@@ -269,20 +256,7 @@ fun decisionOptionsMessage(found: WorkerEvent.Options): JsonObject =
         put("total", found.total)
         putJsonArray("options") {
             found.options.forEach { option ->
-                add(
-                    buildJsonObject {
-                        put("actionId", option.actionId)
-                        put("label", option.label)
-                        // PHASE_07 §7.61 B5, B8 -- the worker sent them; the
-                        // first build of the board found they stopped here.
-                        option.objectId?.let { put("objectId", it) }
-                        if (!option.payable) put("payable", false)
-                        option.cost?.let { put("cost", it) }
-                        option.types?.let { put("types", it) }
-                        // Spec 0057, item 5 -- play it, or discard it for something.
-                        option.use?.let { put("use", it) }
-                    },
-                )
+                add(option.toJson())
             }
         }
     }

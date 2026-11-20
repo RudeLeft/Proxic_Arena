@@ -683,6 +683,14 @@ export interface BoardProps {
    * pile (graveyard or exile) of the newest card the "+N" stands for.
    */
   onFanMore?: ((side: Side, zone: FanZone) => void) | undefined;
+  /**
+   * Spec 0107 -- "Change split": on your move at declare blockers, each
+   * blocked trampler that can trample over gets a small button under it
+   * (the canvas's look); a click answers with its option, and the damage
+   * window follows. Only the attacker's own page is ever sent one.
+   */
+  splits?: readonly { attacker: string; actionId: string }[] | undefined;
+  onSplit?: ((actionId: string) => void) | undefined;
   viewerSeat: number;
   /** Turns a picture reference into a URL (a match-scoped asset route in a
    * match, the reference itself for a synthetic board). */
@@ -1700,6 +1708,19 @@ const SHUFFLE_AFTER_MS = paced(850);
 
 /** Phase 10 A-13: the fights' dimming, above the table; the fighters above it. */
 const Z_FIGHT_DIM = 4550;
+/** Spec 0107 -- the "Change split" button's mark (the canvas's): one line forking in two. */
+const SPLIT_ICON = (
+  <svg viewBox="0 0 20 20" width="1em" height="1em" aria-hidden="true">
+    <path
+      d="M3 10 H9 M9 10 L16 4 M9 10 L16 16 M13 4 H16 V7 M13 16 H16 V13"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 const Z_FIGHT = 4600;
 
 /** Phase 10 A-13 -- one mark of a fight (fights.ts): drawn, then gone when its animation ends. */
@@ -3417,6 +3438,8 @@ export function Board({
   viewerName = null,
   onOpponentHand,
   onFanMore,
+  splits,
+  onSplit,
   viewerSeat,
   artUrl,
   arrivals,
@@ -5838,9 +5861,10 @@ export function Board({
           const from = strike.target === fight.attacker ? fight.blockers : [fight.attacker];
           for (const id of from) pop(id, "deathtouch", strike.at);
         }
-        if (strike.target.startsWith("player:") && fight.blockers.length > 0 && strike.amount > 0)
-          pop(fight.attacker, "trample", strike.at);
       }
+      // Spec 0107 -- trample pops as the attacker, past its blockers, reaches
+      // the shield (or what it attacks): the carry-on's hit, not the blocker's.
+      if (fight.carry) pop(fight.attacker, "trample", fight.carry.at);
       for (const gain of fight.gains) for (const id of fighters) pop(id, "lifelink", gain.at);
     }
   }
@@ -6002,6 +6026,26 @@ export function Board({
         delay: hold + fight.impact,
         of: fight.attacker,
       });
+      // Spec 0107 -- and where the carry-on lands, at the shield.
+      if (fight.carry)
+        added.push({
+          key: key(`hit:${n}:carry`),
+          kind: "hit",
+          style: {
+            left: fight.carry.contact.x - spark / 2,
+            top: fight.carry.contact.y - spark / 2,
+            width: spark,
+            height: spark,
+          },
+          frames: [
+            { offset: 0, opacity: 0, transform: "scale(0.3)" },
+            { offset: 0.3, opacity: 1, transform: "scale(1.1)" },
+            { offset: 1, opacity: 0, transform: "scale(1.6)" },
+          ],
+          duration: paced(420) * k,
+          delay: hold + fight.carry.at,
+          of: fight.attacker,
+        });
       for (const strike of fight.strikes) {
         const box = strike.box;
         // Spec 0080 (Q5 A) -- all of it prevented (Holy Day, protection): the
@@ -9884,6 +9928,31 @@ export function Board({
             />
           );
         })}
+        {(splits ?? []).map((split) => {
+          // Spec 0107 -- under its attacker, as drawn now.
+          const at = positions.get(split.attacker);
+          if (!at) return null;
+          const box = at.box;
+          return (
+            <button
+              key={`split:${split.actionId}`}
+              type="button"
+              className="bf-split"
+              data-split={split.attacker}
+              aria-label="Change split: how this attacker's damage is shared out"
+              style={{
+                left: box.x + box.w / 2,
+                top: box.y + box.h + g.cardH * 0.12,
+                zIndex: Z_LINES - 90,
+                fontSize: Math.max(12, g.cardH * 0.1),
+              }}
+              onClick={() => onSplit?.(split.actionId)}
+            >
+              {SPLIT_ICON}
+              <span>Change split</span>
+            </button>
+          );
+        })}
         {fanMoreNow.map((more) => (
           <FanMoreView
             key={`fan-more:${more.side}`}
@@ -10912,8 +10981,11 @@ function FightMarkDrawn({ mark, done }: { mark: FightMark; done: () => void }) {
   return (
     <div
       ref={ref}
-      className={`bf-fight-${mark.kind}${mark.kind === "riser" && mark.markOf?.icon === "lost" ? " bf-fight-riser-lost" : ""}${mark.deathtouch ? " bf-fight-deathtouch" : ""}${mark.poison ? " bf-fight-poisoned" : ""}${mark.tone ? ` bf-fight-${mark.tone}` : ""}`}
+      className={`bf-fight-${mark.kind}${mark.kind === "caption" ? " pa-visually-hidden" : ""}${mark.kind === "riser" && mark.markOf?.icon === "lost" ? " bf-fight-riser-lost" : ""}${mark.deathtouch ? " bf-fight-deathtouch" : ""}${mark.poison ? " bf-fight-poisoned" : ""}${mark.tone ? ` bf-fight-${mark.tone}` : ""}`}
       data-fight={mark.kind}
+      // Spec 0107 (owner: "remove any captions") -- a fight's words are for
+      // screen readers only: never over the table.
+      aria-live={mark.kind === "caption" ? "polite" : undefined}
       data-of={mark.of}
       data-ghost-of={mark.ghostOf}
       data-impact={mark.impact}

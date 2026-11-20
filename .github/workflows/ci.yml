@@ -288,7 +288,8 @@ jobs:
       # its own worker process and none depends on timing. Each prints its
       # whole output when it finishes, so the log stays readable. Each has
       # five minutes -- you-choose, cost-kinds, who-did-it, card-actions and shapes
-      # fifteen: they hold many games each; cost-kinds took about 9.5 minutes in CI
+      # fifteen (combat-choices too since spec 0107's seven trample games: about
+      # 2 minutes locally, 2026-11-19): they hold many games each; cost-kinds took about 9.5 minutes in CI
       # (2026-11-05) and once ran past ten with every game passing; shapes' twelve
       # games took 187-282 s on green runs (2026-11-18) and twice ran out of its
       # five minutes in its last game, every game before it passing -- because a hung scenario once
@@ -327,7 +328,7 @@ jobs:
               take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose stack-rests \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
-              'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions|shapes|always-choose|stops|stack-rests) limit=900;; esac;
+              'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions|shapes|always-choose|stops|stack-rests|combat-choices) limit=900;; esac;
                run() { timeout $limit python3 -I "scripts/check-$0.py" "$jar" "$res" "$traces/$0.jsonl" > "$traces/$0.log" 2>&1; };
                run; s=$?;
                if [ $s = 2 ]; then
@@ -707,6 +708,12 @@ jobs:
       - name: Build the mana colours deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/mana-colours-deck.zip" protocol/fixtures/mana-colours-deck
+
+      # Spec 0107 -- a trampler for the host and 1/1 Elves for the guest, for
+      # the real-click trample game (match-trample.spec.ts).
+      - name: Build the trample deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/trample-deck.zip" protocol/fixtures/trample-deck
 
       # Spec 0095 -- the owner's mono-green deck on both seats, for the
       # real-game speed test (match-speed.spec.ts).

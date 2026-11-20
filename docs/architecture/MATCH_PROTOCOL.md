@@ -345,6 +345,10 @@ gained, whether a permanent of theirs left the battlefield); `knownTop`,
 the cards a viewer itself put on top of its own library in a known order,
 in that viewer's snapshot only; and a report card's `table`, the id of
 that card on the table, sent only while the reader's own board shows it.
+Spec 0107: the attacking player's priority question at declare blockers
+may carry "Change split" options, each with its `fight` (a blocked
+trampler that can trample over); a changed split that kept the extra on
+the blockers is an `action` report (TRAMPLE_KEPT) for the defender only.
 What may
 appear is `MATCH_STATE_VISIBILITY.md`; every field is in
 `protocol/README.md`.

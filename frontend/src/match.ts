@@ -49,6 +49,12 @@ export interface DecisionOption {
    * something: what this option does with it, in the game's words.
    */
   use?: OptionUse | null;
+  /**
+   * Spec 0107 -- a "Change split" option (a blocked trampler's, at declare
+   * blockers): the fight it changes. It is about no object; the board draws
+   * it as its own small button under the attacker (`fight.attacker`).
+   */
+  fight?: DamageFight | null;
 }
 
 /**
@@ -195,6 +201,12 @@ export interface DamageFight {
   trample: boolean;
   /** The defending player may take any of it (it divides as it chooses). */
   divides: boolean;
+  /**
+   * Spec 0107 -- on a "Change split" option: the split the game makes for
+   * the player when they don't change it (lethal to each blocker in order,
+   * the rest to the player); absent on a damage question.
+   */
+  usual?: { blockers: number[]; player: number } | null;
 }
 
 /** Phase 9 W-07..W-10 — how a tray question is laid out (see Decision.arrange). */
@@ -2294,12 +2306,22 @@ function asFight(value: unknown): DamageFight | null {
     const card = asString(one["card"]);
     return card ? [{ card, lethal: asNumber(one["lethal"]) ?? 0 }] : [];
   });
+  const usual = v["usual"];
+  const split =
+    typeof usual === "object" && usual !== null && !Array.isArray(usual)
+      ? (usual as Record<string, unknown>)
+      : null;
   return {
     damage,
     attacker: asString(v["attacker"]),
     blockers,
     trample: v["trample"] === true,
     divides: v["divides"] === true,
+    ...(split
+      ? {
+          usual: { blockers: asNumbers(split["blockers"]), player: asNumber(split["player"]) ?? 0 },
+        }
+      : {}),
   };
 }
 
@@ -2704,6 +2726,7 @@ function asOptions(value: unknown): DecisionOption[] {
       cost: asString(row["cost"]),
       types: asString(row["types"]),
       use: asUse(row["use"]),
+      fight: asFight(row["fight"]),
     });
   }
   return options;

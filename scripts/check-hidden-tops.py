@@ -49,6 +49,13 @@ compares, round by round (one stateRevision), what each seat was sent:
              no card, no reason, no seat -- only on the top entry, and every
              seat's board of that round carries the same rest on the same
              entry (it does not vary with what any player holds, HID-005)
+  trample    spec 0107: a kept trample split's report ("... trampled over.")
+             reaches the defending player only -- never the seat that chose
+             it (its `by`), never the public view (seat 0); "Change split"
+             is offered only to the seat whose turn it is, at declare
+             blockers, about no object; and no board, for any seat, carries
+             a split's plan or its option (a "split:" id, a `usual` split):
+             the plan is the attacker's own until the damage lands
 
     python -I scripts/check-hidden-tops.py --self-test
 
@@ -194,7 +201,14 @@ def self_test():
     rest_ok, _ = rest_problems({1: {"stack": [top]}, 2: {"stack": [dict(top)]}})
     rest_card, _ = rest_problems({1: {"stack": [dict(top, rest={"ms": 4500, "arriveMs": 2000, "card": "card:9"})]}})
     rest_one, _ = rest_problems({1: {"stack": [top]}, 2: {"stack": [dict(top, rest=None)]}})
-    results = {"a plain rest passes": not rest_ok, "a rest naming a card fails": bool(rest_card),
+    # Spec 0107: a kept split's report to the defender passes; to the seat that chose it fails.
+    said = {"key": "action:9", "by": 1, "said": "Alice put all six on your Grizzly Bears; none trampled over."}
+    kept_ok, _ = trample_problems(2, {"action": said})
+    kept_bad, _ = trample_problems(1, {"action": said})
+    plan_bad, _ = trample_problems(2, {"battlefield": [], "x": {"usual": {"blockers": [2], "player": 4}}})
+    results = {"a kept split told the defender passes": not kept_ok,
+               "a kept split told its chooser fails": bool(kept_bad), "a plan on a board fails": bool(plan_bad),
+               "a plain rest passes": not rest_ok, "a rest naming a card fails": bool(rest_card),
                "a rest told to one seat fails": bool(rest_one),
                "on the table passes": not good, "a library card fails": bool(library),
                "a hidden card's link fails": bool(hidden), "a stack source fails": bool(stack),
@@ -210,6 +224,7 @@ def rounds(paths):
     out = defaultdict(dict)
     asked = defaultdict(set)
     WHY.clear()
+    SPLITS.clear()
     for path in paths:
         last = {}
         board = {}
@@ -225,6 +240,9 @@ def rounds(paths):
                 if (f.get("arrange") or {}).get("why"):
                     WHY.append((path, f.get("stateVersion"), len(f["arrange"]["why"]),
                                 why_problems(f, board.get(seat))))
+                # Spec 0107: "Change split", against the board before it.
+                if any(str(o.get("actionId", "")).startswith("split:") for o in f.get("options") or []):
+                    SPLITS.append((path, f.get("stateVersion"), split_problems(f, board.get(seat))))
                 if seat in last:
                     ids = {o.get("objectId") for o in f.get("options") or []}
                     ids |= {c.get("id") for c in f.get("looking") or []}
@@ -241,6 +259,42 @@ def rounds(paths):
 
 # Spec 0104: (trace, version, reasons, problems) for every question that sent reasons.
 WHY = []
+# Spec 0107: (trace, version, problems) for every question that offered "Change split".
+SPLITS = []
+
+
+def split_problems(question, before):
+    """Spec 0107 -- "Change split" goes to the seat whose turn it is, at
+    declare blockers, as an option about no object."""
+    out = []
+    seat = question.get("authorisedSeat")
+    for o in question.get("options") or []:
+        if not str(o.get("actionId", "")).startswith("split:"):
+            continue
+        if before is None or before.get("activeSeat") != seat or before.get("phase") != "COMBAT_DECLARE_BLOCKERS":
+            out.append(f"'Change split' offered to seat {seat} at {(before or {}).get('phase')}, "
+                       f"active seat {(before or {}).get('activeSeat')}")
+        if o.get("objectId") or not o.get("fight"):
+            out.append(f"'Change split' must carry its fight and no object: {o}")
+    return out
+
+
+def trample_problems(seat, state):
+    """Spec 0107 -- [state] is [seat]'s board: a kept split's report only for
+    the defender; no plan and no split option on any board. (problems, reports)."""
+    out = []
+    a = state.get("action")
+    told = 0
+    for r in ([a] + list(a.get("gathered") or [])) if a else []:
+        if "trampled over" not in (r.get("said") or ""):
+            continue
+        told += 1
+        if seat == 0 or r.get("by") == seat:
+            out.append(f"a kept trample split told to seat {seat} (chosen by seat {r.get('by')})")
+    blob = json.dumps(state)
+    if '"split:' in blob or '"usual":' in blob:
+        out.append("a board carries a trample split's plan or option")
+    return out, told
 
 
 def reasons_in(node):
@@ -258,7 +312,7 @@ def reasons_in(node):
 
 def main(paths):
     problems = []
-    tops = gathered = cards = known = 0
+    tops = gathered = cards = known = kept = 0
     boards, asked = rounds(paths)
     for (path, rev), seats in boards.items():
         sent = {seat: {c.get("id"): c for c in (s.get("libraryTop") or [])} for seat, s in seats.items()}
@@ -289,6 +343,9 @@ def main(paths):
                 problems.append(f"{path} r{rev}: seat {seat}: a known top survived its library's shuffle")
         all_tops = {cid for m in sent.values() for cid in m}
         for seat, s in seats.items():
+            found, n = trample_problems(seat, s)
+            kept += n
+            problems.extend(f"{path} r{rev}: seat {seat}: {p}" for p in found)
             if reasons_in(s):
                 problems.append(f"{path} r{rev}: seat {seat}: a board carries a question's reasons (why)")
             leaked = (ids_in(s) & all_tops) - set(sent[seat])
@@ -315,6 +372,8 @@ def main(paths):
         found, n = rest_problems(seats)
         rested += n
         problems.extend(f"{path} r{rev}: {p}" for p in found)
+    for path, version, found in SPLITS:
+        problems.extend(f"{path} v{version}: {p}" for p in found)
     reasons = 0
     for path, version, n, found in WHY:
         reasons += n
@@ -322,10 +381,11 @@ def main(paths):
     print(json.dumps({"library top cards sent": tops, "known top cards sent": known,
                       "gathered reports": gathered, "report cards": cards, "reasons sent (spec 0104)": reasons,
                       "rest boards (spec 0105)": rested,
+                      "Change split questions (spec 0107)": len(SPLITS), "kept trample reports (spec 0107)": kept,
                       "problems": problems[:40]}, indent=1))
     if problems:
         return 1
-    return 0 if (tops or gathered or known or reasons or rested) else 2
+    return 0 if (tops or gathered or known or reasons or rested or SPLITS or kept) else 2
 
 
 if __name__ == "__main__":

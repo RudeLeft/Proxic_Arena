@@ -3,7 +3,9 @@ package net.barnflix.proxic.match
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
 
 // What the worker says, as types — PHASE_06 §6.98-§6.104.
 //
@@ -35,7 +37,29 @@ data class DecisionOption(
      * it, and its words. Passed through untouched, like [objectId].
      */
     val use: JsonObject? = null,
-)
+    /**
+     * Spec 0107 -- a "Change split" option's fight (a blocked trampler's, at
+     * declare blockers). Passed through untouched, like [use].
+     */
+    val fight: JsonObject? = null,
+) {
+    /** The option as the browser reads it: what the worker sent, nothing added. */
+    fun toJson(): JsonObject =
+        buildJsonObject {
+            put("actionId", actionId)
+            put("label", label)
+            // PHASE_07 §7.61 B5, B8 -- the worker sent them; the
+            // first build of the board found they stopped here.
+            objectId?.let { put("objectId", it) }
+            if (!payable) put("payable", false)
+            cost?.let { put("cost", it) }
+            types?.let { put("types", it) }
+            // Spec 0057, item 5 -- play it, or discard it for something.
+            use?.let { put("use", it) }
+            // Spec 0107 -- "Change split": the fight it changes.
+            fight?.let { put("fight", it) }
+        }
+}
 
 /**
  * One question Forge is blocked on — §6.99.

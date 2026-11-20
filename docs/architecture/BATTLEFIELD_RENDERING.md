@@ -263,7 +263,10 @@ rather than teleports.
    blocker:* attackers are their side's front line, blockers stand facing
    them in theirs (BATTLEFIELD_LAYOUT_CONTRACT.md §7b), and combat damage
    plays one fight at a time (`fights.ts`): the fighters rear back and meet
-   edge to edge, never overlapping.
+   edge to edge, never overlapping. Since spec 0107 a trampler whose damage
+   reached the player drives on from its blocker hit to the life shield
+   (`fights.ts` `CARRY_MS`, `PlannedFight.carry`), and no caption is drawn
+   over the table: who fights is a visually hidden live line.
 
 6. **State-driven appearance stays on the card.** Tapped (tilt, dim, and
    the word), attacking (a red glow; since Phase 10 A-11 its side's front

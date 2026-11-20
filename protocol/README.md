@@ -370,6 +370,16 @@ action (HAND_EXILE)       spec 0104: a card taken out of a player's hand by
                           to the hand's owner only, never to the one who
                           chose; its card: the card taken, with `to`
                           ("exile"). No fields beyond a report's
+action (TRAMPLE_KEPT)     spec 0107 (owner Q5c A): a blocked attacker with
+                          trample could trample over and its player kept the
+                          extra on the blockers (a changed split): "Bob put
+                          all five on your Grizzly Bears; none trampled
+                          over." / "Bob put four on your Grizzly Bears; one
+                          trampled over.", told once that damage step is
+                          over to the defending player only, never to the
+                          one who chose; its cards: the attacker, then each
+                          blocker (`to` "graveyard" for one that died). No
+                          fields beyond a report's
 action (RESTART)          spec 0102, item 1: at the restart every open report
                           is forgotten for every seat before the RESTART
                           report is made, so game 1's reports never gather
@@ -1094,6 +1104,22 @@ option.payable      B8  false when Forge says the option cannot be paid
                         every other cost part); absent otherwise. Shown
                         dimmed, still choosable (§7.54): Forge refuses
                         an unpayable choice, as before.
+option.fight        0107 a "Change split" option ("split:card:N", label
+                        "Change split"): on the attacking player's own
+                        priority question at declare blockers, one per
+                        blocked attacker with trample whose damage beats
+                        its blockers' total lethal. The fight it changes,
+                        in the damage question's `arrange.damage` shape
+                        ({damage, attacker, blockers [{card, lethal}],
+                        trample}), plus `usual` {blockers [n...], player n}:
+                        the split made for the player at damage when they
+                        don't change it. No `objectId` (the board draws it
+                        as its own button under `attacker`). Chosen, the
+                        damage question is asked at once (as at damage,
+                        one point at a time); the answer is kept by the
+                        worker for damage and the same priority question
+                        comes again. It reaches the asked seat only, like
+                        every question, and never any board.
 ```
 
 

@@ -95,6 +95,7 @@ private fun readOptions(value: JsonElement?): List<DecisionOption> =
             cost = option["cost"]?.jsonPrimitive?.contentOrNull,
             types = option["types"]?.jsonPrimitive?.contentOrNull,
             use = option["use"] as? JsonObject,
+            fight = option["fight"] as? JsonObject,
         )
     }
 

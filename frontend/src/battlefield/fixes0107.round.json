@@ -1,0 +1,3373 @@
+{
+  "auto": {
+    "beforeDamage": {
+      "activeSeat": 1,
+      "battlefield": [
+        {
+          "enteredAt": 15,
+          "faceDown": false,
+          "id": "card:38",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 19,
+          "faceDown": false,
+          "id": "card:57",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 24,
+          "faceDown": false,
+          "id": "card:49",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 29,
+          "faceDown": false,
+          "id": "card:44",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 35,
+          "faceDown": false,
+          "id": "card:34",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 39,
+          "faceDown": false,
+          "id": "card:31",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": true,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 40,
+          "faceDown": false,
+          "id": "card:7",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": false,
+          "tapped": true,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        },
+        {
+          "enteredAt": 45,
+          "faceDown": false,
+          "id": "card:32",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 46,
+          "faceDown": false,
+          "id": "card:4",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": true,
+          "tapped": false,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        },
+        {
+          "enteredAt": 17,
+          "faceDown": false,
+          "id": "card:111",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 21,
+          "faceDown": false,
+          "id": "card:114",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": true,
+          "damage": 0,
+          "enteredAt": 22,
+          "faceDown": false,
+          "id": "card:64",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        },
+        {
+          "enteredAt": 26,
+          "faceDown": false,
+          "id": "card:117",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 27,
+          "faceDown": false,
+          "id": "card:78",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        },
+        {
+          "enteredAt": 31,
+          "faceDown": false,
+          "id": "card:113",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 32,
+          "faceDown": false,
+          "id": "card:88",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 33,
+          "faceDown": false,
+          "id": "card:73",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        },
+        {
+          "enteredAt": 37,
+          "faceDown": false,
+          "id": "card:103",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 42,
+          "faceDown": false,
+          "id": "card:91",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 43,
+          "faceDown": false,
+          "id": "card:85",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": true,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        }
+      ],
+      "casting": [],
+      "combat": {
+        "attackers": [
+          {
+            "id": "card:7",
+            "target": {
+              "player": 2
+            }
+          }
+        ],
+        "blocks": [
+          {
+            "attacker": "card:7",
+            "blocker": "card:64"
+          }
+        ]
+      },
+      "exile": [],
+      "gameEpoch": 1,
+      "graveyard": [],
+      "hand": [
+        {
+          "attacking": false,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 7,
+          "faceDown": false,
+          "id": "card:14",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": false,
+          "tapped": false,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        },
+        {
+          "attacking": false,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 34,
+          "faceDown": false,
+          "id": "card:28",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": false,
+          "tapped": false,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        },
+        {
+          "enteredAt": 38,
+          "faceDown": false,
+          "id": "card:35",
+          "kind": "land",
+          "known": true,
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 44,
+          "faceDown": false,
+          "id": "card:29",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": false,
+          "tapped": false,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        }
+      ],
+      "notices": [],
+      "noticesTotal": 0,
+      "otherHands": [],
+      "passing": {
+        "turn": 13,
+        "why": "7 lands, you've already played a land this turn"
+      },
+      "payments": [
+        {
+          "for": "card:64",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:111"
+            }
+          ],
+          "n": 1,
+          "payment": 1,
+          "seat": 2
+        },
+        {
+          "for": "card:64",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:114"
+            }
+          ],
+          "n": 2,
+          "payment": 1,
+          "seat": 2
+        },
+        {
+          "for": "card:78",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:111"
+            }
+          ],
+          "n": 3,
+          "payment": 2,
+          "seat": 2
+        },
+        {
+          "for": "card:78",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:114"
+            }
+          ],
+          "n": 4,
+          "payment": 2,
+          "seat": 2
+        },
+        {
+          "for": "card:88",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:111"
+            }
+          ],
+          "n": 5,
+          "payment": 3,
+          "seat": 2
+        },
+        {
+          "for": "card:88",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:114"
+            }
+          ],
+          "n": 6,
+          "payment": 3,
+          "seat": 2
+        },
+        {
+          "for": "card:73",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:117"
+            }
+          ],
+          "n": 7,
+          "payment": 4,
+          "seat": 2
+        },
+        {
+          "for": "card:73",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:113"
+            }
+          ],
+          "n": 8,
+          "payment": 4,
+          "seat": 2
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:38",
+              "shard": "G"
+            }
+          ],
+          "n": 9,
+          "owing": "{4}{G}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:57",
+              "shard": "G"
+            }
+          ],
+          "n": 10,
+          "owing": "{4}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:49",
+              "shard": "1"
+            }
+          ],
+          "n": 11,
+          "owing": "{3}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:44",
+              "shard": "1"
+            }
+          ],
+          "n": 12,
+          "owing": "{2}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:34",
+              "shard": "1"
+            }
+          ],
+          "n": 13,
+          "owing": "{1}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:31",
+              "shard": "1"
+            }
+          ],
+          "n": 14,
+          "owing": "0",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "for": "card:85",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:111"
+            }
+          ],
+          "n": 15,
+          "payment": 6,
+          "seat": 2
+        },
+        {
+          "for": "card:85",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:114"
+            }
+          ],
+          "n": 16,
+          "payment": 6,
+          "seat": 2
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:38",
+              "shard": "G"
+            }
+          ],
+          "n": 17,
+          "owing": "{4}{G}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:57",
+              "shard": "G"
+            }
+          ],
+          "n": 18,
+          "owing": "{4}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:49",
+              "shard": "1"
+            }
+          ],
+          "n": 19,
+          "owing": "{3}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:44",
+              "shard": "1"
+            }
+          ],
+          "n": 20,
+          "owing": "{2}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:34",
+              "shard": "1"
+            }
+          ],
+          "n": 21,
+          "owing": "{1}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:31",
+              "shard": "1"
+            }
+          ],
+          "n": 22,
+          "owing": "0",
+          "payment": 7,
+          "seat": 1
+        }
+      ],
+      "phase": "COMBAT_DAMAGE",
+      "players": [
+        {
+          "graveyardCount": 0,
+          "handCount": 4,
+          "libraryCount": 47,
+          "life": 20,
+          "mulligans": 0,
+          "name": "Alice",
+          "seat": 1,
+          "thisTurn": {
+            "leftBattlefield": false,
+            "lifeGained": 0,
+            "spells": 1
+          }
+        },
+        {
+          "graveyardCount": 0,
+          "handCount": 2,
+          "libraryCount": 47,
+          "life": 20,
+          "mulligans": 0,
+          "name": "Bob",
+          "seat": 2,
+          "thisTurn": {
+            "leftBattlefield": false,
+            "lifeGained": 0,
+            "spells": 0
+          }
+        }
+      ],
+      "prioritySeat": 1,
+      "rolls": [],
+      "seat": 1,
+      "stack": [],
+      "stateRevision": 176,
+      "turn": 13
+    },
+    "damageBoard": {
+      "activeSeat": 1,
+      "battlefield": [
+        {
+          "enteredAt": 15,
+          "faceDown": false,
+          "id": "card:38",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 19,
+          "faceDown": false,
+          "id": "card:57",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 24,
+          "faceDown": false,
+          "id": "card:49",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 29,
+          "faceDown": false,
+          "id": "card:44",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 35,
+          "faceDown": false,
+          "id": "card:34",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 39,
+          "faceDown": false,
+          "id": "card:31",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": true,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 2,
+          "enteredAt": 40,
+          "faceDown": false,
+          "id": "card:7",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": false,
+          "tapped": true,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        },
+        {
+          "enteredAt": 45,
+          "faceDown": false,
+          "id": "card:32",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 46,
+          "faceDown": false,
+          "id": "card:4",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": true,
+          "tapped": false,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        },
+        {
+          "enteredAt": 17,
+          "faceDown": false,
+          "id": "card:111",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 21,
+          "faceDown": false,
+          "id": "card:114",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 26,
+          "faceDown": false,
+          "id": "card:117",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 27,
+          "faceDown": false,
+          "id": "card:78",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        },
+        {
+          "enteredAt": 31,
+          "faceDown": false,
+          "id": "card:113",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 32,
+          "faceDown": false,
+          "id": "card:88",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 33,
+          "faceDown": false,
+          "id": "card:73",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        },
+        {
+          "enteredAt": 37,
+          "faceDown": false,
+          "id": "card:103",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 42,
+          "faceDown": false,
+          "id": "card:91",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 43,
+          "faceDown": false,
+          "id": "card:85",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": true,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        }
+      ],
+      "casting": [],
+      "combat": {
+        "attackers": [
+          {
+            "id": "card:7",
+            "target": {
+              "player": 2
+            }
+          }
+        ],
+        "blocks": []
+      },
+      "damage": {
+        "combat": "regular",
+        "fights": [
+          {
+            "attacker": "card:7",
+            "blockers": ["card:64"],
+            "defender": {
+              "player": 2
+            }
+          }
+        ],
+        "hits": [
+          {
+            "amount": 2,
+            "source": "card:7",
+            "target": {
+              "object": "card:64"
+            }
+          },
+          {
+            "amount": 4,
+            "source": "card:7",
+            "target": {
+              "player": 2
+            }
+          },
+          {
+            "amount": 2,
+            "source": "card:64",
+            "target": {
+              "object": "card:7"
+            }
+          }
+        ],
+        "key": "damage:177"
+      },
+      "exile": [],
+      "gameEpoch": 1,
+      "graveyard": [
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 47,
+          "faceDown": false,
+          "id": "card:64",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        }
+      ],
+      "hand": [
+        {
+          "attacking": false,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 7,
+          "faceDown": false,
+          "id": "card:14",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": false,
+          "tapped": false,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        },
+        {
+          "attacking": false,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 34,
+          "faceDown": false,
+          "id": "card:28",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": false,
+          "tapped": false,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        },
+        {
+          "enteredAt": 38,
+          "faceDown": false,
+          "id": "card:35",
+          "kind": "land",
+          "known": true,
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 44,
+          "faceDown": false,
+          "id": "card:29",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": false,
+          "tapped": false,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        }
+      ],
+      "life": {
+        "changes": [
+          {
+            "amount": 4,
+            "combat": true,
+            "kind": "damage",
+            "player": 2,
+            "source": "card:7"
+          }
+        ],
+        "key": "life:177"
+      },
+      "moves": [
+        {
+          "card": "card:64",
+          "from": {
+            "seat": 2,
+            "zone": "battlefield"
+          },
+          "last": {
+            "power": 2,
+            "toughness": 2
+          },
+          "to": {
+            "seat": 2,
+            "zone": "graveyard"
+          },
+          "why": "died"
+        }
+      ],
+      "notices": [],
+      "noticesTotal": 0,
+      "otherHands": [],
+      "passing": {
+        "turn": 13,
+        "why": "7 lands, you've already played a land this turn"
+      },
+      "payments": [
+        {
+          "for": "card:64",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:111"
+            }
+          ],
+          "n": 1,
+          "payment": 1,
+          "seat": 2
+        },
+        {
+          "for": "card:64",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:114"
+            }
+          ],
+          "n": 2,
+          "payment": 1,
+          "seat": 2
+        },
+        {
+          "for": "card:78",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:111"
+            }
+          ],
+          "n": 3,
+          "payment": 2,
+          "seat": 2
+        },
+        {
+          "for": "card:78",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:114"
+            }
+          ],
+          "n": 4,
+          "payment": 2,
+          "seat": 2
+        },
+        {
+          "for": "card:88",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:111"
+            }
+          ],
+          "n": 5,
+          "payment": 3,
+          "seat": 2
+        },
+        {
+          "for": "card:88",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:114"
+            }
+          ],
+          "n": 6,
+          "payment": 3,
+          "seat": 2
+        },
+        {
+          "for": "card:73",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:117"
+            }
+          ],
+          "n": 7,
+          "payment": 4,
+          "seat": 2
+        },
+        {
+          "for": "card:73",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:113"
+            }
+          ],
+          "n": 8,
+          "payment": 4,
+          "seat": 2
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:38",
+              "shard": "G"
+            }
+          ],
+          "n": 9,
+          "owing": "{4}{G}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:57",
+              "shard": "G"
+            }
+          ],
+          "n": 10,
+          "owing": "{4}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:49",
+              "shard": "1"
+            }
+          ],
+          "n": 11,
+          "owing": "{3}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:44",
+              "shard": "1"
+            }
+          ],
+          "n": 12,
+          "owing": "{2}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:34",
+              "shard": "1"
+            }
+          ],
+          "n": 13,
+          "owing": "{1}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:31",
+              "shard": "1"
+            }
+          ],
+          "n": 14,
+          "owing": "0",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "for": "card:85",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:111"
+            }
+          ],
+          "n": 15,
+          "payment": 6,
+          "seat": 2
+        },
+        {
+          "for": "card:85",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:114"
+            }
+          ],
+          "n": 16,
+          "payment": 6,
+          "seat": 2
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:38",
+              "shard": "G"
+            }
+          ],
+          "n": 17,
+          "owing": "{4}{G}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:57",
+              "shard": "G"
+            }
+          ],
+          "n": 18,
+          "owing": "{4}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:49",
+              "shard": "1"
+            }
+          ],
+          "n": 19,
+          "owing": "{3}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:44",
+              "shard": "1"
+            }
+          ],
+          "n": 20,
+          "owing": "{2}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:34",
+              "shard": "1"
+            }
+          ],
+          "n": 21,
+          "owing": "{1}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:31",
+              "shard": "1"
+            }
+          ],
+          "n": 22,
+          "owing": "0",
+          "payment": 7,
+          "seat": 1
+        }
+      ],
+      "phase": "COMBAT_DAMAGE",
+      "players": [
+        {
+          "graveyardCount": 0,
+          "handCount": 4,
+          "libraryCount": 47,
+          "life": 20,
+          "mulligans": 0,
+          "name": "Alice",
+          "seat": 1,
+          "thisTurn": {
+            "leftBattlefield": false,
+            "lifeGained": 0,
+            "spells": 1
+          }
+        },
+        {
+          "graveyardCount": 1,
+          "handCount": 2,
+          "libraryCount": 47,
+          "life": 16,
+          "mulligans": 0,
+          "name": "Bob",
+          "seat": 2,
+          "thisTurn": {
+            "leftBattlefield": true,
+            "lifeGained": 0,
+            "spells": 0
+          }
+        }
+      ],
+      "prioritySeat": 2,
+      "rolls": [],
+      "seat": 1,
+      "stack": [],
+      "stateRevision": 177,
+      "turn": 13
+    },
+    "stop": {
+      "actedForSeat": 1,
+      "authorisedSeat": 1,
+      "decisionId": 124,
+      "gameEpoch": 1,
+      "kind": "chooseSpellAbilityToPlay",
+      "mandatory": false,
+      "options": [
+        {
+          "actionId": "action:216:card:32",
+          "label": "Forest \u00b7 {T}: Add {G}.",
+          "objectId": "card:32"
+        },
+        {
+          "actionId": "split:card:7",
+          "fight": {
+            "attacker": "card:7",
+            "blockers": [
+              {
+                "card": "card:64",
+                "lethal": 2
+              }
+            ],
+            "damage": 6,
+            "trample": true,
+            "usual": {
+              "blockers": [2],
+              "player": 4
+            }
+          },
+          "label": "Change split"
+        }
+      ],
+      "protocolVersion": 1,
+      "stateVersion": 172,
+      "type": "DECISION_REQUEST",
+      "unavailable": {
+        "card:14": "Only in your main phase, with nothing on the stack.",
+        "card:28": "Only in your main phase, with nothing on the stack.",
+        "card:29": "Only in your main phase, with nothing on the stack.",
+        "card:35": "You've already played a land this turn."
+      }
+    },
+    "stopBoard": {
+      "activeSeat": 1,
+      "battlefield": [
+        {
+          "enteredAt": 15,
+          "faceDown": false,
+          "id": "card:38",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 19,
+          "faceDown": false,
+          "id": "card:57",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 24,
+          "faceDown": false,
+          "id": "card:49",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 29,
+          "faceDown": false,
+          "id": "card:44",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 35,
+          "faceDown": false,
+          "id": "card:34",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 39,
+          "faceDown": false,
+          "id": "card:31",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": true,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 40,
+          "faceDown": false,
+          "id": "card:7",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": false,
+          "tapped": true,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        },
+        {
+          "enteredAt": 45,
+          "faceDown": false,
+          "id": "card:32",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 46,
+          "faceDown": false,
+          "id": "card:4",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": true,
+          "tapped": false,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        },
+        {
+          "enteredAt": 17,
+          "faceDown": false,
+          "id": "card:111",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 21,
+          "faceDown": false,
+          "id": "card:114",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": true,
+          "damage": 0,
+          "enteredAt": 22,
+          "faceDown": false,
+          "id": "card:64",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        },
+        {
+          "enteredAt": 26,
+          "faceDown": false,
+          "id": "card:117",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 27,
+          "faceDown": false,
+          "id": "card:78",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        },
+        {
+          "enteredAt": 31,
+          "faceDown": false,
+          "id": "card:113",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 32,
+          "faceDown": false,
+          "id": "card:88",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 33,
+          "faceDown": false,
+          "id": "card:73",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        },
+        {
+          "enteredAt": 37,
+          "faceDown": false,
+          "id": "card:103",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 42,
+          "faceDown": false,
+          "id": "card:91",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 2,
+          "baseToughness": 2,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 43,
+          "faceDown": false,
+          "id": "card:85",
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{1}{G}",
+          "name": "Grizzly Bears",
+          "owner": 2,
+          "power": 2,
+          "printing": "SLZ/77",
+          "seat": 2,
+          "sick": true,
+          "tapped": false,
+          "toughness": 2,
+          "types": "Creature - Bear"
+        }
+      ],
+      "casting": [],
+      "combat": {
+        "attackers": [
+          {
+            "id": "card:7",
+            "target": {
+              "player": 2
+            }
+          }
+        ],
+        "blocks": [
+          {
+            "attacker": "card:7",
+            "blocker": "card:64"
+          }
+        ]
+      },
+      "exile": [],
+      "gameEpoch": 1,
+      "graveyard": [],
+      "hand": [
+        {
+          "attacking": false,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 7,
+          "faceDown": false,
+          "id": "card:14",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": false,
+          "tapped": false,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        },
+        {
+          "attacking": false,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 34,
+          "faceDown": false,
+          "id": "card:28",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": false,
+          "tapped": false,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        },
+        {
+          "enteredAt": 38,
+          "faceDown": false,
+          "id": "card:35",
+          "kind": "land",
+          "known": true,
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 6,
+          "baseToughness": 6,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 44,
+          "faceDown": false,
+          "id": "card:29",
+          "keywords": ["Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{4}{G}{G}",
+          "name": "Colossal Dreadmaw",
+          "owner": 1,
+          "power": 6,
+          "printing": "SLZ/73",
+          "seat": 1,
+          "sick": false,
+          "tapped": false,
+          "toughness": 6,
+          "types": "Creature - Dinosaur"
+        }
+      ],
+      "notices": [],
+      "noticesTotal": 0,
+      "otherHands": [],
+      "passing": {
+        "turn": 13,
+        "why": "7 lands, you've already played a land this turn"
+      },
+      "payments": [
+        {
+          "for": "card:64",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:111"
+            }
+          ],
+          "n": 1,
+          "payment": 1,
+          "seat": 2
+        },
+        {
+          "for": "card:64",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:114"
+            }
+          ],
+          "n": 2,
+          "payment": 1,
+          "seat": 2
+        },
+        {
+          "for": "card:78",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:111"
+            }
+          ],
+          "n": 3,
+          "payment": 2,
+          "seat": 2
+        },
+        {
+          "for": "card:78",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:114"
+            }
+          ],
+          "n": 4,
+          "payment": 2,
+          "seat": 2
+        },
+        {
+          "for": "card:88",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:111"
+            }
+          ],
+          "n": 5,
+          "payment": 3,
+          "seat": 2
+        },
+        {
+          "for": "card:88",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:114"
+            }
+          ],
+          "n": 6,
+          "payment": 3,
+          "seat": 2
+        },
+        {
+          "for": "card:73",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:117"
+            }
+          ],
+          "n": 7,
+          "payment": 4,
+          "seat": 2
+        },
+        {
+          "for": "card:73",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:113"
+            }
+          ],
+          "n": 8,
+          "payment": 4,
+          "seat": 2
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:38",
+              "shard": "G"
+            }
+          ],
+          "n": 9,
+          "owing": "{4}{G}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:57",
+              "shard": "G"
+            }
+          ],
+          "n": 10,
+          "owing": "{4}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:49",
+              "shard": "1"
+            }
+          ],
+          "n": 11,
+          "owing": "{3}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:44",
+              "shard": "1"
+            }
+          ],
+          "n": 12,
+          "owing": "{2}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:34",
+              "shard": "1"
+            }
+          ],
+          "n": 13,
+          "owing": "{1}",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:7",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:31",
+              "shard": "1"
+            }
+          ],
+          "n": 14,
+          "owing": "0",
+          "payment": 5,
+          "seat": 1
+        },
+        {
+          "for": "card:85",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:111"
+            }
+          ],
+          "n": 15,
+          "payment": 6,
+          "seat": 2
+        },
+        {
+          "for": "card:85",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:114"
+            }
+          ],
+          "n": 16,
+          "payment": 6,
+          "seat": 2
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:38",
+              "shard": "G"
+            }
+          ],
+          "n": 17,
+          "owing": "{4}{G}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:57",
+              "shard": "G"
+            }
+          ],
+          "n": 18,
+          "owing": "{4}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:49",
+              "shard": "1"
+            }
+          ],
+          "n": 19,
+          "owing": "{3}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:44",
+              "shard": "1"
+            }
+          ],
+          "n": 20,
+          "owing": "{2}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:34",
+              "shard": "1"
+            }
+          ],
+          "n": 21,
+          "owing": "{1}",
+          "payment": 7,
+          "seat": 1
+        },
+        {
+          "cost": "{4}{G}{G}",
+          "for": "card:4",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:31",
+              "shard": "1"
+            }
+          ],
+          "n": 22,
+          "owing": "0",
+          "payment": 7,
+          "seat": 1
+        }
+      ],
+      "phase": "COMBAT_DECLARE_BLOCKERS",
+      "players": [
+        {
+          "graveyardCount": 0,
+          "handCount": 4,
+          "libraryCount": 47,
+          "life": 20,
+          "mulligans": 0,
+          "name": "Alice",
+          "seat": 1,
+          "thisTurn": {
+            "leftBattlefield": false,
+            "lifeGained": 0,
+            "spells": 1
+          }
+        },
+        {
+          "graveyardCount": 0,
+          "handCount": 2,
+          "libraryCount": 47,
+          "life": 20,
+          "mulligans": 0,
+          "name": "Bob",
+          "seat": 2,
+          "thisTurn": {
+            "leftBattlefield": false,
+            "lifeGained": 0,
+            "spells": 0
+          }
+        }
+      ],
+      "prioritySeat": 1,
+      "rolls": [],
+      "seat": 1,
+      "stack": [],
+      "stateRevision": 173,
+      "turn": 13
+    }
+  },
+  "deathtouch": {
+    "beforeDamage": {
+      "activeSeat": 1,
+      "battlefield": [
+        {
+          "enteredAt": 18,
+          "faceDown": false,
+          "id": "card:16",
+          "kind": "land",
+          "known": true,
+          "makes": ["B"],
+          "name": "Swamp",
+          "owner": 1,
+          "printing": "TRK/321",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Swamp"
+        },
+        {
+          "attacking": true,
+          "basePower": 1,
+          "baseToughness": 1,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 19,
+          "faceDown": false,
+          "gained": ["Trample"],
+          "id": "card:10",
+          "keywords": ["Deathtouch", "Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{B}",
+          "name": "Typhoid Rats",
+          "owner": 1,
+          "power": 3,
+          "printing": "J25/497",
+          "seat": 1,
+          "sick": false,
+          "tapped": true,
+          "toughness": 1,
+          "types": "Creature - Rat"
+        },
+        {
+          "enteredAt": 25,
+          "faceDown": false,
+          "id": "card:37",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attachedTo": "card:10",
+          "enteredAt": 27,
+          "faceDown": false,
+          "id": "card:48",
+          "keywords": ["Enchant creature"],
+          "kind": "other",
+          "known": true,
+          "manaCost": "{G}",
+          "name": "Rancor",
+          "owner": 1,
+          "printing": "MAR/82",
+          "seat": 1,
+          "tapped": false,
+          "types": "Enchantment - Aura"
+        },
+        {
+          "enteredAt": 15,
+          "faceDown": false,
+          "id": "card:92",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 0,
+          "baseToughness": 3,
+          "blocking": true,
+          "damage": 0,
+          "enteredAt": 16,
+          "faceDown": false,
+          "id": "card:86",
+          "keywords": ["Defender"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{G}",
+          "name": "Wall of Wood",
+          "owner": 2,
+          "power": 0,
+          "printing": "30A/221",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 3,
+          "types": "Creature - Wall"
+        },
+        {
+          "enteredAt": 21,
+          "faceDown": false,
+          "id": "card:105",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 0,
+          "baseToughness": 3,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 22,
+          "faceDown": false,
+          "id": "card:90",
+          "keywords": ["Defender"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{G}",
+          "name": "Wall of Wood",
+          "owner": 2,
+          "power": 0,
+          "printing": "30A/221",
+          "seat": 2,
+          "sick": true,
+          "tapped": false,
+          "toughness": 3,
+          "types": "Creature - Wall"
+        },
+        {
+          "attacking": false,
+          "basePower": 0,
+          "baseToughness": 3,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 23,
+          "faceDown": false,
+          "id": "card:61",
+          "keywords": ["Defender"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{G}",
+          "name": "Wall of Wood",
+          "owner": 2,
+          "power": 0,
+          "printing": "30A/221",
+          "seat": 2,
+          "sick": true,
+          "tapped": false,
+          "toughness": 3,
+          "types": "Creature - Wall"
+        }
+      ],
+      "casting": [],
+      "combat": {
+        "attackers": [
+          {
+            "id": "card:10",
+            "target": {
+              "player": 2
+            }
+          }
+        ],
+        "blocks": [
+          {
+            "attacker": "card:10",
+            "blocker": "card:86"
+          }
+        ]
+      },
+      "exile": [],
+      "gameEpoch": 1,
+      "graveyard": [],
+      "hand": [
+        {
+          "enteredAt": 3,
+          "faceDown": false,
+          "id": "card:23",
+          "kind": "land",
+          "known": true,
+          "name": "Swamp",
+          "owner": 1,
+          "printing": "TRK/321",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Swamp"
+        },
+        {
+          "enteredAt": 4,
+          "faceDown": false,
+          "id": "card:31",
+          "kind": "land",
+          "known": true,
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 1,
+          "baseToughness": 1,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 7,
+          "faceDown": false,
+          "id": "card:7",
+          "keywords": ["Deathtouch"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{B}",
+          "name": "Typhoid Rats",
+          "owner": 1,
+          "power": 1,
+          "printing": "J25/497",
+          "seat": 1,
+          "sick": false,
+          "tapped": false,
+          "toughness": 1,
+          "types": "Creature - Rat"
+        },
+        {
+          "enteredAt": 17,
+          "faceDown": false,
+          "id": "card:26",
+          "kind": "land",
+          "known": true,
+          "name": "Swamp",
+          "owner": 1,
+          "printing": "TRK/321",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Swamp"
+        },
+        {
+          "enteredAt": 24,
+          "faceDown": false,
+          "id": "card:39",
+          "kind": "land",
+          "known": true,
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        }
+      ],
+      "notices": [],
+      "noticesTotal": 0,
+      "otherHands": [],
+      "payments": [
+        {
+          "for": "card:86",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:92"
+            }
+          ],
+          "n": 1,
+          "payment": 1,
+          "seat": 2
+        },
+        {
+          "cost": "{B}",
+          "for": "card:10",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "B",
+              "from": "card:16",
+              "shard": "B"
+            }
+          ],
+          "n": 2,
+          "owing": "0",
+          "payment": 2,
+          "seat": 1
+        },
+        {
+          "for": "card:90",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:92"
+            }
+          ],
+          "n": 3,
+          "payment": 3,
+          "seat": 2
+        },
+        {
+          "for": "card:61",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:105"
+            }
+          ],
+          "n": 4,
+          "payment": 4,
+          "seat": 2
+        },
+        {
+          "cost": "{G}",
+          "for": "card:48",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:37",
+              "shard": "G"
+            }
+          ],
+          "n": 5,
+          "owing": "0",
+          "payment": 5,
+          "seat": 1
+        }
+      ],
+      "phase": "COMBAT_DAMAGE",
+      "players": [
+        {
+          "graveyardCount": 0,
+          "handCount": 5,
+          "libraryCount": 51,
+          "life": 20,
+          "mulligans": 0,
+          "name": "Alice",
+          "seat": 1,
+          "thisTurn": {
+            "leftBattlefield": false,
+            "lifeGained": 0,
+            "spells": 1
+          }
+        },
+        {
+          "graveyardCount": 0,
+          "handCount": 3,
+          "libraryCount": 52,
+          "life": 20,
+          "mulligans": 0,
+          "name": "Bob",
+          "seat": 2,
+          "thisTurn": {
+            "leftBattlefield": false,
+            "lifeGained": 0,
+            "spells": 0
+          }
+        }
+      ],
+      "prioritySeat": 1,
+      "rolls": [],
+      "seat": 1,
+      "stack": [],
+      "stateRevision": 54,
+      "turn": 4
+    },
+    "damageBoard": {
+      "activeSeat": 1,
+      "battlefield": [
+        {
+          "enteredAt": 18,
+          "faceDown": false,
+          "id": "card:16",
+          "kind": "land",
+          "known": true,
+          "makes": ["B"],
+          "name": "Swamp",
+          "owner": 1,
+          "printing": "TRK/321",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Swamp"
+        },
+        {
+          "attacking": true,
+          "basePower": 1,
+          "baseToughness": 1,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 19,
+          "faceDown": false,
+          "gained": ["Trample"],
+          "id": "card:10",
+          "keywords": ["Deathtouch", "Trample"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{B}",
+          "name": "Typhoid Rats",
+          "owner": 1,
+          "power": 3,
+          "printing": "J25/497",
+          "seat": 1,
+          "sick": false,
+          "tapped": true,
+          "toughness": 1,
+          "types": "Creature - Rat"
+        },
+        {
+          "enteredAt": 25,
+          "faceDown": false,
+          "id": "card:37",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attachedTo": "card:10",
+          "enteredAt": 27,
+          "faceDown": false,
+          "id": "card:48",
+          "keywords": ["Enchant creature"],
+          "kind": "other",
+          "known": true,
+          "manaCost": "{G}",
+          "name": "Rancor",
+          "owner": 1,
+          "printing": "MAR/82",
+          "seat": 1,
+          "tapped": false,
+          "types": "Enchantment - Aura"
+        },
+        {
+          "enteredAt": 15,
+          "faceDown": false,
+          "id": "card:92",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "enteredAt": 21,
+          "faceDown": false,
+          "id": "card:105",
+          "kind": "land",
+          "known": true,
+          "makes": ["G"],
+          "name": "Forest",
+          "owner": 2,
+          "printing": "TRK/325",
+          "seat": 2,
+          "tapped": true,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 0,
+          "baseToughness": 3,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 22,
+          "faceDown": false,
+          "id": "card:90",
+          "keywords": ["Defender"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{G}",
+          "name": "Wall of Wood",
+          "owner": 2,
+          "power": 0,
+          "printing": "30A/221",
+          "seat": 2,
+          "sick": true,
+          "tapped": false,
+          "toughness": 3,
+          "types": "Creature - Wall"
+        },
+        {
+          "attacking": false,
+          "basePower": 0,
+          "baseToughness": 3,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 23,
+          "faceDown": false,
+          "id": "card:61",
+          "keywords": ["Defender"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{G}",
+          "name": "Wall of Wood",
+          "owner": 2,
+          "power": 0,
+          "printing": "30A/221",
+          "seat": 2,
+          "sick": true,
+          "tapped": false,
+          "toughness": 3,
+          "types": "Creature - Wall"
+        }
+      ],
+      "casting": [],
+      "combat": {
+        "attackers": [
+          {
+            "id": "card:10",
+            "target": {
+              "player": 2
+            }
+          }
+        ],
+        "blocks": []
+      },
+      "damage": {
+        "combat": "regular",
+        "fights": [
+          {
+            "attacker": "card:10",
+            "blockers": ["card:86"],
+            "defender": {
+              "player": 2
+            }
+          }
+        ],
+        "hits": [
+          {
+            "amount": 2,
+            "source": "card:10",
+            "target": {
+              "player": 2
+            }
+          },
+          {
+            "amount": 1,
+            "deathtouch": true,
+            "source": "card:10",
+            "target": {
+              "object": "card:86"
+            }
+          }
+        ],
+        "key": "damage:55"
+      },
+      "exile": [],
+      "gameEpoch": 1,
+      "graveyard": [
+        {
+          "attacking": false,
+          "basePower": 0,
+          "baseToughness": 3,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 28,
+          "faceDown": false,
+          "id": "card:86",
+          "keywords": ["Defender"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{G}",
+          "name": "Wall of Wood",
+          "owner": 2,
+          "power": 0,
+          "printing": "30A/221",
+          "seat": 2,
+          "sick": false,
+          "tapped": false,
+          "toughness": 3,
+          "types": "Creature - Wall"
+        }
+      ],
+      "hand": [
+        {
+          "enteredAt": 3,
+          "faceDown": false,
+          "id": "card:23",
+          "kind": "land",
+          "known": true,
+          "name": "Swamp",
+          "owner": 1,
+          "printing": "TRK/321",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Swamp"
+        },
+        {
+          "enteredAt": 4,
+          "faceDown": false,
+          "id": "card:31",
+          "kind": "land",
+          "known": true,
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        },
+        {
+          "attacking": false,
+          "basePower": 1,
+          "baseToughness": 1,
+          "blocking": false,
+          "damage": 0,
+          "enteredAt": 7,
+          "faceDown": false,
+          "id": "card:7",
+          "keywords": ["Deathtouch"],
+          "kind": "creature",
+          "known": true,
+          "manaCost": "{B}",
+          "name": "Typhoid Rats",
+          "owner": 1,
+          "power": 1,
+          "printing": "J25/497",
+          "seat": 1,
+          "sick": false,
+          "tapped": false,
+          "toughness": 1,
+          "types": "Creature - Rat"
+        },
+        {
+          "enteredAt": 17,
+          "faceDown": false,
+          "id": "card:26",
+          "kind": "land",
+          "known": true,
+          "name": "Swamp",
+          "owner": 1,
+          "printing": "TRK/321",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Swamp"
+        },
+        {
+          "enteredAt": 24,
+          "faceDown": false,
+          "id": "card:39",
+          "kind": "land",
+          "known": true,
+          "name": "Forest",
+          "owner": 1,
+          "printing": "TRK/325",
+          "seat": 1,
+          "tapped": false,
+          "types": "Basic Land - Forest"
+        }
+      ],
+      "life": {
+        "changes": [
+          {
+            "amount": 2,
+            "combat": true,
+            "kind": "damage",
+            "player": 2,
+            "source": "card:10"
+          }
+        ],
+        "key": "life:55"
+      },
+      "moves": [
+        {
+          "card": "card:86",
+          "from": {
+            "seat": 2,
+            "zone": "battlefield"
+          },
+          "last": {
+            "power": 0,
+            "toughness": 3
+          },
+          "to": {
+            "seat": 2,
+            "zone": "graveyard"
+          },
+          "why": "died"
+        }
+      ],
+      "notices": [],
+      "noticesTotal": 0,
+      "otherHands": [],
+      "payments": [
+        {
+          "for": "card:86",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:92"
+            }
+          ],
+          "n": 1,
+          "payment": 1,
+          "seat": 2
+        },
+        {
+          "cost": "{B}",
+          "for": "card:10",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "B",
+              "from": "card:16",
+              "shard": "B"
+            }
+          ],
+          "n": 2,
+          "owing": "0",
+          "payment": 2,
+          "seat": 1
+        },
+        {
+          "for": "card:90",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:92"
+            }
+          ],
+          "n": 3,
+          "payment": 3,
+          "seat": 2
+        },
+        {
+          "for": "card:61",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:105"
+            }
+          ],
+          "n": 4,
+          "payment": 4,
+          "seat": 2
+        },
+        {
+          "cost": "{G}",
+          "for": "card:48",
+          "kind": "cast",
+          "mana": [
+            {
+              "colour": "G",
+              "from": "card:37",
+              "shard": "G"
+            }
+          ],
+          "n": 5,
+          "owing": "0",
+          "payment": 5,
+          "seat": 1
+        }
+      ],
+      "phase": "COMBAT_DAMAGE",
+      "players": [
+        {
+          "graveyardCount": 0,
+          "handCount": 5,
+          "libraryCount": 51,
+          "life": 20,
+          "mulligans": 0,
+          "name": "Alice",
+          "seat": 1,
+          "thisTurn": {
+            "leftBattlefield": false,
+            "lifeGained": 0,
+            "spells": 1
+          }
+        },
+        {
+          "graveyardCount": 1,
+          "handCount": 3,
+          "libraryCount": 52,
+          "life": 18,
+          "mulligans": 0,
+          "name": "Bob",
+          "seat": 2,
+          "thisTurn": {
+            "leftBattlefield": true,
+            "lifeGained": 0,
+            "spells": 0
+          }
+        }
+      ],
+      "prioritySeat": 1,
+      "rolls": [],
+      "seat": 1,
+      "stack": [],
+      "stateRevision": 55,
+      "turn": 4
+    }
+  },
+  "source": "Lab check-combat-choices.py, trample-auto and trample-deathtouch (spec 0107), seat 1's frames"
+}

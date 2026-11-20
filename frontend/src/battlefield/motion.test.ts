@@ -770,6 +770,7 @@ const PACE_TABLE: Record<string, Record<string, PaceClass>> = {
     STRIKE_HOLD_MS: "wait",
     STRIKE_BACK_MS: "move",
     STRIKE_AFTER_MS: "wait",
+    CARRY_MS: "move",
     FIGHTS_FADE_MS: "move",
     SLASH_MS: "move",
     SLASH_GAP_MS: "move",

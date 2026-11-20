@@ -221,6 +221,59 @@ describe("where the fighters go (A-13)", () => {
     expect(fight.gains).toEqual([{ player: 2, amount: 4, at: fight.impact }]);
     expect(plan.unsourced).toEqual([]);
   });
+
+  // Spec 0107 (Q5 A) -- F-0107-G: one continuous lunge. The blocker hit,
+  // then the drive on to the shield, then home; the shield's blow at the
+  // shield moment, never the blocker's.
+  const trampled = (toPlayer: number): CombatWave => ({
+    key: "t",
+    combat: "regular",
+    hits: [
+      { source: "card:201", target: { object: "card:211" }, amount: 2 },
+      ...(toPlayer > 0 ? [{ source: "card:201", target: { player: 1 }, amount: toPlayer }] : []),
+    ],
+    fights: [{ attacker: "card:201", defender: { player: 1 }, blockers: ["card:211"] }],
+  });
+
+  it("trample carries on: blocker hit, then the shield, then home (F-0107-G)", () => {
+    const { input, at } = setup();
+    const plan = planFights({ ...input, wave: trampled(3) })!;
+    const fight = plan.fights[0]!;
+    expect(fight.carry).toBeDefined();
+    const carry = fight.carry!;
+    expect(carry.at).toBeGreaterThan(fight.impact);
+    const onBlocker = fight.strikes.find((s) => s.target === "card:211")!;
+    const onShield = fight.strikes.find((s) => s.target === "player:1")!;
+    expect(onBlocker.at).toBe(fight.impact);
+    expect(onShield.at).toBe(carry.at);
+    const poses = fight.moves.get("card:201")!;
+    const A = at("card:201")!.box;
+    // At the shield: edge to edge with its ring, never over the life total.
+    const there = poseAt(poses, carry.at);
+    const cx = A.x + A.w / 2 + there.dx;
+    const cy = A.y + A.h / 2 + there.dy;
+    const ex = Math.max(Math.abs(LIFE.x - cx) - A.w / 2, 0);
+    const ey = Math.max(Math.abs(LIFE.y - cy) - A.h / 2, 0);
+    expect(Math.hypot(ex, ey)).toBeGreaterThanOrEqual(input.lifeR);
+    // Much nearer the shield than at the blocker hit, and home at the end.
+    const atHit = poseAt(poses, fight.impact);
+    const far = (p: Pose) =>
+      Math.hypot(LIFE.x - (A.x + A.w / 2 + p.dx), LIFE.y - (A.y + A.h / 2 + p.dy));
+    expect(far(there)).toBeLessThan(far(atHit));
+    const last = poses[poses.length - 1]!;
+    expect([last.dx, last.dy]).toEqual([0, 0]);
+    expect(last.at).toBe(fight.end);
+    // The blocker still dies as it always has: a beat after its hit.
+    expect(fight.shatterAt).toBeLessThan(fight.end);
+  });
+
+  it("nothing trampled over: no carry-on, the attacker steps back as before (F-0107-G)", () => {
+    const { input } = setup();
+    const plan = planFights({ ...input, wave: trampled(0) })!;
+    const fight = plan.fights[0]!;
+    expect(fight.carry).toBeUndefined();
+    expect(fight.shatterAt).toBe(fight.end);
+  });
 });
 
 describe("the frames (A-13)", () => {

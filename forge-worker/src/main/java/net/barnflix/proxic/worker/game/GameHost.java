@@ -622,6 +622,25 @@ public final class GameHost {
         return stops;
     }
 
+    /** Spec 0107 -- the trample splits changed with "Change split", per seat, until damage. */
+    private final DamagePlans plans = new DamagePlans();
+
+    DamagePlans plans() {
+        return plans;
+    }
+
+    /** Spec 0107 -- each "Change split" option's fight, for the question it is offered in. */
+    private volatile java.util.Map<String, com.google.gson.JsonObject> fights = java.util.Map.of();
+
+    void offerFights(java.util.Map<String, com.google.gson.JsonObject> byId) {
+        fights = byId;
+    }
+
+    /** Spec 0107 -- the fight a "Change split" option carries, or null. */
+    public com.google.gson.JsonObject fightOf(String actionId) {
+        return fights.get(actionId);
+    }
+
     /** Spec 0105 -- a spell or ability nobody can answer rests on the stack before it resolves. */
     private final StackRests rests = new StackRests(stops::active);
 
@@ -2480,6 +2499,7 @@ public final class GameHost {
         unpayable = java.util.Set.of(); // only for the question it was set for
         costs = java.util.Map.of();
         uses = java.util.Map.of();
+        fights = java.util.Map.of();
         costReveal = null;
         unavailable = java.util.Map.of();
         notNow = java.util.Map.of();

@@ -132,6 +132,29 @@ class WorkerFramesTest {
         assertTrue(sent.contains("{\"actionId\":\"mode:0\",\"label\":\"Mode\"}"), sent)
     }
 
+    /** Spec 0107 -- a "Change split" option's fight reaches the browser untouched. */
+    @Test
+    fun `a split option's fight reaches the browser untouched`() {
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"4","actedForSeat":1,"authorisedSeat":1,"kind":"chooseSpellAbilityToPlay",
+                     "stateVersion":"2","options":[
+                       {"actionId":"split:card:7","label":"Change split",
+                        "fight":{"damage":6,"attacker":"card:7","blockers":[{"card":"card:64","lethal":2}],
+                                 "trample":true,"usual":{"blockers":[2],"player":4}}}]}
+                    """.trimIndent(),
+                ),
+            )!!
+        val sent = decisionMessage(request).toString()
+        val fight =
+            "\"fight\":{\"damage\":6,\"attacker\":\"card:7\",\"blockers\":[{\"card\":\"card:64\",\"lethal\":2}]," +
+                "\"trample\":true,\"usual\":{\"blockers\":[2],\"player\":4}}"
+        assertTrue(sent.contains(fight), sent)
+        assertTrue(!sent.contains("objectId"), sent)
+    }
+
     /** PHASE_07 B7 (owner 2026-10-21) -- why a card cannot act now reaches the player. */
     @Test
     fun `reasons a card cannot act reach the browser, and only string pairs`() {

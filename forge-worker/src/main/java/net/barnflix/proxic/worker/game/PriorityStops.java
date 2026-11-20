@@ -86,10 +86,15 @@ public final class PriorityStops {
      * @param options    what Forge offers right now
      * @param unpayable  which of them Forge's payment check says cannot be
      *                   paid now (§7.54); a hint for "anything to do"
+     * @param splitOpen  spec 0107 -- on the seat's own turn at declare
+     *                   blockers, one of its blocked tramplers can trample
+     *                   over (CombatChoices#trampleSplits, the public board
+     *                   only): asked even with nothing else to do, so the
+     *                   player can see "Change split" before damage
      */
     boolean shouldAsk(int seat, Player player, Game game, boolean controlled,
-                      Map<String, SpellAbility> options, Collection<String> unpayable) {
-        if (!ruled.contains(seat) || controlled) {
+                      Map<String, SpellAbility> options, Collection<String> unpayable, boolean splitOpen) {
+        if (!ruled.contains(seat) || controlled || splitOpen) {
             return true;
         }
         boolean stackFull = !game.getStack().isEmpty();

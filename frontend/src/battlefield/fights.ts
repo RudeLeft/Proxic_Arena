@@ -10,11 +10,13 @@
 //
 // One fight at a time: each attacker with its blockers, then each unblocked
 // attacker against the player (or planeswalker, or battle) it attacks. The
-// rest of the table is dimmed and a caption says who fights. The fighters
+// rest of the table is dimmed; who fights is said to screen readers only
+// (spec 0107: no caption over the table). The fighters
 // rear back and lunge so they meet edge to edge -- never overlapping; each
 // hit rips three glowing slash marks across the card it strikes, with a red
 // flash on it, sparks, a small shake, and knocks it back; the numbers slash
-// in. An unblocked attacker lunges at the player's plate. They step back;
+// in. An unblocked attacker lunges at the player's plate; a trampler, past
+// its blockers, drives on to the plate (spec 0107). They step back;
 // after a beat the dead shatter (A-04) and the next fight begins.
 
 import type { Box } from "./layout";
@@ -64,6 +66,13 @@ export const STRIKE_LUNGE_MS = paced(240);
 export const STRIKE_HOLD_MS = 120; // not paced: a wait (spec 0106)
 export const STRIKE_BACK_MS = paced(480);
 export const STRIKE_AFTER_MS = 150; // not paced: a wait (spec 0106)
+/**
+ * Spec 0107 (Q5 A) -- trample's carry-on: after its blocker hit, the attacker
+ * drives on through the blocker's spot to the defending player's life shield
+ * (or the planeswalker or battle it attacks) in this long, holds there
+ * (STRIKE_HOLD_MS), and glides home (STRIKE_BACK_MS).
+ */
+export const CARRY_MS = paced(520);
 /** The last fight's end to the table's light coming back. */
 export const FIGHTS_FADE_MS = paced(250);
 /** The slash marks (three, 60 ms apart), the number, the screen's red edge. */
@@ -138,6 +147,12 @@ export interface PlannedFight {
   end: number;
   /** Where the fighters meet: the sparks. */
   contact: Point;
+  /**
+   * Spec 0107 -- trample's carry-on: when the attacker, past its blockers,
+   * reaches the player's shield (or what it attacks), and the sparks there.
+   * Absent when nothing trampled over.
+   */
+  carry?: { at: number; contact: Point };
   strikes: Strike[];
   gains: { player: number; amount: number; at: number }[];
   /** Every drawn card in this fight, and its poses. */
@@ -310,7 +325,20 @@ export function planFights(input: FightInput): FightPlan | null {
   if (ordered.length === 0) return null;
 
   // First at full speed, to see how long it all is; then scaled if too long.
-  const raw = ordered.reduce((n, g) => n + rawLength(g.blockers.length > 0, true), 0);
+  // Spec 0107 -- a blocked attacker whose own hits reach past its blockers
+  // (trample's excess: the player, or the planeswalker or battle it attacks).
+  const carries = (g: Group) =>
+    g.blockers.length > 0 &&
+    (hitsOf.get(g) ?? []).some(
+      (h) =>
+        h.source !== undefined &&
+        itemOf(h.source) === g.attacker &&
+        ("player" in h.target ||
+          ("object" in g.defender &&
+            "object" in h.target &&
+            itemOf(h.target.object) === itemOf(g.defender.object))),
+    );
+  const raw = ordered.reduce((n, g) => n + rawLength(g.blockers.length > 0, true, carries(g)), 0);
   const speed = Math.max(FIGHTS_FASTEST, Math.min(1, FIGHTS_MAX_MS / Math.max(1, raw)));
   const k = (ms: number) => ms * speed;
 
@@ -343,7 +371,9 @@ export function planFights(input: FightInput): FightPlan | null {
     const start = t;
     let impact: number;
     let end: number;
+    let shatterAt: number | null = null;
     let contact: Point;
+    let carry: { at: number; contact: Point } | null = null;
     // The struck, by drawn card or player: how much, and whether by deathtouch.
     const struck = new Map<
       string,
@@ -390,9 +420,106 @@ export function planFights(input: FightInput): FightPlan | null {
       const knocked = second + k(FIGHT_KNOCK_MS);
       const back = knocked + k(FIGHT_BACK_MS);
       end = back + k(FIGHT_BEAT_MS);
+      // The blockers die as today: a beat after the fighters step back.
+      shatterAt = end;
       contact = { x: meetX, y: edgeA + v * (gap / 2) };
       const h = A.h;
       const aStruck = struck.get(group.attacker);
+      // Spec 0107 (Q5 A) -- trample: the attacker drives on from the blocker
+      // hit, through the blockers' spot, to the shield (edge to edge with its
+      // ring, never over the life total) or the card it attacks, holds, and
+      // glides home. The blow there lands as an unblocked attacker's does.
+      let carryTail: Pose[] | null = null;
+      if (carries(group)) {
+        const through = {
+          dx: meetX - ac.x,
+          dy: bc.reduce((n, c) => n + c.y, 0) / bc.length - ac.y,
+        };
+        // At the card it attacks (a planeswalker or battle) when that is what
+        // was hit, else at the defending player's shield.
+        const atCard = defenderCard !== null && struck.has(defenderCard.item);
+        const seat = "player" in group.defender ? group.defender.player : input.viewerSeat;
+        const pc = atCard ? centre(defenderCard.box) : input.life(seat);
+        let to: { dx: number; dy: number };
+        if (atCard) {
+          const P = defenderCard.box;
+          const w = pc.y > ac.y ? 1 : -1;
+          const edgeP = w > 0 ? P.y : P.y + P.h;
+          to = { dx: pc.x - ac.x, dy: edgeP - ac.y - w * (A.h / 2 + tiltReach(A) + tiltReach(P)) };
+          carry = { at: 0, contact: { x: pc.x, y: edgeP } };
+        } else {
+          const dx = pc.x - ac.x;
+          const dy = pc.y - ac.y;
+          const len = Math.max(1, Math.hypot(dx, dy));
+          const stop =
+            Math.abs(dx / len) * (A.w / 2) + Math.abs(dy / len) * (A.h / 2) + input.lifeR + 2;
+          to = { dx: dx - (dx / len) * stop, dy: dy - (dy / len) * stop };
+          carry = {
+            at: 0,
+            contact: { x: pc.x - (dx / len) * input.lifeR, y: pc.y - (dy / len) * input.lifeR },
+          };
+        }
+        const tilt = to.dx >= 0 ? 1 : -1;
+        const reach = knocked + k(CARRY_MS);
+        const held = reach + k(STRIKE_HOLD_MS);
+        const home = held + k(STRIKE_BACK_MS);
+        carry.at = reach;
+        end = home + k(STRIKE_AFTER_MS);
+        carryTail = [
+          {
+            at: knocked + k(CARRY_MS) * 0.45,
+            ...through,
+            r: 4 * tilt,
+            s: 1.06,
+            red: 0,
+            bright: 1,
+            easing: "cubic-bezier(.3,0,.7,1)",
+          },
+          { at: reach, ...to, r: 8 * tilt, s: 1.08, red: 0, bright: 1 },
+          {
+            at: held,
+            ...to,
+            r: 8 * tilt,
+            s: 1.08,
+            red: 0,
+            bright: 1,
+            easing: "cubic-bezier(.45,0,.25,1)",
+          },
+          still(home),
+          still(end),
+        ];
+        if (atCard) {
+          const P = defenderCard.box;
+          const w = pc.y > ac.y ? 1 : -1;
+          moves.set(defenderCard.item, [
+            still(start),
+            still(reach),
+            jolt(reach + k(FIGHT_KNOCK_MS) * 0.1, { dx: 0, dy: 0 }, P.h, 1),
+            {
+              at: reach + k(FIGHT_KNOCK_MS) * 0.3,
+              dx: 0,
+              dy: w * FIGHT_KNOCK * P.h,
+              r: 4 * w,
+              s: 1,
+              red: 1,
+              bright: 1,
+              easing: "cubic-bezier(.2,.8,.3,1)",
+            },
+            still(reach + k(FIGHT_KNOCK_MS)),
+            still(end),
+          ]);
+          const hit = struck.get(defenderCard.item);
+          if (hit)
+            strikes.push({
+              target: defenderCard.item,
+              box: P,
+              amount: hit.amount,
+              deathtouch: hit.deathtouch,
+              ...(hit.prevented > 0 ? { prevented: hit.prevented } : {}),
+              at: reach,
+            });
+        }
+      }
       moves.set(group.attacker, [
         still(start),
         { ...still(start + at0), easing: "cubic-bezier(.45,0,.25,1)" },
@@ -440,8 +567,7 @@ export function planFights(input: FightInput): FightPlan | null {
           bright: 1,
           easing: "cubic-bezier(.45,0,.25,1)",
         },
-        still(back),
-        still(end),
+        ...(carryTail ?? [still(back), still(end)]),
       ]);
       if (aStruck) {
         strikes.push({
@@ -616,7 +742,8 @@ export function planFights(input: FightInput): FightPlan | null {
         deathtouch: false,
         ...(s.infect ? { poison: true } : {}),
         ...(s.prevented > 0 ? { prevented: s.prevented } : {}),
-        at: impact,
+        // Spec 0107 -- trample's excess lands as the attacker reaches the shield.
+        at: carry ? carry.at : impact,
       });
     }
     const gains = (wave.gains ?? []).flatMap((g) =>
@@ -631,9 +758,10 @@ export function planFights(input: FightInput): FightPlan | null {
       caption,
       start,
       impact,
-      shatterAt: end,
+      shatterAt: shatterAt ?? end,
       end,
       contact,
+      ...(carry ? { carry } : {}),
       strikes,
       gains,
       moves,
@@ -663,15 +791,16 @@ export function planFights(input: FightInput): FightPlan | null {
   };
 }
 
-function rawLength(blocked: boolean, dies: boolean): number {
+function rawLength(blocked: boolean, dies: boolean, carry = false): number {
   return blocked
     ? FIGHT_FOCUS_MS +
         FIGHT_REAR_MS +
         FIGHT_LUNGE_MS +
         FIGHT_SECOND_MS +
         FIGHT_KNOCK_MS +
-        FIGHT_BACK_MS +
-        FIGHT_BEAT_MS +
+        (carry
+          ? CARRY_MS + STRIKE_HOLD_MS + STRIKE_BACK_MS + STRIKE_AFTER_MS
+          : FIGHT_BACK_MS + FIGHT_BEAT_MS) +
         (dies ? FIGHT_CRACKED_MS : 0)
     : FIGHT_FOCUS_MS +
         STRIKE_REAR_MS +

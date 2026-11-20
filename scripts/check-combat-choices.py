@@ -12,14 +12,26 @@ Each scenario is its own small game (Mechanics Lab, Layer B):
                   window (owner item 5): 3 damage, both Bears needing 2.
                   Phase 10 A-13: the damage wave says so -- "regular",
                   one fight (the Giant, both Bears), every hit
-  trample         a Colossal Dreadmaw (6/6 trample) blocked by one Grizzly
-                  Bears: the defending player is offered only once the
-                  Bears has lethal damage (CR 702.19c) -- points 1 and 2
-                  go to the Bears, then every point the player is offered
-                  is taken: the Bears dies, the player loses 4; the fight
-                  says 6 damage, trample, the Bears needing 2; the wave's
-                  fight is the Dreadmaw and the Bears, with 2 to the Bears
-                  and 4 to the player
+  trample-auto    spec 0107: a Colossal Dreadmaw (6/6 trample) blocked by one
+                  Grizzly Bears; its seat follows the stops rule and is asked
+                  at declare blockers only for "Change split" (the option
+                  carries the fight: 6, the Bears needing 2, the usual 2 and
+                  4); passed: no damage question, the Bears dies, the player
+                  loses 4, nobody is told anything; the wave as A-13's
+  trample-kept    the same, "Change split" chosen and every point put on the
+                  Bears (the player offered only once it has lethal, CR
+                  702.19c): asked at declare blockers, never at damage; the
+                  player loses nothing and seat 2 alone is told "Alice put all
+                  six on your Grizzly Bears; none trampled over."
+  trample-unblocked  the Dreadmaw unblocked: no "Change split", no question, 6
+  trample-two-blockers  the Dreadmaw blocked by a Bears and a Llanowar Elves:
+                  2 and 1, 3 to the player, no question
+  trample-elf-dies  Heedless One (five Elves) and an Elves attack; the Elves
+                  dies to a White Knight's first strike: 4 now, so 2 and 2
+  trample-elf-plan  the same with a plan made at 5: asked again at damage,
+                  filled in from 4
+  trample-deathtouch  Typhoid Rats with Rancor (3/1 deathtouch, trample) into a
+                  Wall of Wood: 1 and 2, no question
   wolf-yes        Lone Wolf, blocked: "assign its damage as though it
                   weren't blocked?" (confirmStaticApplication) -- Yes: the
                   defending player loses 2, the blocker takes nothing
@@ -68,6 +80,7 @@ ARG = sys.argv[3] if len(sys.argv) > 3 else ""
 TRACES = ARG if ARG and (os.path.isdir(ARG) or ARG.endswith(".jsonl")) else None
 ONLY = [a for a in sys.argv[3:] if a != TRACES]
 BEARS = [("Forest", 30), ("Grizzly Bears", 30)]
+WALLS = [("Forest", 30), ("Wall of Wood", 30)]
 
 
 LANDS = {"Forest", "Mountain", "Plains", "Island", "Swamp"}
@@ -267,22 +280,107 @@ def double_block():
                              "other is untouched; the wave tells the one fight, both Bears in it", found)
 
 
-def trample():
-    g = game("trample", [("Forest", 30), ("Colossal Dreadmaw", 30)])
+class Trample:
+    """Spec 0107 -- what one trample game saw: the stops that offered "Change
+    split" (each split option's fight, the phase), every damage question
+    (its phase and fight), and every report each seat was sent."""
+
+    def __init__(self, g):
+        self.g = g
+        self.stops = []      # (seat, phase, [split options])
+        self.questions = []  # (seat, phase, fight, offered the defender?)
+        self.reports = {1: [], 2: []}
+
+    def phase(self):
+        return self.g.state.get(1, {}).get("phase")
+
+    def see(self):
+        for seat in (1, 2):
+            board = self.g.state.get(seat) or {}
+            a = board.get("action")
+            for r in ([a] + list(a.get("gathered") or [])) if a else []:
+                if r.get("said") and r["said"] not in self.reports[seat]:
+                    self.reports[seat].append(r["said"])
+
+    def splits(self, f):
+        """The frame's "Change split" options (recorded when there are any)."""
+        out = [o for o in f["options"] if o["actionId"].startswith("split:")]
+        if f.get("kind") == "chooseSpellAbilityToPlay" and out:
+            self.stops.append((f["authorisedSeat"], self.phase(), out))
+        return out
+
+    def question(self, f):
+        ids = [o["actionId"] for o in f["options"]]
+        self.questions.append((f["authorisedSeat"], self.phase(), (f.get("arrange") or {}).get("damage"),
+                               "damage:defender" in ids))
+        return ids
+
+    def kept(self, seat):
+        return [r for r in self.reports[seat] if "trampled over" in r]
+
+    def problems(self, attacker, blockers):
+        """Every stop's split option: no object of its own, its fight the
+        attacker and these blockers, offered to seat 1 at declare blockers."""
+        out = []
+        if not self.stops:
+            return ["the attacker's seat was never stopped at declare blockers with 'Change split'"]
+        for seat, phase, options in self.stops:
+            if seat != 1 or phase != "COMBAT_DECLARE_BLOCKERS":
+                out.append(f"'Change split' offered to seat {seat} at {phase}")
+            for o in options:
+                fight = o.get("fight") or {}
+                if o.get("objectId") or o.get("label") != "Change split" or fight.get("attacker") != attacker \
+                        or sorted(b.get("card") for b in fight.get("blockers", [])) != sorted(blockers) \
+                        or fight.get("trample") is not True:
+                    out.append(f"the split option carries its fight, no object: {o}")
+        return out
+
+
+def stops_seen(t):
+    return [(s, p, [o.get("fight") for o in os]) for s, p, os in t.stops]
+
+
+def first_fight(t):
+    return (t.stops[0][2][0].get("fight") or {}) if t.stops else {}
+
+
+def trample_game(name, seat1, seat2=BEARS, deal=None, stops=None):
+    g = game(name, seat1, seat2, deal=deal)
+    if stops:
+        g.stops = stops
+    return g
+
+
+def trample(change):
+    """F-0107-A (change=False) and F-0107-B (change=True): a Colossal
+    Dreadmaw (6/6 trample) blocked by a Grizzly Bears. Seat 1 follows the
+    stops rule, so it is asked at declare blockers only because "Change
+    split" is there. Passed: no damage question, 2 to the Bears and 4 to the
+    player, and no report. Changed (every point on the Bears): the damage
+    questions come at declare blockers (the player offered only once the
+    Bears has lethal, CR 702.19c), none at damage; the player loses nothing
+    and seat 2 alone is told why."""
+    g = trample_game("trample-kept" if change else "trample-auto", [("Forest", 30), ("Colossal Dreadmaw", 30)],
+                     stops={1: True})
     w = Waves(g)
-    st = {"attacked": False, "blockers": [], "asked": [], "after": None, "life": None, "bears_before": None}
+    t = Trample(g)
+    st = {"attacked": False, "blockers": [], "after": None, "life": None, "bears_before": None, "changed": False}
 
     def policy(g, f):
         k, seat = f.get("kind"), f["authorisedSeat"]
+        t.see()
         if k == "assignCombatDamage":
-            st.setdefault("fights", []).append((f.get("arrange") or {}).get("damage"))
-            ids = [o["actionId"] for o in f["options"]]
-            st["asked"].append((seat, "damage:defender" in ids))
-            return "damage:defender" if "damage:defender" in ids else ids[0]
+            ids = t.question(f)
+            # Changed: every point on the Bears, never the player.
+            return next(i for i in ids if i != "damage:defender")
         if k == "declareAttackers":
             return attack(g, f, st, "Colossal Dreadmaw", 1) if seat == 1 else None
         if k == "declareBlockers":
             return block(g, f, st, 1) if seat == 2 else None
+        splits = t.splits(f)
+        if splits and change and not st["changed"]:
+            st["changed"] = True
+            return splits[0]["actionId"]
         if k == "chooseSpellAbilityToPlay" and stack_empty(g):
             name = "Colossal Dreadmaw" if seat == 1 else "Grizzly Bears"
             return g.play_land(f) or (None if st["attacked"] else cast(g, f, name))
@@ -290,44 +388,411 @@ def trample():
 
     def until(g):
         w.see()
-        if st["asked"] and stack_empty(g) and st["after"] is None and g.state.get(1, {}).get("phase") in (
+        t.see()
+        if st["blockers"] and stack_empty(g) and st["after"] is None and t.phase() in (
+                "COMBAT_END", "MAIN2", "END_OF_TURN", "CLEANUP"):
+            st["after"] = {"life": (g.player(1, 2) or {}).get("life"),
+                           "grave": sorted(c["id"] for c in g.zone(1, "graveyard", owner=2))}
+        # Seat 2's report comes once the damage step is over: wait until it has a later board.
+        later = t.phase() in ("END_OF_TURN", "CLEANUP") or (t.phase() == "MAIN2" and (not change or t.kept(2)))
+        return st["after"] is not None and settled(g, w) and later
+
+    g.run(policy, until=until, max_turn=30)
+    t.see()
+    found = {"blockers": st["blockers"], "stops": stops_seen(t), "questions": t.questions, "life": st["life"],
+             "after": st["after"], "reports": t.reports, "waves": w.combat(1), "stopped": g.stopped_badly()}
+    if not st["blockers"] or not st["after"]:
+        return "inconclusive", "the Colossal Dreadmaw was never blocked by one Bears", found
+    problems = []
+    bears = st["blockers"][0]
+    maw = next((f.get("attacker") for d in w.combat(1) for f in d.get("fights", [])), None)
+    problems += t.problems(maw, [bears])
+    fight = first_fight(t)
+    if fight.get("damage") != 6 or [b.get("lethal") for b in fight.get("blockers", [])] != [2] \
+            or fight.get("usual") != {"blockers": [2], "player": 4}:
+        problems.append(f"the split's fight: 6 damage, the Bears needing 2, the usual split 2 and 4: {fight}")
+    if bears not in st["after"]["grave"]:
+        problems.append(f"the Bears had lethal damage, but it is not in the graveyard: {st['after']}")
+    at_damage = [q for q in t.questions if q[1] != "COMBAT_DECLARE_BLOCKERS"]
+    if at_damage:
+        problems.append(f"no damage question at damage (the split is made, or kept): {at_damage}")
+    problems += w.problems()
+    lost = (st["life"] or 0) - (st["after"]["life"] or 0)
+    if change:
+        offered = [q[3] for q in t.questions]
+        if len(t.questions) != 6 or offered[:2] != [False, False] or not all(offered[2:]):
+            problems.append(f"changed: six points asked at declare blockers, the player offered only once the "
+                            f"Bears has lethal: {t.questions}")
+        if lost != 0:
+            problems.append(f"every point on the Bears: the player loses nothing, lost {lost}")
+        want = "Alice put all six on your Grizzly Bears; none trampled over."
+        if t.kept(2) != [want]:
+            problems.append(f"seat 2 is told {want!r}: {t.reports[2]}")
+        if t.kept(1):
+            problems.append(f"the attacker's own seat is never told: {t.reports[1]}")
+    else:
+        if t.questions:
+            problems.append(f"passed at the stop: never a damage question: {t.questions}")
+        if lost != 4:
+            problems.append(f"the usual split: 4 trampled over, lost {lost}")
+        if t.kept(1) or t.kept(2):
+            problems.append(f"the usual split: no report: {t.reports}")
+        waves = w.combat(1)
+        wave = waves[0] if len(waves) == 1 else {}
+        if hits_of(wave) != sorted([(maw, to_card(bears), 2), (maw, to_player(2), 4), (bears, to_card(maw), 2)]):
+            problems.append(f"the wave's hits: 2 to the Bears, 4 trampling over to player 2, 2 back: {wave}")
+    return outcome(problems, ("Change split: all six on the Bears, asked at declare blockers; none trampled "
+                              "over, and only seat 2 was told") if change else
+                   ("passed at the trample stop: no question, the split made for the player, 2 to the Bears "
+                    "and 4 trampled over"), found)
+
+
+def trample_unblocked():
+    """F-0107-F: a Colossal Dreadmaw nobody blocks: no "Change split", no
+    damage question, all 6 to the player."""
+    g = trample_game("trample-unblocked", [("Forest", 30), ("Colossal Dreadmaw", 30)])
+    t = Trample(g)
+    st = {"attacked": False, "after": None, "life": None, "turn": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        t.splits(f)
+        if k == "assignCombatDamage":
+            t.question(f)
+            return DEFAULT
+        if k == "declareAttackers":
+            if seat != 1 or st["attacked"] or not ready(g, 1, "Colossal Dreadmaw"):
+                return None
+            o = next((o["actionId"] for o in f["options"] if (o.get("label") or "").startswith("Colossal")), None)
+            if o:
+                st["attacked"], st["turn"] = True, g.turn
+                st["life"] = (g.player(1, 2) or {}).get("life")
+            return o
+        if k == "declareBlockers":
+            return None
+        if k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            return g.play_land(f) or (None if st["attacked"] or seat == 2 else cast(g, f, "Colossal Dreadmaw"))
+        return DEFAULT
+
+    def until(g):
+        if st["attacked"] and st["after"] is None and g.turn == st["turn"] and t.phase() in ("MAIN2", "END_OF_TURN"):
+            st["after"] = (g.player(1, 2) or {}).get("life")
+        return st["after"] is not None
+
+    g.run(policy, until=until, max_turn=30)
+    found = {"stops": stops_seen(t), "questions": t.questions, "life": [st["life"], st["after"]],
+             "stopped": g.stopped_badly()}
+    if st["after"] is None:
+        return "inconclusive", "the Colossal Dreadmaw never attacked", found
+    problems = []
+    if t.stops:
+        problems.append(f"an unblocked trampler: no 'Change split': {t.stops}")
+    if t.questions:
+        problems.append(f"an unblocked trampler: no damage question: {t.questions}")
+    if st["life"] - st["after"] != 6:
+        problems.append(f"unblocked: all 6 to the player, lost {st['life'] - st['after']}")
+    return outcome(problems, "an unblocked trampler: no stop, no question, 6 to the player", found)
+
+
+def trample_two_blockers():
+    """F-0107-C: a Colossal Dreadmaw blocked by a Grizzly Bears and a
+    Llanowar Elves: the usual split is 2 and 1, the rest 3 to the player,
+    no question."""
+    seat2 = [("Forest", 30), ("Grizzly Bears", 15), ("Llanowar Elves", 15)]
+    g = trample_game("trample-two-blockers", [("Forest", 30), ("Colossal Dreadmaw", 30)], seat2,
+                     deal={1: curve([("Forest", 30), ("Colossal Dreadmaw", 30)]),
+                           2: {"hand": ["Forest"] * 4 + ["Grizzly Bears", "Llanowar Elves", "Grizzly Bears"],
+                               "top": ["Forest", "Llanowar Elves"] * 3}})
+    w = Waves(g)
+    t = Trample(g)
+    st = {"attacked": False, "blockers": [], "names": {}, "after": None, "life": None}
+
+    def ready_pair():
+        return ready(g, 2, "Grizzly Bears") and ready(g, 2, "Llanowar Elves")
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        t.splits(f)
+        if k == "assignCombatDamage":
+            t.question(f)
+            return DEFAULT
+        if k == "declareAttackers":
+            if seat != 1 or st["attacked"] or not ready(g, 1, "Colossal Dreadmaw") or not ready_pair():
+                return None
+            o = next((o["actionId"] for o in f["options"] if (o.get("label") or "").startswith("Colossal")), None)
+            if o:
+                st["attacked"] = True
+                st["life"] = (g.player(1, 2) or {}).get("life")
+            return o
+        if k == "declareBlockers":
+            if seat != 2 or not st["attacked"]:
+                return None
+            for name in ("Grizzly Bears", "Llanowar Elves"):
+                if name in st["names"].values():
+                    continue
+                ids = [c["id"] for c in ready(g, 2, name)]
+                o = next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) in ids
+                          and o["actionId"].startswith("blocker:")), None)
+                if o:
+                    st["blockers"].append(card_of(o))
+                    st["names"][card_of(o)] = name
+                    return o
+            return None
+        if k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            if seat == 1:
+                return g.play_land(f) or (None if st["attacked"] else cast(g, f, "Colossal Dreadmaw"))
+            # One of each: an Elves that keeps paying for more is never untapped to block.
+            land = g.play_land(f)
+            if land or st["attacked"]:
+                return land
+            for name in ("Llanowar Elves", "Grizzly Bears"):
+                if not g.mine(2, name=name):
+                    return cast(g, f, name)
+            return None
+        return DEFAULT
+
+    def until(g):
+        w.see()
+        if len(st["blockers"]) == 2 and stack_empty(g) and st["after"] is None and t.phase() in (
                 "COMBAT_END", "MAIN2", "END_OF_TURN", "CLEANUP"):
             st["after"] = {"life": (g.player(1, 2) or {}).get("life"),
                            "grave": sorted(c["id"] for c in g.zone(1, "graveyard", owner=2))}
         return st["after"] is not None and settled(g, w)
 
     g.run(policy, until=until, max_turn=30)
-    found = {"blockers": st["blockers"], "asked": st["asked"], "life": st["life"], "after": st["after"],
-             "waves": w.combat(1), "stopped": g.stopped_badly()}
-    if not st["asked"] or not st["after"]:
-        return "inconclusive", "the Colossal Dreadmaw was never blocked by one Bears", found
+    found = {"blockers": st["names"], "stops": stops_seen(t), "questions": t.questions, "life": st["life"],
+             "after": st["after"], "waves": w.combat(1), "stopped": g.stopped_badly()}
+    if len(st["blockers"]) != 2 or not st["after"]:
+        return "inconclusive", "the Dreadmaw was never blocked by a Bears and an Elves", found
     problems = []
-    offered = [has for _, has in st["asked"]]
-    if offered[:2] != [False, False]:
-        problems.append(f"the player was offered before the Bears had lethal damage: {offered}")
-    if not all(offered[2:]):
-        problems.append(f"after lethal on the Bears, the player should be offered every point: {offered}")
-    if st["blockers"] and st["blockers"][0] not in st["after"]["grave"]:
-        problems.append(f"the Bears had lethal damage, but it is not in the graveyard: {st['after']}")
-    if st["life"] is not None and st["after"]["life"] != st["life"] - 4:
-        problems.append(f"6 trample over a 2/2: the player loses 4, {st['life']} -> {st['after']['life']}")
-    fight = (st.get("fights") or [None])[0] or {}
-    if fight.get("damage") != 6 or fight.get("trample") is not True             or [b.get("lethal") for b in fight.get("blockers", [])] != [2]:
-        problems.append(f"the fight says 6 damage, trample, the Bears needing 2: {fight}")
-    # Phase 10 A-13: trample's excess is a hit on the player, in the same fight.
-    problems += w.problems()
+    maw = next((f.get("attacker") for d in w.combat(1) for f in d.get("fights", [])), None)
+    problems += t.problems(maw, st["blockers"])
+    fight = first_fight(t)
+    lethal = sorted(b.get("lethal") for b in fight.get("blockers", []))
+    usual = fight.get("usual") or {}
+    if fight.get("damage") != 6 or lethal != [1, 2] or usual.get("player") != 3 \
+            or sorted(usual.get("blockers") or []) != [1, 2]:
+        problems.append(f"the split's fight: 6 damage, lethal 2 and 1, the usual split 2, 1 and 3: {fight}")
+    if t.questions:
+        problems.append(f"two blockers and trample: the split is made, never asked: {t.questions}")
+    if (st["life"] or 0) - (st["after"]["life"] or 0) != 3:
+        problems.append(f"2 and 1 to the blockers, 3 to the player: {st['life']} -> {st['after']['life']}")
+    if any(b not in st["after"]["grave"] for b in st["blockers"]):
+        problems.append(f"both blockers had lethal damage and died: {st['after']}")
     waves = w.combat(1)
     wave = waves[0] if len(waves) == 1 else {}
-    fights = wave.get("fights") or []
-    maw = fights[0].get("attacker") if len(fights) == 1 else None
-    bears = st["blockers"][0] if st["blockers"] else None
-    if wave.get("combat") != "regular" or w.names.get(maw) != "Colossal Dreadmaw" \
-            or fights[0].get("blockers") != [bears] or fights[0].get("defender") != {"player": 2}:
-        problems.append(f"one regular wave, one fight: the Dreadmaw at player 2, blocked by the Bears: {waves}")
-    elif hits_of(wave) != sorted([(maw, to_card(bears), 2), (maw, to_player(2), 4), (bears, to_card(maw), 2)]):
-        problems.append(f"the wave's hits: 2 to the Bears, 4 trampling over to player 2, 2 back: {wave}")
-    return outcome(problems, "Colossal Dreadmaw: 2 to the Bears first (lethal), then 4 trampled over to the "
-                             "player; the wave tells both in the one fight", found)
+    on = sorted((st["names"].get(h["target"].get("object"), "player"), h["amount"]) for h in wave.get("hits", [])
+                if h.get("source") == maw)
+    if on != sorted([("Grizzly Bears", 2), ("Llanowar Elves", 1), ("player", 3)]):
+        problems.append(f"the Dreadmaw's hits: 2 to the Bears, 1 to the Elves, 3 to the player: {on}")
+    return outcome(problems, "two blockers: the split made for the player, 2 and 1, and 3 trampled over", found)
+
+
+def trample_elf(plan):
+    """F-0107-D: Heedless One (an Elf; power and toughness each the number of
+    Elves on the battlefield, five) and a Llanowar Elves attack; a Grizzly
+    Bears blocks Heedless One and a White Knight (first strike) the Elves.
+    The Elves dies in the first-strike step, so Heedless One deals 4: the
+    usual split becomes 2 and 2, no question (plan=False). With a plan made
+    for 5 (plan=True: every point on the Bears), it no longer adds up, so
+    the damage question is asked at damage, filled in from 4."""
+    seat1 = [("Forest", 24), ("Llanowar Elves", 26), ("Heedless One", 10)]
+    seat2 = [("Plains", 20), ("Forest", 10), ("White Knight", 15), ("Grizzly Bears", 15)]
+    deal = {1: {"hand": ["Forest"] * 3 + ["Llanowar Elves"] * 3 + ["Heedless One"],
+                "top": ["Forest", "Llanowar Elves", "Forest", "Llanowar Elves", "Forest", "Heedless One"]},
+            2: {"hand": ["Plains"] * 3 + ["Forest"] * 2 + ["White Knight", "Grizzly Bears"],
+                "top": ["Plains", "Forest", "White Knight", "Grizzly Bears", "Plains"]}}
+    g = trample_game("trample-elf-plan" if plan else "trample-elf-dies", seat1, seat2, deal=deal)
+    w = Waves(g)
+    t = Trample(g)
+    st = {"attackers": [], "blocks": {}, "pending": None, "after": None, "life": None, "changed": False,
+          "turn": None}
+
+    def elves():
+        return [c for c in g.zone(1, "battlefield") if c.get("name") in ("Llanowar Elves", "Heedless One")]
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "assignCombatDamage":
+            ids = t.question(f)
+            if t.phase() == "COMBAT_DECLARE_BLOCKERS":
+                return next(i for i in ids if i != "damage:defender")
+            return "damage:defender" if "damage:defender" in ids else ids[0]
+        if k == "declareAttackers":
+            if seat != 1 or (st["turn"] is not None and g.turn != st["turn"]):
+                return None
+            heedless = ready(g, 1, "Heedless One")
+            elf = ready(g, 1, "Llanowar Elves")
+            if not st["attackers"]:
+                if not heedless or not elf or len(elves()) != 5 or not ready(g, 2, "Grizzly Bears") \
+                        or not ready(g, 2, "White Knight"):
+                    return None
+                pick = heedless[0]["id"]
+            elif len(st["attackers"]) == 1:
+                pick = next((c["id"] for c in elf if c["id"] not in st["attackers"]), None)
+            else:
+                return None
+            o = next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) == pick
+                      and o["actionId"].startswith("attacker:")), None)
+            if o:
+                st["attackers"].append(pick)
+                st["turn"] = g.turn
+                st["life"] = st["life"] or (g.player(1, 2) or {}).get("life")
+            return o
+        if k == "declareBlockers":
+            if seat != 2 or len(st["attackers"]) != 2:
+                return None
+            for name, target in (("Grizzly Bears", 0), ("White Knight", 1)):
+                if name in st["blocks"]:
+                    continue
+                ids = [c["id"] for c in ready(g, 2, name)]
+                o = next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) in ids
+                          and o["actionId"].startswith("blocker:")), None)
+                if o:
+                    st["blocks"][name] = (card_of(o), st["attackers"][target])
+                    st["pending"] = st["attackers"][target]
+                    return o
+            return None
+        if k == "chooseBlockTarget" and seat == 2:
+            return next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) == st["pending"]),
+                        f["options"][0]["actionId"])
+        splits = t.splits(f)
+        if splits and plan and not st["changed"]:
+            st["changed"] = True
+            return splits[0]["actionId"]
+        if k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            land = g.play_land(f)
+            if land or st["attackers"]:
+                return land
+            if seat == 1:
+                if not g.mine(1, name="Heedless One"):
+                    o = cast(g, f, "Heedless One")
+                    if o:
+                        return o
+                return cast(g, f, "Llanowar Elves") if len(g.mine(1, name="Llanowar Elves")) < 4 else None
+            if not g.mine(2, name="White Knight"):
+                o = cast(g, f, "White Knight")
+                if o:
+                    return o
+            return None if g.mine(2, name="Grizzly Bears") else cast(g, f, "Grizzly Bears")
+        return DEFAULT
+
+    def until(g):
+        w.see()
+        if len(st["blocks"]) == 2 and stack_empty(g) and st["after"] is None and g.turn == st["turn"] \
+                and t.phase() in ("MAIN2", "END_OF_TURN", "CLEANUP"):
+            st["after"] = {"life": (g.player(1, 2) or {}).get("life"),
+                           "grave": sorted(c["id"] for c in g.zone(1, "graveyard", owner=2)),
+                           "mine": sorted(c["id"] for c in g.zone(1, "graveyard", owner=1))}
+        return st["after"] is not None and settled(g, w)
+
+    g.run(policy, until=until, max_turn=30)
+    found = {"attackers": st["attackers"], "blocks": st["blocks"], "stops": stops_seen(t),
+             "questions": t.questions, "life": st["life"], "after": st["after"], "stopped": g.stopped_badly()}
+    if len(st["blocks"]) != 2 or not st["after"]:
+        return "inconclusive", "Heedless One and an Elves were never blocked by a Bears and a White Knight", found
+    heedless, elf = st["attackers"]
+    bears = st["blocks"]["Grizzly Bears"][0]
+    if elf not in st["after"]["mine"]:
+        return "inconclusive", f"the Elves did not die to first strike: {st['after']}", found
+    problems = t.problems(heedless, [bears])
+    fight = first_fight(t)
+    if fight.get("damage") != 5 or fight.get("usual") != {"blockers": [2], "player": 3}:
+        problems.append(f"at declare blockers Heedless One is 5: the usual split 2 and 3: {fight}")
+    at_damage = [q for q in t.questions if q[1] != "COMBAT_DECLARE_BLOCKERS"]
+    if plan:
+        early = [q for q in t.questions if q[1] == "COMBAT_DECLARE_BLOCKERS"]
+        if len(early) != 5:
+            problems.append(f"Change split at 5: five points asked at declare blockers: {t.questions}")
+        if not at_damage or any((q[2] or {}).get("damage") != 4 for q in at_damage) \
+                or [b.get("lethal") for b in (at_damage[0][2] or {}).get("blockers", [])] != [2]:
+            problems.append(f"the plan for 5 no longer adds up: asked again at damage, from 4, the Bears "
+                            f"needing 2: {at_damage}")
+    elif at_damage:
+        problems.append(f"no plan: the new usual split is made, never asked: {at_damage}")
+    if (st["life"] or 0) - (st["after"]["life"] or 0) != 2:
+        problems.append(f"Heedless One is 4 at regular damage: 2 to the Bears, 2 to the player: "
+                        f"{st['life']} -> {st['after']['life']}")
+    if bears not in st["after"]["grave"]:
+        problems.append(f"the Bears had lethal damage, but it is not in the graveyard: {st['after']}")
+    return outcome(problems, ("a plan made at 5 no longer fit at 4: asked again at damage, filled in from 4"
+                              if plan else "the Elf died first: the split made at 4, 2 and 2, no question"), found)
+
+
+def trample_deathtouch():
+    """F-0107-E: a Typhoid Rats (deathtouch) with Rancor (+2/+0, trample),
+    3/1, blocked by a Wall of Wood (0/3): lethal is 1, so the split is 1 and
+    2, no question. The Wall deals nothing, so the Rats lives (its squares
+    are on the table for the page's pops, fixes0107screen.test.tsx)."""
+    seat1 = [("Swamp", 15), ("Forest", 15), ("Typhoid Rats", 15), ("Rancor", 15)]
+    deal = {1: {"hand": ["Swamp", "Forest", "Swamp", "Forest", "Typhoid Rats", "Rancor", "Typhoid Rats"],
+                "top": ["Swamp", "Forest", "Rancor", "Swamp"]}, 2: curve(WALLS)}
+    g = trample_game("trample-deathtouch", seat1, WALLS, deal=deal)
+    w = Waves(g)
+    t = Trample(g)
+    st = {"attacked": False, "blockers": [], "after": None, "life": None, "bears_before": None}
+
+    def rats():
+        return g.mine(1, name="Typhoid Rats")
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        t.splits(f)
+        if k == "assignCombatDamage":
+            t.question(f)
+            return DEFAULT
+        if k == "chooseTargetsFor" and seat == 1:
+            mine = [c["id"] for c in rats()]
+            return next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) in mine), DEFAULT)
+        if k == "declareAttackers":
+            if seat != 1 or st["attacked"] or not g.mine(1, name="Rancor") or not ready(g, 1, "Typhoid Rats") \
+                    or not ready(g, 2, "Wall of Wood"):
+                return None
+            o = next((o["actionId"] for o in f["options"] if (o.get("label") or "").startswith("Typhoid Rats")), None)
+            if o:
+                st["attacked"] = True
+                st["life"] = (g.player(1, 2) or {}).get("life")
+            return o
+        if k == "declareBlockers":
+            return block(g, f, st, 1) if seat == 2 else None
+        if k == "chooseSpellAbilityToPlay" and stack_empty(g):
+            if seat == 2:
+                return g.play_land(f) or (None if st["attacked"] else cast(g, f, "Wall of Wood"))
+            land = g.play_land(f)
+            if land or st["attacked"]:
+                return land
+            if not rats():
+                return cast(g, f, "Typhoid Rats")
+            return None if g.mine(1, name="Rancor") else cast(g, f, "Rancor")
+        return DEFAULT
+
+    def until(g):
+        w.see()
+        if st["blockers"] and stack_empty(g) and st["after"] is None and t.phase() in (
+                "COMBAT_END", "MAIN2", "END_OF_TURN", "CLEANUP"):
+            st["after"] = {"life": (g.player(1, 2) or {}).get("life"),
+                           "grave": sorted(c["id"] for c in g.zone(1, "graveyard", owner=2))}
+        return st["after"] is not None and settled(g, w)
+
+    g.run(policy, until=until, max_turn=30)
+    found = {"blockers": st["blockers"], "stops": stops_seen(t), "questions": t.questions, "life": st["life"],
+             "after": st["after"], "waves": w.combat(1), "stopped": g.stopped_badly()}
+    if not st["blockers"] or not st["after"]:
+        return "inconclusive", "the enchanted Typhoid Rats was never blocked by a Wall of Wood", found
+    bears = st["blockers"][0]
+    rat = next((f.get("attacker") for d in w.combat(1) for f in d.get("fights", [])), None)
+    problems = t.problems(rat, [bears])
+    fight = first_fight(t)
+    if fight.get("damage") != 3 or [b.get("lethal") for b in fight.get("blockers", [])] != [1] \
+            or fight.get("usual") != {"blockers": [1], "player": 2}:
+        problems.append(f"deathtouch: the Wall needs 1; the usual split 1 and 2: {fight}")
+    if t.questions:
+        problems.append(f"deathtouch and trample: the split is made, never asked: {t.questions}")
+    if (st["life"] or 0) - (st["after"]["life"] or 0) != 2:
+        problems.append(f"1 to the Wall, 2 trampled over: {st['life']} -> {st['after']['life']}")
+    if bears not in st["after"]["grave"]:
+        problems.append(f"deathtouch: the Wall should be in the graveyard: {st['after']}")
+    return outcome(problems, "deathtouch and trample: 1 to the Wall, 2 to the player, no question", found)
 
 
 def wolf(yes):
@@ -779,7 +1244,11 @@ def deathtouch():
                    found)
 
 
-SCENARIOS = {"double-block": double_block, "trample": trample, "wolf-yes": lambda: wolf(True), "wolf-no": lambda: wolf(False),
+SCENARIOS = {"double-block": double_block, "trample-auto": lambda: trample(False),
+             "trample-kept": lambda: trample(True), "trample-unblocked": trample_unblocked,
+             "trample-two-blockers": trample_two_blockers, "trample-elf-dies": lambda: trample_elf(False),
+             "trample-elf-plan": lambda: trample_elf(True), "trample-deathtouch": trample_deathtouch,
+             "wolf-yes": lambda: wolf(True), "wolf-no": lambda: wolf(False),
              "exert-last": lambda: exert(True), "exert-none": lambda: exert(False),
              "prison-pay": lambda: prison(True), "prison-no": lambda: prison(False),
              "enlist-last": lambda: enlist(True), "enlist-none": lambda: enlist(False),

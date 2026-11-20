@@ -112,6 +112,11 @@ final class ActionReports {
         String skipped;
         /** Spec 0102, item 3 -- the card whose effect it was (Time Stop's own exile is not "the spells"). */
         int hostId = -1;
+        /** Spec 0107 -- a kept trample split: each blocker's card id and damage, in Forge's order. */
+        List<int[]> split;
+        /** Spec 0107 -- the damage that trampled over, and the attacker's whole damage. */
+        int over;
+        int damage;
 
         Report(long key, Player actor, String source, Kind kind, Player subject, int count, List<Move> moves,
                 java.util.Map<Integer, String> where, boolean shuffled, int top, int bottom) {
@@ -203,7 +208,14 @@ final class ActionReports {
          * Kitesail Freebooter): "Alice exiled your Hill Giant.", told to the
          * hand's owner only, never to the one who chose.
          */
-        HAND_EXILE }
+        HAND_EXILE,
+        /**
+         * Spec 0107 (owner Q5c A) -- a blocked trampler could trample over and
+         * its player kept the extra on the blockers (a changed split): "Bob
+         * put all five on your Grizzly Bears; none trampled over.", told to
+         * the defending player only, never to the one who chose.
+         */
+        TRAMPLE_KEPT }
 
     /**
      * Spec 0074, Amendment 1 -- the kinds that hide nothing Forge shows (a
@@ -232,6 +244,13 @@ final class ActionReports {
     private final java.util.Map<Player, List<Value>> values = new java.util.LinkedHashMap<>();
     /** Spec 0080 -- the permanents this effect phased out, as Forge did it. */
     private final List<Card> phasedOut = new ArrayList<>();
+
+    /**
+     * Spec 0107 -- kept trample splits made during a combat damage step, told
+     * once the step is over (the blockers have died or not, so each picture
+     * says where it went). The game thread only.
+     */
+    private final List<Report> trampleKept = new ArrayList<>();
 
     /** The latest report, for every reader (a choice's values merge into it). */
     private volatile Report latest;
@@ -345,7 +364,16 @@ final class ActionReports {
                 // move off the stack follows, and starts nothing.
                 justResolved = game.getStack().isEmpty() ? null : game.getStack().peekAbility();
                 return;
-            } else if (event instanceof forge.game.event.GameEventTurnPhase phase
+            }
+            // Spec 0107 -- a damage step is over: its kept trample splits are told.
+            if (event instanceof forge.game.event.GameEventTurnPhase step && !trampleKept.isEmpty()
+                    && step.phase() != forge.game.phase.PhaseType.COMBAT_DAMAGE
+                    && step.phase() != forge.game.phase.PhaseType.COMBAT_FIRST_STRIKE_DAMAGE) {
+                tellTrampleKept();
+            } else if (event instanceof forge.game.event.GameEventTurnBegan && !trampleKept.isEmpty()) {
+                tellTrampleKept();
+            }
+            if (event instanceof forge.game.event.GameEventTurnPhase phase
                     && phase.phase() == forge.game.phase.PhaseType.COMBAT_BEGIN) {
                 // Spec 0089 (Q3 A) -- a combat beginning after one already
                 // this turn is an extra one: told now.
@@ -486,6 +514,55 @@ final class ActionReports {
         report.retargeted = card.isFaceDown() ? "a face-down card" : card.getName();
         report.cards.put(card.getId(), card);
         tell(report);
+    }
+
+    /**
+     * Spec 0107 (Q5c A) -- [attacker] (trample) was blocked, could trample
+     * over, and its player kept the extra on the blockers: [split] is what
+     * was assigned (a null key the defender's share). Held until the damage
+     * step is over, then told to [defending] only (tells).
+     */
+    void trampleKept(Card attacker, Iterable<Card> blockers, Map<Card, Integer> split, Player defending,
+            int damage) {
+        Player actor = attacker.getController();
+        if (actor == null || defending == null) {
+            return;
+        }
+        List<Move> shown = new ArrayList<>();
+        List<int[]> each = new ArrayList<>();
+        shown.add(new Move(attacker.getId(), attacker.getOwner(), ZoneType.Battlefield, ZoneType.Battlefield,
+                attacker.isFaceDown()));
+        for (Card blocker : blockers) {
+            shown.add(new Move(blocker.getId(), blocker.getOwner(), ZoneType.Battlefield, ZoneType.Battlefield,
+                    blocker.isFaceDown()));
+            each.add(new int[] {blocker.getId(), split.getOrDefault(blocker, 0)});
+        }
+        Report report = new Report(keys.incrementAndGet(), actor,
+                attacker.isFaceDown() ? "a face-down card" : attacker.getName(), Kind.TRAMPLE_KEPT, defending,
+                shown.size(), shown, new java.util.HashMap<>(), false, -1, 0);
+        report.chooser = actor;
+        report.split = each;
+        report.over = split.getOrDefault(null, 0);
+        report.damage = damage;
+        report.cards.put(attacker.getId(), attacker);
+        for (Card blocker : blockers) {
+            report.cards.put(blocker.getId(), blocker);
+        }
+        trampleKept.add(report);
+    }
+
+    /** Spec 0107 -- the damage step is over: each kept split told, its blockers' pictures where they went. */
+    private void tellTrampleKept() {
+        for (Report report : trampleKept) {
+            for (int[] one : report.split) {
+                String place = whereIs(one[0]);
+                if (place != null && !"battlefield".equals(place)) {
+                    report.where.put(one[0], place);
+                }
+            }
+            tell(report);
+        }
+        trampleKept.clear();
     }
 
     /** Spec 0101, item 2 -- "Bob countered Prodigal Pyromancer's ability with Stifle." */
@@ -1679,6 +1756,14 @@ final class ActionReports {
             if ((report.kind == Kind.END_TURN || report.kind == Kind.SKIP) && card != null && !move.faceDown()) {
                 wasPublic = true;
             }
+            // Spec 0107: the attacker and its blockers were on the table as
+            // they fought (a face-down one stays a back).
+            if (report.kind == Kind.TRAMPLE_KEPT) {
+                if (card == null) {
+                    card = report.cards.get(move.cardId());
+                }
+                wasPublic = card != null && !move.faceDown();
+            }
             if (report.kind == Kind.RESTART || report.kind == Kind.CONTROL) {
                 card = report.cards.get(move.cardId());
                 wasPublic = card != null;
@@ -1866,6 +1951,8 @@ final class ActionReports {
                     r.count);
             // Spec 0104, the spec's words.
             case HAND_EXILE -> handExileWords(who, its, cards, r.moves.isEmpty() ? null : r.moves.get(0).to());
+            // Spec 0107 (Q5c A), the spec's words.
+            case TRAMPLE_KEPT -> trampleKeptWords(who, its, r);
         };
     }
 
@@ -1949,6 +2036,18 @@ final class ActionReports {
         };
     }
 
+    /** Spec 0107 -- the kept split's sentence, each blocker by the name the reader knows it by. */
+    private static String trampleKeptWords(String who, String whose, Report r) {
+        List<String> names = new ArrayList<>();
+        List<Integer> amounts = new ArrayList<>();
+        for (int[] one : r.split) {
+            Card card = r.cards.get(one[0]);
+            names.add(card == null ? "creature" : card.isFaceDown() ? "face-down creature" : card.getName());
+            amounts.add(one[1]);
+        }
+        return PlainWords.trampleKept(who, whose, names, amounts, r.over, r.damage);
+    }
+
     /** Spec 0080 -- "Bob's life can't change." ("Your ..." to that player). */
     static String lifeWords(String player) {
         return (player == null ? "Your" : player + "'s") + " life can't change.";
@@ -2001,6 +2100,8 @@ final class ActionReports {
             case END_TURN, SKIP -> reader != actor;
             // Spec 0104 (owner 2026-11-19): the hand's owner only, never the one who chose.
             case HAND_EXILE -> reader == subject && reader != actor;
+            // Spec 0107 (owner Q5c A): the defending player only, never the one who chose.
+            case TRAMPLE_KEPT -> reader == subject && reader != actor;
             // Spec 0097, item 7 (owner): never a window for the one who did it.
             case MILL, COUNTER, RETURN, PHASE -> reader != actor;
             default -> reader != chooser;

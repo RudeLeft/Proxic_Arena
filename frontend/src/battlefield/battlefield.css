@@ -3677,3 +3677,34 @@ img.bf-makes-pip {
 .gs-bigger .bf-badge-n {
   font-size: calc(var(--card-h) * 0.098 * var(--bf-text-scale, 1));
 }
+
+/* Spec 0107 -- "Change split" under a blocked trampler (the canvas's
+   Q5b button): the player's own page only, on their move at declare
+   blockers; a click opens the damage window, filled in. */
+.bf-split {
+  position: absolute;
+  /* The board's card layer lets clicks through (.bf-cards): this takes them. */
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.33em 0.75em 0.33em 0.6em;
+  border: 1px solid #d9b26a;
+  border-radius: 999px;
+  background: #121a17;
+  color: #e9d39a;
+  font-family: var(--pa-card);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 60%);
+  cursor: pointer;
+}
+.bf-split:hover,
+.bf-split:focus-visible {
+  background: #1c2622;
+  box-shadow:
+    0 0 0 3px #ffe2a0,
+    0 0 14px #f2c46a;
+}

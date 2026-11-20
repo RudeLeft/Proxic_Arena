@@ -617,7 +617,15 @@ public final class MatchController extends GeneratedControllerBase {
 
         // Whatever did not work at this exact state is dropped.
         byId.keySet().removeAll(declined);
-        if (byId.isEmpty()) {
+        // Spec 0107 -- "Change split", one per blocked trampler that can
+        // trample over, on the attacker's own turn at declare blockers: the
+        // split is otherwise made for them at damage. Not a game action
+        // (nothing goes to Forge), so it is offered beside Forge's.
+        java.util.LinkedHashMap<String, forge.game.card.Card> splits = new java.util.LinkedHashMap<>();
+        for (forge.game.card.Card trampler : CombatChoices.trampleSplits(player, player.getGame())) {
+            splits.put(CombatChoices.SPLIT + trampler.getId(), trampler);
+        }
+        if (byId.isEmpty() && splits.isEmpty()) {
             // Everything Forge offered has already failed here.
             // Passing is the honest answer and ends the window.
             // Spec 0105: the pass that lets an unanswered top resolve rests first.
@@ -723,7 +731,7 @@ public final class MatchController extends GeneratedControllerBase {
         // MTG Arena does. Only ever a priority pass, and only with the
         // player's own settings; a seat without any is asked as before.
         if (!host.stops().shouldAsk(actedForSeat, player, player.getGame(),
-                actedForSeat != authorisedSeat, byId, unpayable)) {
+                actedForSeat != authorisedSeat, byId, unpayable, !splits.isEmpty())) {
             // Not asked: nothing set for this question may ride on the next.
             host.offerUnavailable(java.util.Map.of());
             host.offerNotNow(java.util.Map.of());
@@ -756,15 +764,33 @@ public final class MatchController extends GeneratedControllerBase {
         host.offerResponseWindow(host.stops().responseWindow(actedForSeat, player, player.getGame(),
                 actedForSeat != authorisedSeat));
 
+        // Spec 0107 -- each "Change split" carries its fight (the page's button and window).
+        java.util.LinkedHashMap<String, String> labels = labelsFor(byId);
+        java.util.Map<String, com.google.gson.JsonObject> splitFights = new java.util.HashMap<>();
+        java.util.List<String> offered = new java.util.ArrayList<>(byId.keySet());
+        splits.forEach((id, trampler) -> {
+            labels.put(id, "Change split");
+            splitFights.put(id, CombatChoices.splitFight(trampler, player.getGame().getCombat()));
+            offered.add(id);
+        });
+        host.offerFights(splitFights);
+
         try {
             String choice =
                     host.gate().ask(
                             actedForSeat,
                             authorisedSeat,
                             "chooseSpellAbilityToPlay",
-                            new java.util.ArrayList<>(byId.keySet()),
-                            pending -> host.publishDecision(pending, labelsFor(byId)));
+                            offered,
+                            pending -> host.publishDecision(pending, labels));
 
+            if (splits.containsKey(choice)) {
+                // Spec 0107 -- today's damage window, now; its answer kept for
+                // damage (DamagePlans). Then the same priority question again.
+                new CombatChoices(host, actedForSeat, authorisedSeat, player.getView())
+                        .changeSplit(splits.get(choice), player.getGame().getCombat());
+                return chooseSpellAbilityToPlay();
+            }
             if (DecisionGate.PASS.equals(choice)) {
                 // PASS IS `null`, NOT AN EMPTY LIST.
                 //

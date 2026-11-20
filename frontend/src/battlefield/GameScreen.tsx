@@ -2576,6 +2576,9 @@ export function GameScreen({
             pulse={board.pulse ?? null}
             onPick={pick}
             onInspect={setInspecting}
+            // Spec 0107 -- "Change split" under each blocked trampler, while asked.
+            splits={busy || watching ? undefined : question?.splits}
+            onSplit={(actionId) => answer(actionId)}
             choosable={boardChoosable}
             marked={marked}
             picked={pickedNow}

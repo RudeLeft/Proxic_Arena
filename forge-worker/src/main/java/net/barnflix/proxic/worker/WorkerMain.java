@@ -395,6 +395,14 @@ public final class WorkerMain {
                             if (use != null) {
                                 option.add("use", use);
                             }
+                            // Spec 0107 -- "Change split": the fight it changes. Its
+                            // attacker is in the fight, so it is about no object (the
+                            // board draws it as its own button, not a card's action).
+                            JsonObject fight = GAME.fightOf(id);
+                            if (fight != null) {
+                                option.add("fight", fight);
+                                option.remove("objectId");
+                            }
                             options.add(option);
                         }
                         ask.add("options", options);

@@ -406,11 +406,14 @@ final class CombatChoices {
      * When it IS a choice, it is asked ONE POINT AT A TIME.
      * That is more questions than a "distribute 5 among these"
      * widget would be, and it needs no new protocol shape, and
-     * every answer is final on its own. It also makes the
-     * lethal-damage decision explicit rather than assumed: this
-     * never quietly assigns "just enough to kill" on the
-     * player's behalf, because how much to leave over is
-     * precisely what a player is deciding.
+     * every answer is final on its own.
+     *
+     * Spec 0107 (owner Q5b, 2026-11-19) is the one exception: a
+     * trampler's split is made for its player (lethal to each
+     * blocker, the rest to the defender) unless they changed it
+     * with "Change split" at declare blockers; the button is there
+     * whenever trample can carry damage over, so the choice stays
+     * theirs. Every other split is asked as before.
      */
     java.util.Map<Card, Integer> assignCombatDamage(
             Card attacker,
@@ -435,12 +438,63 @@ final class CombatChoices {
             return assigned;
         }
 
-        // Owner 2026-11-01 (item 5) -- the whole fight, for the page's one
-        // window: how much there is, each blocker in Forge's order with
-        // what it still needs to die (Forge's own reading, allLethal), and
-        // whether the player can take some (trample, or a creature that
-        // divides as it chooses). The questions stay one point at a time;
-        // the page answers them from the split the player made.
+        // Spec 0107 (owner Q5b: the one exception to "you always choose") --
+        // a trampler its own player assigns: the split is made for them,
+        // unless they changed it with "Change split" and that still fits.
+        Combat combat = attacker.getGame().getCombat();
+        if (trampleOver && !divides && !blockers.isEmpty() && combat != null && ownAttacker(attacker)) {
+            DamagePlans.Plan plan = host.plans().take(actedForSeat, attacker.getId(), combat);
+            java.util.Map<Card, Integer> made = null;
+            if (plan != null && plan.fits(combat, attacker, blockers, damage)) {
+                made = new java.util.HashMap<>();
+                for (Card blocker : blockers) {
+                    made.put(blocker, plan.toBlockers().getOrDefault(blocker.getId(), 0));
+                }
+                if (plan.toDefender() > 0) {
+                    made.put(null, plan.toDefender());
+                }
+            } else if (plan == null && automatic(attacker, blockers, damage)) {
+                made = usualSplit(attacker, blockers, damage);
+            }
+            // A plan that no longer fits (an Elf died: Heedless One hits for
+            // less) is asked again below, filled in with the usual split
+            // (spec 0107, item 7; owner decision default).
+            if (made != null) {
+                keptOnBlockers(attacker, blockers, damage, made, defender);
+                return made;
+            }
+            java.util.Map<Card, Integer> asked = ask(attacker, blockers, damage, defender, assigned, true, false);
+            keptOnBlockers(attacker, blockers, damage, asked, defender);
+            return asked;
+        }
+        return ask(attacker, blockers, damage, defender, assigned, trampleOver, divides);
+    }
+
+    /** Today's damage question (item 5's one window), one point at a time. */
+    private java.util.Map<Card, Integer> ask(Card attacker, forge.game.card.CardCollectionView blockers, int damage,
+            GameEntity defender, java.util.Map<Card, Integer> assigned, boolean trampleOver, boolean divides)
+            throws InterruptedException {
+        com.google.gson.JsonObject how = new com.google.gson.JsonObject();
+        how.add("damage", fightJson(attacker, blockers, damage, defender, trampleOver, divides));
+        com.google.gson.JsonObject before = host.arrange();
+        host.arranging(how);
+        try {
+            return assignByPoint(attacker, blockers, damage, defender, assigned, trampleOver, divides);
+        } finally {
+            host.arranging(before);
+        }
+    }
+
+    /**
+     * Owner 2026-11-01 (item 5) -- the whole fight, for the page's one
+     * window: how much there is, each blocker in Forge's order with
+     * what it still needs to die (Forge's own reading, allLethal), and
+     * whether the player can take some (trample, or a creature that
+     * divides as it chooses). The questions stay one point at a time;
+     * the page answers them from the split the player made.
+     */
+    static com.google.gson.JsonObject fightJson(Card attacker, Iterable<Card> blockers, int damage,
+            GameEntity defender, boolean trampleOver, boolean divides) {
         com.google.gson.JsonObject fight = new com.google.gson.JsonObject();
         fight.addProperty("damage", damage);
         fight.addProperty("attacker", "card:" + attacker.getId());
@@ -457,14 +511,159 @@ final class CombatChoices {
         } else if (divides && defender != null) {
             fight.addProperty("divides", true);
         }
-        com.google.gson.JsonObject how = new com.google.gson.JsonObject();
-        how.add("damage", fight);
-        com.google.gson.JsonObject before = host.arrange();
-        host.arranging(how);
+        return fight;
+    }
+
+    /** Spec 0107 -- "Change split": a priority option per trampler that can trample over. */
+    static final String SPLIT = "split:card:";
+
+    /** Spec 0107 -- the attacker is its own player's to assign (not Defensive Formation's defender). */
+    private boolean ownAttacker(Card attacker) {
+        Player controller = attacker.getController();
+        return controller != null && controller.getView().equals(viewer);
+    }
+
+    /**
+     * Spec 0107 -- the split is made without asking: when the trampler can
+     * trample over (its damage beats its blockers' total lethal: the same
+     * test as the stop that offers "Change split"), or when one blocker
+     * takes it all (no excess, one blocker: there is nothing to choose).
+     * Two or more blockers and no excess: which of them dies is a real
+     * choice with no "Change split" offered, so it is asked as today.
+     */
+    static boolean automatic(Card attacker, forge.game.card.CardCollectionView blockers, int damage) {
+        return damage > totalLethal(attacker, blockers) || blockers.size() == 1;
+    }
+
+    /** What all of [blockers] still need to die from [attacker], together. */
+    static int totalLethal(Card attacker, Iterable<Card> blockers) {
+        int total = 0;
+        for (Card blocker : blockers) {
+            total += lethal(attacker, blocker);
+        }
+        return total;
+    }
+
+    /**
+     * Spec 0107 (Q5b) -- the usual split: each blocker in Forge's order its
+     * lethal (deathtouch 1, damage already marked counted: {@link #lethal},
+     * Forge's own reading), the rest to the defender. Lethal-first holds by
+     * construction (CR 702.19c), and Forge checks the map it is given.
+     */
+    static java.util.Map<Card, Integer> usualSplit(Card attacker, Iterable<Card> blockers, int damage) {
+        java.util.Map<Card, Integer> out = new java.util.HashMap<>();
+        int left = damage;
+        for (Card blocker : blockers) {
+            int give = Math.min(lethal(attacker, blocker), left);
+            out.put(blocker, give);
+            left -= give;
+        }
+        // Something left means every blocker got its whole lethal: the rest
+        // tramples over (a null key is Forge's "the defender").
+        if (left > 0) {
+            out.put(null, left);
+        }
+        return out;
+    }
+
+    /** Spec 0107 -- the usual split as the page reads it: {"blockers": [n...], "player": n}. */
+    static com.google.gson.JsonObject usualJson(Card attacker, Iterable<Card> blockers, int damage) {
+        java.util.Map<Card, Integer> split = usualSplit(attacker, blockers, damage);
+        com.google.gson.JsonObject out = new com.google.gson.JsonObject();
+        com.google.gson.JsonArray each = new com.google.gson.JsonArray();
+        for (Card blocker : blockers) {
+            each.add(split.getOrDefault(blocker, 0));
+        }
+        out.add("blockers", each);
+        out.addProperty("player", split.getOrDefault(null, 0));
+        return out;
+    }
+
+    /**
+     * Spec 0107 -- the attackers [player] may change the split of now: on its
+     * own turn, at declare blockers, each of its attackers with trample that
+     * is blocked and whose damage beats its blockers' total lethal (it can
+     * trample over). Only the public board: trample, the blocks, power and
+     * damage marked -- never a hand (Risks 2).
+     */
+    static List<Card> trampleSplits(Player player, forge.game.Game game) {
+        List<Card> out = new ArrayList<>();
+        if (game.getPhaseHandler().getPhase() != forge.game.phase.PhaseType.COMBAT_DECLARE_BLOCKERS
+                || !player.equals(game.getPhaseHandler().getPlayerTurn())) {
+            return out;
+        }
+        Combat combat = game.getCombat();
+        if (combat == null) {
+            return out;
+        }
         try {
-            return assignByPoint(attacker, blockers, damage, defender, assigned, trampleOver, divides);
-        } finally {
-            host.arranging(before);
+            for (Card attacker : combat.getAttackers()) {
+                if (!player.equals(attacker.getController())
+                        || !attacker.hasKeyword(forge.game.keyword.Keyword.TRAMPLE)
+                        || !combat.isBlocked(attacker) || combat.getDefenderByAttacker(attacker) == null) {
+                    continue;
+                }
+                forge.game.card.CardCollectionView blockers = combat.getBlockers(attacker);
+                if (blockers.isEmpty()
+                        || attacker.getNetCombatDamage() <= totalLethal(attacker, blockers)) {
+                    continue;
+                }
+                out.add(attacker);
+            }
+        } catch (RuntimeException e) {
+            System.err.println("proxic: trample splits not read: " + e);
+        }
+        return out;
+    }
+
+    /** Spec 0107 -- the "Change split" option's fight: today's, plus the split made for the player. */
+    static com.google.gson.JsonObject splitFight(Card attacker, Combat combat) {
+        forge.game.card.CardCollectionView blockers = combat.getBlockers(attacker);
+        int damage = attacker.getNetCombatDamage();
+        com.google.gson.JsonObject fight =
+                fightJson(attacker, blockers, damage, combat.getDefenderByAttacker(attacker), true, false);
+        fight.add("usual", usualJson(attacker, blockers, damage));
+        return fight;
+    }
+
+    /**
+     * Spec 0107 -- "Change split" chosen: today's damage question for
+     * [attacker], asked now; the answer is kept (DamagePlans) for damage.
+     * Nothing goes to Forge: it is not a game action.
+     */
+    void changeSplit(Card attacker, Combat combat) throws InterruptedException {
+        forge.game.card.CardCollectionView blockers = combat.getBlockers(attacker);
+        int damage = attacker.getNetCombatDamage();
+        GameEntity defender = combat.getDefenderByAttacker(attacker);
+        java.util.Map<Card, Integer> answer =
+                ask(attacker, blockers, damage, defender, new java.util.HashMap<>(), true, false);
+        java.util.Map<Integer, Integer> toBlockers = new java.util.HashMap<>();
+        List<Integer> ids = new ArrayList<>();
+        for (Card blocker : blockers) {
+            ids.add(blocker.getId());
+            toBlockers.put(blocker.getId(), answer.getOrDefault(blocker, 0));
+        }
+        host.plans().put(actedForSeat, attacker.getId(),
+                new DamagePlans.Plan(combat, ids, damage, toBlockers, answer.getOrDefault(null, 0)));
+    }
+
+    /**
+     * Spec 0107 (Q5c A) -- trample was possible and the extra was kept on
+     * the blockers (only through a changed split): the defending player's
+     * report (ActionReports, TRAMPLE_KEPT).
+     */
+    private void keptOnBlockers(Card attacker, forge.game.card.CardCollectionView blockers, int damage,
+            java.util.Map<Card, Integer> split, GameEntity defender) {
+        int excess = damage - totalLethal(attacker, blockers);
+        int over = split.getOrDefault(null, 0);
+        if (excess <= 0 || over >= excess) {
+            return;
+        }
+        ActionReports reports = host.actions();
+        Player defending = defender instanceof Player p ? p
+                : defender instanceof Card c ? c.getController() : null;
+        if (reports != null && defending != null) {
+            reports.trampleKept(attacker, blockers, split, defending, damage);
         }
     }
 

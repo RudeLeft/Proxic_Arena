@@ -410,4 +410,33 @@ public final class PlainWords {
         }
         return "to pay for " + card;
     }
+
+    /** Small numbers in a sentence as words (the owner's wording rule), else digits. */
+    private static final String[] NUMBERS = {
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"};
+
+    static String number(int n) {
+        return n >= 0 && n < NUMBERS.length ? NUMBERS[n] : String.valueOf(n);
+    }
+
+    /**
+     * Spec 0107 (owner Q5c A) -- a kept trample split, to the defending
+     * player: "Bob put all five on your Grizzly Bears; none trampled over.",
+     * "Bob put three on your Grizzly Bears and two on your Llanowar Elves;
+     * none trampled over.", "Bob put four on your Grizzly Bears; one
+     * trampled over." ([whose] "your" for the defender; [over] what reached
+     * them; [damage] the attacker's whole damage).
+     */
+    public static String trampleKept(String who, String whose, List<String> blockers, List<Integer> amounts,
+            int over, int damage) {
+        List<String> parts = new ArrayList<>();
+        for (int i = 0; i < blockers.size(); i++) {
+            int n = amounts.get(i);
+            boolean all = blockers.size() == 1 && over == 0 && n == damage;
+            parts.add((all ? "all " : "") + number(n) + " on " + whose + " " + blockers.get(i));
+        }
+        String put = parts.size() <= 1 ? String.join("", parts)
+                : String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.get(parts.size() - 1);
+        return who + " put " + put + "; " + (over == 0 ? "none" : number(over)) + " trampled over.";
+    }
 }
