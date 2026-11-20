@@ -61,6 +61,17 @@ async function csrfOf(page: Page): Promise<string> {
 async function clearEverything(page: Page) {
   const csrf = await csrfOf(page);
 
+  // A match left running by an earlier test first: while one runs the
+  // room cannot be left, and the page opens on that game (CI 2026-11-20).
+  const match = (await (await page.request.get("/api/matches/current")).json()) as {
+    match: { matchId: string } | null;
+  };
+  if (match.match) {
+    await page.request.post(`/api/matches/${match.match.matchId}/abandon`, {
+      headers: { "X-CSRF-Token": csrf },
+    });
+  }
+
   const current = (await (await page.request.get("/api/rooms/current")).json()) as {
     room: { roomId: string } | null;
   };

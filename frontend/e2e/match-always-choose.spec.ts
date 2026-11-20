@@ -431,6 +431,10 @@ test("Appetite for Brains with one card that fits: the host clicks it; the guest
     expect(half!.options[0]).toMatch(/Giant Killer/);
     expect(killerDown, "the clicked half, Giant Killer, is on the battlefield").toBe(true);
   } finally {
+    // The match ends here, not with the pages: a match left running is
+    // still the players' match in the next test (CI 2026-11-20:
+    // match-setup's lobby opened on this game at turn 10).
+    await clearEverything(host).catch(() => undefined);
     await host.context().close();
     await guest.context().close();
   }

@@ -931,10 +931,20 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Spec 0104 (owner 2026-11-19): what they are doing is never cut off
+   ("Choosing from your hand"). One line where it fits; where the system
+   font is wider (Linux, Mac: the text font is Segoe UI, not bundled) it
+   wraps and the button grows, as .gs-passing does. */
+.gs-waiting:has(.gs-waiting-sub) {
+  height: auto;
+  min-height: 58px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
 .gs-waiting .gs-waiting-sub {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  line-height: 1.3;
 }
 /* Spec 0097, item 2 -- why the turn is passing is the point: it wraps,
    never ends in "…" ("Nothing to play · 2 lands, you've already played a
