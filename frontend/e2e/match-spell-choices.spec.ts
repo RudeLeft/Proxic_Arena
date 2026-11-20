@@ -330,25 +330,38 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
             to = await line.getAttribute("data-to", { timeout: 250 }).catch(() => null);
             if (!to) await page.waitForTimeout(150);
           }
-          const peek = to ? page.locator(`[data-peek-of="${to}"]`) : null;
-          // Once it has risen out of the tile (its rise is 450 ms).
-          await page.waitForTimeout(1_200);
-          await host.screenshot({ path: join(SHOTS, "spell-choices-reanimate.png") });
-          const tile = await page
-            .locator('[data-zone-tile="viewer:graveyard"]')
-            .boundingBox()
-            .catch(() => null);
-          const peekBox = peek ? await peek.boundingBox().catch(() => null) : null;
-          const end = await line.getAttribute("data-end").catch(() => null);
-          reanimate = {
-            to,
-            hostOgre,
-            peek: peek ? await peek.count() : 0,
-            sight: peek ? await peek.locator('[data-sight="true"]').count() : 0,
-            tile,
-            peekBox,
-            end,
-          };
+          // Once it has risen out of the tile (its rise is 450 ms, paced to
+          // about 560). Everything is read in one go, before the picture: the
+          // spell can resolve at the end of its rest, and a screenshot can
+          // stall on CI (CI 2026-11-20 saw the peek gone by the time it was
+          // counted).
+          await page.waitForTimeout(700);
+          const seen = await page.evaluate(
+            ({ to, id }) => {
+              const box = (el: Element | null) => {
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                return { x: r.x, y: r.y, width: r.width, height: r.height };
+              };
+              const peeks = to ? [...document.querySelectorAll(`[data-peek-of="${to}"]`)] : [];
+              const line = document.querySelector(`[data-line="target"][data-from="${id}"]`);
+              return {
+                peek: peeks.length,
+                sight: peeks.reduce(
+                  (n, el) => n + el.querySelectorAll('[data-sight="true"]').length,
+                  0,
+                ),
+                peekBox: box(peeks[0] ?? null),
+                tile: box(document.querySelector('[data-zone-tile="viewer:graveyard"]')),
+                end: line?.getAttribute("data-end") ?? null,
+              };
+            },
+            { to, id },
+          );
+          reanimate = { to, hostOgre, ...seen };
+          await host
+            .screenshot({ path: join(SHOTS, "spell-choices-reanimate.png") })
+            .catch(() => undefined);
           await clickNow(passButton(page));
           continue;
         }
