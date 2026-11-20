@@ -66,8 +66,14 @@ window, popup and prompt in a game) closed 2026-11-06 with version
 1.45.0 (`docs/history/phases/phase-09/PHASE_09_EXIT_GATE.md`). Phase 10
 (animation polish and graphical improvements: nothing on the battlefield
 jumps, P10-R1) closed 2026-11-19 with version 1.73.0
-(`docs/history/phases/phase-10/PHASE_10_EXIT_GATE.md`). No phase is
-active.
+(`docs/history/phases/phase-10/PHASE_10_EXIT_GATE.md`).
+
+**Phase 11 is LOCKED and ACTIVE** (2026-11-19):
+`PHASE_11_EFFICIENCY_LOCKED.md` -- efficiency: the screen redraws only
+what changed, the game sends only what changed, every page loads fast, in
+Chrome, Edge, Firefox and Safari; plus catch-up after a stall and a hard
+pause while a player is away. Its work starts once 1.74.0 (specs
+0104-0107) is released.
 
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` first: it
 carries the locked architectural facts (pin, adapter, process model,

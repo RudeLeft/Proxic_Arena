@@ -16,7 +16,9 @@ phase. **Phase 9 (every game window) is COMPLETE** — accepted by the
 owner 2026-11-06, version 1.45.0, in `docs/history/phases/phase-09/`.
 **Phase 10 (animation: nothing on the battlefield jumps) is COMPLETE**
 — accepted by the owner 2026-11-19, version 1.73.0, in
-`docs/history/phases/phase-10/`; no phase is active. See AGENTS.md
+`docs/history/phases/phase-10/`. **Phase 11 (efficiency: net code,
+loading and redraw) is LOCKED and ACTIVE** (2026-11-19),
+`PHASE_11_EFFICIENCY_LOCKED.md`; its work starts after 1.74.0. See AGENTS.md
 "Current work". Who applies each Magic rule, and the proof, is
 `docs/architecture/RULES_COVERAGE.md`.
 Read `docs/architecture/PHASE_00_ACCEPTED_DECISIONS.md` before any
