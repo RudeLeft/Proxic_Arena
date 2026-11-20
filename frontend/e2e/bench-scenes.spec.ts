@@ -171,6 +171,8 @@ test.describe("Phase 10's moments, timed (spec 0090)", () => {
       army: 0,
       storm: 900,
       reports: 2500,
+      // Spec 0108: the flyer's bob only loops; nothing in it ends.
+      "flyer-tab": 0,
     };
     const hurried: Record<string, unknown> = {};
     for (const scene of SCENES) {

@@ -221,6 +221,14 @@ jobs:
 
       # Part 1 is the deck and admin packages, part 2 match and room,
       # part 3 everything else (server/build.gradle.kts).
+      # Maven Central sometimes answers "Could not find" for every server
+      # dependency on one shard (runs 44680332209, 44683038214, 44819307009;
+      # ROADMAP Flakes). The dependencies are resolved first, retried once
+      # with a fresh lookup, so a download failure never reads as a test
+      # failure; the tests then run once.
+      - name: Resolve server dependencies (one retry)
+        run: |
+          ./gradlew :server:dependencies --configuration testRuntimeClasspath --no-daemon -q > /dev/null             || { sleep 30; ./gradlew :server:dependencies --configuration testRuntimeClasspath --no-daemon -q --refresh-dependencies > /dev/null; }
       - run: ./gradlew :server:test -PtestShard=${{ matrix.shard }} --no-daemon
 
       # A test that skips itself is not a test that passed. Phase 1
