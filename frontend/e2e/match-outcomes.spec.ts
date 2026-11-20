@@ -34,6 +34,7 @@ import {
   discardIfAsked,
   matchPanel,
   passButton,
+  realClick,
   sharedDeck,
   startAMatch,
   watchGame,
@@ -88,21 +89,11 @@ async function recorder(page: Page) {
 }
 const seenOf = (page: Page) => page.evaluate(() => (window as unknown as { __seen: Seen }).__seen);
 
-/** A real mouse click on the middle of an element. */
-async function realClick(page: Page, target: Locator) {
-  const box = await target
-    .first()
-    .boundingBox({ timeout: 2_000 })
-    .catch(() => null);
-  if (!box) return false;
-  const x = box.x + box.width / 2;
-  // A hand card stands partly below the window's edge: its visible part.
-  const y = Math.min(box.y + box.height / 2, (box.y + 1080) / 2);
-  await page.mouse.move(x, y, { steps: 6 });
-  await page.waitForTimeout(150);
-  await page.mouse.click(x, y);
-  return true;
-}
+// Real clicks: match-helpers' realClick, at a hitPoint. This spec had its
+// own, at the middle of the box -- CI run 44823436164: the guest's first
+// land in hand had Murder, its right-hand neighbour, over its middle; the
+// mouse lifted Murder and the click cast it, with `murdered` never set, so
+// nothing aimed it at the Agent and the game stood for 120 s.
 
 const squaresNow = (page: Page) =>
   page
@@ -317,6 +308,8 @@ test("printed combat squares in combat; a Stifled ping crumbles with a window to
             : "";
         if ((await targeting.count()) > 0 || (await cast.count()) > 0) {
           const aiming = (await targeting.count()) > 0;
+          // Murder on its way, however it was started: aimed at the Agent.
+          if (!isHost && /Murder/.test(label)) murdered = true;
           // The targets first (a target is a board card too): the host's
           // ping at the Knight, the guest's Murder at the Agent.
           const theirs = (name: RegExp) =>
