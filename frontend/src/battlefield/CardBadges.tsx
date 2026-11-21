@@ -543,7 +543,7 @@ function CardBadgesView({
     h: MARK_H,
     node: (
       <span
-        className={`bf-mark bf-mark-kw${m.icon === "lost" ? " bf-mark-lost" : ""}`}
+        className={`bf-mark bf-mark-kw${m.icon === "lost" ? " bf-mark-lost" : ""}${m.icon === "paired" ? " bf-mark-pair" : ""}`}
         data-mark={m.key}
         data-folds={m.folds ? "true" : undefined}
         data-leaving={ending.some((g) => g.mark.key === m.key) ? "true" : undefined}

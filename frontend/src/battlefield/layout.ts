@@ -180,6 +180,11 @@ export interface LayoutCard {
    * them (A-17's room) and it never stacks.
    */
   holding?: readonly { id: string }[] | undefined;
+  /**
+   * Spec 0111 -- soulbond: its partner's id. A paired card stands alone (never
+   * in a pile): pointing at it lights its own partner, and the link is its own.
+   */
+  pairedWith?: string | undefined;
 }
 
 export interface LayoutInput {
@@ -458,6 +463,7 @@ function pileKey(
   if (card.faceDown || !card.known) return null;
   if (card.paying || card.held) return null;
   if ((card.holding?.length ?? 0) > 0) return null;
+  if (card.pairedWith) return null;
   if (card.attachedTo !== null || attachedHosts.has(card.id)) return null;
   if (card.blocking) return null;
   if (riders) {

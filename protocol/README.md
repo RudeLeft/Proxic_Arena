@@ -733,6 +733,16 @@ players[i].thisTurn       spec 0103, item 5: {spells, lifeGained,
 player.mulligans          how many times the player has mulliganed, for every
                           viewer (public, as in paper Magic; Phase 9 W-15)
 card.ringBearer           true on the Ring-bearer, for every viewer
+card.pairedWith           spec 0111: on a soulbond-paired permanent, its
+                          partner's id ("card:N", the snapshot's own id,
+                          PROTO-001), from Forge's current pair
+                          (Card#getPairedWith; ViewerSnapshot#pairedWith),
+                          only while both cards are on the battlefield and
+                          phased in; both cards carry it, each naming the
+                          other. Absent when unpaired. Public, the same for
+                          both seats and the public view, face down or not
+                          (an id is not an identity: the page names the
+                          partner as the viewer may know it)
 card.phasedOut            spec 0080: true on a phased-out permanent, which is
                           now sent (Forge's plain battlefield list leaves it
                           out, and the page drew it exiled); it stays in its

@@ -487,6 +487,32 @@ function withOutcomes(
   return out;
 }
 
+/**
+ * Spec 0111 -- each soulbond-paired permanent's partner's name, as this
+ * viewer may know it (HID-005: a face-down partner it may not identify is
+ * "a face-down creature", never more), for the link mark's words. A partner
+ * not on this board (the worker never sends one) leaves no link at all.
+ */
+export function withPartners<C extends BoardCard>(cards: C[]): C[] {
+  if (!cards.some((c) => c.pairedWith)) return cards;
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  return cards.map((c) => {
+    if (!c.pairedWith) return c;
+    const partner = byId.get(c.pairedWith);
+    if (!partner) {
+      const { pairedWith, ...rest } = c;
+      void pairedWith;
+      return rest as C;
+    }
+    return { ...c, pairedName: partnerName(partner) };
+  });
+}
+
+/** Spec 0111 -- a partner's name as the viewer may know it. */
+export function partnerName(card: { name: string; faceDown: boolean; known: boolean }): string {
+  return card.faceDown && !card.known ? "a face-down creature" : card.name;
+}
+
 function toBoardCard(
   card: SnapshotCard,
   prepared?: SnapshotCard,
@@ -517,6 +543,8 @@ function toBoardCard(
     ...(card.enteredAt !== null ? { enteredAt: card.enteredAt } : {}),
     token: card.token,
     ringBearer: card.ringBearer,
+    // Spec 0111 -- soulbond: the partner's id (public).
+    ...(card.pairedWith ? { pairedWith: card.pairedWith } : {}),
     ...(card.sector ? { sector: card.sector } : {}),
     ...(card.sprocket ? { sprocket: card.sprocket } : {}),
     ...(card.counterFrom ? { counterFrom: card.counterFrom } : {}),
@@ -1033,12 +1061,14 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
 
   const prepared = preparedSpells(snapshot);
   return {
-    battlefield: snapshot.battlefield.map((c) =>
-      withOutcomes(
-        toBoardCard(c, prepared.get(c.id), heldCards(c, snapshot.exile)),
-        c,
-        snapshot,
-        previous,
+    battlefield: withPartners(
+      snapshot.battlefield.map((c) =>
+        withOutcomes(
+          toBoardCard(c, prepared.get(c.id), heldCards(c, snapshot.exile)),
+          c,
+          snapshot,
+          previous,
+        ),
       ),
     ),
     hand: snapshot.hand.map(toHandCard),

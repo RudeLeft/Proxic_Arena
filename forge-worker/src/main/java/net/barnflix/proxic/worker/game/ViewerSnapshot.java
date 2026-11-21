@@ -942,6 +942,28 @@ final class ViewerSnapshot {
     }
 
     /**
+     * Spec 0111 -- the soulbond partner's id ("card:N"), or null: Forge's
+     * current pair, and only when both cards are on the battlefield and in
+     * play (not phased out).
+     */
+    static String pairedWith(Card card) {
+        Card partner = card.getPairedWith();
+        if (partner == null || partner.getId() == card.getId()) {
+            return null;
+        }
+        if (!onTable(card) || !onTable(partner)) {
+            return null;
+        }
+        return "card:" + partner.getId();
+    }
+
+    private static boolean onTable(Card card) {
+        Card now = card.getGame() == null ? null : card.getGame().getCardState(card, null);
+        Card real = now == null ? card : now;
+        return real.isInPlay() && !real.isPhasedOut();
+    }
+
+    /**
      * {@code shown}: Forge revealed this card to this viewer (spec 0045),
      * so it is known to them wherever it now lies.
      */
@@ -989,6 +1011,19 @@ final class ViewerSnapshot {
             if (preventNext > 0) {
                 entry.addProperty("preventNext", preventNext);
             }
+        }
+        // Spec 0111 -- a soulbond pair: the partner's snapshot id (PROTO-001),
+        // from Forge's current pair (Card#getPairedWith), only while BOTH are
+        // on the battlefield: a card that has left can keep its link for a
+        // moment (GameAction keeps a real token's), and an id of a card
+        // elsewhere would name a card this viewer's board need not show.
+        // Public: a pair is made by a trigger everyone saw, and both cards
+        // are on the table; the same for both seats and a spectator, face
+        // down or not (an id is not an identity; the page names it as the
+        // viewer may know it).
+        String partner = pairedWith(card);
+        if (partner != null) {
+            entry.addProperty("pairedWith", partner);
         }
 
         boolean maySee = viewer == null

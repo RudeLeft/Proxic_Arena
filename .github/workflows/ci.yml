@@ -333,7 +333,7 @@ jobs:
               attachments printings face-down costs results \
               tracked-state text-effects coin-flip board-data concede mana-cost \
               library-order mana-pool mulligan unreachable dice unset \
-              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose stack-rests no-target quiet-reports \
+              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose stack-rests no-target quiet-reports soulbond \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
               'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions|shapes|always-choose|stops|stack-rests|combat-choices) limit=900;; esac;
@@ -748,6 +748,12 @@ jobs:
       - name: Build the step-aside deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/step-aside-deck.zip" protocol/fixtures/step-aside-deck
+
+      # Spec 0111 -- Elder Cathar and Tandem Lookout, for the real-click
+      # soulbond game (match-soulbond.spec.ts).
+      - name: Build the soulbond deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/soulbond-deck.zip" protocol/fixtures/soulbond-deck
 
       # Spec 0095 -- the owner's mono-green deck on both seats, for the
       # real-game speed test (match-speed.spec.ts).

@@ -3529,6 +3529,17 @@ img.bf-makes-pip {
     scale calc(180ms * var(--pa-pace, 1)) ease-out,
     box-shadow calc(180ms * var(--pa-pace, 1)) ease-out;
 }
+/* Spec 0111 (canvas "1" A) -- pointing at one of a soulbond pair: its
+   partner lifts (bf-lifted, above) and both link marks glow. Nothing dims. */
+.bf-mark-pair {
+  transition: box-shadow calc(180ms * var(--pa-pace, 1)) ease-out;
+}
+.bf-card.bf-lifted .bf-mark-pair,
+.bf-card[data-pair-pointed="true"] .bf-mark-pair {
+  box-shadow:
+    0 0 0 2px #ffe2a0,
+    0 0 calc(var(--card-h) * 0.12) #f2c46a;
+}
 /* Item 1 (round 2 Q1 B) -- the X medallion: on the stack card's top-right
    corner at 0.8 the casting card's size (the canvas: 84 px on a 410 px
    card, 0.8 on the stack). */

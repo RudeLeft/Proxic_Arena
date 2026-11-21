@@ -59,7 +59,8 @@ export type MarkIconKind =
   | "reach"
   | "trample"
   | "vigilance"
-  | "unblockable";
+  | "unblockable"
+  | "paired";
 
 /** The gained keywords marked, in the order they stand (Forge's titles, lower case). */
 const GAINED: readonly { title: string; icon: MarkIconKind; words: string; starts?: boolean }[] = [
@@ -115,6 +116,9 @@ export interface Marked {
   inCombat?: boolean | undefined;
   faceDown?: boolean;
   known?: boolean;
+  /** Spec 0111 -- soulbond: the partner's id, and its name as the viewer may know it. */
+  pairedWith?: string | undefined;
+  pairedName?: string | undefined;
 }
 
 /** The marks [card] wears, in the order they stand: protection, lost, then gained. */
@@ -149,6 +153,16 @@ export function cardMarks(card: Marked): CardMark[] {
   }
   if (card.lostAbilities)
     add({ key: "lost", folds: false, words: "Lost all its abilities", icon: "lost" });
+  // Spec 0111 (owner 2026-11-19b, canvas "1" A) -- a soulbond pair: the same
+  // gold chain-link square on both cards. From Forge's current pair
+  // (`pairedWith`), never the card's text (ARCH-006). It never folds.
+  if (card.pairedWith)
+    add({
+      key: "paired",
+      folds: false,
+      words: `Paired with ${card.pairedName ?? "another creature"}`,
+      icon: "paired",
+    });
   const gained = (card.gained ?? []).map((g) => g.toLowerCase());
   for (const k of GAINED) {
     if (gained.some((g) => g === k.title || (k.starts === true && g.startsWith(`${k.title} `))))
@@ -491,6 +505,20 @@ const PICTURE: Record<Exclude<MarkIconKind, "protection" | "ward">, ReactNode> =
         strokeLinejoin="round"
       />
     </>
+  ),
+  // Spec 0111 -- the canvas's chain link (feedback-1119b "1" A), on 24x24.
+  paired: (
+    <g
+      fill="none"
+      stroke="#f2c95c"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      transform="translate(2 2)"
+    >
+      <path d="M8.3 11.7 L11.7 8.3" />
+      <path d="M9.4 6.4 L11.2 4.6 a3.1 3.1 0 0 1 4.3 4.3 L13.7 10.7" />
+      <path d="M10.6 13.6 L8.8 15.4 a3.1 3.1 0 0 1 -4.3 -4.3 L6.3 9.3" />
+    </g>
   ),
   flying: (
     <path

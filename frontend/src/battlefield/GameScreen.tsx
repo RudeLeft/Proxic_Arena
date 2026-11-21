@@ -74,7 +74,13 @@ import {
   targetWords,
 } from "../matchText";
 import { Board, CardFace, counterWords, figure, lookOf, shortType, type PiledCard } from "./Board";
-import { boardFromSnapshot, exilePile, keepCards, type BoardData } from "./fromSnapshot";
+import {
+  boardFromSnapshot,
+  exilePile,
+  keepCards,
+  partnerName,
+  type BoardData,
+} from "./fromSnapshot";
 import { fanCards, pileGlows } from "./pileFan";
 import { preparedMarkBox } from "./copies";
 import { clickOn, questionOf, type Question } from "./interaction";
@@ -5477,6 +5483,11 @@ function InspectFacts({
   if (onTable) rows.push(["Whose", card.seat === mySeat ? "Yours" : `${nameOf(card.seat)}'s`]);
   if (attached.length > 0) rows.push(["Attached", attached.map((c) => c.name).join(", ")]);
   if (host) rows.push(["On", host.name]);
+  // Spec 0111 -- its soulbond partner, as this viewer may know it (HID-005).
+  const partner = card.pairedWith
+    ? board.battlefield.find((c) => c.id === card.pairedWith)
+    : undefined;
+  if (onTable && partner) rows.push(["Paired with", partnerName(partner)]);
   if (card.exiledBy) rows.push(["Exiled by", card.exiledBy]);
   if (card.playable) rows.push(["You may", "play it from exile"]);
   if (rows.length === 0) return null;

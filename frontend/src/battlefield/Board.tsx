@@ -405,6 +405,11 @@ export interface BoardCard extends LayoutCard {
   crop?: string | null;
   /** The Ring-bearer (public): marked on the card, in words too. */
   ringBearer?: boolean;
+  /**
+   * Spec 0111 -- soulbond: its partner's name as this viewer may know it
+   * ("a face-down creature" for one it may not), for the link mark's words.
+   */
+  pairedName?: string | undefined;
   /** Un-sets (public): the creature's sector, marked like the Ring-bearer. */
   sector?: string;
   /** Un-sets (public): the sprocket a Contraption is on. */
@@ -2376,9 +2381,63 @@ interface TableCardKey {
   onPick: ((objectId: string, members?: readonly string[]) => void) | undefined;
   onInspect: ((objectId: string) => void) | undefined;
   setAimed: (next: string | null | ((now: string | null) => string | null)) => void;
+  /** Spec 0111 -- the one of a soulbond pair pointed at. */
+  setPaired: (next: string | null | ((now: string | null) => string | null)) => void;
   viewerSeat: number;
   viewerName: string | null;
   opponentName: string;
+}
+
+/**
+ * What pointing at a permanent shows. Spec 0059 item 9, spec 0063: an
+ * attacker's line -- pointing, keyboard focus, or a tap on a touch screen
+ * (which has no pointing) -- every attacker, blocked ones and piles too.
+ * Spec 0111: one of a soulbond pair lights its partner (pointing or keyboard
+ * focus). Only focus the keyboard gave counts (spec 0063: a click focuses the
+ * card too, and must not leave it pointed at).
+ */
+function pointing(k: Pick<TableCardKey, "aims" | "lead" | "setAimed" | "setPaired">, id: string) {
+  const aims = k.aims !== undefined;
+  const pairs = Boolean(k.lead.pairedWith);
+  if (!aims && !pairs) return {};
+  const away = (now: string | null) => (now === id ? null : now);
+  return {
+    onPointerEnter: (event: { pointerType: string }) => {
+      if (event.pointerType === "touch") return;
+      if (aims) k.setAimed(id);
+      if (pairs) k.setPaired(id);
+    },
+    onPointerLeave: (event: { pointerType: string }) => {
+      if (event.pointerType === "touch") return;
+      if (aims) k.setAimed(away);
+      if (pairs) k.setPaired(away);
+    },
+    // A card paired while the pointer already rests on it lights its partner
+    // at the pointer's next move (no new pointerenter comes).
+    ...(pairs
+      ? {
+          onPointerMove: (event: { pointerType: string }) => {
+            if (event.pointerType !== "touch") k.setPaired(id);
+          },
+        }
+      : {}),
+    ...(aims
+      ? {
+          onPointerDown: (event: { pointerType: string }) => {
+            if (event.pointerType === "touch") k.setAimed((now) => (now === id ? null : id));
+          },
+        }
+      : {}),
+    onFocus: (event: { currentTarget: Element }) => {
+      if (!keyboardFocus(event.currentTarget)) return;
+      if (aims) k.setAimed(id);
+      if (pairs) k.setPaired(id);
+    },
+    onBlur: () => {
+      if (aims) k.setAimed(away);
+      if (pairs) k.setPaired(away);
+    },
+  };
 }
 
 /** Spec 0096 -- a permanent's drawing on the table, from its key alone. */
@@ -2456,31 +2515,7 @@ function tableCard(k: TableCardKey): { drawn: Drawn; content: ReactNode } {
             data-aimed={k.aimedHere ? "true" : undefined}
             data-attacked={k.attacked}
             data-pointed-blocker={k.pointedBlocker ? "true" : undefined}
-            {...(k.aims !== undefined
-              ? {
-                  // Spec 0059 item 9, spec 0063: pointing, keyboard focus,
-                  // or a tap on a touch screen (which has no pointing)
-                  // shows its line -- every attacker, blocked ones and
-                  // piles too.
-                  onPointerEnter: (event: { pointerType: string }) => {
-                    if (event.pointerType !== "touch") k.setAimed(lead.id);
-                  },
-                  onPointerLeave: (event: { pointerType: string }) => {
-                    if (event.pointerType !== "touch")
-                      k.setAimed((now) => (now === lead.id ? null : now));
-                  },
-                  onPointerDown: (event: { pointerType: string }) => {
-                    if (event.pointerType === "touch")
-                      k.setAimed((now) => (now === lead.id ? null : lead.id));
-                  },
-                  // Spec 0063: only focus the keyboard gave (a click
-                  // focuses the card too, and must not leave it pointed at).
-                  onFocus: (event: { currentTarget: Element }) => {
-                    if (keyboardFocus(event.currentTarget)) k.setAimed(lead.id);
-                  },
-                  onBlur: () => k.setAimed((now) => (now === lead.id ? null : now)),
-                }
-              : {})}
+            {...pointing(k, lead.id)}
           >
             {/* Spec 0083 (15 A) -- a Room: its two doors, the locked ones
               closed with the gold keyhole square; one swings open as it
@@ -3549,6 +3584,9 @@ export function Board({
   // Spec 0059 item 9 -- the attacker pointed at (or focused, or tapped on a
   // touch screen): its attack line shows; at rest none do, its badge says.
   const [aimed, setAimed] = useState<string | null>(null);
+  // Spec 0111 -- the one of a soulbond pair pointed at (or keyboard-focused):
+  // its partner lifts (`lifted`, below) and both link marks glow.
+  const [pointedPair, setPointedPair] = useState<string | null>(null);
   // Spec 0028 — the stack card the player points at: its line shows
   // instead of the front card's, and the rest of the stack fades.
   const [pointedOnStack, setPointedOnStack] = useState<string | null>(null);
@@ -3914,15 +3952,24 @@ export function Board({
   }, [focusNow, onStackFocus]);
   // Spec 0100, item 9 (combat Q3 C) -- pointing at a stack card lifts its
   // source and its targets a little, glowing gold; nothing dims.
+  // Spec 0111 (canvas "1" A) -- and pointing at one of a soulbond pair lifts
+  // its partner, the same light.
+  const pairPartner = pointedPair ? byId.get(pointedPair)?.pairedWith : undefined;
+  // A pair that ended (or a card that left) under the pointer is let go: its
+  // handlers are gone with the pair, so it would never be let go otherwise.
+  useEffect(() => {
+    if (pointedPair !== null && !pairPartner) setPointedPair(null);
+  }, [pointedPair, pairPartner]);
   const lifted = useMemo(() => {
-    if (pointedOnStack === null) return new Set<string>();
+    const out = new Set<string>();
+    if (pairPartner && byId.has(pairPartner)) out.add(pairPartner);
+    if (pointedOnStack === null) return out;
     const s = (stack ?? []).find((e) => e.id === pointedOnStack);
-    if (!s) return new Set<string>();
-    return new Set([
-      ...(s.source ? [s.source] : []),
-      ...s.targets.flatMap((t) => ("object" in t ? [t.object] : [])),
-    ]);
-  }, [stack, pointedOnStack]);
+    if (!s) return out;
+    if (s.source) out.add(s.source);
+    for (const t of s.targets) if ("object" in t) out.add(t.object);
+    return out;
+  }, [stack, pointedOnStack, pairPartner, byId]);
   const act = useMemo(() => {
     const pickOf = (ids: readonly string[]) => ids.find((id) => choosable?.has(id)) ?? ids[0]!;
     return (ids: readonly string[], inHand = false) => {
@@ -3943,6 +3990,7 @@ export function Board({
       const isLifted = ids.some((one) => lifted.has(one));
       const isChosen = ids.some((one) => chosenTargets?.has(one));
       const isLit = ids.some((one) => lit?.has(one));
+      const isPairPointed = pointedPair !== null && ids.includes(pointedPair);
       // W-14: how many of these are selected for the attack or block.
       const marks = marked ? ids.filter((one) => marked.includes(one)).length : 0;
       const isPicked = ids.some((one) => picked?.has(one));
@@ -3983,6 +4031,7 @@ export function Board({
           "data-picked": isPicked ? "true" : undefined,
           "data-pay-picked": pay ? pay.word : undefined,
           "data-lifted": isLifted ? "true" : undefined,
+          "data-pair-pointed": isPairPointed ? "true" : undefined,
         },
         /** Spec 0096 -- the one a click picks (a pile's first choosable member, else its lead). */
         pickId: id,
@@ -4001,6 +4050,7 @@ export function Board({
     targeted,
     focusTheirs,
     lifted,
+    pointedPair,
     onPick,
     onInspect,
   ]);
@@ -4163,6 +4213,8 @@ export function Board({
           ? `blocking ${byId.get(slot.faces ?? lead.blocks ?? "")?.name ?? "an attacker"}`
           : "",
         lead.ringBearer ? "Ring-bearer" : "",
+        // Spec 0111 -- its soulbond partner, as this viewer may know it.
+        lead.pairedWith ? `paired with ${lead.pairedName ?? "another creature"}` : "",
         flies(lead) ? "flying" : "",
         sick(lead) ? "summoning sick: can attack next turn" : "",
         ...counterWords(lead),
@@ -4213,6 +4265,7 @@ export function Board({
         onPick: onPick ? pickNow : undefined,
         onInspect: onInspect ? inspectNow : undefined,
         setAimed,
+        setPaired: setPointedPair,
         viewerSeat,
         viewerName,
         opponentName,

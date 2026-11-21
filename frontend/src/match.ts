@@ -542,6 +542,11 @@ export interface SnapshotCard {
   attachedToPlayer?: number | null;
   /** The Ring-bearer (the Ring's abilities are its alone). Public. */
   ringBearer: boolean;
+  /**
+   * Spec 0111 -- soulbond: the partner's id ("card:N"), from Forge's current
+   * pair, while both are on the battlefield (each names the other). Public.
+   */
+  pairedWith?: string | undefined;
   /** Un-sets (public): a creature's sector (Alpha, Beta, Gamma), else null. */
   sector: string | null;
   /** Un-sets (public): the sprocket a Contraption is on (1-3), else null. */
@@ -1901,6 +1906,7 @@ function asCards(value: unknown): SnapshotCard[] {
       attachedTo: asString(row["attachedTo"]),
       attachedToPlayer: asNumber(row["attachedToPlayer"]),
       ringBearer: row["ringBearer"] === true,
+      pairedWith: asString(row["pairedWith"]) ?? undefined,
       sector: asString(row["sector"]),
       sprocket: typeof row["sprocket"] === "number" ? row["sprocket"] : null,
       // §6.123 — a content hash or nothing.
