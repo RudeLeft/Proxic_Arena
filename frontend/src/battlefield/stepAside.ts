@@ -3,38 +3,51 @@
 // the spell, the casting card and its cost pips (or, for the other player,
 // the face-down back and its line) slide aside just far enough to uncover
 // it, the card's own movement plays in full view, and the casting card
-// glides back to the exact middle once it is over. It never stays aside
-// (spec 0068, Amendment 1).
+// glides back to its place once it is over. It never stays aside (spec
+// 0068, Amendment 1).
 //
-// Everything here is pure: where the casting card is (castingBox, spec
-// 0068), what it covers, which way and how far it steps, and where it is at
-// any moment of a step. The board (Board.tsx), the balls (manaBalls.tsx)
-// and the card (CastingCard.tsx) all read the same answers.
+// Spec 0110 (owner 2026-11-20, A · at its stack place through targeting
+// and paying) -- that place is the stack's next slot, not the middle of the
+// screen (spec 0068's castingBox, gone): castingStackBox.
+//
+// Everything here is pure: where the casting card is (castingStackBox),
+// what it covers, which way and how far it steps, and where it is at any
+// moment of a step. The board (Board.tsx), the balls (manaBalls.tsx) and
+// the card (CastingCard.tsx) all read the same answers.
 
+import { STACK_SCALE, stackSpotBoxes } from "./effects";
 import type { Box, Geometry } from "./layout";
 import { paced, MOVE_MS, SPENT_BEAT_MS, SPENT_FOLD_MS } from "./motion";
 import { PEEL_MS } from "./piles";
 
 /** How much bigger than a card on the table. */
 const GROW = 2.5;
+/** Spec 0110 -- the turn track's band at the top of the play area (effects.ts stackSpotBoxes keeps under it too). */
+const TRACK = 0.1;
+/** The line under the card -- the cost pips (yours; theirs has no caption since spec 0097 item 8). */
+const UNDER = 66;
 
 /**
- * Spec 0068 -- where the casting card floats: centred on the middle of the
- * screen (the game screen fills the window), as big as fits. A pure
- * function of the window's size, so after a resize it is in the new middle.
+ * Spec 0110 (owner 2026-11-20, "the card sits at its stack spot, big,
+ * through targeting and paying") -- where the card being cast is drawn,
+ * for every question of the cast and for either seat: the stack's next
+ * slot ([stack] entries already there, not counting this spell), at spec
+ * 0068's casting size (2.5 table cards, at most half the screen tall).
+ * It keeps the slot's right edge and middle, growing left from the stack
+ * column, kept inside the play area: under the turn track, its cost pips
+ * above the hand, never right of the stack column (so never under the
+ * rail, which holds the act panel). A pure function of the board's size
+ * and the stack's count (UI-003).
  */
-export function castingBox(g: Geometry): Box {
+export function castingStackBox(g: Geometry, stack: number): Box {
   const h = Math.min(g.cardH * GROW, g.height * 0.5);
   const w = (h * g.cardW) / g.cardH;
-  return {
-    x: g.width / 2 - w / 2,
-    y: g.height / 2 - h / 2,
-    w,
-    h,
-    scale: h / g.cardH,
-    rotation: 0,
-    z: 0,
-  };
+  const slot = stackSpotBoxes(g, Math.max(0, stack) + 1, STACK_SCALE)[0]!;
+  const top = g.height * TRACK;
+  const bottom = Math.max(top + h, g.handTop - g.inset - UNDER);
+  const y = Math.min(Math.max(slot.y + slot.h / 2 - h / 2, top), bottom - h);
+  const x = Math.max(g.play.x + g.inset, slot.x + slot.w - w);
+  return { x, y, w, h, scale: h / g.cardH, rotation: 0, z: 0 };
 }
 
 /** Spec 0091, item 1 -- the slide aside, and the glide back (about 0.25 s each). */
@@ -46,8 +59,6 @@ export const STILL_HOLD_MS = 700; // not paced: a wait (spec 0106)
 export const STILL_FADE_MS = paced(120);
 /** The gap left between the moved card (with its line) and what it uncovers. */
 const CLEAR_GAP = 14;
-/** The line under the card -- the cost pips (yours; theirs has no caption since spec 0097 item 8). */
-const UNDER = 66;
 const SIDE_PAD = 24;
 /** "Aside": a little sideways, as a share of the card's width (the canvas's 50 px of 244). */
 const SIDEWAYS = 0.2;
@@ -55,12 +66,12 @@ const SIDEWAYS = 0.2;
 const COVERED_SHARE = 0.2;
 
 /**
- * What the casting card hides: the card itself and the line under it (its
- * cost pips; the other player's card has had no caption since spec 0097,
- * item 8, and keeps the same room).
+ * What the casting card hides: the card itself ([card], where it is drawn:
+ * castingStackBox, spec 0110) and the line under it (its cost pips; the
+ * other player's card has had no caption since spec 0097, item 8, and
+ * keeps the same room).
  */
-export function castCoverBox(g: Geometry): Box {
-  const card = castingBox(g);
+export function castCoverBox(card: Box): Box {
   return { ...card, x: card.x - SIDE_PAD, w: card.w + 2 * SIDE_PAD, h: card.h + UNDER };
 }
 
@@ -99,21 +110,21 @@ export function actingMs(spent: number, balls: number): number {
 }
 
 /**
- * Spec 0091, item 1 -- which way and how far: away from the cards it
+ * Spec 0091, item 1 -- which way and how far ([card]: where the casting
+ * card is, spec 0110): away from the cards it
  * uncovers, up when they are below its middle (your cards, for you) and
  * down when above (the other player's view of yours), just far enough to
  * clear them, a little sideways; never off the top, nor into the hand.
  * Null when none of [acting] is under it.
  */
-export function asideOffset(g: Geometry, acting: readonly Acting[]): Offset | null {
-  const cover = castCoverBox(g);
+export function asideOffset(g: Geometry, card: Box, acting: readonly Acting[]): Offset | null {
+  const cover = castCoverBox(card);
   const under = acting.filter((a) => covers(cover, a.box));
   if (under.length === 0) return null;
   const left = Math.min(...under.map((a) => a.box.x));
   const right = Math.max(...under.map((a) => a.box.x + a.box.w));
   const top = Math.min(...under.map((a) => a.box.y));
   const bottom = Math.max(...under.map((a) => a.box.y + a.box.h));
-  const card = castingBox(g);
   const up = (top + bottom) / 2 >= cover.y + cover.h / 2;
   const dy = up
     ? Math.max(Math.min(0, top - CLEAR_GAP - (cover.y + cover.h)), 8 - card.y)
@@ -121,14 +132,22 @@ export function asideOffset(g: Geometry, acting: readonly Acting[]): Offset | nu
         Math.max(0, bottom + CLEAR_GAP - cover.y),
         Math.max(0, g.handTop - 8 - (cover.y + cover.h)),
       );
-  const side = (left + right) / 2 <= card.x + card.w / 2 ? 1 : -1;
-  return { dx: side * card.w * SIDEWAYS, dy };
+  const away = (left + right) / 2 <= card.x + card.w / 2 ? 1 : -1;
+  // Spec 0110 -- at the stack column there is no room on the right (the
+  // rail, with the act panel): it steps the other way instead, and never
+  // off the play area.
+  const step = card.w * SIDEWAYS;
+  const roomRight = g.play.x + g.play.w - g.inset - (card.x + card.w);
+  const roomLeft = card.x - (g.play.x + g.inset);
+  const side = (away > 0 ? roomRight : roomLeft) >= step ? away : -away;
+  const dx = Math.min(Math.max(side * step, -Math.max(0, roomLeft)), Math.max(0, roomRight));
+  return { dx, dy };
 }
 
 /**
  * One step aside, on the page's clock (performance.now): from where it was
- * (`from`: the middle, or still aside from the last step) to `to` over
- * `outMs`, held there until `holdUntil`, then back to the middle over
+ * (`from`: its place, or still aside from the last step) to `to` over
+ * `outMs`, held there until `holdUntil`, then back to its place over
  * `backMs`. `still` (reduce motion): no slide; see-through instead.
  */
 export interface AsideRun {
@@ -160,7 +179,7 @@ function mix(a: Offset, b: Offset, t: number): Offset {
 
 const NONE: Offset = { dx: 0, dy: 0 };
 
-/** Where the run has the card at [t] (the page's clock): its offset from the middle. */
+/** Where the run has the card at [t] (the page's clock): its offset from its place. */
 export function offsetAt(run: AsideRun | null, t: number): Offset {
   if (!run || run.done || run.still) return NONE;
   const e = t - run.start;
@@ -172,7 +191,7 @@ export function offsetAt(run: AsideRun | null, t: number): Offset {
   return NONE;
 }
 
-/** Whether the run still has the card away from the middle (or see-through) at [t]. */
+/** Whether the run still has the card away from its place (or see-through) at [t]. */
 export function asideAt(run: AsideRun | null, t: number): boolean {
   return !!run && !run.done && t - run.start < runMs(run);
 }

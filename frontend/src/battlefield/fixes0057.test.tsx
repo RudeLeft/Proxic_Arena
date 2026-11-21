@@ -7,7 +7,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Decision, DecisionOption, Snapshot, SnapshotCard, SnapshotReveal } from "../match";
 import { Board } from "./Board";
-import { CastingFlight, castingBox } from "./CastingCard";
+import { CastingFlight, castingStackBox } from "./CastingCard";
 import { ActionPopup, askingCardAnchor, Inspect, StackInspect, ZoneViewer } from "./GameScreen";
 import { Bubble, anchorByCard, bubbleBox } from "./GameWindow";
 import type { Question } from "./interaction";
@@ -515,16 +515,18 @@ describe("windows sit by the card asking (F-0057-F)", () => {
 // --- item 1: the card being cast ----------------------------------------------------------
 
 // Spec 0068 supersedes item 1's "does not move aside" and "stays where it
-// was between questions": the card never moves from the middle of the
-// screen, so there is no spot to keep. Its flight back starts there.
-describe("the card being cast (F-0057-B, as spec 0068)", () => {
-  it("flies back from the middle of the screen, where it always is", () => {
+// was between questions": the card never moves from its one place, so there
+// is no spot to keep. Its flight back starts there. Spec 0110: that place
+// is the stack's next slot (castingStackBox), no longer the middle.
+describe("the card being cast (F-0057-B, as specs 0068 and 0110)", () => {
+  it("flies back from its place at the stack's next slot, where it always is", () => {
     const g = layoutGeometry({ width: 1920, height: 1080 });
-    const middle = castingBox(g);
+    const middle = castingStackBox(g, 0);
     const c = render(
       <CastingFlight
         card={card({ id: "card:3", name: "Allosaurus Rider" })}
         geometry={g}
+        box={middle}
         to={box(600, 900)}
         artUrl={(a) => a}
         onDone={vi.fn()}

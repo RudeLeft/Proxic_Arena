@@ -83,13 +83,14 @@ afterEach(() => {
   delete (Element.prototype as { getAnimations?: unknown }).getAnimations;
 });
 HTMLCanvasElement.prototype.getContext = (() => null) as never;
+const SIZE = { width: 1920, height: 947 };
 Object.defineProperty(HTMLElement.prototype, "clientWidth", {
   configurable: true,
-  get: () => 1920,
+  get: () => SIZE.width,
 });
 Object.defineProperty(HTMLElement.prototype, "clientHeight", {
   configurable: true,
-  get: () => 947,
+  get: () => SIZE.height,
 });
 
 const match = {
@@ -154,7 +155,7 @@ const riseOf = (c: HTMLElement) => {
 };
 
 describe("F-0083-G · L3: your own cast from a pile rises out of it", () => {
-  it("flashback from your graveyard: from the graveyard tile to the middle, as your own cast (pips kept)", () => {
+  it("flashback from your graveyard: from the graveyard tile to its place, as your own cast (pips kept)", () => {
     const c = open();
     send(state({ graveyard: [firebolt] }));
     animations = [];
@@ -169,9 +170,15 @@ describe("F-0083-G · L3: your own cast from a pile rises out of it", () => {
     const rise = riseOf(c)!;
     expect(rise).toBeTruthy();
     const [dx, dy] = (String(rise.frames[0]!.transform).match(/-?[\d.]+/g) ?? []).map(Number);
-    // The viewer's graveyard tile is on the rail at the right, low down.
-    expect(dx).toBeGreaterThan(300);
-    expect(dy).toBeGreaterThan(100);
+    // The viewer's graveyard tile is on the rail at the right, low down
+    // (spec 0110: measured from the card's place, the stack's next slot).
+    const el = rise.element as HTMLElement;
+    const start = {
+      x: parseFloat(el.style.left) + parseFloat(el.style.width) / 2 + dx!,
+      y: parseFloat(el.style.top) + parseFloat(el.style.height) / 2 + dy!,
+    };
+    expect(start.x).toBeGreaterThan(SIZE.width - 0.1471 * (16 / 9) * SIZE.height);
+    expect(start.y).toBeGreaterThan(SIZE.height / 2 + 100);
     expect(rise.frames[0]!.opacity).toBe(0.6);
     // Your own: its cost pips, not the other player's face-down look.
     expect(c.querySelector(".gs-cast")!.getAttribute("data-from")).toBeNull();

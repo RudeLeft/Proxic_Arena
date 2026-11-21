@@ -1,15 +1,17 @@
-// The card being cast stays in the middle; what it covers is reachable --
+// The card being cast stays in its place; what it covers is reachable --
 // spec 0068 (owner 2026-11-09, A · Stay centred, see-through). Supersedes
 // owner 2026-11-01 item 4 (it moved up and toward the stack whenever
-// something to click was under it).
+// something to click was under it). Spec 0110 (owner 2026-11-20) moved its
+// place from the middle of the window to the stack's next slot
+// (castingStackBox); castCentre measures from there.
 //
 // Checked at every payment step in a real game: the big card's centre is
-// the window's centre; each card that can be clicked to pay is the thing
+// its place's centre; each card that can be clicked to pay is the thing
 // under the mouse at its own visible point -- and, when the big card
 // covers that point, pointing there makes the big card see-through. The
 // Elf is then tapped with a REAL mouse click, through the card when it is
-// under it. Once, the window is made 2560x1440: the card is in the new
-// middle (F-0068-A, B).
+// under it. Once, the window is made 2560x1440: the card is at the new
+// place (F-0068-A, B; the place as spec 0110).
 //
 // Uses the landing test deck (protocol/fixtures/landing-deck): Forests and
 // creatures, with Llanowar Elves and Elvish Mystic to pay with.
@@ -31,6 +33,7 @@ import {
   watchGame,
   discardIfAsked,
   castCentre,
+  castRisen,
   shootWithPointer,
 } from "./match-helpers";
 
@@ -80,7 +83,7 @@ async function payable(page: Page) {
   });
 }
 
-test("paying for a spell, the card being cast stays centred and every card to tap is reachable", async ({
+test("paying for a spell, the card being cast stays at its stack spot and every card to tap is reachable", async ({
   browser,
 }) => {
   test.skip(!existsSync(pkg), "no landing deck package (CI builds it)");
@@ -117,16 +120,25 @@ test("paying for a spell, the card being cast stays centred and every card to ta
           continue;
         }
         if ((await page.locator(".gs-cast:not(.gs-cast-leaving)").count()) > 0) {
-          // Settled (its rise is 0.56 s): the middle of the window. Spec 0091:
-          // once any step aside (an Elf under it just tapped) is over.
-          await page.waitForTimeout(700);
+          // Settled: its rise (700 ms paced) over, polled, never waited out --
+          // or the card gone already (paid at once, it flies on to the stack).
+          // Spec 0091: and any step aside (an Elf under it just tapped) over.
+          const gone = async () =>
+            (await page.locator(".gs-cast:not(.gs-cast-leaving)").count()) === 0;
+          await expect
+            .poll(async () => (await gone()) || (await castRisen(page)), {
+              timeout: 15_000,
+              message: "the cast card's rise ended",
+            })
+            .toBe(true);
+          if (await gone()) continue;
           await expect.poll(async () => (await castCentre(page))?.aside ?? null).toBeNull();
           const centre = await castCentre(page);
           const cards = await payable(page);
           if (cards.length > 0 && centre) {
             checked += 1;
-            expect(Math.abs(centre.dx), "centred across").toBeLessThan(2);
-            expect(Math.abs(centre.dy), "centred down").toBeLessThan(2);
+            expect(Math.abs(centre.dx), "at its stack spot, across").toBeLessThan(2);
+            expect(Math.abs(centre.dy), "at its stack spot, down").toBeLessThan(2);
             expect(
               cards.filter((c) => !c.hit),
               "a card to tap is not what the mouse hits",
@@ -154,16 +166,30 @@ test("paying for a spell, the card being cast stays centred and every card to ta
                 await page.mouse.move(...point);
                 await page.waitForTimeout(300);
                 await shootWithPointer(page, "0068-2-pointer-on-elf.png", [point]);
-                // A bigger window: the card glides to the new middle.
+                // A bigger window: the card glides to its new place (polled
+                // until it is there: the glide is a CSS transition).
                 await page.mouse.move(0, 0);
                 await page.setViewportSize({ width: 2560, height: 1440 });
-                await page.waitForTimeout(800);
-                const bigger = (await castCentre(page))!;
-                expect(Math.abs(bigger.dx), "centred across after a resize").toBeLessThan(2);
-                expect(Math.abs(bigger.dy), "centred down after a resize").toBeLessThan(2);
+                await expect
+                  .poll(
+                    async () => {
+                      const c = await castCentre(page);
+                      return !!c && Math.abs(c.dx) < 2 && Math.abs(c.dy) < 2 && c.h > 400;
+                    },
+                    { timeout: 10_000, message: "at its stack spot after a resize" },
+                  )
+                  .toBe(true);
                 await shootWithPointer(page, "0068-4-after-resize-2560x1440.png", []);
                 await page.setViewportSize(viewport);
-                await page.waitForTimeout(800);
+                await expect
+                  .poll(
+                    async () => {
+                      const c = await castCentre(page);
+                      return !!c && Math.abs(c.dx) < 2 && Math.abs(c.dy) < 2 && c.h < 400;
+                    },
+                    { timeout: 10_000, message: "back at its stack spot at 1920x1080" },
+                  )
+                  .toBe(true);
                 shot = true;
                 continue;
               }

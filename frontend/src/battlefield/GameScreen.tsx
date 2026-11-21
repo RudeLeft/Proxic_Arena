@@ -105,7 +105,7 @@ import {
 import {
   CastingCard,
   CastingFlight,
-  castingBox,
+  castingStackBox,
   stillMotion,
   FLIP_MS,
   FLY_MS,
@@ -1016,7 +1016,8 @@ export function GameScreen({
   // card is still in the hand: it floats for that question too. The
   // opponent's spell shows its back until it is on the stack.
   //
-  // Spec 0068 -- always in the middle of the screen (castingBox).
+  // Spec 0068 -- always in one place; spec 0110: the stack's next slot
+  // (castingStackBox), never the middle of the screen.
   const optionalSource =
     board && decision?.kind === "chooseOptionalCosts" && !board.casting.length
       ? sourceOf(board, decision)
@@ -1141,7 +1142,7 @@ export function GameScreen({
         const box = atBefore(card.id);
         if (box) acting.push({ id: card.id, box, kind: "tapped" });
       }
-      const to = asideOffset(g, acting);
+      const to = asideOffset(g, castingStackBox(g, stackUnder(board, shown.id)), acting);
       if (to) {
         const lastN = Math.max(0, ...(before.payments ?? []).map((p) => p.n));
         const mana = (board.payments ?? [])
@@ -1273,10 +1274,13 @@ export function GameScreen({
       abilityPay.mana,
     );
   }
-  // Spec 0068 -- the middle of the screen, for every question and between
-  // them: no sliding aside, no docking, no remembered spot (the old
-  // castingSpot / docks / heldSpot).
-  const castingAt = (geometry: Geometry): Box | null => (casting ? castingBox(geometry) : null);
+  // Spec 0068 -- one place, for every question and between them: no
+  // sliding aside, no docking, no remembered spot (the old castingSpot /
+  // docks / heldSpot). Spec 0110 (owner 2026-11-20) -- that place is the
+  // stack's next slot, big, for either seat's spell: keyed on the board's
+  // `casting` entry and the stack under it, never on the question.
+  const castingAt = (geometry: Geometry): Box | null =>
+    casting ? castingStackBox(geometry, stackUnder(board, casting.id)) : null;
   // Spec 0072 -- the other player's spell (to a spectator, either
   // player's): where it was cast from, read once, on the board where it
   // first appears being cast (theirCast.ts). A card that was face up there
@@ -2542,7 +2546,7 @@ export function GameScreen({
                 (!!openingHeld && (board.turn === 0 || openingHeld.mode === "closing")))
             }
             moments={data.moments}
-            castCover={!!casting}
+            castCover={casting ? stackUnder(board, casting.id) : null}
             landingOnStack={
               asideCut.current?.board === board
                 ? { id: asideCut.current.stackId, ms: asideCut.current.ms }
@@ -2754,7 +2758,7 @@ export function GameScreen({
                         aimCopy && at(aimCopy.id)
                           ? at(aimCopy.id)
                           : aimCard
-                            ? castingBox(geometry)
+                            ? castingStackBox(geometry, stackUnder(board, aimCard.id))
                             : aimSource
                               ? at(aimSource.id)
                               : board?.stack[0]
@@ -2769,6 +2773,7 @@ export function GameScreen({
                       key={casting.id}
                       card={casting}
                       geometry={geometry}
+                      box={castingStackBox(geometry, stackUnder(board, casting.id))}
                       from={
                         castFrom.current?.id === casting.id
                           ? castFrom.current.box
@@ -2801,6 +2806,7 @@ export function GameScreen({
                           key={`back:${going.key}`}
                           card={going.card}
                           geometry={geometry}
+                          box={castingStackBox(geometry, stackUnder(board, going.card.id))}
                           to={null}
                           artUrl={artUrl}
                           hidden={!going.faceUp}
@@ -2829,6 +2835,7 @@ export function GameScreen({
                           key={flight.key}
                           card={flight.card}
                           geometry={geometry}
+                          box={castingStackBox(geometry, stackUnder(board, flight.card.id))}
                           to={
                             at(onStack?.id ?? flyingOnto ?? flight.card.id) ?? flight.spot ?? null
                           }
@@ -3351,6 +3358,19 @@ function StepLadder({
  * Glides) all the same.
  */
 const FREE_RISE_CAP_MS = 1_800; // not paced: a limit (spec 0106)
+
+/**
+ * Spec 0110 -- how many stack entries the card being cast ([card]) waits
+ * over: everything on the stack but its own spell (which is there already
+ * once it is cast, while it lingers or settles), so its place stays the same
+ * slot from the hand to the stack.
+ */
+export function stackUnder(
+  board: { stack: readonly { source?: string | null; kind?: string }[] } | null | undefined,
+  card: string,
+): number {
+  return (board?.stack ?? []).filter((entry) => !spellOf(entry, card)).length;
+}
 
 export function spellOf(entry: { source?: string | null; kind?: string }, card: string): boolean {
   return entry.source === card && (entry.kind ?? "spell") === "spell";
@@ -5023,11 +5043,13 @@ function combatWords(kind: string, board: Snapshot, mySeat: number): { word: str
  */
 /**
  * Spec 0068 -- the window of a question about the card being cast: beside
- * that card (always in the middle of the screen), on whichever side covers
+ * that card (always in one place), on whichever side covers
  * nothing the question needs clicked (anchorByCard); on its left, as
  * before, if neither side is clear. The card no longer moves out of the
  * window's way, so the window does: found in a real game, Swords to
- * Plowshares' window on the left hid the creature to exile.
+ * Plowshares' window on the left hid the creature to exile. Spec 0110: the
+ * card is at the stack's next slot now (castingStackBox), so its right is
+ * the stack: left, then above it.
  */
 export function castingWindowAnchor(
   middle: Box,
@@ -5052,6 +5074,8 @@ export function castingWindowAnchor(
     stack: stackSpot,
     avoid,
     fallback: middle,
+    // Spec 0110 -- beside the stack its right is never clear: above it next.
+    orAbove: true,
   });
 }
 

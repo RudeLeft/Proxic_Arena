@@ -16,6 +16,8 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { basename, extname, join } from "node:path";
 import { importPackage, noticeCard, secondUser, shareOpenDeckWith, testUser } from "./helpers";
+import { geometry } from "../src/battlefield/layout";
+import { castingStackBox } from "../src/battlefield/stepAside";
 
 /**
  * A point on the element that the mouse would really hit: inside the
@@ -769,7 +771,7 @@ export function watchGame(
   };
 }
 
-// --- spec 0068: the card being cast, centred; screenshots with the pointer ---
+// --- spec 0068: the card being cast, in its place (spec 0110: the stack's next slot); screenshots with the pointer ---
 
 /** Screenshots go here (spec 0068's evidence); test-results/seen by default. */
 const SHOTS = process.env.PROXIC_SHOTS ?? "test-results/seen";
@@ -804,20 +806,71 @@ export async function shootWithPointer(page: Page, file: string, points: [number
   await page.evaluate(() => document.querySelectorAll(".e2e-pointer").forEach((el) => el.remove()));
 }
 
-/** The big card being cast: its centre less the window's centre, and whether it is see-through. */
-export async function castCentre(page: Page) {
-  return page.evaluate(() => {
-    const cast = document.querySelector<HTMLElement>(".gs-cast:not(.gs-cast-leaving)");
+/**
+ * The card being cast is drawn and has stopped moving: none of its own
+ * animations (its rise, fade-in or step aside) still running -- the sway is
+ * on a child and does not move its box. Poll it instead of waiting the
+ * rise's length (a fixed 700 ms read the last frames of the 700 ms paced
+ * rise on a slow runner).
+ */
+export const castRisen = (page: Page) =>
+  page.evaluate(() => {
+    const el = document.querySelector<HTMLElement>(".gs-cast:not(.gs-cast-leaving)");
+    return !!el && el.getAnimations().every((a) => a.playState !== "running" && !a.pending);
+  });
+
+/**
+ * The big card being cast ([selector]: the one drawn now, by default; the
+ * other player's reveal is `.gs-cast-leaving`): how far its centre is from
+ * its place (spec 0110: the stack's next slot), and whether it is
+ * see-through or moving.
+ */
+export async function castCentre(page: Page, selector = ".gs-cast:not(.gs-cast-leaving)") {
+  const seen = await page.evaluate((selector) => {
+    const cast = document.querySelector<HTMLElement>(selector);
     if (!cast) return null;
     // Its place, not the sway's tilt: the element's own box.
     const r = cast.getBoundingClientRect();
+    const board = document.querySelector<HTMLElement>(".bf-board")?.getBoundingClientRect();
     return {
-      dx: r.x + r.width / 2 - window.innerWidth / 2,
-      dy: r.y + r.height / 2 - window.innerHeight / 2,
+      x: r.x + r.width / 2 - (board?.left ?? 0),
+      y: r.y + r.height / 2 - (board?.top ?? 0),
+      w: board?.width ?? window.innerWidth,
+      bh: board?.height ?? window.innerHeight,
       h: r.height,
+      // The stack entries it waits over: not its own (not on the stack until
+      // it is cast, and drawn unseen under it while it settles there).
+      stack: [
+        ...document.querySelectorAll<HTMLElement>('.bf-stack-slot:not([data-waiting="true"])'),
+      ].filter((slot) => slot.style.opacity !== "0").length,
       seeThrough: cast.dataset.seeThrough === "true",
       // Spec 0091 -- stepping aside while a card under it is spent or tapped.
       aside: cast.dataset.stepAside ?? null,
+      // Moving now (its rise, a step aside, its settle): any of its own
+      // running animations that move it.
+      moving: cast
+        .getAnimations()
+        .some(
+          (a) =>
+            a.playState === "running" &&
+            ((a.effect as KeyframeEffect | null)
+              ?.getKeyframes()
+              .some((k) => String(k["transform"] ?? "").includes("translate")) ??
+              false),
+        ),
     };
-  });
+  }, selector);
+  if (!seen) return null;
+  // Spec 0110 -- its place is the stack's next slot (castingStackBox), no
+  // longer the middle of the window (spec 0068): dx, dy are how far its
+  // centre is from there.
+  const place = castingStackBox(geometry({ width: seen.w, height: seen.bh }), seen.stack);
+  return {
+    dx: seen.x - (place.x + place.w / 2),
+    dy: seen.y - (place.y + place.h / 2),
+    h: seen.h,
+    seeThrough: seen.seeThrough,
+    aside: seen.aside,
+    moving: seen.moving,
+  };
 }

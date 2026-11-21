@@ -3,15 +3,23 @@
 // aside; 0068 Amendment 1). TEST-012: in a real game, the player really
 // pays with a covered card.
 //
-// A real game with the landing test deck (Forests, Llanowar Elves, Elvish
-// Mystic and big creatures). At a payment step where an Elf is under the
-// big casting card, the payer clicks it with the REAL mouse, through the
-// card (spec 0068's see-through). Both screens record where the casting
-// card is drawn on every frame from just before the click: the payer's
-// card (with its cost pips) moves up and aside while the Elf taps and its
-// mana flies, and comes back to the exact middle; the other player's
-// face-down back, when the Elf is under it too, moves down instead. The
-// Elf is then tapped.
+// Spec 0110 (owner 2026-11-20): the casting card waits at the stack's next
+// slot now, not the middle, so only the right-hand end of a line is under
+// it -- and identical cards stack, so a line reaches it only with many
+// different cards. The game is dealt (spec 0098, the step-aside deck,
+// protocol/fixtures/step-aside-deck): the host lays out thirteen different
+// cheap green creatures, Llanowar Elves last (the line's right-hand end),
+// then casts Craw Wurm. At a payment step where an Elf is under the big
+// casting card, the payer clicks it with the REAL mouse, through the card
+// (spec 0068's see-through). Both screens record where the casting card is
+// drawn on every frame from just before the click: the payer's card (with
+// its cost pips) moves up and aside while the Elf taps and its mana flies,
+// and comes back to its exact place; the other player's face-down back,
+// when the Elf is under it too, moves down instead. The Elf is then tapped.
+//
+// CI builds the deck; locally:
+//
+//   node scripts/make-ci-deck.mjs "Test Deck/step-aside-deck.zip" protocol/fixtures/step-aside-deck
 
 import { expect, test, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
@@ -19,7 +27,9 @@ import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   answerCardTray,
+  boardCards,
   castCentre,
+  castRisen,
   clearEverything,
   clickNow,
   clickUnlessCombat,
@@ -32,9 +42,24 @@ import {
   watchGame,
 } from "./match-helpers";
 
-const pkg = join(process.cwd(), "..", "Test Deck", "landing-deck.zip");
-const ELVES = /^(Llanowar Elves|Elvish Mystic)/;
-const BIG = /^(Craw Wurm|Kalonian Tusker|Leatherback Baloth|Centaur Courser|Giant Spider)/;
+const pkg = join(process.cwd(), "..", "Test Deck", "step-aside-deck.zip");
+const ELVES = /^(Llanowar Elves|Elvish Mystic|Fyndhorn Elves)/;
+/** The line, in the order the host lays it out: Llanowar Elves last, at its right-hand end. */
+const LINE = [
+  "Elvish Mystic",
+  "Fyndhorn Elves",
+  "Boreal Druid",
+  "Young Wolf",
+  "Jungle Lion",
+  "Bear Cub",
+  "Balduvian Bears",
+  "Runeclaw Bear",
+  "Elvish Visionary",
+  "Scryb Sprites",
+  "Grizzly Bears",
+  "Birds of Paradise",
+  "Llanowar Elves",
+];
 
 /** A covered Elf to pay with: the middle of its part under the big card, when the mouse hits it there. */
 async function coveredElf(page: Page) {
@@ -62,7 +87,11 @@ async function coveredElf(page: Page) {
   }, ELVES.source);
 }
 
-/** Every frame from now: where the casting card is drawn (its centre from the window's), and whether aside. */
+/**
+ * Every frame from now: where the casting card is drawn (its centre from
+ * where it was when the recording began: its place, spec 0110's stack
+ * spot), and whether aside.
+ */
 async function record(page: Page) {
   await page.evaluate(() => {
     const w = window as unknown as {
@@ -70,14 +99,17 @@ async function record(page: Page) {
     };
     w.__steps = [];
     const start = performance.now();
+    let base: { x: number; y: number } | null = null;
     const tick = () => {
       const cast = document.querySelector<HTMLElement>(".gs-cast:not(.gs-cast-leaving)");
       if (cast) {
         const r = cast.getBoundingClientRect();
+        const at = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+        base ??= at;
         w.__steps.push({
           t: performance.now() - start,
-          dx: r.x + r.width / 2 - window.innerWidth / 2,
-          dy: r.y + r.height / 2 - window.innerHeight / 2,
+          dx: at.x - base.x,
+          dy: at.y - base.y,
           aside: cast.dataset.stepAside ?? null,
         });
       }
@@ -99,7 +131,7 @@ const recorded = (page: Page) =>
 test("paying with an Elf under the casting card: it steps aside, the Elf taps in view, it comes back", async ({
   browser,
 }) => {
-  test.skip(!existsSync(pkg), "no landing deck package (CI builds it)");
+  test.skip(!existsSync(pkg), "no step-aside deck package (CI builds it)");
   test.setTimeout(900_000);
   const viewport = { width: 1920, height: 1080 };
   const host = await (await browser.newContext({ viewport })).newPage();
@@ -111,8 +143,40 @@ test("paying with an Elf under the casting card: it steps aside, the Elf taps in
 
   try {
     const deck = await sharedDeck(host, guest, pkg);
-    await startAMatch(host, guest, deck);
+    const of = (name: string, n: number) => Array.from({ length: n }, () => name);
+    await startAMatch(host, guest, deck, {
+      deal: {
+        host: {
+          hand: [
+            "Forest",
+            "Elvish Mystic",
+            "Forest",
+            "Fyndhorn Elves",
+            "Boreal Druid",
+            "Young Wolf",
+            "Forest",
+          ],
+          top: [
+            "Jungle Lion",
+            "Forest",
+            "Bear Cub",
+            "Balduvian Bears",
+            "Runeclaw Bear",
+            "Elvish Visionary",
+            "Scryb Sprites",
+            "Grizzly Bears",
+            "Birds of Paradise",
+            "Llanowar Elves",
+            "Craw Wurm",
+            ...of("Forest", 6),
+          ],
+        },
+        guest: { hand: of("Forest", 7), top: of("Forest", 12) },
+      },
+    });
     let done = false;
+    // The turn Llanowar Elves came down: Craw Wurm waits for a later one (it can tap then).
+    let elvesTurn: string | null = null;
     const deadline = Date.now() + 780_000;
     const watch = watchGame([host, guest], () => ({ done }));
     while (!done && Date.now() < deadline) {
@@ -130,14 +194,24 @@ test("paying with an Elf under the casting card: it steps aside, the Elf taps in
           continue;
         }
         if ((await page.locator(".gs-cast:not(.gs-cast-leaving)").count()) > 0) {
-          await page.waitForTimeout(700);
+          // Its rise (700 ms paced) over, polled, never waited out -- or the
+          // card gone already (a spell paid at once flies on to the stack).
+          const gone = async () =>
+            (await page.locator(".gs-cast:not(.gs-cast-leaving)").count()) === 0;
+          await expect
+            .poll(async () => (await gone()) || (await castRisen(page)), {
+              timeout: 15_000,
+              message: "the cast card's rise ended",
+            })
+            .toBe(true);
+          if (await gone()) continue;
           await expect.poll(async () => (await castCentre(page))?.aside ?? null).toBeNull();
           const elf = await coveredElf(page);
           if (elf) {
             const other = page === host ? guest : host;
             const centre = (await castCentre(page))!;
-            expect(Math.abs(centre.dx), "centred before").toBeLessThan(2);
-            expect(Math.abs(centre.dy), "centred before").toBeLessThan(2);
+            expect(Math.abs(centre.dx), "at its stack spot before").toBeLessThan(2);
+            expect(Math.abs(centre.dy), "at its stack spot before").toBeLessThan(2);
             await record(page);
             await record(other);
             // A real click on the Elf, through the card (it is see-through there).
@@ -157,7 +231,7 @@ test("paying with an Elf under the casting card: it steps aside, the Elf taps in
             expect(asideMine.length, "frames with the card stepping aside").toBeGreaterThan(10);
             expect(Math.min(...mine.map((s) => s.dy)), "moved up").toBeLessThan(-60);
             expect(Math.max(...mine.map((s) => Math.abs(s.dx))), "and aside").toBeGreaterThan(20);
-            // ...and came back to the exact middle (or flew on, if this paid it all).
+            // ...and came back to its exact place (or flew on, if this paid it all).
             const last = mine.at(-1)!;
             if (last.t > 3500) {
               expect(Math.abs(last.dx), "back across").toBeLessThan(1.5);
@@ -219,12 +293,30 @@ test("paying with an Elf under the casting card: it steps aside, the Elf taps in
         const hand = page.locator(
           '[data-zone="viewer:hand"][data-choosable="true"]:not([data-unpayable="true"])',
         );
-        // Elves first, then lands, then the big creatures paid with them.
-        const order = [
-          hand.filter({ hasText: ELVES }),
-          hand.filter({ hasText: /^Forest/ }),
-          hand.filter({ hasText: BIG }),
-        ];
+        const turn = (await page.locator(".gs-turn-value").first().textContent()) ?? "";
+        // On the battlefield (not the hand's buttons).
+        const mine = boardCards(page, "viewer");
+        const laid = async (name: string) => (await mine.filter({ hasText: name }).count()) > 0;
+        // A land, then the line in its order (Llanowar Elves last), then --
+        // on a later turn, the whole line down -- Craw Wurm. (A hand card's
+        // text starts with its cost's digits: no ^ on the names.)
+        const order = [hand.filter({ hasText: /^Forest/ })];
+        if (page === host) {
+          for (const name of LINE) {
+            if (await laid(name)) continue;
+            // Last: only once every other card of the line is down.
+            if (name === "Llanowar Elves") {
+              let all = true;
+              for (const other of LINE.slice(0, -1)) all &&= await laid(other);
+              if (!all) break;
+            }
+            order.push(hand.filter({ hasText: new RegExp(name) }));
+          }
+          if (elvesTurn === null && (await laid("Llanowar Elves"))) elvesTurn = turn;
+          if (elvesTurn !== null && elvesTurn !== turn) {
+            order.push(hand.filter({ hasText: /Craw Wurm/ }));
+          }
+        }
         let acted = false;
         for (const pick of order) {
           if ((await pick.count()) > 0) {

@@ -169,7 +169,11 @@ function riseStart(c: HTMLElement): { x: number; y: number } | null {
   );
   if (!rise) return null;
   const [dx, dy] = (String(rise.frames[0]!.transform).match(/-?[\d.]+/g) ?? []).map(Number);
-  return { x: 1920 / 2 + dx!, y: 947 / 2 + dy! };
+  // From its place (spec 0110: the stack's next slot), moved by (dx, dy).
+  return {
+    x: parseFloat(cast!.style.left) + parseFloat(cast!.style.width) / 2 + dx!,
+    y: parseFloat(cast!.style.top) + parseFloat(cast!.style.height) / 2 + dy!,
+  };
 }
 const near = (at: { x: number; y: number }, box: { x: number; y: number; w: number; h: number }) =>
   Math.abs(at.x - (box.x + box.w / 2)) < box.w && Math.abs(at.y - (box.y + box.h / 2)) < box.h;

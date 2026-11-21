@@ -258,7 +258,12 @@ rather than teleports.
    is no attach line at all (the `attaching` chain is removed); and while
    targets are chosen `AimPointer.tsx` draws the beam from the card being
    cast to the pointer (followed outside React), or, for an Aura or
-   Equipment, a preview of its tab on the creature pointed at. *Phase 10 (2026-11-06, Amendment 15 of
+   Equipment, a preview of its tab on the creature pointed at. *Since spec
+   0110 (2026-11-20) the card being cast waits at the stack's next slot
+   (`stepAside.ts` `castingStackBox`; BATTLEFIELD_LAYOUT_CONTRACT.md §7e),
+   so the beam leaves it there; once paid it settles into its slot with one
+   straight Web Animation (`CastingCard.tsx` `CastingFlight`), and the other
+   player's back rises, flips and is held at the same place.* *Phase 10 (2026-11-06, Amendment 15 of
    `docs/history/phases/phase-10/PHASE_10_ANIMATION_LOCKED.md`) replaced the swoop and spec 0037's riding
    blocker:* attackers are their side's front line, blockers stand facing
    them in theirs (BATTLEFIELD_LAYOUT_CONTRACT.md §7b), and combat damage

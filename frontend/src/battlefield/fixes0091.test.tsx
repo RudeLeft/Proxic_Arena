@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 
 // Spec 0091 -- the casting card steps aside while a card under it is spent,
-// sacrificed or tapped to pay, then comes back (F-0091-A..D). The real game
+// sacrificed or tapped to pay, then comes back (F-0091-A..D). Spec 0110: it
+// waits at the stack's next slot now (castingStackBox), so what it covers is
+// the right-hand end of the rows: each board puts a dozen other permanents
+// first, so the cards that act are drawn there. The real game
 // screen, its socket replaced: the test hands it the server's messages, so
 // the board, its layout and the casting card are the game's own.
 
@@ -13,7 +16,7 @@ import {
   ASIDE_MS,
   BACK_AFTER_MS,
   STILL_HOLD_MS,
-  castingBox,
+  castingStackBox,
   castCoverBox,
   covers,
 } from "./stepAside";
@@ -291,11 +294,24 @@ function open() {
   return render(<GameScreen match={match} me="u-1" onLeave={() => {}} />).container;
 }
 
-// Where the board draws a line of three permanents: the middle of the
-// table, under the casting card (checked, so a layout change cannot make
-// these tests pass for the wrong reason).
+// Spec 0110 -- where the casting card waits (nothing on the stack yet): the
+// stack's next slot. Twelve permanents of a kind first put the cards that
+// act at the right-hand end of their line, under it (checked, so a layout
+// change cannot make these tests pass for the wrong reason).
 const g = layoutGeometry(size);
-const middle = castingBox(g);
+const place = castingStackBox(g, 0);
+const cover = castCoverBox(place);
+const others = (seat: number, kind: "creature" | "artifact") =>
+  Array.from({ length: 12 }, (_, i) =>
+    kind === "creature"
+      ? permanent(`card:${100 + i}`, seat, `Bystander ${i}`)
+      : permanent(`card:${200 + i}`, seat, `Trinket ${i}`, {
+          kind: "artifact",
+          types: "Artifact",
+          power: null,
+          toughness: null,
+        }),
+  );
 
 beforeEach(() => {
   viewer = 1;
@@ -304,34 +320,34 @@ beforeEach(() => {
 
 describe("F-0091-A · three Treasures under the casting card pay for Hill Giant", () => {
   const three = () => [treasure("card:61"), treasure("card:62"), treasure("card:63")];
+  const trinkets = others(1, "artifact");
 
   it("your seat: the card and its pips step up and aside, the Treasure folds in view, then back once", () => {
     const c = open();
-    board({ casting: [giant()], battlefield: three() });
+    board({ casting: [giant()], battlefield: [...trinkets, ...three()] });
     ask("applyManaToCost", "card:61", { owing: "{3}{R}" });
     const card = castCard(c)!;
     // The Treasures are under it.
     const pile = slotBox(c, "card:61");
-    expect(covers(castCoverBox(g), pile)).toBe(true);
+    expect(covers(cover, pile)).toBe(true);
     expect(steps(c)).toHaveLength(0);
     // The first Treasure is spent for {C}.
     board({
       casting: [giant()],
-      battlefield: three().slice(1),
+      battlefield: [...trinkets, ...three().slice(1)],
       moves: [spentMove("card:61")],
       payments: [pay("card:61")],
     });
     const [first] = steps(c);
     expect(first).toBeDefined();
     expect(first!.options.composite).toBe("add");
-    // From the middle, up (your cards are below it) and a little aside, then back to the middle.
+    // From its place, up (your cards are below it) and a little aside, then back.
     expect(shift(first!.frames[0]!)).toEqual({ dx: 0, dy: 0 });
     const away = shift(first!.frames[1]!)!;
     expect(away.dy).toBeLessThan(0);
     expect(Math.abs(away.dx)).toBeGreaterThan(0);
     expect(shift(first!.frames[3]!)).toEqual({ dx: 0, dy: 0 });
     // Just far enough: its line clears the top of the Treasures, and no further.
-    const cover = castCoverBox(g);
     const top = pile.y;
     expect(cover.y + cover.h + away.dy).toBeLessThanOrEqual(top);
     expect(cover.y + cover.h + away.dy).toBeGreaterThan(top - 40);
@@ -343,8 +359,8 @@ describe("F-0091-A · three Treasures under the casting card pay for Hill Giant"
     // The Treasure waits for it, then folds and goes in view.
     expect(ghost(c, "card:61")!.dataset["fate"]).toBe("spent");
     expect(ghostDelay(c, "card:61")).toBeGreaterThanOrEqual(ASIDE_MS);
-    // The card's own place never changes: it is still the middle, under the movement.
-    expect(styleBox(card)).toMatchObject({ x: middle.x, y: middle.y });
+    // The card's own place never changes: still the stack's next slot, under the movement.
+    expect(styleBox(card)).toMatchObject({ x: place.x, y: place.y });
     // Held until the fold is done, then 0.25 s later back.
     const backAt = Number(first!.frames[2]!.offset) * total;
     expect(backAt).toBeGreaterThanOrEqual(ASIDE_MS + 320 + 450 + BACK_AFTER_MS);
@@ -352,30 +368,40 @@ describe("F-0091-A · three Treasures under the casting card pay for Hill Giant"
     clock += 500;
     board({
       casting: [giant()],
-      battlefield: three().slice(2),
+      battlefield: [...trinkets, ...three().slice(2)],
       moves: [spentMove("card:62")],
       payments: [pay("card:61"), pay("card:62")].map((p, i) => ({ ...p, n: i + 1 })),
     });
     const second = steps(c).at(-1)!;
     expect(second).not.toBe(first);
     expect(shift(second.frames[0]!)).toEqual(away);
-    // Finished: back in the middle, no longer aside.
+    // Finished: back at its place, no longer aside.
     act(() => second.anim.onfinish?.());
     expect(castCard(c)!.dataset["stepAside"]).toBeUndefined();
   });
 
   it("the other player's seat: the face-down back steps down and aside, clear of the hand", () => {
     const c = open();
-    const theirs = [treasure("card:61", 2), treasure("card:62", 2), treasure("card:63", 2)];
+    // Spec 0110 -- their creature line's right-hand end is what the back
+    // covers at the stack spot (their other permanents are above it): three
+    // Servos there are sacrificed for its cost.
+    const servo = (id: string) =>
+      permanent(id, 2, "Servo", {
+        types: "Token Artifact Creature — Servo",
+        token: true,
+        power: 1,
+        toughness: 1,
+      });
+    const theirs = [...others(2, "creature"), servo("card:61"), servo("card:62"), servo("card:63")];
     const back = { ...giant(2), faceDown: true, known: false, name: "Face-down" };
     board({ casting: [back], battlefield: theirs });
     const card = castCard(c)!;
     expect(card.querySelector(".gs-cast-back")).not.toBeNull();
     const pile = slotBox(c, "card:61");
-    expect(covers(castCoverBox(g), pile)).toBe(true);
+    expect(covers(cover, pile)).toBe(true);
     board({
       casting: [back],
-      battlefield: theirs.slice(1),
+      battlefield: theirs.filter((p) => p.id !== "card:61"),
       moves: [spentMove("card:61", 2)],
       payments: [{ ...pay("card:61", "C", 2), cost: null }],
     });
@@ -383,7 +409,6 @@ describe("F-0091-A · three Treasures under the casting card pay for Hill Giant"
     expect(run).toBeDefined();
     const away = shift(run!.frames[1]!)!;
     expect(away.dy).toBeGreaterThan(0);
-    const cover = castCoverBox(g);
     expect(cover.y + away.dy).toBeGreaterThanOrEqual(pile.y + pile.h - 1);
     expect(cover.y + cover.h + away.dy).toBeLessThanOrEqual(g.handTop);
     expect(ghostDelay(c, "card:61")).toBeGreaterThanOrEqual(ASIDE_MS);
@@ -404,39 +429,41 @@ describe("F-0091-B · Village Rites' covered Bears; Llanowar Elves under it tapp
     const c = open();
     const bears = permanent("card:20", 1, "Grizzly Bears");
     const elves = permanent("card:21", 1, "Llanowar Elves");
-    board({ casting: [rites], battlefield: [elves, bears] });
-    expect(covers(castCoverBox(g), slotBox(c, bears.id))).toBe(true);
+    const crowd = others(1, "creature");
+    board({ casting: [rites], battlefield: [...crowd, elves, bears] });
+    expect(covers(cover, slotBox(c, bears.id))).toBe(true);
     ask("CostSacrifice", bears.id);
     // As the game does it (the Lab's rites game): the sacrifice comes with
     // the spell on the stack, no longer being cast.
     board({
-      battlefield: [elves],
+      battlefield: [...crowd, elves],
       moves: [spentMove(bears.id)],
       stack: [
         { id: "stack:1", source: rites.id, name: "Village Rites", controller: 1, kind: "spell" },
       ],
     });
-    // Still drawn in the middle, stepping aside; not yet flying.
+    // Still drawn at its place, stepping aside; not yet flying.
     expect(castCard(c)).not.toBeNull();
     expect(c.querySelector(".gs-cast-leaving")).toBeNull();
     expect(steps(c)).toHaveLength(1);
     expect(shift(steps(c)[0]!.frames[1]!)!.dy).toBeLessThan(0);
     expect(ghostDelay(c, bears.id)).toBeGreaterThanOrEqual(ASIDE_MS);
-    // Back in the middle: then it flies to the stack, from the middle.
+    // Back at its place: then it settles into the stack, from there.
     act(() => steps(c)[0]!.anim.onfinish?.());
     expect(castCard(c)).toBeNull();
     const leaving = c.querySelector<HTMLElement>(".gs-cast-leaving")!;
     expect(leaving).not.toBeNull();
-    expect(styleBox(leaving)).toMatchObject({ x: middle.x, y: middle.y });
+    expect(styleBox(leaving)).toMatchObject({ x: place.x, y: place.y });
   });
 
   it("Amendment 1: its spell resolves while it is held aside -- it flies from there to the stack spot, never shown twice", async () => {
     const c = open();
     const bears = permanent("card:20", 1, "Grizzly Bears");
     const elves = permanent("card:21", 1, "Llanowar Elves");
-    board({ casting: [rites], battlefield: [elves, bears] });
+    const crowd = others(1, "creature");
+    board({ casting: [rites], battlefield: [...crowd, elves, bears] });
     board({
-      battlefield: [elves],
+      battlefield: [...crowd, elves],
       moves: [spentMove(bears.id)],
       stack: [
         { id: "stack:1", source: rites.id, name: "Village Rites", controller: 1, kind: "spell" },
@@ -445,8 +472,8 @@ describe("F-0091-B · Village Rites' covered Bears; Llanowar Elves under it tapp
     const away = shift(steps(c)[0]!.frames[1]!)!;
     // Still aside (past its slide out) when the spell resolves.
     clock += 600;
-    board({ battlefield: [elves], graveyard: [{ ...rites }] });
-    // No longer held: one card, flying -- not a second one waiting in the middle.
+    board({ battlefield: [...crowd, elves], graveyard: [{ ...rites }] });
+    // No longer held: one card, flying -- not a second one waiting at its place.
     expect(castCard(c)).toBeNull();
     const flight = c.querySelector<HTMLElement>(".gs-cast-leaving")!;
     expect(flight).not.toBeNull();
@@ -459,7 +486,8 @@ describe("F-0091-B · Village Rites' covered Bears; Llanowar Elves under it tapp
     const start = shift(fly.frames[0]!)!;
     expect(start.dx).toBeCloseTo(away.dx, 0);
     expect(start.dy).toBeCloseTo(away.dy, 0);
-    expect(fly.frames.length).toBe(3);
+    // Spec 0110: into the stack slot beside it, a straight settle (no arc).
+    expect(fly.frames.length).toBe(2);
     expect(fly.frames.at(-1)!.opacity).toBe(0.35);
     // The stack card that leaves waits, unseen, until the flight has landed.
     const stackGhost = ghost(c, "stack:1")!;
@@ -481,14 +509,15 @@ describe("F-0091-B · Village Rites' covered Bears; Llanowar Elves under it tapp
     const elves = permanent("card:21", 1, "Llanowar Elves");
     const bears = permanent("card:20", 1, "Grizzly Bears");
     const craw = { ...giant(), name: "Craw Wurm", manaCost: "{4}{G}{G}" };
-    board({ casting: [craw], battlefield: [bears, elves] });
+    const crowd = others(1, "creature");
+    board({ casting: [craw], battlefield: [...crowd, bears, elves] });
     ask("applyManaToCost", elves.id, { owing: "{4}{G}{G}" });
     board({
       casting: [craw],
-      battlefield: [bears, { ...elves, tapped: true }],
+      battlefield: [...crowd, bears, { ...elves, tapped: true }],
       payments: [{ ...pay(elves.id, "G"), cost: "{4}{G}{G}" }],
     });
-    expect(covers(castCoverBox(g), slotBox(c, elves.id))).toBe(true);
+    expect(covers(cover, slotBox(c, elves.id))).toBe(true);
     expect(steps(c)).toHaveLength(1);
     const run = steps(c)[0]!;
     const total = Number(run.options.duration);
@@ -502,14 +531,14 @@ describe("F-0091-B · Village Rites' covered Bears; Llanowar Elves under it tapp
     const end = /translate\((-?[\d.]+)px, (-?[\d.]+)px\)/.exec(
       String(ball!.frames.at(-1)!.transform),
     )!;
-    expect(Number(end[1]) + size / 2).toBeCloseTo(middle.x + middle.w / 2 + away.dx, 1);
-    expect(Number(end[2]) + size / 2).toBeCloseTo(middle.y + middle.h / 2 + away.dy, 1);
+    expect(Number(end[1]) + size / 2).toBeCloseTo(place.x + place.w / 2 + away.dx, 1);
+    expect(Number(end[2]) + size / 2).toBeCloseTo(place.y + place.h / 2 + away.dy, 1);
     // Held for the ball's flight and pop.
     expect(Number(run.frames[2]!.offset) * total).toBeGreaterThanOrEqual(ASIDE_MS + 620 + 260);
   });
 });
 
-describe("F-0091-C · it stays in the middle when nothing under it acts", () => {
+describe("F-0091-C · it stays at its place when nothing under it acts", () => {
   it("a target, between questions, a card spent away from it, a tapped card away from it", () => {
     const c = open();
     const elves = permanent("card:21", 1, "Llanowar Elves");
@@ -529,7 +558,7 @@ describe("F-0091-C · it stays in the middle when nothing under it acts", () => 
       }),
     );
     board({ casting: [giant()], battlefield: [elves, goblin, ...lands] });
-    expect(covers(castCoverBox(g), slotBox(c, "card:40"))).toBe(false);
+    expect(covers(cover, slotBox(c, "card:40"))).toBe(false);
     board({
       casting: [giant()],
       battlefield: [elves, goblin, { ...lands[0]!, tapped: true }, ...lands.slice(1)],
@@ -540,14 +569,52 @@ describe("F-0091-C · it stays in the middle when nothing under it acts", () => 
   });
 });
 
+describe("spec 0110 · what it covers follows the stack under it", () => {
+  it("nine entries on the stack: the card waits low on the column, so Bob's line's end is no longer under it", () => {
+    const c = open();
+    const nine = Array.from({ length: 9 }, (_, i) => ({
+      id: `stack:${i + 1}`,
+      source: `card:${900 + i}`,
+      name: `Spell ${i}`,
+      // Alice's own (Bob's would hold the next board while they land).
+      controller: 1,
+      kind: "spell",
+    }));
+    const theirs = [...others(2, "creature"), permanent("card:61", 2, "Goblin Guide")];
+    board({ casting: [giant()], battlefield: theirs, stack: nine });
+    const low = castingStackBox(g, 9);
+    expect(styleBox(castCard(c)!)).toMatchObject({ x: low.x, y: low.y });
+    // At the empty stack's slot the Goblin Guide would be under it; at this one it is not.
+    const guideBox = slotBox(c, "card:61");
+    expect(covers(cover, guideBox)).toBe(true);
+    expect(covers(castCoverBox(low), guideBox)).toBe(false);
+    // Bob's Goblin Guide is sacrificed (his own effect): it goes at once, no wait for a step.
+    board({
+      casting: [giant()],
+      battlefield: theirs.filter((p) => p.id !== "card:61"),
+      stack: nine,
+      moves: [spentMove("card:61", 2)],
+    });
+    const gone = ghost(c, "card:61");
+    expect(gone).not.toBeNull();
+    const runs = animations.filter((r) => r.element === gone && r.options.id !== "unseen-landing");
+    expect(runs.length).toBeGreaterThan(0);
+    expect(Number(runs.at(-1)!.options.delay ?? 0)).toBeLessThan(ASIDE_MS);
+    expect(steps(c)).toHaveLength(0);
+  });
+});
+
 describe("F-0091-D · reduce motion, and a click", () => {
   it("reduce motion: no slide; see-through over the acting card for that moment", () => {
     reduce = true;
     const c = open();
-    board({ casting: [giant()], battlefield: [treasure("card:61"), treasure("card:62")] });
     board({
       casting: [giant()],
-      battlefield: [treasure("card:62")],
+      battlefield: [...others(1, "artifact"), treasure("card:61"), treasure("card:62")],
+    });
+    board({
+      casting: [giant()],
+      battlefield: [...others(1, "artifact"), treasure("card:62")],
       moves: [spentMove("card:61")],
       payments: [pay("card:61")],
     });
@@ -561,10 +628,13 @@ describe("F-0091-D · reduce motion, and a click", () => {
 
   it("a click hurries the step aside (A-00)", () => {
     const c = open();
-    board({ casting: [giant()], battlefield: [treasure("card:61"), treasure("card:62")] });
     board({
       casting: [giant()],
-      battlefield: [treasure("card:62")],
+      battlefield: [...others(1, "artifact"), treasure("card:61"), treasure("card:62")],
+    });
+    board({
+      casting: [giant()],
+      battlefield: [...others(1, "artifact"), treasure("card:62")],
       moves: [spentMove("card:61")],
       payments: [pay("card:61")],
     });

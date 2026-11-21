@@ -1,0 +1,4677 @@
+{
+  "source": "Lab check-modes.py escalate (Collective Brutality, spec 0110): frames as the worker sent them; seat1 is Alice's (the caster), seat2 Bob's",
+  "seat1": [
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 1,
+      "state": {
+        "stateRevision": 77,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 1,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:36",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 4,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:6",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 5,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:21",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 6,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:32",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 7,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:45",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 18,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          },
+          {
+            "id": "card:60",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 23,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [],
+        "exile": [],
+        "stack": [],
+        "casting": [],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:108"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "DECISION_REQUEST",
+      "decisionId": 64,
+      "actedForSeat": 1,
+      "authorisedSeat": 1,
+      "kind": "chooseModeForAbility",
+      "stateVersion": 76,
+      "gameEpoch": 1,
+      "mandatory": true,
+      "prompt": "Choose a mode for Collective Brutality.",
+      "options": [
+        {
+          "actionId": "mode:0:card:36",
+          "label": "Target opponent reveals their hand. You choose a instant or sorcery card from it. That player discards that card.",
+          "objectId": "card:36"
+        },
+        {
+          "actionId": "mode:1:card:36",
+          "label": "Target creature gets -2/-2 until end of turn.",
+          "objectId": "card:36"
+        },
+        {
+          "actionId": "mode:2:card:36",
+          "label": "Target opponent loses 2 life and you gain 2 life. ",
+          "objectId": "card:36"
+        }
+      ],
+      "arrange": {
+        "modes": {
+          "num": 3,
+          "min": 1,
+          "repeat": false,
+          "chosen": [],
+          "paws": [0, 0, 0],
+          "escalate": "Discard a card"
+        }
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 1,
+      "state": {
+        "stateRevision": 80,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 1,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 5,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:6",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 5,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:21",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 6,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:32",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 7,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:45",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 18,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          },
+          {
+            "id": "card:60",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 23,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [],
+        "exile": [],
+        "stack": [],
+        "casting": [
+          {
+            "id": "card:36",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 4,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          }
+        ],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:108"
+              }
+            ]
+          }
+        ],
+        "moves": [
+          {
+            "card": "card:36",
+            "from": {
+              "zone": "hand",
+              "seat": 1
+            },
+            "to": {
+              "zone": "stack"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "DECISION_REQUEST",
+      "decisionId": 67,
+      "actedForSeat": 1,
+      "authorisedSeat": 1,
+      "kind": "chooseTargetsFor",
+      "stateVersion": 79,
+      "gameEpoch": 1,
+      "mandatory": false,
+      "prompt": "Collective Brutality: Target creature gets -2/-2 until end of turn.",
+      "options": [
+        {
+          "actionId": "target:card:70",
+          "label": "Grizzly Bears",
+          "objectId": "card:70"
+        },
+        {
+          "actionId": "target:cancel",
+          "label": "Cancel"
+        }
+      ],
+      "about": {
+        "name": "Collective Brutality",
+        "kind": "ability"
+      },
+      "arrange": {
+        "targets": {
+          "chosen": [],
+          "enough": false,
+          "more": 1,
+          "cancel": "target:cancel",
+          "mode": true
+        }
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 1,
+      "state": {
+        "stateRevision": 81,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 1,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 5,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:6",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 5,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:21",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 6,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:32",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 7,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:45",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 18,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          },
+          {
+            "id": "card:60",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 23,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [],
+        "exile": [],
+        "stack": [],
+        "casting": [
+          {
+            "id": "card:36",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 4,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          }
+        ],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:108"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "DECISION_REQUEST",
+      "decisionId": 68,
+      "actedForSeat": 1,
+      "authorisedSeat": 1,
+      "kind": "chooseTargetsFor",
+      "stateVersion": 80,
+      "gameEpoch": 1,
+      "mandatory": false,
+      "prompt": "Collective Brutality: Target opponent loses 2 life and you gain 2 life.",
+      "options": [
+        {
+          "actionId": "target:player:1",
+          "label": "Bob",
+          "objectId": "player:2"
+        },
+        {
+          "actionId": "target:cancel",
+          "label": "Cancel"
+        }
+      ],
+      "about": {
+        "name": "Collective Brutality",
+        "kind": "ability"
+      },
+      "arrange": {
+        "targets": {
+          "chosen": [],
+          "enough": false,
+          "more": 1,
+          "cancel": "target:cancel",
+          "mode": true
+        }
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 1,
+      "state": {
+        "stateRevision": 82,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 1,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 5,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:6",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 5,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:21",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 6,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:32",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 7,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:45",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 18,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          },
+          {
+            "id": "card:60",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 23,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [],
+        "exile": [],
+        "stack": [],
+        "casting": [
+          {
+            "id": "card:36",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 4,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          }
+        ],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:108"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "DECISION_REQUEST",
+      "decisionId": 69,
+      "actedForSeat": 1,
+      "authorisedSeat": 1,
+      "kind": "applyManaToCost",
+      "stateVersion": 81,
+      "gameEpoch": 1,
+      "mandatory": false,
+      "options": [
+        {
+          "actionId": "mana:card:58",
+          "label": "Swamp",
+          "objectId": "card:58"
+        },
+        {
+          "actionId": "mana:card:42",
+          "label": "Swamp",
+          "objectId": "card:42"
+        },
+        {
+          "actionId": "mana:card:37",
+          "label": "Swamp",
+          "objectId": "card:37"
+        }
+      ],
+      "owing": "{1}{B}",
+      "about": {
+        "name": "Collective Brutality",
+        "kind": "spell",
+        "from": "hand"
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 1,
+      "state": {
+        "stateRevision": 83,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 1,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 5,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:6",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 5,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:21",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 6,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:32",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 7,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:45",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 18,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          },
+          {
+            "id": "card:60",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 23,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [],
+        "exile": [],
+        "stack": [],
+        "casting": [
+          {
+            "id": "card:36",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 4,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          }
+        ],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:108"
+              }
+            ]
+          },
+          {
+            "n": 3,
+            "seat": 1,
+            "payment": 2,
+            "for": "card:36",
+            "kind": "cast",
+            "cost": "{1}{B}",
+            "owing": "{1}",
+            "mana": [
+              {
+                "colour": "B",
+                "shard": "B",
+                "from": "card:58"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "DECISION_REQUEST",
+      "decisionId": 70,
+      "actedForSeat": 1,
+      "authorisedSeat": 1,
+      "kind": "applyManaToCost",
+      "stateVersion": 82,
+      "gameEpoch": 1,
+      "mandatory": false,
+      "options": [
+        {
+          "actionId": "mana:card:42",
+          "label": "Swamp",
+          "objectId": "card:42"
+        },
+        {
+          "actionId": "mana:card:37",
+          "label": "Swamp",
+          "objectId": "card:37"
+        }
+      ],
+      "owing": "{1}",
+      "about": {
+        "name": "Collective Brutality",
+        "kind": "spell",
+        "from": "hand"
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 1,
+      "state": {
+        "stateRevision": 84,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 1,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 5,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:6",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 5,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:21",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 6,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:32",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 7,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:45",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 18,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          },
+          {
+            "id": "card:60",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 23,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [],
+        "exile": [],
+        "stack": [],
+        "casting": [
+          {
+            "id": "card:36",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 4,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          }
+        ],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:108"
+              }
+            ]
+          },
+          {
+            "n": 3,
+            "seat": 1,
+            "payment": 2,
+            "for": "card:36",
+            "kind": "cast",
+            "cost": "{1}{B}",
+            "owing": "{1}",
+            "mana": [
+              {
+                "colour": "B",
+                "shard": "B",
+                "from": "card:58"
+              }
+            ]
+          },
+          {
+            "n": 4,
+            "seat": 1,
+            "payment": 2,
+            "for": "card:36",
+            "kind": "cast",
+            "cost": "{1}{B}",
+            "owing": "0",
+            "mana": [
+              {
+                "colour": "B",
+                "shard": "1",
+                "from": "card:42"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "DECISION_REQUEST",
+      "decisionId": 71,
+      "actedForSeat": 1,
+      "authorisedSeat": 1,
+      "kind": "CostDiscard",
+      "stateVersion": 83,
+      "gameEpoch": 1,
+      "mandatory": false,
+      "prompt": "Collective Brutality: discard 1 card to pay the cost to pay its cost.",
+      "options": [
+        {
+          "actionId": "cost:card:6",
+          "label": "Collective Brutality",
+          "objectId": "card:6"
+        },
+        {
+          "actionId": "cost:card:21",
+          "label": "Collective Brutality",
+          "objectId": "card:21"
+        },
+        {
+          "actionId": "cost:card:32",
+          "label": "Collective Brutality",
+          "objectId": "card:32"
+        },
+        {
+          "actionId": "cost:card:45",
+          "label": "Swamp",
+          "objectId": "card:45"
+        },
+        {
+          "actionId": "cost:card:60",
+          "label": "Swamp",
+          "objectId": "card:60"
+        }
+      ],
+      "about": {
+        "name": "Collective Brutality",
+        "kind": "spell",
+        "from": "hand"
+      },
+      "picking": {
+        "word": "DISCARD",
+        "tone": "discard",
+        "picked": []
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 1,
+      "state": {
+        "stateRevision": 85,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 1,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 1,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 4,
+            "libraryCount": 51,
+            "graveyardCount": 1,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:21",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 6,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:32",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 7,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          },
+          {
+            "id": "card:45",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 18,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          },
+          {
+            "id": "card:60",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 23,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp"
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [
+          {
+            "id": "card:6",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 25,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          }
+        ],
+        "exile": [],
+        "stack": [
+          {
+            "id": "stack:6",
+            "description": "Collective Brutality (36)->Collective Brutality (36) -  Target creature gets -2/-2 until end of turn. Target opponent loses 2 life and you gain 2 life. Alice gains 2 life.",
+            "source": "card:36",
+            "name": "Collective Brutality",
+            "owner": 1,
+            "manaCost": "{1}{B}",
+            "modes": [
+              {
+                "text": "Target opponent reveals their hand. You choose a instant or sorcery card from it. That player discards that card.",
+                "chosen": false
+              },
+              {
+                "text": "Target creature gets -2/-2 until end of turn.",
+                "chosen": true
+              },
+              {
+                "text": "Target opponent loses 2 life and you gain 2 life.",
+                "chosen": true
+              }
+            ],
+            "extra": ["escalated"],
+            "controller": 1,
+            "kind": "spell",
+            "targets": [
+              {
+                "object": "card:70"
+              },
+              {
+                "player": 2
+              }
+            ]
+          }
+        ],
+        "casting": [],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "G",
+                "from": "card:108"
+              }
+            ]
+          },
+          {
+            "n": 3,
+            "seat": 1,
+            "payment": 2,
+            "for": "card:36",
+            "kind": "cast",
+            "cost": "{1}{B}",
+            "owing": "{1}",
+            "mana": [
+              {
+                "colour": "B",
+                "shard": "B",
+                "from": "card:58"
+              }
+            ]
+          },
+          {
+            "n": 4,
+            "seat": 1,
+            "payment": 2,
+            "for": "card:36",
+            "kind": "cast",
+            "cost": "{1}{B}",
+            "owing": "0",
+            "mana": [
+              {
+                "colour": "B",
+                "shard": "1",
+                "from": "card:42"
+              }
+            ]
+          }
+        ],
+        "moves": [
+          {
+            "card": "card:6",
+            "from": {
+              "zone": "hand",
+              "seat": 1
+            },
+            "to": {
+              "zone": "graveyard",
+              "seat": 1
+            },
+            "why": "discarded"
+          }
+        ],
+        "playLog": [
+          {
+            "n": 18,
+            "rev": 85,
+            "turn": 5,
+            "active": 1,
+            "step": "Main 1",
+            "kind": "move",
+            "parts": [
+              {
+                "player": 1
+              },
+              " discarded ",
+              {
+                "name": "Collective Brutality",
+                "known": true,
+                "id": "card:6",
+                "owner": 1,
+                "seat": 1,
+                "printing": "INR/101"
+              }
+            ]
+          },
+          {
+            "n": 19,
+            "rev": 85,
+            "turn": 5,
+            "active": 1,
+            "step": "Main 1",
+            "kind": "spell",
+            "parts": [
+              {
+                "player": 1
+              },
+              " cast ",
+              {
+                "name": "Collective Brutality",
+                "known": true,
+                "id": "card:36",
+                "owner": 1,
+                "seat": 1,
+                "printing": "INR/101"
+              },
+              " targeting ",
+              {
+                "player": 2
+              },
+              "'s ",
+              {
+                "name": "Grizzly Bears",
+                "known": true,
+                "id": "card:70",
+                "owner": 2,
+                "seat": 2,
+                "printing": "SLZ/77"
+              },
+              " and ",
+              {
+                "player": 2
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "seat2": [
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 2,
+      "state": {
+        "stateRevision": 77,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 2,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:106",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 10,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest"
+          },
+          {
+            "id": "card:76",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 12,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:72",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 13,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:69",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 14,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:80",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 16,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:67",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 20,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [],
+        "exile": [],
+        "stack": [],
+        "casting": [],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "{1}",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "0",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "1",
+                "from": "card:108"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 2,
+      "state": {
+        "stateRevision": 80,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 2,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 5,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:106",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 10,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest"
+          },
+          {
+            "id": "card:76",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 12,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:72",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 13,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:69",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 14,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:80",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 16,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:67",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 20,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [],
+        "exile": [],
+        "stack": [],
+        "casting": [
+          {
+            "id": "card:36",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 4,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          }
+        ],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "{1}",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "0",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "1",
+                "from": "card:108"
+              }
+            ]
+          }
+        ],
+        "moves": [
+          {
+            "card": "card:36",
+            "from": {
+              "zone": "hand",
+              "seat": 1
+            },
+            "to": {
+              "zone": "stack"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 2,
+      "state": {
+        "stateRevision": 81,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 2,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 5,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:106",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 10,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest"
+          },
+          {
+            "id": "card:76",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 12,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:72",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 13,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:69",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 14,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:80",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 16,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:67",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 20,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [],
+        "exile": [],
+        "stack": [],
+        "casting": [
+          {
+            "id": "card:36",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 4,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          }
+        ],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "{1}",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "0",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "1",
+                "from": "card:108"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 2,
+      "state": {
+        "stateRevision": 82,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 2,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 5,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:106",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 10,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest"
+          },
+          {
+            "id": "card:76",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 12,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:72",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 13,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:69",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 14,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:80",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 16,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:67",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 20,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [],
+        "exile": [],
+        "stack": [],
+        "casting": [
+          {
+            "id": "card:36",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 4,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          }
+        ],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "{1}",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "0",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "1",
+                "from": "card:108"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 2,
+      "state": {
+        "stateRevision": 83,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 2,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 5,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:106",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 10,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest"
+          },
+          {
+            "id": "card:76",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 12,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:72",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 13,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:69",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 14,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:80",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 16,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:67",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 20,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [],
+        "exile": [],
+        "stack": [],
+        "casting": [
+          {
+            "id": "card:36",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 4,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          }
+        ],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "{1}",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "0",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "1",
+                "from": "card:108"
+              }
+            ]
+          },
+          {
+            "n": 3,
+            "seat": 1,
+            "payment": 2,
+            "for": "card:36",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "B",
+                "from": "card:58"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 2,
+      "state": {
+        "stateRevision": 84,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 2,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 5,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:106",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 10,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest"
+          },
+          {
+            "id": "card:76",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 12,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:72",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 13,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:69",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 14,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:80",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 16,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:67",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 20,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [],
+        "exile": [],
+        "stack": [],
+        "casting": [
+          {
+            "id": "card:36",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 4,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          }
+        ],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "{1}",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "0",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "1",
+                "from": "card:108"
+              }
+            ]
+          },
+          {
+            "n": 3,
+            "seat": 1,
+            "payment": 2,
+            "for": "card:36",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "B",
+                "from": "card:58"
+              }
+            ]
+          },
+          {
+            "n": 4,
+            "seat": 1,
+            "payment": 2,
+            "for": "card:36",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "B",
+                "from": "card:42"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": 1,
+      "type": "MATCH_SNAPSHOT",
+      "seat": 2,
+      "state": {
+        "stateRevision": 85,
+        "gameEpoch": 1,
+        "notices": [],
+        "turn": 5,
+        "phase": "MAIN1",
+        "activeSeat": 1,
+        "prioritySeat": 1,
+        "seat": 2,
+        "players": [
+          {
+            "seat": 1,
+            "name": "Alice",
+            "life": 20,
+            "thisTurn": {
+              "spells": 1,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 4,
+            "libraryCount": 51,
+            "graveyardCount": 1,
+            "mulligans": 0
+          },
+          {
+            "seat": 2,
+            "name": "Bob",
+            "life": 20,
+            "thisTurn": {
+              "spells": 0,
+              "lifeGained": 0,
+              "leftBattlefield": false
+            },
+            "handCount": 6,
+            "libraryCount": 51,
+            "graveyardCount": 0,
+            "mulligans": 0
+          }
+        ],
+        "battlefield": [
+          {
+            "id": "card:58",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 15,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:42",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 19,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:37",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 24,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Swamp",
+            "printing": "TRK/321",
+            "kind": "land",
+            "types": "Basic Land - Swamp",
+            "makes": ["B"]
+          },
+          {
+            "id": "card:92",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 17,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:108",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 21,
+            "tapped": true,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest",
+            "makes": ["G"]
+          },
+          {
+            "id": "card:70",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 22,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": true,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "hand": [
+          {
+            "id": "card:106",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 10,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Forest",
+            "printing": "TRK/325",
+            "kind": "land",
+            "types": "Basic Land - Forest"
+          },
+          {
+            "id": "card:76",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 12,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:72",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 13,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:69",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 14,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:80",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 16,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          },
+          {
+            "id": "card:67",
+            "seat": 2,
+            "owner": 2,
+            "enteredAt": 20,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Grizzly Bears",
+            "printing": "SLZ/77",
+            "kind": "creature",
+            "types": "Creature - Bear",
+            "manaCost": "{1}{G}",
+            "power": 2,
+            "toughness": 2,
+            "basePower": 2,
+            "baseToughness": 2,
+            "damage": 0,
+            "sick": false,
+            "attacking": false,
+            "blocking": false
+          }
+        ],
+        "otherHands": [],
+        "graveyard": [
+          {
+            "id": "card:6",
+            "seat": 1,
+            "owner": 1,
+            "enteredAt": 25,
+            "tapped": false,
+            "faceDown": false,
+            "known": true,
+            "name": "Collective Brutality",
+            "printing": "INR/101",
+            "kind": "other",
+            "types": "Sorcery",
+            "manaCost": "{1}{B}",
+            "keywords": ["Escalate—Discard a card"]
+          }
+        ],
+        "exile": [],
+        "stack": [
+          {
+            "id": "stack:6",
+            "description": "Collective Brutality (36)->Collective Brutality (36) -  Target creature gets -2/-2 until end of turn. Target opponent loses 2 life and you gain 2 life. Alice gains 2 life.",
+            "source": "card:36",
+            "name": "Collective Brutality",
+            "owner": 1,
+            "manaCost": "{1}{B}",
+            "modes": [
+              {
+                "text": "Target opponent reveals their hand. You choose a instant or sorcery card from it. That player discards that card.",
+                "chosen": false
+              },
+              {
+                "text": "Target creature gets -2/-2 until end of turn.",
+                "chosen": true
+              },
+              {
+                "text": "Target opponent loses 2 life and you gain 2 life.",
+                "chosen": true
+              }
+            ],
+            "extra": ["escalated"],
+            "controller": 1,
+            "kind": "spell",
+            "targets": [
+              {
+                "object": "card:70"
+              },
+              {
+                "player": 2
+              }
+            ]
+          }
+        ],
+        "casting": [],
+        "noticesTotal": 0,
+        "rolls": [],
+        "payments": [
+          {
+            "n": 1,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "{1}",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "G",
+                "from": "card:92"
+              }
+            ]
+          },
+          {
+            "n": 2,
+            "seat": 2,
+            "payment": 1,
+            "for": "card:70",
+            "kind": "cast",
+            "cost": "{1}{G}",
+            "owing": "0",
+            "mana": [
+              {
+                "colour": "G",
+                "shard": "1",
+                "from": "card:108"
+              }
+            ]
+          },
+          {
+            "n": 3,
+            "seat": 1,
+            "payment": 2,
+            "for": "card:36",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "B",
+                "from": "card:58"
+              }
+            ]
+          },
+          {
+            "n": 4,
+            "seat": 1,
+            "payment": 2,
+            "for": "card:36",
+            "kind": "cast",
+            "mana": [
+              {
+                "colour": "B",
+                "from": "card:42"
+              }
+            ]
+          }
+        ],
+        "moves": [
+          {
+            "card": "card:6",
+            "from": {
+              "zone": "hand",
+              "seat": 1
+            },
+            "to": {
+              "zone": "graveyard",
+              "seat": 1
+            },
+            "why": "discarded"
+          }
+        ],
+        "playLog": [
+          {
+            "n": 18,
+            "rev": 85,
+            "turn": 5,
+            "active": 1,
+            "step": "Main 1",
+            "kind": "move",
+            "parts": [
+              {
+                "player": 1
+              },
+              " discarded ",
+              {
+                "name": "Collective Brutality",
+                "known": true,
+                "id": "card:6",
+                "owner": 1,
+                "seat": 1,
+                "printing": "INR/101"
+              }
+            ]
+          },
+          {
+            "n": 19,
+            "rev": 85,
+            "turn": 5,
+            "active": 1,
+            "step": "Main 1",
+            "kind": "spell",
+            "parts": [
+              {
+                "player": 1
+              },
+              " cast ",
+              {
+                "name": "Collective Brutality",
+                "known": true,
+                "id": "card:36",
+                "owner": 1,
+                "seat": 1,
+                "printing": "INR/101"
+              },
+              " targeting ",
+              {
+                "player": 2
+              },
+              "'s ",
+              {
+                "name": "Grizzly Bears",
+                "known": true,
+                "id": "card:70",
+                "owner": 2,
+                "seat": 2,
+                "printing": "SLZ/77"
+              },
+              " and ",
+              {
+                "player": 2
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

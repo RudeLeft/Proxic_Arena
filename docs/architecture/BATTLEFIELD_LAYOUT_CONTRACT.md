@@ -397,6 +397,25 @@ spot, oldest first) so it can, else it squeezes, else the side steps down.
 *Amendment 1 (owner 2026-11-16):* a land line nobody shares keeps going
 right past the spot (just right of it, then rightwards) before it wraps.
 
+## 7e. Amendment — the card being cast waits at the stack's next slot (spec 0110, owner 2026-11-20)
+
+The big card of a spell being cast (either seat's, and a spectator's view
+of either) is drawn at the stack's next slot, not the middle of the screen
+(spec 0068, superseded here): `stepAside.ts` `castingStackBox(g, stack)`,
+where `stack` is how many entries are on the stack under it
+(`GameScreen.tsx` `stackUnder`, its own spell left out). Its size is spec
+0068's casting size (2.5 table cards tall, at most half the window); its
+right edge and its middle are those of `effects.ts`
+`stackSpotBoxes(g, stack + 1, STACK_SCALE)`'s front box, so it grows left
+from the stack column; it is kept under the turn track (the top tenth),
+its cost pips above the hand, and never right of the play area (the rail,
+with the act panel, is never under it). At 1920×1080 with an empty stack it
+is x 1386-1630, y 369-710 (the middle of the table, x 819, is clear); each
+entry already on the stack moves it down the column with the stack's
+centring (y 390 with one, 431 with three, 554 with nine). The step aside
+(spec 0091), the aim line (spec 0069) and the question window
+(`castingWindowAnchor`: left of it, else above it) are measured from it.
+
 ---
 
 ## 8. Provenance

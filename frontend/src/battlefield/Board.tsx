@@ -67,7 +67,7 @@ import {
 import { fanBoxes, fanMore, fanReach, type FanCard, type FanMore, type FanZone } from "./pileFan";
 import { ManaCost, ManaText, costChange, symbolUrl } from "./ManaCost";
 import { litShadow, owingWords, type PayPip } from "./manaBalls";
-import { ASIDE_MS, castCoverBox, covers } from "./stepAside";
+import { ASIDE_MS, castCoverBox, castingStackBox, covers } from "./stepAside";
 import { SharpCard, closeUpOf } from "../closeUp";
 import {
   inCombat,
@@ -748,10 +748,12 @@ export interface BoardProps {
   /** Spec 0084 -- this update's spent cards, library shuffles and crews, as the game says. */
   moments?: Moments | null;
   /**
-   * Spec 0091 -- the casting card is up in the middle: a spent card under it
-   * waits ASIDE_MS, while it steps aside, before it folds and goes.
+   * Spec 0091 -- the casting card is up: a spent card under it waits
+   * ASIDE_MS, while it steps aside, before it folds and goes. Spec 0110: it
+   * is up at the stack's next slot; this is how many stack entries it waits
+   * over (GameScreen.tsx stackUnder), or null when nothing is being cast.
    */
-  castCover?: boolean;
+  castCover?: number | null;
   /**
    * Spec 0091 Amendment 1 -- the card just cast, held aside, flies to this
    * stack entry's spot as its spell leaves the stack: the stack card waits,
@@ -3537,7 +3539,7 @@ export function Board({
   rail,
   top,
   overlay,
-  castCover = false,
+  castCover = null,
   landingOnStack = null,
 }: BoardProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -7902,7 +7904,10 @@ export function Board({
       // Spec 0084 -- how many spent cards have been sent off so far this update.
       let spentN = 0;
       // Spec 0091 -- the casting card covers it: it waits for the step aside.
-      const cover = castCoverRef.current && !reducedMotion() ? castCoverBox(g) : null;
+      const cover =
+        castCoverRef.current !== null && !reducedMotion()
+          ? castCoverBox(castingStackBox(g, castCoverRef.current))
+          : null;
       const asideWait = (box: Box) => (cover && covers(cover, box) ? ASIDE_MS : 0);
       for (const [lead, ids] of before.piles) {
         if (ids.length < 2) continue;

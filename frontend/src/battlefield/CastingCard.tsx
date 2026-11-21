@@ -21,6 +21,13 @@
 // Instead, when the pointer (or the keyboard's focus) is on something to
 // click for the question that the card covers, the card fades almost
 // away; clicks always went through it (pointer-events: none).
+//
+// Spec 0110 (owner 2026-11-20, A · at its stack place through targeting and
+// paying) -- the place is no longer the middle: it is the stack's next slot
+// at the same big size (stepAside.ts castingStackBox), for every question of
+// the cast and for both seats ("Yes, same spot"), so the middle of the table
+// is never covered. Paid, it settles into its slot (a short move); the other
+// player's back rises there, flips there and is held there.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { SnapshotCard } from "../match";
@@ -31,11 +38,11 @@ import type { Box, Geometry } from "./layout";
 import { manaSymbols, symbolUrl } from "./ManaCost";
 import { assignBalls, litShadow, type PaidStep } from "./manaBalls";
 import { paced, MOVE_EASING, MOVE_MS, glideFramesAs, lateFade } from "./motion";
-import { castingBox, runFrames, runMs, type AsideRun, type Offset } from "./stepAside";
+import { castingStackBox, runFrames, runMs, type AsideRun, type Offset } from "./stepAside";
 
 /**
- * Spec 0072 -- the other player's card's Glide (A-00) into or out of the
- * middle: from (or to) a place on the table, a table card turning about
+ * Spec 0072 -- the other player's card's Glide (A-00) into or out of its
+ * place (spec 0110: the stack's next slot): from (or to) a place on the table, a table card turning about
  * `origin` there.
  */
 export interface TheirGlide {
@@ -65,15 +72,19 @@ const SETTLE_MS = paced(140);
 export const FLIP_MS = paced(420);
 export const HOLD_MS = 650; // not paced: a wait (spec 0106)
 
-// Spec 0068 -- where the card floats (moved to stepAside.ts for spec 0091,
-// so the board can tell what it covers).
-export { castingBox };
+// Spec 0110 -- where the card waits: the stack's next slot (stepAside.ts,
+// so the board can tell what it covers, spec 0091).
+export { castingStackBox };
 
 /** Spec 0068 -- how solid the card is while what it covers is pointed at (canvas: 1 - 0.86). */
 export const SEE_THROUGH = 0.14;
 
-/** Something to click for the question being asked (Board marks it). */
-const CHOOSABLE = '[data-choosable="true"]';
+/**
+ * Something to click for the question being asked (Board marks it); spec
+ * 0110: or a stack entry, which the card now sits over (pointed at, it is
+ * read).
+ */
+const CHOOSABLE = '[data-choosable="true"], [data-zone="stack"]';
 
 function inside(r: DOMRect, x: number, y: number): boolean {
   return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
@@ -310,7 +321,7 @@ function Embers({ colour }: { colour: string }) {
 
 /**
  * Spec 0082 -- a copy that is cast (a prepared spell) wears the gold copy
- * mark the whole way: in the middle while paid, and flying to the stack.
+ * mark the whole way: at its place while paid, and settling into the stack.
  */
 function CastCopyMark({ card }: { card: SnapshotCard }) {
   return card.copy ? (
@@ -362,6 +373,7 @@ function Back() {
 export function CastingCard({
   card,
   geometry,
+  box,
   from,
   owing,
   cost = null,
@@ -379,21 +391,23 @@ export function CastingCard({
    * pay (stepAside.ts): played once per run, on the page's clock.
    */
   aside?: AsideRun | null;
-  /** Spec 0091 -- the step's animation is over (back in the middle), or was hurried there. */
+  /** Spec 0091 -- the step's animation is over (back at its place), or was hurried there. */
   onAsideDone?: ((key: string) => void) | undefined;
   /**
-   * Spec 0081 -- told when the rise (the Glide from `theirs`) has landed in
-   * the middle, or at once when there is none: a free spell is cast then.
+   * Spec 0081 -- told when the rise (the Glide from `theirs`) has landed at
+   * its place (spec 0110: the stack's next slot), or at once when there is none: a free spell is cast then.
    */
   onRisen?: (() => void) | undefined;
   card: SnapshotCard;
   geometry: Geometry;
+  /** Spec 0110 -- where it waits: castingStackBox (the stack's next slot, big). */
+  box: Box;
   /** Where it rose from (the card clicked in hand), when known. */
   from: Box | null;
   /**
    * Spec 0072 -- the other player's spell (a spectator's: either player's):
    * where it rose from -- the middle back of their fan, a card of theirs you
-   * were shown, or a pile -- making the A-00 Glide to the middle.
+   * were shown, or a pile -- making the A-00 Glide to its place (spec 0110: the stack's next slot).
    */
   theirs?: TheirGlide | null;
   /** Forge's "still owing", while it is being paid for (spec 0058: the last one, kept). */
@@ -412,7 +426,6 @@ export function CastingCard({
   /** Spec 0068 -- the question being asked (its id): see-through is read again for each. */
   asking?: number | null;
 }) {
-  const box = castingBox(geometry);
   const ref = useRef<HTMLDivElement>(null);
   const hidden = hiddenBy !== null;
   // Spec 0068, item 2 -- your own card fades off what you point at under
@@ -575,7 +588,8 @@ export function CastingCard({
 }
 
 /**
- * The card leaving the middle: to where it landed (paid) or back to the
+ * The card leaving its place (spec 0110: the stack's next slot, big): to
+ * where it landed (paid: a short settle into its stack slot) or back to the
  * hand (cancelled). Drawn once, then gone; the real card is already in
  * its place underneath.
  *
@@ -595,6 +609,7 @@ export function CastingCard({
 export function CastingFlight({
   card,
   geometry,
+  box,
   to,
   artUrl,
   onDone,
@@ -613,11 +628,13 @@ export function CastingFlight({
   x?: number | undefined;
   /**
    * Spec 0091 Amendment 1 -- it was held aside (its step) when its spell
-   * left the stack: it sets off at once from where it is, not the middle.
+   * left the stack: it sets off at once from where it is, not its place.
    */
   fromOffset?: Offset | null;
   card: SnapshotCard;
   geometry: Geometry;
+  /** Spec 0110 -- where it sets off from: the CastingCard's own castingStackBox. */
+  box: Box;
   to: Box | null;
   /**
    * Spec 0072, item 3 -- the other player's spell, cancelled: at once, the
@@ -633,9 +650,8 @@ export function CastingFlight({
   /** `to` is the card's place on the battlefield: land there, solid. */
   landing?: boolean;
 }) {
-  // Spec 0068 -- it sets off from the middle of the screen, where it always
-  // is (the other player's turns over and is held there first).
-  const box = castingBox(geometry);
+  // Spec 0110 -- it sets off from the stack's next slot, where it always is
+  // (the other player's turns over and is held there first).
   // Where it goes is read when it sets off, not when it is drawn.
   const toRef = useRef(to);
   toRef.current = to;
@@ -724,21 +740,27 @@ export function CastingFlight({
       }
       const dx = there.x + there.w / 2 - (box.x + box.w / 2);
       const dy = there.y + there.h / 2 - (box.y + box.h / 2);
+      const start = { transform: `translate(${ox}px, ${oy}px) scale(1) rotate(0deg)`, opacity: 1 };
+      const end = {
+        transform: `translate(${dx}px, ${dy}px) scale(${there.h / box.h}) rotate(${there.rotation}deg)`,
+        // On the stack it fades into the small card there; on the
+        // battlefield it IS the card, which appears as it lands.
+        opacity: landingRef.current ? 1 : 0.35,
+      };
       animation = el.animate(
-        [
-          { transform: `translate(${ox}px, ${oy}px) scale(1) rotate(0deg)`, opacity: 1 },
-          {
-            transform: `translate(${(ox + dx) * 0.5}px, ${(oy + dy) * 0.5 - 60}px) scale(0.75) rotate(5deg)`,
-            opacity: 1,
-            offset: 0.5,
-          },
-          {
-            transform: `translate(${dx}px, ${dy}px) scale(${there.h / box.h}) rotate(${there.rotation}deg)`,
-            // On the stack it fades into the small card there; on the
-            // battlefield it IS the card, which appears as it lands.
-            opacity: landingRef.current ? 1 : 0.35,
-          },
-        ],
+        landingRef.current
+          ? [
+              start,
+              {
+                transform: `translate(${(ox + dx) * 0.5}px, ${(oy + dy) * 0.5 - 60}px) scale(0.75) rotate(5deg)`,
+                opacity: 1,
+                offset: 0.5,
+              },
+              end,
+            ]
+          : // Spec 0110 -- into its stack slot it is already beside: a short
+            // settle, straight in as it shrinks (no arc over the table).
+            [start, end],
         { duration: FLY_MS, easing: "cubic-bezier(.5,0,.2,1)", fill: "forwards" },
       );
       // The row can shift while it flies (a tapped card splits from its

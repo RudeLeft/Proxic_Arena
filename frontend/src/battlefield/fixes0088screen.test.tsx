@@ -396,7 +396,11 @@ describe("F-0088-D · the top of the library on its tile", () => {
     )!;
     expect(rise).toBeTruthy();
     const [dx, dy] = (String(rise.frames[0]!.transform).match(/-?[\d.]+/g) ?? []).map(Number);
-    const at = { x: 1920 / 2 + dx!, y: 947 / 2 + dy! };
+    // From its place (spec 0110: the stack's next slot), moved by (dx, dy).
+    const at = {
+      x: parseFloat(cast.style.left) + parseFloat(cast.style.width) / 2 + dx!,
+      y: parseFloat(cast.style.top) + parseFloat(cast.style.height) / 2 + dy!,
+    };
     const box = libraryTopBox(geometry({ width: 1920, height: 947 }), "opponent");
     expect(Math.abs(at.x - (box.x + box.w / 2))).toBeLessThan(box.w);
     expect(Math.abs(at.y - (box.y + box.h / 2))).toBeLessThan(box.h);
@@ -422,7 +426,11 @@ describe("F-0088-D · the top of the library on its tile", () => {
     )!;
     expect(rise).toBeTruthy();
     const [dx, dy] = (String(rise.frames[0]!.transform).match(/-?[\d.]+/g) ?? []).map(Number);
-    const at = { x: 1920 / 2 + dx!, y: 947 / 2 + dy! };
+    // From its place (spec 0110: the stack's next slot), moved by (dx, dy).
+    const at = {
+      x: parseFloat(cast.style.left) + parseFloat(cast.style.width) / 2 + dx!,
+      y: parseFloat(cast.style.top) + parseFloat(cast.style.height) / 2 + dy!,
+    };
     const g = geometry({ width: 1920, height: 947 });
     const box = libraryTopBox(g, "viewer");
     // It set off from the tile's small card (in the column, by Alice's plate).

@@ -170,9 +170,14 @@ const giant = {
 const startOf = (c: HTMLElement) => {
   const rise = riseOf(c);
   if (!rise) return null;
-  // CastingCard draws it in the middle and starts it moved by (dx, dy).
+  // CastingCard draws it at its place (spec 0110: the stack's next slot)
+  // and starts it moved by (dx, dy).
   const [dx, dy] = (String(rise.frames[0]!.transform).match(/-?[\d.]+/g) ?? []).map(Number);
-  return { x: 1920 / 2 + dx!, y: 947 / 2 + dy! };
+  const el = rise.element as HTMLElement;
+  return {
+    x: parseFloat(el.style.left) + parseFloat(el.style.width) / 2 + dx!,
+    y: parseFloat(el.style.top) + parseFloat(el.style.height) / 2 + dy!,
+  };
 };
 // The column starts at x 1672 at this size; the fan stands just left of it.
 const RAIL_X = 1920 - 0.1471 * (16 / 9) * 947;

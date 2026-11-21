@@ -1,14 +1,16 @@
 // Spec 0044 -- the card being cast: face down to the opponent until it is
 // committed, and shown for an optional cost asked while it is still in the
 // hand. Spec 0068 (owner 2026-11-09) supersedes its docking beside the
-// stack: the card stays in the middle of the screen for a target too.
+// stack: the card stays in one place for a target too. Spec 0110 (owner
+// 2026-11-20): that place is the stack's next slot, not the middle of the
+// screen (castCentre measures from there).
 //
-// F-0044-A / F-0068-A, B: a target question keeps the card in the middle,
-//   pointing at the creature under it makes the card see-through, and a
-//   REAL mouse click on the creature reaches it.
+// F-0044-A / F-0068-A, B: a target question keeps the card at its place,
+//   pointing at the creature under it (if any) makes the card see-through,
+//   and a REAL mouse click on the creature reaches it.
 // F-0044-B / F-0068-C: the opponent sees the card's back ("… is casting a
 //   spell") and never its name while it is paid for; once it is cast the
-//   back turns over to the face, held in the middle.
+//   back turns over to the face, held at the same place (spec 0110).
 // F-0044-C: Archon's Glory's Bargain question shows the card being cast.
 // F-0068-D: the game screen's pointer is the obsidian arrow.
 
@@ -28,6 +30,7 @@ import {
   watchGame,
   discardIfAsked,
   castCentre,
+  castRisen,
   shootWithPointer,
 } from "./match-helpers";
 
@@ -55,18 +58,14 @@ const castCard = (page: Page) =>
   });
 
 /** The card being cast is drawn and has stopped moving: none of its own animations still running. */
-const risen = (page: Page) =>
-  page.evaluate(() => {
-    const el = document.querySelector<HTMLElement>(".gs-cast:not(.gs-cast-leaving)");
-    return !!el && el.getAnimations().every((a) => a.playState !== "running" && !a.pending);
-  });
+const risen = castRisen;
 
 const playable = (page: Page, name: string) =>
   page.locator('[data-zone="viewer:hand"][data-choosable="true"]:not([data-unpayable="true"])', {
     hasText: name,
   });
 
-test("the card being cast stays centred, hides from the opponent, then turns over there", async ({
+test("the card being cast stays at its stack spot, hides from the opponent, then turns over there", async ({
   browser,
 }) => {
   test.skip(!existsSync(castingPackage), "no casting deck package built");
@@ -114,7 +113,7 @@ test("the card being cast stays centred, hides from the opponent, then turns ove
           ) {
             await clickNow(playable(page, "Swords to Plowshares").first());
             await expect.poll(() => kind(page), { timeout: 15_000 }).toBe("chooseTargetsFor");
-            // F-0068-A: still in the middle of the window, full size. Read
+            // F-0068-A: still at its place (spec 0110: the stack's next slot), full size. Read
             // once its rise out of the hand (FLY_MS, 700 ms paced) is over:
             // a fixed 700 ms wait read the rise's last frames on a slow CI
             // runner (44741449950: 2.5 px short). The card's own
@@ -124,8 +123,8 @@ test("the card being cast stays centred, hides from the opponent, then turns ove
               .poll(() => risen(page), { timeout: 15_000, message: "the cast card's rise ended" })
               .toBe(true);
             const centre = (await castCentre(page))!;
-            expect(Math.abs(centre.dx), "centred across for a target").toBeLessThan(2);
-            expect(Math.abs(centre.dy), "centred down for a target").toBeLessThan(2);
+            expect(Math.abs(centre.dx), "at its stack spot across, for a target").toBeLessThan(2);
+            expect(Math.abs(centre.dy), "at its stack spot down, for a target").toBeLessThan(2);
             // F-0044-B: the opponent sees its back and who, never its name.
             const seen = await castCard(other);
             expect(seen?.back).toBe(true);
@@ -175,29 +174,15 @@ test("the card being cast stays centred, hides from the opponent, then turns ove
               },
             );
             await page.mouse.click(x, y);
-            // F-0068-C: the other player's card turns over in the middle and
-            // is held there (read while it is held, as this player pays).
+            // F-0068-C: the other player's card turns over at its place (spec
+            // 0110: the stack's next slot) and is held there (read while it
+            // is held, as this player pays, as soon as it has turned).
             const held = (async () => {
               await other
                 .locator(".gs-cast-leaving .gs-cast-turn")
                 .first()
                 .waitFor({ state: "attached", timeout: 60_000 });
-              await other.waitForTimeout(450);
-              const centre = await other.evaluate(() => {
-                const el = document.querySelector<HTMLElement>(".gs-cast-leaving");
-                if (!el) return null;
-                return {
-                  dx: parseFloat(el.style.left) + parseFloat(el.style.width) / 2 - innerWidth / 2,
-                  dy: parseFloat(el.style.top) + parseFloat(el.style.height) / 2 - innerHeight / 2,
-                  moving: el
-                    .getAnimations()
-                    .some((a) =>
-                      (a.effect as KeyframeEffect | null)
-                        ?.getKeyframes()
-                        .some((k) => String(k["transform"] ?? "").includes("translate")),
-                    ),
-                };
-              });
+              const centre = await castCentre(other, ".gs-cast-leaving");
               await shootWithPointer(other, "0068-5-opponent-reveal-held.png", []);
               return centre;
             })();
@@ -212,8 +197,13 @@ test("the card being cast stays centred, hides from the opponent, then turns ove
             await turned;
             const reveal = await held;
             expect(reveal, "the reveal was seen").not.toBeNull();
-            expect(Math.abs(reveal!.dx), "the reveal is held centred across").toBeLessThan(2);
-            expect(Math.abs(reveal!.dy), "the reveal is held centred down").toBeLessThan(2);
+            expect(
+              Math.abs(reveal!.dx),
+              "the reveal is held at the stack spot, across",
+            ).toBeLessThan(2);
+            expect(Math.abs(reveal!.dy), "the reveal is held at the stack spot, down").toBeLessThan(
+              2,
+            );
             expect(reveal!.moving, "held, not yet flying").toBe(false);
             // F-0068-D: one pointer over the table, a card and a button.
             // Whatever button and card are there now (never wait for one).
@@ -239,7 +229,7 @@ test("the card being cast stays centred, hides from the opponent, then turns ove
           if (!optional && (await playable(page, "Archon's Glory").count()) > 0) {
             await clickNow(playable(page, "Archon's Glory").first());
             await expect.poll(() => kind(page), { timeout: 15_000 }).toBe("chooseOptionalCosts");
-            // F-0044-C: the card is in the middle for its optional cost.
+            // F-0044-C: the card is drawn for its optional cost (at its stack spot, spec 0110).
             await expect
               .poll(async () => (await castCard(page))?.label)
               .toBe("Being cast: Archon's Glory");

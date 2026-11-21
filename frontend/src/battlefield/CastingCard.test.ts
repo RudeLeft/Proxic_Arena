@@ -4,9 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { Decision } from "../match";
 import { optionalCostTitle } from "../matchText";
 import { clickOn, type Question } from "./interaction";
-import { castingBox, costPips, emberColour, stillOwing } from "./CastingCard";
-import { geometry } from "./layout";
-import { stackSpotBoxes } from "./effects";
+import { costPips, emberColour, stillOwing } from "./CastingCard";
 
 describe("the cost under the card being cast", () => {
   it("reads Forge's own still owing", () => {
@@ -70,25 +68,6 @@ describe("a click on an attacker or blocker", () => {
   });
 });
 
-// Spec 0068 -- supersedes spec 0044's docking and owner 2026-11-01 item 4's
-// sliding aside: the card is always centred on the middle of the screen,
-// at full size, whatever is under it; after a resize, the new middle.
-describe("the card being cast, in the middle of the screen (F-0068-A)", () => {
-  for (const [width, height] of [
-    [1920, 1080],
-    [1920, 947],
-    [2560, 1440],
-    [3440, 1440],
-    [3840, 2160],
-  ] as const) {
-    it(`is centred at ${width}x${height}, full size`, () => {
-      const g = geometry({ width, height });
-      const box = castingBox(g);
-      expect(box.x + box.w / 2).toBeCloseTo(width / 2, 6);
-      expect(box.y + box.h / 2).toBeCloseTo(height / 2, 6);
-      expect(box.h).toBeCloseTo(Math.min(g.cardH * 2.5, height * 0.5), 6);
-      // Never over the stack's spot in the right-hand column.
-      expect(box.x + box.w).toBeLessThan(stackSpotBoxes(g, 1)[0]!.x);
-    });
-  }
-});
+// Spec 0068's F-0068-A (always the middle of the screen) is superseded by
+// spec 0110: the card waits at the stack's next slot, big. Its geometry is
+// proven in stepAside.test.ts (F-0110-A).

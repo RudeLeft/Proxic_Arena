@@ -18,6 +18,8 @@ import {
 import type { Box, Geometry } from "./layout";
 import { OrderTray } from "./TriggerWindows";
 
+/** Spec 0110 -- where the card being cast is drawn (its place is not what these tests check). */
+const castAt = { x: 800, y: 300, w: 240, h: 336, scale: 2.5, rotation: 0, z: 0 };
 const geometry = {
   play: { x: 0, y: 0, w: 1600, h: 1000 },
   inset: 12,
@@ -119,6 +121,7 @@ describe("a cheaper card shows its real cost, and why, with no ring (F-0058-B)",
       <CastingCard
         card={card({})}
         geometry={geometry}
+        box={castAt}
         from={null}
         owing={null}
         cost={["R"]}
@@ -266,6 +269,7 @@ describe("the cost being paid, not the printed one (F-0058-G)", () => {
       <CastingCard
         card={lurker}
         geometry={geometry}
+        box={castAt}
         from={null}
         owing={["1", "BG"]}
         cost={["2", "BG", "BG"]}
@@ -292,6 +296,7 @@ describe("the cost being paid, not the printed one (F-0058-G)", () => {
       <CastingCard
         card={card({})}
         geometry={geometry}
+        box={castAt}
         from={null}
         owing={null}
         cost={["CW", "BGP"]}

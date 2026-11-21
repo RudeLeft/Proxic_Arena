@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
-// Spec 0068 -- the casting card stays in the middle of the screen and goes
-// see-through over what it covers; the obsidian pointer (F-0068-A..D).
+// Spec 0068 -- the casting card stays in one place and goes see-through over
+// what it covers; the obsidian pointer (F-0068-A..D). Spec 0110 moved that
+// place from the middle of the screen to the stack's next slot
+// (castingStackBox): these tests read it there.
 // The real game screen, its socket replaced: the test hands it the
 // server's messages itself.
 
@@ -11,7 +13,7 @@ import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_LOBBY, type MatchView } from "../lobby";
 import { reduceMatch, type MatchState } from "../match";
-import { FLIP_MS, HOLD_MS, castingBox } from "./CastingCard";
+import { FLIP_MS, HOLD_MS, castingStackBox } from "./CastingCard";
 import { stackSpotBoxes } from "./effects";
 import { bubbleBox } from "./GameWindow";
 import type { Question } from "./interaction";
@@ -219,25 +221,30 @@ function open() {
   const view = render(<GameScreen match={match} me="u-1" onLeave={() => {}} />);
   return view.container;
 }
+/** Spec 0110 -- the centre of the card's one place at this size: the stack's next slot. */
+const placeCentre = (width: number, height: number, stack = 0) => {
+  const b = castingStackBox(layoutGeometry({ width, height }), stack);
+  return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+};
 
-describe("the casting card is in the middle of the screen (F-0068-A)", () => {
+describe("the casting card stays in its one place (F-0068-A, the place as spec 0110)", () => {
   it("for paying, a target and an optional cost, and after a resize", () => {
     const c = open();
     board({ casting: [wurm] });
-    // Paying with the Elf (under the middle of the table).
+    // Paying with the Elf.
     ask("applyManaToCost", elf.id, { owing: "{4}{G}{G}" });
-    expect(centreOf(castCard(c)!)).toEqual({ x: 960, y: 947 / 2 });
+    expect(centreOf(castCard(c)!)).toEqual(placeCentre(1920, 947));
     // A target on the other side of the table.
     ask("chooseTargets", goblin.id);
-    expect(centreOf(castCard(c)!)).toEqual({ x: 960, y: 947 / 2 });
+    expect(centreOf(castCard(c)!)).toEqual(placeCentre(1920, 947));
     expect(castCard(c)!.dataset["docked"]).toBeUndefined();
-    // Between questions: still the middle.
+    // Between questions: still there.
     send({ type: "DECISION_CLEARED", decisionId: asked });
-    expect(centreOf(castCard(c)!)).toEqual({ x: 960, y: 947 / 2 });
-    // A bigger window: the new middle.
+    expect(centreOf(castCard(c)!)).toEqual(placeCentre(1920, 947));
+    // A bigger window: the new place.
     size = { width: 2560, height: 1440 };
     act(() => resized.forEach((callback) => callback()));
-    expect(centreOf(castCard(c)!)).toEqual({ x: 1280, y: 720 });
+    expect(centreOf(castCard(c)!)).toEqual(placeCentre(2560, 1440));
   });
 
   it("for an optional cost asked while it is still in the hand", () => {
@@ -245,7 +252,7 @@ describe("the casting card is in the middle of the screen (F-0068-A)", () => {
     board({ hand: [wurm] });
     ask("chooseOptionalCosts", wurm.id, { about: { name: "Craw Wurm" } });
     expect(castCard(c)).not.toBeNull();
-    expect(centreOf(castCard(c)!)).toEqual({ x: 960, y: 947 / 2 });
+    expect(centreOf(castCard(c)!)).toEqual(placeCentre(1920, 947));
   });
 });
 
@@ -259,16 +266,17 @@ describe("see-through over what it covers (F-0068-B)", () => {
     expect(elfButton.dataset["choosable"]).toBe("true");
     expect(card.dataset["seeThrough"]).toBeUndefined();
     // The pointer in the middle of the card, on the Elf under it.
-    pointAt(elfButton, 960, 470);
+    const mid = placeCentre(1920, 947);
+    pointAt(elfButton, mid.x, mid.y);
     expect(card.dataset["seeThrough"]).toBe("true");
     expect(card.classList.contains("gs-cast-see")).toBe(true);
     // Clicks were never the card's: the Elf is answered.
     act(() => elfButton.click());
     expect(JSON.stringify(socket.answers)).toContain(`a${asked}`);
     // Moved off (on the table, nothing to click): solid again, never moved.
-    pointAt(c.querySelector('[data-testid="battlefield"]')!, 960, 470);
+    pointAt(c.querySelector('[data-testid="battlefield"]')!, mid.x, mid.y);
     expect(card.dataset["seeThrough"]).toBeUndefined();
-    expect(centreOf(card)).toEqual({ x: 960, y: 947 / 2 });
+    expect(centreOf(card)).toEqual(mid);
   });
 
   it("a choosable card outside the card does not fade it; the keyboard's focus on one under it does", () => {
@@ -281,9 +289,10 @@ describe("see-through over what it covers (F-0068-B)", () => {
     pointAt(goblinButton, 5, 5);
     expect(card.dataset["seeThrough"]).toBeUndefined();
     // Focus: the goblin's box laid over the card's (jsdom has no layout).
+    const mid = placeCentre(1920, 947);
     Object.assign(goblinButton.style, {
-      left: "940px",
-      top: "450px",
+      left: `${mid.x - 20}px`,
+      top: `${mid.y - 20}px`,
       width: "60px",
       height: "80px",
     });
@@ -294,9 +303,9 @@ describe("see-through over what it covers (F-0068-B)", () => {
   });
 });
 
-describe("the question's window beside the centred card (F-0068-B)", () => {
+describe("the question's window beside the casting card (F-0068-B, at its place as spec 0110)", () => {
   const g = layoutGeometry({ width: 1920, height: 1080 });
-  const middle = castingBox(g);
+  const middle = castingStackBox(g, 0);
   const stack = stackSpotBoxes(g, 1)[0]!;
   const empty = { hand: [] } as unknown as Snapshot;
   const asking = (ids: string[]) =>
@@ -309,7 +318,8 @@ describe("the question's window beside the centred card (F-0068-B)", () => {
     expect(anchor.side ?? "left").toBe("left");
   });
 
-  it("goes to its right when its left would hide the creature to target", () => {
+  // Spec 0110: its right is the stack now, never clear; above it is next.
+  it("goes above it when its left would hide the creature to target", () => {
     const left = bubbleBox({ ...middle, side: "left" }, g);
     const sliver: Box = { ...middle, x: left.x + left.w - 60, y: left.y + 30, w: 98, h: 137 };
     const anchor = castingWindowAnchor(
@@ -321,15 +331,17 @@ describe("the question's window beside the centred card (F-0068-B)", () => {
       stack,
       (id) => (id === "card:9" ? sliver : null),
     );
-    expect(anchor.side).toBe("right");
+    expect(anchor.side).toBe("above");
     expect(covers(bubbleBox(anchor, g), sliver)).toBe(false);
+    expect(covers(bubbleBox(anchor, g), middle)).toBe(false);
+    expect(covers(bubbleBox(anchor, g), stack)).toBe(false);
     // The card itself has not moved.
     expect({ x: anchor.x, y: anchor.y }).toEqual({ x: middle.x, y: middle.y });
   });
 });
 
-describe("the other player's reveal is held in the middle (F-0068-C)", () => {
-  it("turns over in the middle, is held there, then flies to the stack from there", () => {
+describe("the other player's reveal is held at its place (F-0068-C, the place as spec 0110)", () => {
+  it("turns over at the stack's next slot, is held there, then settles into the stack from there", () => {
     vi.useFakeTimers();
     const c = open();
     const bolt = {
@@ -344,7 +356,7 @@ describe("the other player's reveal is held in the middle (F-0068-C)", () => {
     board({ casting: [{ ...bolt, faceDown: true, known: false, name: "Face-down" }] });
     const back = castCard(c)!;
     expect(back.querySelector(".gs-cast-back")).not.toBeNull();
-    expect(centreOf(back)).toEqual({ x: 960, y: 947 / 2 });
+    expect(centreOf(back)).toEqual(placeCentre(1920, 947));
     // Cast: on the stack. (Bob's hand did not grow: not cancelled.)
     board({
       players: [
@@ -358,17 +370,17 @@ describe("the other player's reveal is held in the middle (F-0068-C)", () => {
     const leaving = c.querySelector<HTMLElement>(".gs-cast-leaving")!;
     expect(leaving).not.toBeNull();
     expect(leaving.querySelector(".gs-cast-turn")).not.toBeNull();
-    expect(centreOf(leaving)).toEqual({ x: 960, y: 947 / 2 });
+    expect(centreOf(leaving)).toEqual(placeCentre(1920, 947));
     const moves = () =>
       animations.filter(
         (a) =>
           a.element === leaving && a.frames.some((f) => String(f.transform).includes("translate")),
       );
     act(() => void vi.advanceTimersByTime(FLIP_MS + HOLD_MS - 10));
-    expect(moves()).toHaveLength(0); // held, still in the middle
+    expect(moves()).toHaveLength(0); // held, still at its place
     act(() => void vi.advanceTimersByTime(20));
-    expect(moves()).toHaveLength(1); // then off to the stack, from the middle
-    expect(centreOf(leaving)).toEqual({ x: 960, y: 947 / 2 });
+    expect(moves()).toHaveLength(1); // then into the stack, from there
+    expect(centreOf(leaving)).toEqual(placeCentre(1920, 947));
   });
 });
 

@@ -736,6 +736,19 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/quiet-windows-deck.zip" protocol/fixtures/quiet-windows-deck
 
+      # Spec 0110 -- Victim of Night and Disfigure at Gryff Vanguard and Elite
+      # Vanguard, for the real-click game (match-cast-at-stack.spec.ts).
+      - name: Build the cast-at-stack deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/cast-at-stack-deck.zip" protocol/fixtures/cast-at-stack-deck
+
+      # Spec 0110 -- thirteen different green creatures, so a line reaches the
+      # casting card at the stack spot, for match-cast-step-aside.spec.ts
+      # (spec 0091's real-click game, dealt since 0110).
+      - name: Build the step-aside deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/step-aside-deck.zip" protocol/fixtures/step-aside-deck
+
       # Spec 0095 -- the owner's mono-green deck on both seats, for the
       # real-game speed test (match-speed.spec.ts).
       - name: Build the green deck package

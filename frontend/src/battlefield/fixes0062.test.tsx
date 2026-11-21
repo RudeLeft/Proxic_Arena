@@ -24,6 +24,8 @@ import {
 } from "./manaBalls";
 import { Board } from "./Board";
 
+/** Spec 0110 -- where the card being cast is drawn (its place is not what these tests check). */
+const castAt = { x: 800, y: 300, w: 240, h: 336, scale: 2.5, rotation: 0, z: 0 };
 const geometry = {
   play: { x: 0, y: 0, w: 1600, h: 1000 },
   inset: 12,
@@ -87,6 +89,7 @@ describe("each mana to the symbol it paid, in its colour (F-0062-A)", () => {
       <CastingCard
         card={nekrataal}
         geometry={geometry}
+        box={castAt}
         from={null}
         owing={["1"]}
         cost={["2", "B", "B"]}
@@ -278,6 +281,7 @@ describe("the balls fly, are hurried, and are not drawn with reduced motion (F-0
         <CastingCard
           card={nekrataal}
           geometry={geometry}
+          box={castAt}
           from={null}
           owing={null}
           cost={["2", "B", "B"]}

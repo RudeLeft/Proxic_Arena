@@ -232,6 +232,9 @@ function overlapping(
  * under it), never over a card the question needs clicked (`avoid`), never
  * off the table: if no place by the card is clear, `fallback` (by the
  * stack, as before).
+ *
+ * Spec 0110 -- the card being cast waits beside the stack, so its right is
+ * never clear: `orAbove` also tries above it before the fallback.
  */
 export function anchorByCard({
   card,
@@ -240,7 +243,9 @@ export function anchorByCard({
   stack,
   avoid,
   fallback,
+  orAbove = false,
 }: {
+  orAbove?: boolean;
   card: Box | null;
   inHand: boolean;
   geometry: Geometry;
@@ -253,9 +258,15 @@ export function anchorByCard({
   const right = Math.min(stack.x, geometry.play.x + geometry.play.w) - geometry.inset;
   const fits = (anchor: Anchor) => {
     const box = bubbleBox(anchor, geometry);
+    // Spec 0110 -- above the card being cast (beside the stack) it may
+    // reach over the stack's column, never over its top card.
+    const until =
+      anchor.side === "above" && orAbove
+        ? geometry.play.x + geometry.play.w - geometry.inset
+        : right;
     return (
       box.x >= geometry.play.x + geometry.inset &&
-      box.x + box.w <= right &&
+      box.x + box.w <= until &&
       box.y >= geometry.inset &&
       box.y + box.h <= geometry.height - geometry.inset &&
       !overlapping(box, stack) &&
@@ -268,6 +279,7 @@ export function anchorByCard({
       right - (card.x + card.w) >= card.x - geometry.play.x
       ? ["right", "left"]
       : ["left", "right"];
+  if (orAbove && !inHand) sides.push("above");
   for (const side of sides) {
     const anchor: Anchor = { ...card, side };
     if (fits(anchor)) return anchor;
