@@ -465,6 +465,69 @@ describe("F-0074-B · milled: a stream off the library, face up, into the gravey
       "13",
     ]);
   });
+
+  // Spec 0108 follow-up (2026-11-21; CI run 44887421289) -- Thought Scour mills
+  // two (library 68 -> 66, ticking as each leaves), and a board with the
+  // player's draw (65, a change the board does not time) arrives while the
+  // second card is still on top: the tile read 68, 67, 65 -- 66 never shown.
+  it("a draw arriving mid-mill: every number shown once, in order -- 68, 67, 66, 65", () => {
+    const lib = "viewer:library";
+    const scour = { ...mindRot(2), name: "Thought Scour", targets: [{ player: 1 }] };
+    const view = render(draw([], { stack: [scour], tiles: { [lib]: 68, "viewer:graveyard": 0 } }));
+    calls.length = 0;
+    const ids = names(2);
+    view.rerender(
+      draw([], {
+        tiles: { [lib]: 66, "viewer:graveyard": 2 },
+        tileMoves: ids.map((id) =>
+          move(id, ["library", "viewer"], ["graveyard", "viewer"], "Island"),
+        ),
+      }),
+    );
+    const n = view.container.querySelector<HTMLElement>(
+      `[data-zone-tile="${lib}"] .gs-zone-n:not(.gs-zone-was)`,
+    )!;
+    const mill = runOf(n)!;
+    const second = RESOLVE_MS + MILL_BEAT_MS; // the second card leaves the library
+    const elapsed = RESOLVE_MS + MILL_BEAT_MS / 2; // the draw's board, between the two
+    const first: string[][] = [];
+    for (let t = 0; t < elapsed; t += 5) first.push(tileAt(view.container, lib, t));
+    (mill.animation as unknown as { currentTime: number }).currentTime = elapsed;
+    const before = new Set(calls);
+    view.rerender(
+      draw([], {
+        hand: [handCard("card:30", "Island")],
+        arrivals: new Map([["card:30", lib]]),
+        tiles: { [lib]: 65, "viewer:graveyard": 2 },
+      }),
+    );
+    // What the tile shows `abs` ms after the mill's board: each number by its
+    // own run, on the clock that run started on.
+    const shownAt = (abs: number) =>
+      [...view.container.querySelectorAll<HTMLElement>(`[data-zone-tile="${lib}"] .gs-zone-n`)]
+        .filter((el) => {
+          const run = runOf(el);
+          if (!run) return el.style.opacity !== "0";
+          const t = abs - (before.has(run) ? 0 : elapsed);
+          const total = Number(run.options.duration);
+          if (t >= total) return el.style.opacity !== "0";
+          let opacity = 1;
+          for (const f of run.frames)
+            if (Number(f.offset) * total <= t) opacity = Number(f.opacity);
+          return opacity > 0;
+        })
+        .map((el) => el.textContent ?? "");
+    const later: string[][] = [];
+    for (let t = elapsed; t < second + 2000; t += 5) later.push(shownAt(t));
+    const samples = [...first, ...later];
+    // One number at a time, never two over each other, never none.
+    for (const s of samples) expect(s).toHaveLength(1);
+    const seen = samples.map((s) => s[0]).filter((x, i, all) => i === 0 || all[i - 1] !== x);
+    expect(seen).toEqual(["68", "67", "66", "65"]);
+    // The mill's own second card still takes the number to 65 as it leaves.
+    expect(shownAt(second - 5)).toEqual(["66"]);
+    expect(shownAt(second + 5)).toEqual(["65"]);
+  });
 });
 
 describe("F-0074-C · countered: struck by the beam, grey ash, to the graveyard", () => {

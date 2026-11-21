@@ -9039,6 +9039,32 @@ export function Board({
         if (run) tileRuns.current.set(tile, { run, changes: all, end: shown });
         else tileRuns.current.delete(tile);
       }
+      // Spec 0108 follow-up (2026-11-21) -- a board that changes a tile still
+      // ticking without timing the change (the player's draw while Thought
+      // Scour's second card is still on top): the change shows at once, as
+      // it does on a tile at rest, and the numbers the last run still owes
+      // follow at their remaining times -- never the new number in the slot
+      // of one still owed (68, 67, 65: 66 never shown).
+      for (const [tile, was] of tileRuns.current) {
+        if (ticks.get(tile)?.some((c) => c.at > 0)) continue;
+        if (was.run.playState !== "running") continue;
+        const n = ref.current?.querySelector<HTMLElement>(
+          `[data-zone-tile="${tile}"] .gs-zone-n:not(.gs-zone-was)`,
+        );
+        if (!n) continue;
+        const shown = Number(n.textContent);
+        if (!Number.isFinite(shown) || shown === was.end) continue;
+        const elapsed = Number(was.run.currentTime ?? 0);
+        const owed = was.changes
+          .filter((c) => c.at > elapsed)
+          .map((c) => ({ at: c.at - elapsed, by: c.by }));
+        if (owed.length === 0) continue;
+        const all = [{ at: 0, by: shown - was.end }, ...owed];
+        was.run.cancel();
+        const run = tickTile(n, all);
+        if (run) tileRuns.current.set(tile, { run, changes: all, end: shown });
+        else tileRuns.current.delete(tile);
+      }
       // Spec 0106 Amendment 1 (owner 2026-11-19) -- what an EARLIER board is
       // still bringing to a tile (Glimpse's ten-card mill, its cards still
       // flying when the board that makes them usable arrives): how long
