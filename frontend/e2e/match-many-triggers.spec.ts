@@ -307,7 +307,15 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
         const board = panel.locator('.bf-cards button[data-choosable="true"]');
         if ((await listed.count()) > 0) await clickNow(listed);
         else if ((await board.count()) > 0) await clickUnlessCombat(board);
-        else await clickNow(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
+        else {
+          // Never the Cancel act button: a question that opened after the
+          // checks above (a copy's target window) shows it, and clicking it
+          // declines the question. Loop round and answer the window instead.
+          const pass = panel.locator(
+            "button.gs-pass, button.gs-act:not(.gs-act-discard):not(.gs-act-cancel)",
+          );
+          if ((await pass.count()) > 0) await clickNow(pass);
+        }
       }
       await host.waitForTimeout(100);
     }
