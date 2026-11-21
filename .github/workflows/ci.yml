@@ -165,8 +165,6 @@ jobs:
       - run: python3 -I scripts/check-moves.py --self-test
       # check-hidden-tops' table-link rule (spec 0103): a library card's link fails.
       - run: python3 -I scripts/check-hidden-tops.py --self-test
-      # Spec 0113, safety net 1: one case per wording rule.
-      - run: python3 -I scripts/check-wording.py --self-test
       # AGENTS EVID-006: live docs name code by file and symbol, never by line number.
       - run: python3 -I scripts/check-doc-refs.py --self-test && python3 -I scripts/check-doc-refs.py
 
@@ -175,6 +173,9 @@ jobs:
       # Spec 0114 F-0114-E: the player pages' and the server's sentences follow
       # the word rules (no "Forge", no dashes, no "colour", no "(s)"); admin and
       # logs exempt. Needs frontend/node_modules (TypeScript reads the pages).
+      # Spec 0113, safety net 1: one case per wording rule. After npm ci: since
+      # spec 0114 its cases include the source sweep, which needs TypeScript.
+      - run: python3 -I scripts/check-wording.py --self-test
       - run: python3 -I scripts/check-wording.py --source
       - run: npx tsc --noEmit
         working-directory: frontend

@@ -76,7 +76,8 @@ const onBoard = (page: Page, side: "viewer" | "opponent", name: RegExp) =>
   boardCards(page, side).filter({ hasText: name });
 /**
  * One of the viewer's creatures that can attack now: untapped and not
- * summoning sick (the board says "summoning sick" in its name). The Raven
+ * summoning sick (since spec 0113 the board says "came in this turn" in its
+ * name; CI run 44898320006 stalled again on the old words). The Raven
  * is cast and equipped in one main phase, so on that turn's combat it is
  * sick; the undying Ghoul may still make the game ask for attackers. CI run
  * 44827945861 clicked the sick Raven for 120 s: it is only selected, and the
@@ -84,7 +85,7 @@ const onBoard = (page: Page, side: "viewer" | "opponent", name: RegExp) =>
  */
 const canAttack = (page: Page, name: RegExp) =>
   onBoard(page, "viewer", name).and(
-    page.locator('[data-tapped="false"]:not([aria-label*="summoning sick"])'),
+    page.locator('[data-tapped="false"]:not([aria-label*="came in this turn"])'),
   );
 const stepOf = async (page: Page) =>
   (

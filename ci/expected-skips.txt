@@ -37,3 +37,9 @@ net.barnflix.proxic.deck.DeckListTest
 # GIT-001); its TXT and CSV are versioned and MechanicsLabCorpusTest
 # runs on CI. Only the artwork half needs the images.
 net.barnflix.proxic.deck.MechanicsLabArtTest
+
+# Spec 0114: imports the real Deck Builder export to prove the import
+# words (unknown card, bad picture) on a genuine package. On CI the same
+# words are proven through the real route by match-wording-pages.spec.ts
+# (pages-deck fixture) and by Words0114DeckTest, which runs everywhere.
+net.barnflix.proxic.deck.Words0114ImportTest
