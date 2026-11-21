@@ -304,7 +304,9 @@ function Board({
                 <th scope="col">Rank</th>
                 <th scope="col">Player</th>
                 <th scope="col">Rating</th>
-                <th scope="col">Won · Lost · Drawn</th>
+                <th scope="col" className="pa-hp-th-rec">
+                  Won · Lost · Drawn
+                </th>
                 <th scope="col">Win %</th>
                 <th scope="col">Last five</th>
                 <th scope="col">Favorite deck</th>

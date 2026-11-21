@@ -363,3 +363,9 @@ Modified: `.github/workflows/ci.yml`, `docs/architecture/AUTHORIZATION.md`, `doc
 ## Amendments
 
 None yet.
+
+### Follow-up 2026-11-21 (decided while owner away, to review)
+
+- **CI run 44898320006** failed three ways, each root-caused (c8d9345b): `check-wording.py --self-test` ran before `npm ci` (its source-sweep cases need TypeScript); `Words0114ImportTest` needs the real Deck Builder export and is now in `ci/expected-skips.txt`; `match-small-fixes` `canAttack` still excluded the old label "summoning sick" (0113 made it "came in this turn"), so it clicked a sick Raven for 120 s.
+- **CI run 44901395734:** once a game had finished on CI (0115's concede), Pat held the belt when the Hall test ran; W2-058's rule wraps to two lines in CI's wider system font and the band grew past the trophies (place 186 px, trophy 148). On screens 1700 px and wider the trophies now set the band's height and the Belt picture gives up the room (`app.css`, `.pa-hp-belt` in the min-width 1700px block). Measured: with a wide font the place is 156.5 px, trophy 148.5, nothing clipped; smaller screens unchanged.
+- **W2-064 "Won · Lost · Drawn"** ran into "Win %" at 1920 (157 px of title in a 148 px column; the still showed "DRAWNWIN %"). The record column is 13% on big screens (192 px at 1920) and its title may take two lines below that (`.pa-hp-th-rec`). `lobby.spec`'s Hall test now fails any column title that is cut (`.pa-hp-table th`); before the fix it reads 148/157 at 1920.

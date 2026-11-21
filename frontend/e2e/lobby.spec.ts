@@ -668,7 +668,10 @@ test("the Hall's leaderboard spreads out, every badge shows and the trophies fil
       const lossBox = document.querySelector(".pa-hp-form-L");
       return {
         buttonGap: all!.left - season!.right,
-        cut: [...document.querySelectorAll(".pa-hp-who b, .pa-hp-rating, .pa-hp-rec")]
+        // Spec 0114: a column title never runs into the next ("Won · Lost · Drawn").
+        cut: [
+          ...document.querySelectorAll(".pa-hp-who b, .pa-hp-rating, .pa-hp-rec, .pa-hp-table th"),
+        ]
           .filter((b) => b.scrollWidth > b.clientWidth)
           .map((b) => b.textContent),
         ratingAt: table && titles.length > 2 ? (titles[2]! - table.left) / table.width : null,

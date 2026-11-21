@@ -3846,8 +3846,11 @@
   .pa-hp-c-rating {
     width: 11%;
   }
+  /* Spec 0114 W2-064: "Won · Lost · Drawn" is 157px in Segoe UI, about
+   * 15% more in a wider system font: 13% is 192px at 1920. (A max() width
+   * is ignored on a table column.) */
   .pa-hp-c-rec {
-    width: 10%;
+    width: 13%;
   }
   .pa-hp-c-pct {
     width: 8%;
@@ -3869,6 +3872,11 @@
   white-space: nowrap;
   color: var(--pa-muted);
   border-bottom: 1px solid var(--pa-line-soft);
+}
+/* Narrower than a big screen, the record's title takes two lines rather
+ * than running into "Win %" (spec 0114 W2-064). */
+.pa-hp-table th.pa-hp-th-rec {
+  white-space: normal;
 }
 .pa-hp-table td {
   padding: 7px 10px;
@@ -4195,6 +4203,19 @@
     width: clamp(96px, 100cqw - 172px, 150px);
     height: auto;
     aspect-ratio: 1;
+  }
+  /* The trophies set the band's height, not the Belt: the Belt's rule may
+   * wrap to two lines (a wider system font, 0114's words), and its picture
+   * gives up the room instead of the band growing past the trophies
+   * (CI run 44901395734). */
+  .pa-hp-belt {
+    height: 0;
+    min-height: 100%;
+  }
+  .pa-hp-belt-art {
+    flex-shrink: 1;
+    min-height: 0;
+    object-fit: contain;
   }
 }
 @media (min-width: 1700px) and (max-height: 820px) {
