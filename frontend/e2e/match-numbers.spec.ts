@@ -206,7 +206,11 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
           const isTarget = (await targeting.count()) > 0;
           const spellName = casting.get(page) ?? "";
           const divided = DIVIDED.test(spellName);
-          if (isTarget && divided && (targeted.get(page) ?? 0) >= 2) {
+          // What the page shows as chosen, never this bot's own count of its
+          // clicks: CI run 44920299488 counted two clicks that never took,
+          // then waited for a "Chosen so far" line with nothing chosen.
+          const chosenNow = await page.locator('[data-chosen-target="true"]').count();
+          if (isTarget && divided && chosenNow >= 2) {
             // Amendment 17: what is chosen is shown, and the act button
             // really cancels -- the first time; then Done goes on.
             const bubble = panel.locator('.gs-win[data-kind="chooseTargetsFor"]');

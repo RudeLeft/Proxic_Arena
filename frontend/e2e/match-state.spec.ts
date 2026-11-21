@@ -87,7 +87,9 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
     const everything = async () => {
       shown.poison ||= await seen(/\w+ poison/);
       shown.energy ||= await seen(/\w+ energy/);
-      shown.monarch ||= await seen(/\bmonarch\b/);
+      // Not \b: the tray's count follows the hidden sentence with no space
+      // ("..., the monarch1"), and CI run 44920299488 missed it all game.
+      shown.monarch ||= await seen(/\bmonarch(?![a-z])/i);
       return shown.poison && shown.energy && shown.monarch;
     };
     const asking = async (page: Page) =>
