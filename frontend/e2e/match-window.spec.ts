@@ -168,12 +168,22 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
       }
       if (page === host) {
         // Cast burn while holding another: with a spare Mountain there is
-        // something to respond with, and the worker makes it a window (with
-        // none, it is passed for, and the loop tries again on a later turn).
+        // something to respond with, and the worker makes it a window.
         const burn = hand
           .filter({ hasText: BURN })
           .and(page.locator(':not([data-unpayable="true"])'));
-        if ((await burn.count()) >= 2) {
+        // ...and only with a Mountain to spare after paying (Lightning Strike
+        // costs two): a cast with none opens no window and only burns the
+        // opponent. CI run 44908509595 did that six times, from one or two
+        // Mountains, and the opponent died on turn 37 before the next step.
+        const untapped = await page
+          .locator(
+            '.bf-cards button[data-controller="viewer"][data-tapped="false"][aria-label^="Mountain"]:not([data-zone="viewer:hand"])',
+          )
+          .evaluateAll((els) =>
+            els.reduce((n, el) => n + Number(el.getAttribute("data-pile") ?? "1"), 0),
+          );
+        if ((await burn.count()) >= 2 && untapped >= 3) {
           await click(burn);
           const popup = page.locator(".gs-popup .gs-option");
           if ((await popup.count()) > 0) await click(popup);
