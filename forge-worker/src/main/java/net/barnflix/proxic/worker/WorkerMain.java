@@ -461,6 +461,13 @@ public final class WorkerMain {
                         if (GAME.picking() != null) {
                             ask.add("picking", GAME.picking());
                         }
+                        // Spec 0112 -- an "each player" sacrifice: the seats asked
+                        // after this one (the server's, for the waiting line) and
+                        // what the players before them sacrificed.
+                        JsonObject turns = GAME.sacrificeTurns();
+                        if (turns != null) {
+                            turns.entrySet().forEach(e -> ask.add(e.getKey(), e.getValue()));
+                        }
                         send(ask);
                     });
                     // §6.40 — one snapshot per viewer, and the

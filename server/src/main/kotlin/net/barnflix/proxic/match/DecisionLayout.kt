@@ -13,4 +13,7 @@ internal fun JsonObjectBuilder.putLayout(request: DecisionRequest) {
     // Spec 0070 -- the cards picked so far for a cost, and what it does to
     // them; the other player and spectators are told nothing until it is paid.
     request.picking?.let { put("picking", it) }
+    // Spec 0112 -- what the players before you sacrificed, in your window.
+    // `nextSeats` is the server's own and is never put here.
+    request.earlier?.let { put("earlier", it) }
 }

@@ -12,8 +12,8 @@
 // The class names the scripted games read (`gs-question-title`, list
 // buttons `gs-option`, a "Pass" button) are kept on purpose.
 
-import { useEffect, useMemo, useState } from "react";
-import type { Decision, DecisionOption, Snapshot, SnapshotCard } from "../match";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import type { Decision, DecisionEarlier, DecisionOption, Snapshot, SnapshotCard } from "../match";
 import { hintFor, targetWords } from "../matchText";
 import { SharpCard, closeUpOf } from "../closeUp";
 import { CardFace, figure, lookOf, shortType } from "./Board";
@@ -360,6 +360,77 @@ export interface Common {
   passWord: string | null;
   artUrl: (art: string) => string;
   onAnswer: (actionId: string | null) => void;
+  /** Spec 0112 -- a player's medallion and name, by seat (the report windows' own). */
+  whoOf?: (seat: number | null, size?: number) => { name: string; face: ReactNode } | null;
+}
+
+/** "A", "A and B", "A, B and C". */
+export function andList(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/** Spec 0112 -- "RudeLeft sacrificed Abattoir Ghoul and Makeshift Mauler." */
+export function earlierWords(player: string, row: DecisionEarlier): string {
+  return `${player} sacrificed ${andList(row.cards.map((c) => c.name))}.`;
+}
+
+/**
+ * Spec 0112 (canvas "10", option A) -- an "each player" sacrifice: the window
+ * opens with what each player asked before you sacrificed, in the standard
+ * report style (RevealTray's medallion, "WHO · CARD", the sentence, the
+ * pictures), then your own question. The cards are in a graveyard now
+ * (public); their pictures are the board's own (by id), else their names.
+ */
+export function EarlierLines({
+  decision,
+  board,
+  source,
+  artUrl,
+  whoOf,
+}: {
+  decision: Decision;
+  board: Snapshot;
+  source: string | null;
+  artUrl: (art: string) => string;
+  whoOf?: Common["whoOf"];
+}) {
+  const rows = decision.earlier ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <div className="gs-earlier" role="group" aria-label="Sacrificed before you">
+      {rows.map((row) => {
+        const who = whoOf?.(row.seat, 32) ?? null;
+        const name =
+          board.players.find((p) => p.seat === row.seat)?.name ?? who?.name ?? "A player";
+        return (
+          <div key={row.seat} className="gs-earlier-row" data-earlier-seat={row.seat}>
+            <div className="gs-reveal-who">
+              {who?.face}
+              <div>
+                <span className="gs-reveal-by">
+                  {name}
+                  {source ? ` · ${source}` : ""}
+                </span>
+                <p className="gs-reveal-said gs-earlier-said">{earlierWords(name, row)}</p>
+              </div>
+            </div>
+            <ul className="gs-earlier-cards">
+              {row.cards.map((c) => {
+                const card = cardOf(board, c.id);
+                return (
+                  <li key={c.id} className="gs-earlier-card" data-earlier-id={c.id}>
+                    {card ? <BigCard card={card} artUrl={artUrl} small /> : null}
+                    <span className="gs-reveal-name">{c.name}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /**
@@ -413,6 +484,15 @@ export function TableQuestionWindow(props: Common) {
         source && !beingCast(board, decision, source) ? (
           <Picture card={source} artUrl={artUrl} />
         ) : null
+      }
+      lead={
+        <EarlierLines
+          decision={decision}
+          board={board}
+          source={name}
+          artUrl={artUrl}
+          whoOf={props.whoOf}
+        />
       }
       actions={
         <>

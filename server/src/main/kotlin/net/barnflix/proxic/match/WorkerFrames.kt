@@ -67,6 +67,12 @@ fun readDecisionFrame(frame: JsonObject): DecisionRequest? =
             arrange = frame["arrange"] as? JsonObject,
             window = (frame["window"] as? JsonPrimitive)?.booleanOrNull == true,
             picking = frame["picking"] as? JsonObject,
+            // Spec 0112 -- seat numbers only; anything else is dropped.
+            nextSeats =
+                (frame["nextSeats"] as? JsonArray).orEmpty().mapNotNull {
+                    (it as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
+                },
+            earlier = (frame["earlier"] as? JsonArray)?.takeIf { it.isNotEmpty() },
         )
     }.getOrNull()
 

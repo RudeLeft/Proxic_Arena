@@ -489,6 +489,37 @@ MATCH_ASKING.doing        Phase 9 Amendment 21: a fixed word for what the
                           asked seat is doing ("Splitting the cards"...;
                           "Choosing"; absent for priority), never the
                           question itself; sent to spectators too
+                          Spec 0112: "Choosing what to sacrifice" on
+                          choosePermanentsToSacrifice; for a reader whose
+                          seat is in the question's `nextSeats`, "Choosing
+                          what to sacrifice · you choose next" (a no-break
+                          space before the dot, so a wrap falls after it; the same
+                          words however many creatures that reader has).
+                          Spectators and the reconnect path (askingFor, no
+                          reader) get the plain words
+decision.nextSeats        spec 0112, worker -> server only, on
+                          choosePermanentsToSacrifice while an "each
+                          player" Sacrifice effect resolves (Barter in
+                          Blood, Innocent Blood): the seats the game asks
+                          after this one, in Forge's own order for the
+                          effect (SpellAbilityEffect.getTargetPlayers, read
+                          through SacrificeTurns), each with at least one
+                          card Forge's own filter offers it (SacValid,
+                          canBeSacrificedBy), as the seat authorised to
+                          answer. Absent when nobody is next. The server
+                          reads it for MATCH_ASKING.doing and never
+                          forwards it (DecisionLayout putLayout)
+decision.earlier          spec 0112, on the same question: [{seat, cards
+                          [{id, name}]}], each player asked before this one
+                          and the cards of their choice that are now in a
+                          graveyard (public), in the order chosen, named as
+                          the asker may know them; a player who sacrificed
+                          nothing has no row; absent when there is none. To
+                          the asked seat, in its question; the page's
+                          sacrifice window opens with it ("RudeLeft
+                          sacrificed Abattoir Ghoul and Makeshift Mauler.",
+                          QuestionWindows EarlierLines; parsed by match.ts
+                          asEarlier)
 player.commandWords       Phase 9 W-21: one entry per `command` entry, in
                           its order -- {name, says} for an emblem (Forge's
                           card text, markup removed), {name, rooms: [{name,

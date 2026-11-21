@@ -755,6 +755,12 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/soulbond-deck.zip" protocol/fixtures/soulbond-deck
 
+      # Spec 0112 -- Barter in Blood and two creatures each, for the real-click
+      # "you choose next" game (match-sacrifice.spec.ts, its second test).
+      - name: Build the barter deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/barter-deck.zip" protocol/fixtures/barter-deck
+
       # Spec 0095 -- the owner's mono-green deck on both seats, for the
       # real-game speed test (match-speed.spec.ts).
       - name: Build the green deck package

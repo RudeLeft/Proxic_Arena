@@ -54,6 +54,21 @@ class AskingWordsTest {
     }
 
     @Test
+    fun `an each-player sacrifice tells the next chooser, and only them`() {
+        // Spec 0112: Alice (seat 2 here) chooses first; Bob (seat 1) is next.
+        val asked = question("choosePermanentsToSacrifice").copy(nextSeats = listOf(1))
+        assertEquals("Choosing what to sacrifice\u00A0· you choose next", doingWord(asked, 1))
+        // Another reader, a spectator, the reconnect path (no reader): the plain words.
+        assertEquals("Choosing what to sacrifice", doingWord(asked, 3))
+        assertEquals("Choosing what to sacrifice", doingWord(asked, null))
+        assertEquals("Choosing what to sacrifice", doingWord(asked, 2))
+        // Nobody after them (Bob choosing last, a Diabolic Edict): never "next".
+        val last = question("choosePermanentsToSacrifice")
+        assertEquals("Choosing what to sacrifice", doingWord(last, 1))
+        assertEquals("Choosing what to sacrifice", doingWord(last, 2))
+    }
+
+    @Test
     fun `the message carries the seat and the word, never the question`() {
         val split = buildJsonObject { put("split", "two") }
         val message = askingMessage(2, doingWord(question("chooseEntitiesForEffect", split)))

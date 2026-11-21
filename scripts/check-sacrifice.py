@@ -17,6 +17,23 @@ spec 0001's points on the board, never the mere fact a question was asked:
   imperial-edict  "target opponent chooses a creature … destroy it": the
                   destroy question, the opponent's choice  (0001 D1)
 
+Spec 0112 (F-0112-A, F-0112-C) -- "each player" sacrifices, the worker's
+`nextSeats` (who is asked after this player) and `earlier` (what the
+players before them sacrificed):
+
+  barter              Barter in Blood, two creatures each: Alice's questions
+                      carry nextSeats [2] and no earlier; Bob's carry no
+                      nextSeats and earlier = Alice's two picks, named, each
+                      in a graveyard in Bob's own snapshot of that moment,
+                      never a card she was offered and kept
+  barter-none-second  Bob has no creature: Alice's questions carry no
+                      nextSeats, and Bob is never asked
+  barter-none-first   Alice has no creature: she is never asked, and Bob's
+                      questions carry no earlier
+  innocent            Innocent Blood, Alice offered two and keeping one: Bob's
+                      earlier names only the one she sacrificed (the HID-004
+                      bite: filled from her offers, it would name the kept one)
+
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
 """
@@ -78,8 +95,13 @@ class Asked:
         seat = frame["authorisedSeat"]
         offered = {card_of(o["actionId"]) for o in frame.get("options", [])}
         pick = frame["options"][-1]["actionId"]
+        # Spec 0112 -- who chooses next (the server's), what the players before
+        # sacrificed (the asker's), and every graveyard card this seat's own
+        # snapshot of this moment shows (the question comes after it, P6-L).
+        graves = {c["id"]: c.get("name") for c in g.zone(seat, "graveyard")}
         self.log.append({"seat": seat, "kind": frame["kind"], "prompt": frame.get("prompt") or "", "offered": offered,
-                         "own creatures": creatures(g, seat), "picked": card_of(pick)})
+                         "own creatures": creatures(g, seat), "picked": card_of(pick),
+                         "nextSeats": frame.get("nextSeats"), "earlier": frame.get("earlier"), "graves": graves})
         return pick
 
     def by(self, seat):
@@ -285,8 +307,179 @@ def innocent_blood():
         ("ok", "Innocent Blood: each player chose among their own creatures, and each pick is gone", found)
 
 
+def each_sacrifices(name, card, seat1_creatures, seat2_creatures):
+    """Alice (seat 1) casts `card` on her turn once each side has its creatures.
+
+    `seat1_creatures` / `seat2_creatures`: how many creatures each side casts
+    first (0: that side's deck has none). Alice is the active player, so Forge
+    asks her first, then Bob."""
+    one = [("Swamp", 40), (card, 10)] + ([("Walking Corpse", 10)] if seat1_creatures else [("Swamp", 10)])
+    two = [("Forest", 40), ("Grizzly Bears", 20)] if seat2_creatures else [("Forest", 60)]
+    g = game(name, one, two,
+             deal={1: {"hand": ["Swamp"] * 4 + ["Walking Corpse"] * seat1_creatures + [card],
+                       "top": ["Swamp"] * 3},
+                   2: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * seat2_creatures, "top": ["Forest"] * 3}})
+    asked = Asked()
+    done = {"cast": False, "resolved": False}
+
+    def policy(g, f):
+        k = f.get("kind")
+        if k in (SAC, DESTROY):
+            return asked.answer(g, f)
+        if f["authorisedSeat"] == 2:
+            if k == "chooseSpellAbilityToPlay":
+                if len(creatures(g, 2)) < seat2_creatures and stack_empty(g):
+                    o = cast(g, f, "Grizzly Bears")
+                    if o:
+                        return o
+                return g.play_land(f)
+            return DEFAULT
+        if k == "chooseSpellAbilityToPlay":
+            if not stack_empty(g):
+                return None
+            if not done["cast"] and len(creatures(g, 1)) >= seat1_creatures \
+                    and len(creatures(g, 2)) >= seat2_creatures:
+                o = cast(g, f, card)
+                if o:
+                    done["cast"] = True
+                    return o
+            if len(creatures(g, 1)) < seat1_creatures:
+                o = cast(g, f, "Walking Corpse")
+                if o:
+                    return o
+            return g.play_land(f)
+        return DEFAULT
+
+    def until(g):
+        if done["cast"] and stack_empty(g) and g.zone(1, "graveyard", owner=1, name=card):
+            done["resolved"] = True
+        return done["resolved"]
+
+    g.run(policy, until=until, max_turn=24)
+    log = [{k: (sorted(v) if isinstance(v, set) else v) for k, v in q.items() if k != "graves"} for q in asked.log]
+    found = {"cast": done["cast"], "resolved": done["resolved"], "asked": log, "stopped": g.stopped_badly()}
+    if not done["resolved"]:
+        return None, found
+    return asked, found
+
+
+def earlier_problems(asked):
+    """F-0112-C -- `earlier` names only cards the asker's own snapshot shows in a
+    graveyard, by their names there, and never a card the earlier player was
+    offered and kept."""
+    problems = []
+    picked, kept = {}, {}
+    for q in asked.log:
+        picked.setdefault(q["seat"], set()).add(q["picked"])
+    for q in asked.log:
+        kept.setdefault(q["seat"], set()).update(q["offered"] - picked[q["seat"]])
+    for q in asked.log:
+        for row in q["earlier"] or []:
+            for c in row.get("cards", []):
+                if c["id"] not in q["graves"]:
+                    problems.append(f"seat {q['seat']}'s earlier names {c['id']}, not in a graveyard it sees")
+                elif q["graves"][c["id"]] != c.get("name"):
+                    problems.append(f"seat {q['seat']}'s earlier names {c['id']} {c.get('name')!r}, "
+                                    f"its snapshot {q['graves'][c['id']]!r}")
+                if c["id"] in kept.get(row.get("seat"), set()):
+                    problems.append(f"seat {q['seat']}'s earlier names {c['id']}, which seat {row.get('seat')} "
+                                    "was offered and kept")
+    return problems
+
+
+def ids_of(row):
+    return sorted(c["id"] for c in row.get("cards", []))
+
+
+def barter():
+    asked, found = each_sacrifices("barter", "Barter in Blood", 2, 2)
+    if asked is None:
+        return "inconclusive", "Barter in Blood never resolved with two creatures each", found
+    first, second = asked.by(1), asked.by(2)
+    # Each pick is its own question: the first offers every creature, the next what is left.
+    problems = wrong_offers([q for q in (first[:1] + second[:1])]) + unnamed(asked.log, "Barter in Blood")         + earlier_problems(asked)
+    if len(first) != 2 or len(second) != 2:
+        problems.append(f"each player should be asked twice (one pick each): {len(first)} and {len(second)}")
+    if any(q["nextSeats"] != [2] for q in first):
+        problems.append(f"Alice's questions' nextSeats {[q['nextSeats'] for q in first]}, not [2]")
+    if any(q["earlier"] for q in first):
+        problems.append("Alice, asked first, was told of an earlier sacrifice")
+    if any(q["nextSeats"] for q in second):
+        problems.append(f"Bob, asked last, has nextSeats {[q['nextSeats'] for q in second]}")
+    alice = sorted(q["picked"] for q in first)
+    for q in second:
+        rows = q["earlier"] or []
+        if [r.get("seat") for r in rows] != [1] or ids_of(rows[0]) != alice:
+            problems.append(f"Bob's earlier {rows}, not Alice's two picks {alice}")
+        elif any(not c.get("name") for c in rows[0]["cards"]):
+            problems.append("an earlier card has no name")
+    if found["stopped"]:
+        problems.append(found["stopped"])
+    return ("wrong", "; ".join(problems), found) if problems else \
+        ("ok", "Barter in Blood: Alice is told Bob chooses next; Bob is told the two she sacrificed, both in "
+               "his own graveyard view", found)
+
+
+def barter_none_second():
+    asked, found = each_sacrifices("barter-none-second", "Barter in Blood", 2, 0)
+    if asked is None or not asked.by(1):
+        return "inconclusive", "Barter in Blood never resolved with Alice's two creatures out", found
+    problems = earlier_problems(asked)
+    if asked.by(2):
+        problems.append("Bob, with no creature, was asked")
+    if any(q["nextSeats"] for q in asked.by(1)):
+        problems.append(f"Alice's questions say someone chooses next: {[q['nextSeats'] for q in asked.by(1)]}")
+    if found["stopped"]:
+        problems.append(found["stopped"])
+    return ("wrong", "; ".join(problems), found) if problems else \
+        ("ok", "Bob has no creature: nobody is next after Alice, and Bob is not asked", found)
+
+
+def barter_none_first():
+    asked, found = each_sacrifices("barter-none-first", "Barter in Blood", 0, 2)
+    if asked is None or not asked.by(2):
+        return "inconclusive", "Barter in Blood never resolved with Bob's two creatures out", found
+    problems = earlier_problems(asked)
+    if asked.by(1):
+        problems.append("Alice, with no creature, was asked")
+    if any(q["earlier"] for q in asked.by(2)):
+        problems.append(f"Bob was told of an earlier sacrifice: {[q['earlier'] for q in asked.by(2)]}")
+    if any(q["nextSeats"] for q in asked.by(2)):
+        problems.append("Bob, asked last, has nextSeats")
+    if found["stopped"]:
+        problems.append(found["stopped"])
+    return ("wrong", "; ".join(problems), found) if problems else \
+        ("ok", "Alice has no creature: she is not asked, and Bob's questions carry no earlier", found)
+
+
+def innocent():
+    asked, found = each_sacrifices("innocent", "Innocent Blood", 2, 2)
+    if asked is None:
+        return "inconclusive", "Innocent Blood never resolved with two creatures each", found
+    first, second = asked.by(1), asked.by(2)
+    problems = wrong_offers(asked.log) + unnamed(asked.log, "Innocent Blood") + earlier_problems(asked)
+    if len(first) != 1 or len(second) != 1:
+        problems.append(f"each player should be asked once: {len(first)} and {len(second)}")
+    else:
+        if len(first[0]["offered"]) < 2:
+            problems.append("Alice was offered one creature: the kept-card check proves nothing")
+        if first[0]["nextSeats"] != [2] or first[0]["earlier"]:
+            problems.append(f"Alice's question: nextSeats {first[0]['nextSeats']}, earlier {first[0]['earlier']}")
+        rows = second[0]["earlier"] or []
+        if second[0]["nextSeats"] or [r.get("seat") for r in rows] != [1] \
+                or ids_of(rows[0]) != [first[0]["picked"]]:
+            problems.append(f"Bob's question: nextSeats {second[0]['nextSeats']}, earlier {rows}, "
+                            f"not Alice's one pick {first[0]['picked']}")
+    if found["stopped"]:
+        problems.append(found["stopped"])
+    return ("wrong", "; ".join(problems), found) if problems else \
+        ("ok", "Innocent Blood: Bob is told only the creature Alice sacrificed, not the one she kept", found)
+
+
 SCENARIOS = {"monument": monument, "monument-alone": monument_alone, "edict": edict,
-             "innocent-blood": innocent_blood, "imperial-edict": imperial_edict}
+             "innocent-blood": innocent_blood, "imperial-edict": imperial_edict,
+             "barter": barter, "barter-none-second": barter_none_second,
+             "barter-none-first": barter_none_first, "innocent": innocent}
 
 if __name__ == "__main__":
     import json

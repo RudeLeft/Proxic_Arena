@@ -178,6 +178,20 @@ export interface Decision {
    * options. Only the paying player is sent it. Null for every other question.
    */
   picking?: DecisionPicking | null;
+  /**
+   * Spec 0112 -- an "each player" sacrifice (Barter in Blood): what each
+   * player asked before you sacrificed, in the game's order, the cards now in
+   * a graveyard. The window's first line. Empty for every other question,
+   * and when they sacrificed nothing.
+   */
+  earlier?: DecisionEarlier[];
+}
+
+/** Spec 0112 -- one earlier player's sacrifice (see Decision.earlier). */
+export interface DecisionEarlier {
+  seat: number;
+  /** The board's ids and names, in the order they chose. */
+  cards: { id: string; name: string }[];
 }
 
 /** Spec 0070 -- the cards picked so far for a cost (see Decision.picking). */
@@ -2284,7 +2298,27 @@ function asDecision(message: Record<string, unknown>): Decision | null {
     arrange: asArrange(message["arrange"]),
     window: message["window"] === true,
     picking: asPicking(message["picking"]),
+    earlier: asEarlier(message["earlier"]),
   };
+}
+
+/** Spec 0112 -- a row without its seat, or a card without its id, is dropped; a row of none too. */
+function asEarlier(value: unknown): DecisionEarlier[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((row) => {
+    if (typeof row !== "object" || row === null) return [];
+    const r = row as Record<string, unknown>;
+    const seat = asNumber(r["seat"]);
+    const cards = Array.isArray(r["cards"])
+      ? r["cards"].flatMap((one) => {
+          if (typeof one !== "object" || one === null) return [];
+          const c = one as Record<string, unknown>;
+          const id = asString(c["id"]);
+          return id ? [{ id, name: asString(c["name"]) ?? "" }] : [];
+        })
+      : [];
+    return seat !== null && cards.length > 0 ? [{ seat, cards }] : [];
+  });
 }
 
 /** Spec 0070 -- anything malformed is no picking at all; a pick without its ids is dropped. */

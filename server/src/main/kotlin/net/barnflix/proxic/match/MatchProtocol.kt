@@ -181,6 +181,20 @@ data class DecisionRequest(
      * cost is paid.
      */
     val picking: JsonObject? = null,
+    /**
+     * Spec 0112 -- an "each player" sacrifice (Barter in Blood): the seats
+     * the game will ask after this one, the worker's reading of the game's
+     * own order. The SERVER's alone: it adds "you choose next" to those
+     * seats' waiting lines ([doingWord]) and never forwards it.
+     */
+    val nextSeats: List<Int> = emptyList(),
+    /**
+     * Spec 0112 -- what the players asked before this one sacrificed:
+     * rows of {seat, cards: [{id, name}]}, cards now in a graveyard
+     * (public). The worker's facts, passed through untouched, to the asking
+     * seat only, as the whole question goes.
+     */
+    val earlier: JsonArray? = null,
 ) {
     /**
      * Spec 0070 — the take-back answers: picking a picked card again

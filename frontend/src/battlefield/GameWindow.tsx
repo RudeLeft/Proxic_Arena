@@ -302,6 +302,7 @@ export function Bubble({
   titleClass,
   kind,
   picture,
+  lead,
   children,
   actions,
 }: {
@@ -317,6 +318,8 @@ export function Bubble({
   /** The question's kind, as `data-kind` (the scripted games read it). */
   kind?: string;
   picture?: ReactNode;
+  /** Spec 0112 -- a line above the question itself (what the players before you sacrificed). */
+  lead?: ReactNode;
   children?: ReactNode;
   actions: ReactNode;
 }) {
@@ -347,6 +350,7 @@ export function Bubble({
       }}
     >
       <span className="gs-bubble-pointer" aria-hidden="true" />
+      {lead}
       <div className="gs-win-head">
         {picture && <div className="gs-win-picture">{picture}</div>}
         <div className="gs-win-words">

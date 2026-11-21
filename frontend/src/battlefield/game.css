@@ -3688,6 +3688,35 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-size: var(--pa-size-sm);
   color: #c2c9d2;
 }
+/* Spec 0112 -- a sacrifice window's first line: what the players before you
+   sacrificed, in the report style (medallion, WHO · CARD, the sentence, the
+   pictures), above your own question. */
+.gs-earlier {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgb(201 163 90 / 35%);
+}
+.gs-earlier .gs-earlier-said {
+  margin: 2px 0 0;
+  font-size: var(--pa-size-md);
+}
+.gs-earlier-cards {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.gs-earlier-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100px;
+}
 .gs-reveal-to {
   padding: 2px 10px;
   border: 1px solid #c9a35a;

@@ -2418,6 +2418,22 @@ public final class GameHost {
         looking = out;
     }
 
+    /**
+     * Spec 0112 -- an "each player" sacrifice's facts (SacrificeTurns#facts):
+     * `nextSeats` for the server only, `earlier` with the question to the
+     * asked seat. Set for all of one player's picks and cleared after them
+     * (in a finally), as `looking` is, not per question.
+     */
+    private volatile com.google.gson.JsonObject sacrificeTurns = null;
+
+    void offerSacrificeTurns(com.google.gson.JsonObject facts) {
+        sacrificeTurns = facts;
+    }
+
+    public com.google.gson.JsonObject sacrificeTurns() {
+        return sacrificeTurns;
+    }
+
     void stopLooking() {
         looking = null;
     }

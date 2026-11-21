@@ -290,6 +290,51 @@ class WorkerFramesTest {
     }
 
     @Test
+    fun `an each-player sacrifice's next seats stay on the server, its earlier choices go to the asker`() {
+        // Spec 0112 (F-0112-B): the worker's frame, as check-sacrifice's barter game sent it.
+        val request =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"12","actedForSeat":1,"authorisedSeat":1,
+                     "kind":"choosePermanentsToSacrifice","stateVersion":"30","mandatory":true,
+                     "options":[{"actionId":"card:56","label":"Walking Corpse"}],
+                     "nextSeats":[2]}
+                    """.trimIndent(),
+                ),
+            )!!
+        assertEquals(listOf(2), request.nextSeats)
+        val bobs =
+            readDecisionFrame(
+                frame(
+                    """
+                    {"decisionId":"14","actedForSeat":2,"authorisedSeat":2,
+                     "kind":"choosePermanentsToSacrifice","stateVersion":"33","mandatory":true,
+                     "options":[{"actionId":"card:78","label":"Grizzly Bears"}],
+                     "earlier":[{"seat":1,"cards":[{"id":"card:56","name":"Walking Corpse"},
+                       {"id":"card:58","name":"Walking Corpse"}]}]}
+                    """.trimIndent(),
+                ),
+            )!!
+        // Every frame a page receives about these questions: the question
+        // itself (to the asker), and the asking line (to everyone, spectators too).
+        val pageFrames =
+            listOf(
+                decisionMessage(request),
+                decisionMessage(bobs),
+                askingMessage(1, doingWord(request, 2)),
+                askingMessage(1, doingWord(request, 1)),
+                askingMessage(1, doingWord(request)),
+            )
+        pageFrames.forEach { sent ->
+            assertTrue("nextSeats" !in sent.toString(), "the next seats never reach a page: $sent")
+        }
+        val sent = decisionMessage(bobs).toString()
+        assertTrue(sent.contains("\"earlier\":[{\"seat\":1,\"cards\":[{\"id\":\"card:56\""), sent)
+        assertTrue("earlier" !in decisionMessage(request).toString())
+    }
+
+    @Test
     fun `an option with no action id is dropped rather than offered blank`() {
         val request =
             readDecisionFrame(

@@ -2586,7 +2586,28 @@ public final class MatchController extends GeneratedControllerBase {
                 ? verb + " " + count
                 : ViewerSnapshot.nameFor(source, player.getView()) + ": "
                         + verb.toLowerCase(java.util.Locale.ROOT) + " " + count;
-        return new forge.game.card.CardCollection(pickSeveral(kind, valid, least, most, title, ""));
+        // Spec 0112 -- an "each player" sacrifice: who chooses after this
+        // player (for the server's waiting line) and what the players before
+        // them sacrificed (for this player's window), on every question of it.
+        boolean sacrifice = "choosePermanentsToSacrifice".equals(kind);
+        if (sacrifice) {
+            host.offerSacrificeTurns(SacrificeTurns.facts(player.getGame(), sa, player,
+                    each -> each.getController() instanceof MatchController asked
+                            ? asked.authorisedSeat : host.seatOf(each.getOriginalLobbyPlayer()),
+                    each -> host.seatOf(each.getOriginalLobbyPlayer())));
+        }
+        forge.game.card.CardCollection chosen;
+        try {
+            chosen = new forge.game.card.CardCollection(pickSeveral(kind, valid, least, most, title, ""));
+        } finally {
+            if (sacrifice) {
+                host.offerSacrificeTurns(null);
+            }
+        }
+        if (sacrifice) {
+            SacrificeTurns.chose(player.getGame(), sa, player, chosen);
+        }
+        return chosen;
     }
 
     /**

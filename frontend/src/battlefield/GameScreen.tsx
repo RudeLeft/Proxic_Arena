@@ -2341,6 +2341,8 @@ export function GameScreen({
       passWord: passWordFor(decision, question, listOpen),
       artUrl,
       onAnswer: answer,
+      // Spec 0112 -- the earlier sacrifices' medallions, as the reports draw them.
+      whoOf: actingAs,
     };
     // W-12 (Amendment 16): naming a card, beside the card asking.
     if (decision.kind === "chooseCardName" && decision.searchable && decision.arrange?.name) {
