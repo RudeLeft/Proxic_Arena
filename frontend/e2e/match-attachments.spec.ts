@@ -208,7 +208,12 @@ test("attachments are drawn with what they modify, on either side of the table",
     // As the guest sees it: the same Pacifism, on its own creature,
     // named as the host's.
     await expect(
-      carrying(guest, "viewer", "Grizzly Bears", /^Pacifism, attached to .*, opponent's/).first(),
+      carrying(
+        guest,
+        "viewer",
+        "Grizzly Bears",
+        /^Pacifism, attached to .*, your opponent's/,
+      ).first(),
     ).toBeVisible({ timeout: 30_000 });
     // And a reconfigured Rabbit Battery is not a creature any more:
     // nowhere drawn as a card of its own -- only as a tag.

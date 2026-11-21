@@ -165,7 +165,7 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
     // once showed there.
     for (const page of [host, guest]) {
       await expect(
-        totals(page).filter({ hasText: /command zone: .*(Regeneration|The Monarch)/ }),
+        totals(page).filter({ hasText: /Command zone: .*(Regeneration|The Monarch)/ }),
       ).toHaveCount(0);
     }
     await host.screenshot({ path: "test-results/seen/player-state-host.png", fullPage: true });

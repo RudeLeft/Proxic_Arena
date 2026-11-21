@@ -174,7 +174,7 @@ test("the Ring-bearer, the Ring and the dungeon room show on the board", async (
     const why = (await ended()) ? ` (the game ended: ${await ended()})` : "";
     expect(await seen(/the Ring has tempted/), `the Ring never tempted anyone${why}`).toBe(true);
     expect(
-      await seen(/command zone: .*The Ring/),
+      await seen(/Command zone: .*The Ring/),
       `the Ring is not in the command zone${why}`,
     ).toBe(true);
     expect(await seen(/Undercity \(room: /), `no dungeon room was shown${why}`).toBe(true);

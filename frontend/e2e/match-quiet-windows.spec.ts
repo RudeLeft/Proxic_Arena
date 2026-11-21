@@ -112,11 +112,16 @@ const reportsSeen = (page: Page) =>
 const dimmedFrames = (page: Page) =>
   page.evaluate(() => (window as unknown as { __dimmed: number[] }).__dimmed.length);
 
-/** Pay for the spell being cast, or answer its window, by clicking what the page lights. */
+/**
+ * Pay for the spell being cast, or answer its window, by clicking what the page lights.
+ * Only lands are tapped: a creature's enters-trigger can ask for its target while the
+ * casting card is still showing, and tapping "any lit card of yours" once aimed Mist
+ * Raven's bounce at the Raven itself (CI run 44884351426).
+ */
 async function payOrAnswer(page: Page): Promise<boolean> {
   const panel = matchPanel(page);
   const tap = page.locator(
-    '.bf-cards button[data-choosable="true"][data-controller="viewer"]:not([data-zone$=":hand"])',
+    '.bf-cards button[data-choosable="true"][data-controller="viewer"][data-zone$=":lands"], .bf-cards button[data-choosable="true"][data-controller="viewer"][data-zone*="land"]',
   );
   const listed = panel.locator(
     ".gs-win li button:not(:disabled), .gs-question li button:not(:disabled)",
