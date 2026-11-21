@@ -66,9 +66,19 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
 
     // Spec 0038: counters and markers are in the status trays.
     const totals = (page: Page) => matchPanel(page).locator(".gs-seat, .gs-status");
-    const seen = async (pattern: RegExp) =>
-      (await totals(host).filter({ hasText: pattern }).count()) > 0 ||
-      (await totals(guest).filter({ hasText: pattern }).count()) > 0;
+    // Read as the screen reader reads it: the tray's whole text, its hidden
+    // sentence included ("Pat: five energy, the monarch"). A has-text filter
+    // never matched that sentence: CI run 44913657691 asked 2,378 times
+    // while the monarch was on the board and got 0 every time.
+    const seen = async (pattern: RegExp) => {
+      for (const page of [host, guest]) {
+        const texts = await totals(page).evaluateAll((els) =>
+          els.map((el) => el.textContent ?? ""),
+        );
+        if (texts.some((text) => pattern.test(text))) return true;
+      }
+      return false;
+    };
     // Spec 0113: counts in words ("three poison counters"), "the monarch".
     // Each is remembered once shown: they need not show at the same moment
     // (CI run 44910790927: the monarch and energy showed all game, poison
