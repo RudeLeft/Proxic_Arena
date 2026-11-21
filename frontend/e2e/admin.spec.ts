@@ -288,7 +288,7 @@ test("the server's health is a pill beside the Server tab's title", async ({ bro
  */
 async function misaligned(page: Page, head: string, row: string): Promise<string[]> {
   return page.evaluate(
-    ([h, r]) => {
+    ([h, r]: [string, string]) => {
       const headEl = document.querySelector(h);
       const rowEl = document.querySelector(r);
       if (!headEl || !rowEl) return [];
@@ -313,6 +313,7 @@ async function misaligned(page: Page, head: string, row: string): Promise<string
       };
       const titles = cells(headEl);
       const data = cells(rowEl);
+      if (!titles[0]) return [];
       const lineHeight = parseFloat(getComputedStyle(titles[0]).lineHeight) || 20;
       return titles.flatMap((title, i) => {
         const name = (title.textContent ?? "").trim();
@@ -325,7 +326,7 @@ async function misaligned(page: Page, head: string, row: string): Promise<string
         return out;
       });
     },
-    [head, row],
+    [head, row] as [string, string],
   );
 }
 

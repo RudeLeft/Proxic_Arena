@@ -1,4 +1,9 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // The browser tests import page files, which use Vite's asset imports and
+    // import.meta.glob (P11-B5).
+    "types": ["vitest/globals", "node", "vite/client"]
+  },
   "include": ["e2e", "playwright.config.ts", "tools", "playwright.jumps.config.ts"]
 }

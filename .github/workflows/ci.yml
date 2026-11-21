@@ -179,6 +179,10 @@ jobs:
       - run: python3 -I scripts/check-wording.py --source
       - run: npx tsc --noEmit
         working-directory: frontend
+      # P11-B5: the browser tests and tools type-check too (they had 11
+      # errors nothing caught, 2026-11-21).
+      - run: npx tsc -p tsconfig.e2e.json --noEmit
+        working-directory: frontend
       - run: npm run lint
         working-directory: frontend
       - run: npm test

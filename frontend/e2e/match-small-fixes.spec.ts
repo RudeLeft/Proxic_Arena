@@ -682,8 +682,8 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
       await page.evaluate(() => {
         type Row = {
           t: number;
-          ghost?: string;
-          turn?: string;
+          ghost?: string | undefined;
+          turn?: string | undefined;
           what?: string;
           mine?: boolean;
           lib?: number;
@@ -734,9 +734,10 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
       });
     type Row = {
       t: number;
-      ghost?: string;
-      turn?: string;
+      ghost?: string | undefined;
+      turn?: string | undefined;
       what?: string;
+      mine?: boolean;
       lib?: number;
       grave?: number;
     };
@@ -875,7 +876,7 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
       // The counts as the cast began (the last change before it), then each change.
       const before = log.filter((r) => r.lib !== undefined && r.t < from).at(-1);
       const counts = [...(before ? [before] : []), ...rows.filter((r) => r.lib !== undefined)].map(
-        (r) => [r.lib!, r.grave!],
+        (r): [number, number] => [r.lib!, r.grave!],
       );
       console.log(
         `0108 mill ${who}: ${JSON.stringify({ streams: [...streams.entries()], counts, ghosts: rows.filter((r) => r.ghost) })}`,
@@ -892,12 +893,12 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
       for (const [id, turns] of milled)
         expect(turns.length, `${who}: ${id} streamed once, no repeat`).toBe(1);
       // Frame by frame: the library down by one per card, the graveyard up by one.
-      const steps = counts.slice(1).map(([l, g], i) => [l - counts[i]![0]!, g - counts[i]![1]!]);
+      const steps = counts.slice(1).map(([l, g], i) => [l - counts[i]![0], g - counts[i]![1]]);
       expect(
         steps.every(([dl, dg]) => (dl === 0 || dl === -1) && (dg === 0 || dg === 1)),
         `${who}: one card at a time: ${JSON.stringify(counts)}`,
       ).toBe(true);
-      const total = [counts.at(-1)![0]! - counts[0]![0]!, counts.at(-1)![1]! - counts[0]![1]!];
+      const total = [counts.at(-1)![0] - counts[0]![0], counts.at(-1)![1] - counts[0]![1]];
       // Two into the graveyard; the library down at least two (the window runs
       // three seconds past the mill, and a draw there counts too: one by one,
       // checked above). A stream repeated would add a third "back" (above) and a

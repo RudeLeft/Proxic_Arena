@@ -25,7 +25,8 @@ test("a code from the Account page links a computer, and Remove unlinks it", asy
 
   // The Deck Builder's side: the code for a token, then the deck rules.
   const deckBuilder = await playwright.request.newContext({
-    baseURL: test.info().project.use.baseURL,
+    // playwright.config.ts always sets it.
+    baseURL: test.info().project.use.baseURL!,
   });
   const linked = await deckBuilder.post("/api/auth/device-link", {
     data: { code, deviceName: "Browser test PC" },
@@ -68,7 +69,8 @@ test("an administrator sees the computer on the Computers tab, with its address,
   const code = (await panel.getByLabel("Link code").textContent()) ?? "";
   const computer = `Admin test PC ${Date.now() % 100_000}`;
   const deckBuilder = await playwright.request.newContext({
-    baseURL: test.info().project.use.baseURL,
+    // playwright.config.ts always sets it.
+    baseURL: test.info().project.use.baseURL!,
   });
   const linked = await deckBuilder.post("/api/auth/device-link", {
     data: { code, deviceName: computer },
