@@ -426,8 +426,11 @@ test("the game screen's words: the act button, a look-at-the-top report, a count
           continue;
         }
         if (!(await priorityHere(page))) {
-          const listed = panel.locator(".gs-question li button, .gs-win li button");
-          const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
+          // Never Fabricate's cost window: it can come in between the look above
+          // and this click (CI run 44900484054 pressed its main button unread).
+          const asked = ".gs-win:not(:has(button.gs-cost-act))";
+          const listed = panel.locator(`.gs-question li button, ${asked} li button`);
+          const main = panel.locator(`${asked} button.gs-win-btn-main:not(:disabled)`);
           if ((await listed.count()) > 0) await clickNow(listed);
           else if ((await main.count()) > 0) await clickNow(main);
           else await clickNow(pass(page));
