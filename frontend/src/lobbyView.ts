@@ -72,10 +72,6 @@ export function playerRows(lobby: LobbyState, me: string, now: number = Date.now
     else if (seatedIn?.status === "IN_MATCH") where = "In a game";
     else if (seatedIn) where = `In ${seatedIn.name}`;
     else where = "In the lobby";
-    // Spec 0009 — away, and where: "Away for seven minutes · in the lobby".
-    if (status.kind === "away")
-      where = `${status.label} · ${where.charAt(0).toLowerCase()}${where.slice(1)}`;
-
     let control: InviteControl;
     if (!isOnline || inMyRoom) control = { kind: "none" };
     else if (invited) control = { kind: "invited" };
@@ -88,6 +84,15 @@ export function playerRows(lobby: LobbyState, me: string, now: number = Date.now
     else if (lobby.outgoing)
       control = { kind: "blocked", why: "You can send one invitation at a time" };
     else control = { kind: "invite", needsRoom: false };
+
+    // Spec 0009 — away, and where: "Away for seven minutes · in the lobby".
+    // Owner 2026-11-21 (spec 0114 W2-023, option C): a row with an Invite
+    // button has room for one line only, so it keeps the short form, "Away 7
+    // min · in the lobby"; the screen reader, the seat and the chat keep the words.
+    if (status.kind === "away") {
+      const away = control.kind !== "none" && status.short ? status.short : status.label;
+      where = `${away} · ${where.charAt(0).toLowerCase()}${where.slice(1)}`;
+    }
 
     rows.push({
       user,
@@ -245,13 +250,15 @@ export function statusOf(
   lobby: LobbyState,
   userId: string,
   now: number,
-): { kind: PresenceKind; label: string } {
+): { kind: PresenceKind; label: string; short?: string } {
   const here = lobby.presence.find((p) => p.userId === userId);
   if (here?.awaySince) {
     const minutes = Math.max(1, Math.round((now - Date.parse(here.awaySince)) / 60_000));
     return {
       kind: "away",
       label: `Away for ${minutes < 60 ? minutesWords(minutes) : hoursWords(Math.floor(minutes / 60))}`,
+      // Owner 2026-11-21: the row with an Invite button keeps the short form.
+      short: minutes < 60 ? `Away ${minutes} min` : `Away ${Math.floor(minutes / 60)}h`,
     };
   }
   if (here) return { kind: "online", label: "Online" };

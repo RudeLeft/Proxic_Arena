@@ -735,7 +735,7 @@ test("the Hall's leaderboard spreads out, every badge shows and the trophies fil
   await page.screenshot({ path: "test-results/seen/hall-2560.png" });
 });
 
-test("spec 0060: a 12-letter name and its away line (two lines at most) fit the players column, which grows with the screen", async ({
+test("spec 0060: a 12-letter name and its away line fit the players column, which grows with the screen", async ({
   browser,
 }) => {
   // F-0060-C. The guest takes a 12-letter name (DisplayNames.MAX) for the
@@ -780,20 +780,18 @@ test("spec 0060: a 12-letter name and its away line (two lines at most) fit the 
           return {
             nameCut: name.scrollWidth > name.clientWidth,
             room,
-            away: Math.ceil(ctx.measureText("Away for seven minutes · in the lobby").width),
+            // Owner 2026-11-21 (spec 0114 W2-023, C): a row with an Invite
+            // button keeps the short form; its longest is this.
+            away: Math.ceil(ctx.measureText("Away 59 min · in the lobby").width),
             whereCut: where.scrollWidth > where.clientWidth,
           };
         });
         expect(fit.nameCut, `${at}: the name is cut`).toBe(false);
-        // Spec 0114 (W2-023, decided while owner away 2026-11-21, option A):
-        // the away line is in words now ("Away for seven minutes · in the
-        // lobby"), and in a row with an Invite button it may take two lines.
-        // It must still fit in two lines and never be cut.
         expect(fit.whereCut, `${at}: the away line is cut`).toBe(false);
         expect(
           fit.away,
-          `${at}: the away line needs ${fit.away} of two lines of ${fit.room}`,
-        ).toBeLessThanOrEqual(2 * fit.room);
+          `${at}: the away line needs ${fit.away} of ${fit.room}`,
+        ).toBeLessThanOrEqual(fit.room);
       }
       expect(seen["1920x1080"]).not.toBe(seen["2560x1440"]);
       await host.setViewportSize({ width: 1920, height: 1080 });
