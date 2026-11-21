@@ -405,9 +405,15 @@ export async function attackWithAll(page: Page): Promise<boolean> {
   return true;
 }
 
-/** "No": the act button under the stack on your move, else the question's Pass. */
+/**
+ * "No": the act button under the stack on your move, else the question's Pass.
+ * Never the act button's Cancel: a question can come in between a bot's look
+ * and its pass, and a pass that cancels backs out of it (CI runs 44884351426
+ * and 44905040418, the Raven's bounce). A test that backs out clicks
+ * `button.gs-act-cancel` by name.
+ */
 export const passButton = (page: Page) =>
-  page.locator("button.gs-act:not(.gs-act-discard), button.gs-pass");
+  page.locator("button.gs-act:not(.gs-act-discard):not(.gs-act-cancel), button.gs-pass");
 
 /**
  * Spec 0061, item 3 -- discarding down to hand size is pick, then confirm: a

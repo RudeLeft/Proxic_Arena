@@ -37,7 +37,6 @@ import {
   discardIfAsked,
   hitPoint,
   matchPanel,
-  passButton,
   passCombat,
   realClick,
   sharedDeck,
@@ -47,6 +46,15 @@ import {
 
 test.describe.configure({ timeout: 1_200_000 });
 
+/**
+ * "No" on your move: never the act button's Cancel (CI run 44905040418: a
+ * target question came in between the bot's look and its pass, and the
+ * pass cancelled the Raven's bounce), never a discard or combat.
+ */
+const pass = (page: Page) =>
+  matchPanel(page).locator(
+    "button.gs-act:not(.gs-act-discard):not(.gs-act-cancel):not(.gs-act-combat), button.gs-pass",
+  );
 const pkg = join(process.cwd(), "..", "Test Deck", "quiet-windows-deck.zip");
 const SHOTS = process.env.PROXIC_SHOTS ?? "test-results/seen";
 const CLIPS = process.env.PROXIC_CLIPS;
@@ -402,11 +410,14 @@ test("your spell's short target window; no window for Mist Raven's bounce, a pla
           continue;
         }
         if (!(await priorityHere(page))) {
-          const listed = panel.locator(".gs-question li button, .gs-win li button");
-          const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
+          // Never a target question: it can come in between the look above and
+          // this click (CI run 44905040418: the Raven's bounce was cancelled).
+          const asked = '.gs-win:not([data-kind="chooseTargetsFor"])';
+          const listed = panel.locator(`.gs-question li button, ${asked} li button`);
+          const main = panel.locator(`${asked} button.gs-win-btn-main:not(:disabled)`);
           if ((await listed.count()) > 0) await clickNow(listed);
           else if ((await main.count()) > 0) await clickNow(main);
-          else await clickNow(passButton(page));
+          else await clickNow(pass(page));
           continue;
         }
 
@@ -467,7 +478,7 @@ test("your spell's short target window; no window for Mist Raven's bounce, a pla
           }
         }
         if (pick && (await pick.count()) > 0) await realClick(page, pick.first());
-        else await clickNow(passButton(page));
+        else await clickNow(pass(page));
       }
     }
 
