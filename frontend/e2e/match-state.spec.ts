@@ -70,8 +70,16 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
       (await totals(host).filter({ hasText: pattern }).count()) > 0 ||
       (await totals(guest).filter({ hasText: pattern }).count()) > 0;
     // Spec 0113: counts in words ("three poison counters"), "the monarch".
-    const everything = async () =>
-      (await seen(/\w+ poison/)) && (await seen(/\w+ energy/)) && (await seen(/\bmonarch\b/));
+    // Each is remembered once shown: they need not show at the same moment
+    // (CI run 44910790927: the monarch and energy showed all game, poison
+    // only as the game ended, when the monarch's line had gone).
+    const shown = { poison: false, energy: false, monarch: false };
+    const everything = async () => {
+      shown.poison ||= await seen(/\w+ poison/);
+      shown.energy ||= await seen(/\w+ energy/);
+      shown.monarch ||= await seen(/\bmonarch\b/);
+      return shown.poison && shown.energy && shown.monarch;
+    };
     const asking = async (page: Page) =>
       (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
@@ -99,8 +107,8 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
       const options = await choices(live);
       const labels = await options.allTextContents();
       const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
-      const poisoned = await seen(/\w+ poison/);
-      const monarch = await seen(/\bmonarch\b/);
+      const poisoned = shown.poison;
+      const monarch = shown.monarch;
 
       let pick = -1;
       const prompt = (await panel.locator(".decision-prompt").allTextContents()).join(" ");
@@ -157,9 +165,10 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
     }
 
     const why = (await ended()) ? ` (the game ended: ${await ended()})` : "";
-    expect(await seen(/\w+ poison/), `nobody was ever poisoned${why}`).toBe(true);
-    expect(await seen(/\w+ energy/), `nobody ever had energy${why}`).toBe(true);
-    expect(await seen(/\bmonarch\b/), `nobody ever became the monarch${why}`).toBe(true);
+    await everything();
+    expect(shown.poison, `nobody was ever poisoned${why}`).toBe(true);
+    expect(shown.energy, `nobody ever had energy${why}`).toBe(true);
+    expect(shown.monarch, `nobody ever became the monarch${why}`).toBe(true);
     // Forge's internal effect pieces are not "the command zone": a
     // regeneration shield and the monarch's own bookkeeping object
     // once showed there.

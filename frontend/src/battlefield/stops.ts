@@ -51,6 +51,16 @@ export function unblockedPower(board: Snapshot): number | null {
  * Spec 0034 — "Pat's Lightning Bolt at you": whose it is, and its first
  * target; spec 0113 (W1-034) "(and one more)" for the rest, never "+1".
  */
+/**
+ * A name with whose it is: "your Shock", "Pat’s Shock". A name that already
+ * starts with "The" takes no whose: "The Monarch" (the monarch's end-of-turn
+ * draw), never "your The Monarch" (CI run 44910790927's trace; decided while
+ * owner away, 2026-11-21). `whose` carries its own trailing space.
+ */
+export function owned(whose: string, name: string): string {
+  return /^The\s/.test(name) ? name : `${whose}${name}`;
+}
+
 function stackLine(board: Snapshot, mySeat: number): string {
   const top = board.stack[0]!;
   const whose =
@@ -61,7 +71,7 @@ function stackLine(board: Snapshot, mySeat: number): string {
         : "";
   const targets = top.targets ?? [];
   const first = targets[0];
-  if (!first) return `${whose}${top.name}`;
+  if (!first) return owned(whose, top.name);
   const at =
     "player" in first
       ? first.player === mySeat
@@ -70,7 +80,7 @@ function stackLine(board: Snapshot, mySeat: number): string {
       : (board.battlefield.find((c) => c.id === first.object)?.name ??
         board.stack.find((s) => s.id === first.object)?.name ??
         "a card");
-  return `${whose}${top.name} at ${at}${targets.length > 1 ? ` (and ${numberWord(targets.length - 1)} more)` : ""}`;
+  return `${owned(whose, top.name)} at ${at}${targets.length > 1 ? ` (and ${numberWord(targets.length - 1)} more)` : ""}`;
 }
 
 /** Spec 0034 — where the active player goes after this step, for "Pat goes on to …". */
@@ -261,10 +271,10 @@ function doingLine(board: Snapshot, mySeat: number, doing: string | null): strin
   if (doing !== "Choosing") return doing;
   const top = board.stack[0];
   if (!top) return "Making a choice";
-  if (top.controller === mySeat) return `Making a choice for your ${top.name}`;
+  if (top.controller === mySeat) return `Making a choice for ${owned("your ", top.name)}`;
   // Spec 0067 -- a spectator (mySeat -1) reads whose by name.
   const owner = board.players.find((p) => p.seat === top.controller)?.name;
-  return `Making a choice for ${mySeat < 0 && owner ? `${owner}’s` : "their"} ${top.name}`;
+  return `Making a choice for ${owned(mySeat < 0 && owner ? `${owner}’s ` : "their ", top.name)}`;
 }
 
 /** W-25 — the step, and whose turn it is: "Main 1, their turn" (spec 0113, W1-039). */
@@ -284,7 +294,7 @@ function stepLine(board: Snapshot, mySeat: number): string {
  */
 function whatTheyDo(board: Snapshot, mySeat: number, seat: number): string | null {
   const top = board.stack[0];
-  if (top && top.controller === mySeat) return `May respond to your ${top.name}`;
+  if (top && top.controller === mySeat) return `May respond to ${owned("your ", top.name)}`;
   if (top) return null;
   // Once some are declared, the step's priority follows: not choosing.
   const theirs = board.battlefield.filter((c) => c.seat === seat);

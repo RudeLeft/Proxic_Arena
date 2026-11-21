@@ -237,6 +237,7 @@ import { ManaCost, ManaText, costChange, manaSymbols, withSymbols } from "./Mana
 import {
   combatPart,
   gameOverWords,
+  owned,
   passWords,
   STEPS,
   totalPower,
@@ -5100,7 +5101,7 @@ export function resolveWords(
 ): { word: string; sub: string; aria: string } {
   return {
     word: `Resolves in ${countdown}`,
-    sub: `${name ? `Your ${name}` : "Yours"}. Click to resolve it now.`,
+    sub: `${name ? owned("Your ", name) : "Yours"}. Click to resolve it now.`,
     aria: `Pass: Resolve ${name ?? "it"} now, or in ${countWords(countdown, "second")}.`,
   };
 }

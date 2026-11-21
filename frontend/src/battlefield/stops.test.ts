@@ -281,6 +281,13 @@ describe("waitingLine", () => {
       "Making a choice for their Ponder",
     );
     expect(doing(fof, null)).toBe("May respond to your Fact or Fiction");
+    // A name that starts with "The" takes no whose: never "your The Monarch".
+    const crown = at("MAIN1", 1, [], [{ name: "The Monarch", controller: 1 }]);
+    expect(sub(crown)).toBe("May respond to The Monarch");
+    expect(doing(crown, "Choosing")).toBe("Making a choice for The Monarch");
+    expect(doing(at("MAIN1", 2, [], [{ name: "The Monarch", controller: 2 }]), "Choosing")).toBe(
+      "Making a choice for The Monarch",
+    );
   });
 
   it("guesses from priority as before when the server has never said", () => {
