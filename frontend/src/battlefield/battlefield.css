@@ -725,6 +725,9 @@
   pointer-events: none;
 }
 .bf-state {
+  /* Owner 2026-11-21 (spec 0113 item 10): the tag shows in capitals as
+   * before; its words stay ordinary for a screen reader. */
+  text-transform: uppercase;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);

@@ -2973,6 +2973,9 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   position: relative;
 }
 .gs-life-target {
+  /* Owner 2026-11-21 (spec 0113 item 10): the tag shows in capitals as
+   * before; its words stay ordinary for a screen reader. */
+  text-transform: uppercase;
   position: absolute;
   left: 50%;
   bottom: -6px;
