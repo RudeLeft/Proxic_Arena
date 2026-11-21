@@ -189,9 +189,7 @@ function HomeIdentity() {
             <Link to="/login">Sign in</Link>
           </span>
         </div>
-        <p className="hint">
-          Accounts are created by an administrator. Signing in is required for decks.
-        </p>
+        <p className="hint">Accounts are by invitation. Sign in to see your decks.</p>
       </section>
     );
   }
@@ -203,7 +201,7 @@ function HomeIdentity() {
         {/* Shown because §3.69 asks for it. The server never trusts
             it coming back -- authorisation is decided from the
             session, every request (§3.19). */}
-        <span className="state">{state.user.role}</span>
+        <span className="state">{state.user.role === "ADMIN" ? "Administrator" : "Player"}</span>
       </div>
       <div className="row">
         <span className="name">
@@ -263,7 +261,7 @@ export default function App() {
     <main>
       <h1>PROXIC ARENA</h1>
       <p className="sub">
-        Foundation Build {snap.version?.proxicVersion ?? "unknown"}
+        Version {snap.version?.proxicVersion ?? "unknown"}
         {snap.version ? ` · protocol v${snap.version.protocolVersion}` : ""}
         {/* Which build is this? The question cost an hour during the
             Phase 4 deployment, answered by comparing bundle hashes.
@@ -285,7 +283,7 @@ export default function App() {
         <Indicator name="Database" state={snap.database} detail={snap.checks["database"]} />
         <Indicator name="WebSocket" state={snap.websocket} />
         <Indicator
-          name="Forge Runtime"
+          name="Rules engine"
           state={snap.forgeRuntime}
           detail={snap.checks["forgeWorker"]}
         />
@@ -296,10 +294,11 @@ export default function App() {
         <RendererPanel onState={setRenderer} />
       </section>
 
-      {snap.version && (
+      {/* Spec 0114: the server sends these to an administrator only. */}
+      {snap.version?.forgeRelease && (
         <p className="hint">
-          Forge {snap.version.forgeRelease} · {snap.version.forgeCommit.slice(0, 10)} · Java{" "}
-          {snap.version.javaVersion}
+          Forge {snap.version.forgeRelease} · {(snap.version.forgeCommit ?? "").slice(0, 10)} · Java{" "}
+          {snap.version.javaVersion ?? "unknown"}
         </p>
       )}
 

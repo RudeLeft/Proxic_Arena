@@ -58,6 +58,19 @@ data class VersionInfo(
     val buildId: String? = BuildInfo.buildId,
 )
 
+/**
+ * Spec 0114 -- `GET /api/version` as a player gets it: no engine fields
+ * (release, commit, Java), which only an administrator sees (the /status
+ * page is theirs). The player pages need only these: the build id for the
+ * "a new version is ready" check, the version for the report dialog.
+ */
+@Serializable
+data class PlayerVersionInfo(
+    val proxicVersion: String = BuildInfo.PROXIC_VERSION,
+    val protocolVersion: Int = BuildInfo.PROTOCOL_VERSION,
+    val buildId: String? = BuildInfo.buildId,
+)
+
 /** `GET /api/system/status` — §1.26. Never carries secrets or traces. */
 @Serializable
 data class SystemStatus(

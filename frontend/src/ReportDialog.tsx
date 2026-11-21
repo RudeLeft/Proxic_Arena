@@ -17,7 +17,7 @@ export interface ReportGame {
   matchId: string;
   opponent: string;
   turn: number;
-  /** "your turn" or "Pat's turn". */
+  /** "Your turn", "Pat’s turn" or "the other player’s turn" (spec 0114 W2-080). */
   whose: string;
   /** "Main 1", "Combat"... */
   step: string;
@@ -65,6 +65,16 @@ const MATTERS = ["Nice to have", "I’d use it every game", "I’d play more wit
 export const SCREEN_QUALITY = 0.92;
 
 /** The page a path is, in the form's words. */
+/**
+ * Spec 0114 W2-080 -- whose turn, for a report's facts: "Your turn",
+ * "Sam’s turn", or "the other player’s turn" when the name is missing
+ * (never "their’s turn").
+ */
+export function whoseTurnWords(mine: boolean, name: string | null | undefined): string {
+  if (mine) return "Your turn";
+  return name ? `${name}’s turn` : "the other player’s turn";
+}
+
 export function pageOf(path: string, inGame: boolean): string {
   if (inGame) return "In a game";
   if (path.startsWith("/decks")) return "Deck Depot";
@@ -377,8 +387,8 @@ export function ReportDialog({
           <span>
             It went to the admins
             {kind === "PROBLEM" ? " with your page’s log" : ""}
-            {kind === "PROBLEM" && game && withRecord ? " and this game’s record" : ""}. Number{" "}
-            <b>#{sent}</b>, if you want to mention it.
+            {kind === "PROBLEM" && game && withRecord ? " and this game’s record" : ""}. It is
+            report <b>#{sent}</b>, if you want to mention it.
           </span>
           {game && <span className="pa-report-note">Your game carried on the whole time.</span>}
           <div className="pa-report-actions">
@@ -425,7 +435,8 @@ export function ReportDialog({
                 {game && <span>In a game with {game.opponent}</span>}
                 {game && (
                   <span>
-                    Turn {game.turn} · {game.whose} · {game.step}
+                    Turn {game.turn} · {game.whose}
+                    {game.step ? ` · ${game.step}` : ""}
                   </span>
                 )}
                 {/* Spec 0113 (W1-139): no " · " after the version. */}
@@ -606,7 +617,7 @@ export function ReportDialog({
                 accept="image/png,image/jpeg"
                 onChange={(e) => addPicture(e.target.files?.[0])}
               />
-              or choose / paste a picture
+              or choose or paste a picture
             </label>
           </div>
           {kind === "PROBLEM" ? (
@@ -624,8 +635,8 @@ export function ReportDialog({
                 </label>
               )}
               <span className="pa-report-note">
-                Also: what your screen did in the last 15 minutes (clicks, messages, errors), the
-                Proxic version, your browser and screen size.
+                Also: what your screen did in the last 15 minutes (clicks, messages and errors), the
+                Proxic version, and your browser and screen size.
               </span>
             </div>
           ) : (

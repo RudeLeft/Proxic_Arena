@@ -57,7 +57,7 @@ sealed interface LaunchError {
      */
     data object SetupNotFound : LaunchError {
         override val code = "SETUP_NOT_FOUND"
-        override val detail = "No such match setup."
+        override val detail = "That match is no longer being set up. Press Start match again."
     }
 
     /** §6.11 — only the host of the source room may launch. */
@@ -81,7 +81,7 @@ sealed interface LaunchError {
     /** The setup was invalidated before anyone launched it. */
     data object SetupNotReady : LaunchError {
         override val code = "SETUP_NOT_READY"
-        override val detail = "That setup is no longer ready. Prepare the match again."
+        override val detail = "Something changed. Press Start match again."
     }
 
     /**

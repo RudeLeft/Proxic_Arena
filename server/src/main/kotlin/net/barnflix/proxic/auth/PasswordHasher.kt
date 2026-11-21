@@ -73,13 +73,13 @@ object PasswordHasher {
     fun rejectionReason(password: String): String? =
         when {
             password.length < MIN_PASSWORD_LENGTH ->
-                "A password must be at least $MIN_PASSWORD_LENGTH characters."
+                "A password must be at least $MIN_PASSWORD_LENGTH characters long."
 
             // §3.16: whitespace is NOT stripped — a space is a character
             // like any other, and trimming would silently change the
             // password someone chose. But an all-whitespace password is
             // a mistake, not a choice.
-            password.isBlank() -> "A password cannot be only whitespace."
+            password.isBlank() -> "A password can't be only spaces."
 
             // An unbounded password is a denial-of-service vector:
             // Argon2 cost grows with input, and §3.15 asks for at least

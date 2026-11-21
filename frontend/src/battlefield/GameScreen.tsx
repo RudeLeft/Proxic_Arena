@@ -12,7 +12,7 @@
 
 import { Breath } from "./Breath";
 import { AimPointer } from "./AimPointer";
-import { ReportButton, type ReportGame } from "../ReportDialog";
+import { ReportButton, whoseTurnWords, type ReportGame } from "../ReportDialog";
 import {
   memo,
   createContext,
@@ -575,8 +575,9 @@ export function GameScreen({
       matchId: match.matchId,
       opponent: them?.name ?? "your opponent",
       turn: board.turn,
-      whose: board.activeSeat === board.seat ? "your turn" : `${them?.name ?? "their"}’s turn`,
-      step: STEPS.find((s) => s.phases.includes(board.phase))?.label ?? board.phase,
+      // Spec 0114 W2-080: never the raw phase, never "their’s turn".
+      whose: whoseTurnWords(board.activeSeat === board.seat, them?.name),
+      step: STEPS.find((s) => s.phases.includes(board.phase))?.label ?? "",
       cards: [...new Set(names)].sort(),
     };
   }, [board, match.matchId]);

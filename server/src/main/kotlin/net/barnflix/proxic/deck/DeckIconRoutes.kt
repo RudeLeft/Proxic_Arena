@@ -31,7 +31,7 @@ fun Route.iconRoute(
         val deckId =
             deckIdOrNull() ?: return@put call.respond(
                 HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
+                ErrorResponse("INVALID_DECK_ID", "That deck doesn't exist.", null),
             )
         when (authorization.accessFor(callerId(), deckId)) {
             DeckAccess.NO_ACCESS ->

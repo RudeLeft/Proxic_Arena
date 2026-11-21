@@ -63,6 +63,7 @@ import { DeckIcon, iconOf } from "./deckIcons";
 import { ChatPanel } from "./LobbyChat";
 import { BeltMark } from "./BeltMark";
 import { remindHolder, shortDate } from "./hall";
+import { capitalNumber, countWords, numberWord } from "./words";
 
 /** Spec 0009 — the clock for "Away 7 min" and "last seen"; every 15 s so
  * spec 0054's "closes in 5 minutes" warning is on time. */
@@ -423,7 +424,9 @@ function PlayersPanel({
     <section className="pa-panel pa-lobby-players" aria-labelledby="players-heading">
       <div className="pa-panel-head">
         <h2 id="players-heading">Players</h2>
-        <span className="pa-panel-note">{onlineCount} online</span>
+        <span className="pa-panel-note">
+          {onlineCount === 0 ? "Nobody else online" : `${capitalNumber(onlineCount)} online`}
+        </span>
       </div>
       <ul className="pa-player-list">
         {/* Not before the first list has come: "nobody" was a lie for the
@@ -444,7 +447,7 @@ function PlayersPanel({
             aria-expanded={offlineOpen}
             onClick={() => setOfflineOpen((open) => !open)}
           >
-            <span>Offline · {offline.length}</span>
+            <span>Offline ({countWords(offline.length, "player")})</span>
             <span aria-hidden="true">{offlineOpen ? "▾" : "▸"}</span>
           </button>
           {offlineOpen && (
@@ -952,8 +955,11 @@ function YourRoom({
         <span className={`pa-status${playing ? " pa-status-playing" : ""}`}>{status}</span>
         {closes && <span className="pa-room-closes">{closes}</span>}
         {/* The seat count, for screen readers and the tests: the seats say it to the eye. */}
-        <span className="pa-room-taken pa-visually-hidden">
-          {room.members.length}/{room.desiredPlayerCount}
+        <span
+          className="pa-room-taken pa-visually-hidden"
+          data-taken={`${room.members.length}/${room.desiredPlayerCount}`}
+        >
+          {capitalNumber(room.members.length)} of {numberWord(room.desiredPlayerCount)} seats taken
         </span>
       </div>
       {warning !== null && (
@@ -961,8 +967,7 @@ function YourRoom({
         // it is told, and one click starts its clock again.
         <div className="pa-room-warning" role="alert">
           <span>
-            This room closes in {warning === 1 ? "1 minute" : `${warning} minutes`} because nothing
-            has happened.
+            This room closes in {countWords(warning, "minute")} because nothing has happened.
           </span>
           <button
             type="button"
@@ -1037,7 +1042,7 @@ function YourRoom({
               </span>
               <span className="pa-seat-deck">
                 {invited
-                  ? "Invited: Accept Pending"
+                  ? "Invited, waiting for an answer"
                   : askedBy
                     ? "Asked to join"
                     : "Invite someone from Players"}
@@ -1102,7 +1107,7 @@ function YourRoom({
                       {deck.deckId === myMember?.selectedDeckId && myMember.selectedDeckName
                         ? myMember.selectedDeckName
                         : deck.displayName}{" "}
-                      ({deck.totalCards} Cards)
+                      ({deck.totalCards} cards)
                       {shared ? ` · shared by ${deck.ownerDisplayName}` : ""}
                     </option>
                   ))}
@@ -1114,7 +1119,7 @@ function YourRoom({
               {/* Spec 0016 (1): no line under the dropdown, but the way to a deck stays. */}
               {decks.length === 0 && (
                 <span className="pa-step-note">
-                  <Link to="/decks">Go to Deck Depot to Import a Deck</Link>
+                  <Link to="/decks">Go to the Deck Depot to add a deck</Link>
                 </span>
               )}
             </li>
@@ -1266,12 +1271,7 @@ function Dialog({
         }}
       >
         {onDismiss && (
-          <button
-            type="button"
-            className="pa-dialog-close"
-            aria-label="Put this aside for now"
-            onClick={onDismiss}
-          >
+          <button type="button" className="pa-dialog-close" aria-label="Close" onClick={onDismiss}>
             ×
           </button>
         )}

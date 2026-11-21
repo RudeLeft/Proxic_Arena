@@ -10,6 +10,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import kotlinx.serialization.Serializable
 import net.barnflix.proxic.ErrorResponse
+import net.barnflix.proxic.PlayerWords
 import net.barnflix.proxic.ServerConfig
 
 // The sign-up page's two questions — spec 0014 (owner 2026-10-25).
@@ -143,7 +144,7 @@ internal suspend fun ApplicationCall.joinAllowed(
     response.headers.append("Retry-After", wait.toString())
     respond(
         HttpStatusCode.TooManyRequests,
-        ErrorResponse("TOO_MANY_ATTEMPTS", "Too many tries. Try again in $wait seconds.", null),
+        ErrorResponse("TOO_MANY_ATTEMPTS", "Too many tries. Try again in ${PlayerWords.waitWords(wait)}.", null),
     )
     return false
 }

@@ -50,9 +50,9 @@ describe("the words", () => {
   it("titles have no full stop; a two-sentence message splits", () => {
     expect(asTitle("The host left, so the room closed.")).toBe("The host left, so the room closed");
     expect(
-      splitSentence("The match was abandoned. Nobody won it, and the room is open again."),
+      splitSentence("The game was abandoned. Nobody won it, and the room is open again."),
     ).toEqual({
-      title: "The match was abandoned",
+      title: "The game was abandoned",
       line: "Nobody won it, and the room is open again.",
     });
   });
@@ -95,10 +95,10 @@ describe("the words", () => {
       lobbyNoticeOf({
         kind: "error",
         errorCode: "DECK_UNAVAILABLE",
-        detail: "A deck could not be read, so the match did not start. The room is open again.",
+        detail: "A deck could not be read, so the game did not start. The room is open again.",
         aboutMatch: true,
       }),
-    ).toMatchObject({ title: "The match did not start", problem: true });
+    ).toMatchObject({ label: "Game", title: "The game did not start", problem: true });
     expect(
       lobbyNoticeOf({
         kind: "error",
@@ -106,7 +106,7 @@ describe("the words", () => {
         detail: "The room changed while you were deciding.",
       }),
     ).toMatchObject({
-      title: "That couldn't be done",
+      title: "That didn't work",
       line: "The room changed while you were deciding.",
       problem: true,
     });

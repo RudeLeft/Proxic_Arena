@@ -3,6 +3,7 @@ package net.barnflix.proxic.deck
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import net.barnflix.proxic.PlayerWords
 import net.barnflix.proxic.ServerConfig
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -109,7 +110,7 @@ class DeckImporter(
             ImportResult.Rejected(
                 "IMPORT_FAILED",
                 // §2.76 — no stack trace, no path, to the client.
-                "The package could not be imported.",
+                "The deck could not be added. Try sending it again.",
                 emptyList(),
             )
         } finally {
@@ -155,7 +156,7 @@ class DeckImporter(
                 ) {
                     return ImportResult.Rejected(
                         "DECK_TEXT_TOO_LARGE",
-                        "The decklist is ${maxOf(entry.size, bytes.size.toLong())} bytes.",
+                        "The deck list is too long to import. Remove some lines and send it again.",
                         emptyList(),
                     )
                 }
@@ -166,7 +167,8 @@ class DeckImporter(
             when (val parsed = DeckListParser.parse(deckText)) {
                 is DeckParseResult.Invalid -> return ImportResult.Rejected(
                     "INVALID_DECK_LIST",
-                    "Line ${parsed.line}: ${parsed.reason}",
+                    // Spec 0114: no "Line 0:" for a list with no cards in it.
+                    if (parsed.line > 0) "Line ${parsed.line}: ${parsed.reason}" else parsed.reason,
                     emptyList(),
                 )
 
@@ -197,29 +199,11 @@ class DeckImporter(
         // Spec 0053 — by card AND printing: four Mountain printings are four
         // answers, so each line keeps the printing Forge plays for it.
         val resolutions = resolver.resolve(deck.entries).associateBy { it.key }
-        // Spec 0024: a card Forge knows in another printing is kept in the
-        // player's, unless its printing changes what it does.
-        val unresolved =
-            deck.entries.filter {
-                resolutions[it.resolutionKey]?.playable != true
-            }
         val violations = legalityByForge(deck, resolutions.values)
         if (violations.isNotEmpty()) {
             return notLegal(violations)
         }
-
-        if (unresolved.isNotEmpty()) {
-            // Owner decision D2: one unresolvable card rejects the
-            // whole import. Never a degraded or flagged deck, and
-            // never a substitution (§2.94) -- of a CARD. A printing
-            // is no longer one (spec 0024): the entry keeps the
-            // player's printing and picture, and records Forge's.
-            return ImportResult.Rejected(
-                "CARDS_NOT_RESOLVED",
-                "Some cards in this deck are not supported yet.",
-                unresolved.map { entry -> notPlayable(entry, resolutions[entry.resolutionKey]) },
-            )
-        }
+        cardsRefused(deck, resolutions)?.let { return it }
 
         // 8. Artwork.
         val artByFrontName = mutableMapOf<String, StoredArt>()
@@ -259,20 +243,6 @@ class DeckImporter(
         return OpenFormat.validate(deck, sections)
     }
 
-    /** One refused line, naming the card; spec 0024's printing case in game words. */
-    private fun notPlayable(
-        entry: DeckEntry,
-        resolution: CardResolution?,
-    ): String {
-        val detail =
-            if (resolution?.printingMatters == true) {
-                "this card plays differently in each printing, and this printing is not one Arena has"
-            } else {
-                resolution?.detail
-            }
-        return "Line ${entry.lineNumber}, ${entry.name}${detail?.let { ": $it" } ?: ""}"
-    }
-
     private fun notLegal(violations: List<DeckViolation>) =
         ImportResult.Rejected(
             "DECK_NOT_LEGAL",
@@ -306,7 +276,12 @@ class DeckImporter(
                     }
                 }
                 when (val stored = artStore.store(extracted, member)) {
-                    is ArtResult.Rejected -> problems += "${stored.code}: ${stored.detail}"
+                    // Spec 0114: the sentence alone, never its code in front;
+                    // the code and the file go to the log.
+                    is ArtResult.Rejected -> {
+                        log.info("picture {} refused: {}", member, stored.code)
+                        problems += stored.detail
+                    }
                     is ArtResult.Ok -> into.mapFor(member)[pictureKeyOf(member)] = stored.art
                 }
                 extracted.delete()
@@ -330,7 +305,7 @@ class DeckImporter(
         if (artProblems.isNotEmpty()) {
             return ImportResult.Rejected(
                 "INVALID_ARTWORK",
-                "The package contains artwork that is not a usable image.",
+                "Some pictures in this deck can't be used:",
                 artProblems,
             )
         }
@@ -368,10 +343,15 @@ class DeckImporter(
                     it.readNBytes((PackageLimits.MAX_DECK_TEXT_BYTES + 1).toInt())
                 }
             }
-        val named = picturesNamed(text) ?: return listOf("$entry is not a list of pictures.")
+        val named =
+            picturesNamed(text)
+                ?: return listOf("The list of pictures in this deck file could not be read. Send the deck again.")
         val total = named.size + inspected.imageEntries.size + inspected.cropEntries.size
         if (total > PackageLimits.MAX_IMAGE_COUNT) {
-            return listOf("The package names $total pictures; the limit is ${PackageLimits.MAX_IMAGE_COUNT}.")
+            return listOf(
+                "This deck has ${PlayerWords.number(total)} pictures, and the most a deck can have is " +
+                    "${PlayerWords.number(PackageLimits.MAX_IMAGE_COUNT)}.",
+            )
         }
         val held = ownedPictures(dataSource, ownerUserId, named.values.toSet())
         val problems = mutableListOf<String>()
@@ -382,7 +362,8 @@ class DeckImporter(
             if (face in map) continue
             val size = held[sha]
             if (size == null || !artStore.originalPath(sha).isFile) {
-                problems += member
+                problems += "${pictureName(member)}: its picture was not sent, and none of your decks has it. " +
+                    "Send the deck again with its pictures."
                 continue
             }
             map[face] = StoredArt(sha, size, 0, 0)
@@ -513,7 +494,7 @@ class DeckImporter(
                 log.error("persisting deck {} failed", deckId, e)
                 return ImportResult.Rejected(
                     "IMPORT_FAILED",
-                    "The deck could not be stored.",
+                    "The deck could not be added. Try sending it again.",
                     emptyList(),
                 )
             }
@@ -684,6 +665,63 @@ internal fun frontNameOf(member: String): String =
         .substringBeforeLast(" [")
         .trim()
         .lowercase(Locale.ROOT)
+
+/**
+ * The cards Forge could not answer for, or null when every one plays.
+ * Split from [runImport] (detekt's return count) when spec 0114 gave the
+ * card checker being down its own one sentence.
+ */
+private fun cardsRefused(
+    deck: ParsedDeck,
+    resolutions: Map<String, CardResolution>,
+): ImportResult.Rejected? {
+    if (resolutions.values.any { it.status == CardResolution.Status.UNAVAILABLE }) {
+        // Spec 0114 (W2-099): the card checker was down, so no card was
+        // checked. Said once, never as every card "not supported yet".
+        return ImportResult.Rejected("CARDS_NOT_RESOLVED", CardResolution.NOT_CHECKED, emptyList())
+    }
+    // Spec 0024: a card Forge knows in another printing is kept in the
+    // player's, unless its printing changes what it does.
+    val unresolved = deck.entries.filter { resolutions[it.resolutionKey]?.playable != true }
+    if (unresolved.isEmpty()) return null
+    // Owner decision D2: one unresolvable card rejects the
+    // whole import. Never a degraded or flagged deck, and
+    // never a substitution (§2.94) -- of a CARD. A printing
+    // is no longer one (spec 0024): the entry keeps the
+    // player's printing and picture, and records Forge's.
+    return ImportResult.Rejected(
+        "CARDS_NOT_RESOLVED",
+        "Some cards in this deck are not supported yet.",
+        unresolved.map { entry -> notPlayable(entry, resolutions[entry.resolutionKey]) },
+    )
+}
+
+/** One refused line, naming the card; spec 0024's printing case in game words. */
+private fun notPlayable(
+    entry: DeckEntry,
+    resolution: CardResolution?,
+): String {
+    val detail =
+        if (resolution?.printingMatters == true) {
+            "This card works differently in each printing, and Arena doesn't have this one."
+        } else {
+            // Spec 0114 (W2-001, W2-101): fixed words keyed on the status,
+            // never the rules engine's own text.
+            resolution?.let { CardResolution.wordsFor(it.status) }
+        }
+    return "Line ${entry.lineNumber}, ${entry.name}${detail?.let { ": $it" } ?: ""}"
+}
+
+/**
+ * Spec 0114 -- the card a picture is for, as the player wrote it:
+ * `real_cards/Reckless Stormseeker [MID].png` -> `Reckless Stormseeker`.
+ * A problem names the card, never the file inside the deck file.
+ */
+internal fun pictureName(member: String): String =
+    member.substringAfterLast('/')
+        .replace(PICTURE_EXTENSION, "")
+        .substringBeforeLast(" [")
+        .trim()
 
 /**
  * Spec 0051 -- the pictures a package brings, by name: card pictures

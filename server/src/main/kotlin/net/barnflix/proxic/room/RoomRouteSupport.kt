@@ -74,7 +74,7 @@ internal suspend fun Handler.respondBadRoomId() {
     // leaks nothing, because no real room id has this shape.
     call.respond(
         HttpStatusCode.BadRequest,
-        ErrorResponse("INVALID_ROOM_ID", "That is not a room id.", call.callId),
+        ErrorResponse("INVALID_ROOM_ID", "That room doesn't exist.", call.callId),
     )
 }
 

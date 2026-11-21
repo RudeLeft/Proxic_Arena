@@ -94,7 +94,7 @@ fun Route.matchSetupRoutes(
                 call.respond(
                     HttpStatusCode.Conflict,
                     NotReadyResponse(
-                        detail = "Not everyone is ready yet.",
+                        detail = "A seat needs attention before the game can start.",
                         seats = seats,
                     ),
                 )

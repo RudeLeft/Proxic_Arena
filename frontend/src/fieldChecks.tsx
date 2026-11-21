@@ -8,6 +8,7 @@
 // decides.
 
 import type { InputHTMLAttributes, ReactNode } from "react";
+import { countWords, numberWord } from "./words";
 
 /** The server's password rule: at least 12 characters, not only spaces. */
 export const MIN_PASSWORD = 12;
@@ -21,13 +22,13 @@ export const displayNameOk = (name: string) =>
   name.trim().length > 0 && name.trim().length <= MAX_DISPLAY_NAME;
 export const usernameOk = (username: string) => /^[A-Za-z0-9._-]{3,32}$/.test(username.trim());
 
-/** The password's rule line: "At least 12 characters · 5 more". */
+/** The password's rule line: "At least 12 characters: five more to go" (spec 0114 W2-003). */
 export function passwordRule(password: string): string {
   const rule = `At least ${MIN_PASSWORD} characters`;
   if (password.length > 0 && password.length < MIN_PASSWORD) {
-    return `${rule} · ${MIN_PASSWORD - password.length} more`;
+    return `${rule}: ${numberWord(MIN_PASSWORD - password.length)} more to go`;
   }
-  if (password.length >= MIN_PASSWORD && !passwordOk(password)) return "Not only spaces";
+  if (password.length >= MIN_PASSWORD && !passwordOk(password)) return "It can't be only spaces";
   return rule;
 }
 
@@ -36,7 +37,13 @@ export function passwordMissing(password: string, again: string): string[] {
   const missing: string[] = [];
   if (password.length === 0) missing.push(`a password of at least ${MIN_PASSWORD} characters`);
   else if (password.length < MIN_PASSWORD)
-    missing.push(`${MIN_PASSWORD - password.length} more password characters`);
+    missing.push(
+      countWords(
+        MIN_PASSWORD - password.length,
+        "more password character",
+        "more password characters",
+      ),
+    );
   else if (!passwordOk(password)) missing.push("a password that isn't only spaces");
   if (again.length === 0) missing.push("the password again");
   else if (!againOk(password, again)) missing.push("the second password to match the first");
@@ -48,7 +55,9 @@ export function displayNameMissing(name: string): string[] {
   const length = name.trim().length;
   if (length === 0) return ["a display name"];
   if (length > MAX_DISPLAY_NAME)
-    return [`a shorter display name (${length - MAX_DISPLAY_NAME} too many characters)`];
+    return [
+      `a shorter display name (${countWords(length - MAX_DISPLAY_NAME, "character")} too many)`,
+    ];
   return [];
 }
 

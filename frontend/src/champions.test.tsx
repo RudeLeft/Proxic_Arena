@@ -62,7 +62,7 @@ describe("Avatar with a place", () => {
     expect(wrap.style.width).toBe("40px");
     expect(wrap.style.height).toBe("40px");
     expect(wrap.className).toContain("pa-rank-2");
-    expect(screen.getByRole("img", { name: "2nd place" }).textContent).toBe("2");
+    expect(screen.getByRole("img", { name: "Second place" }).textContent).toBe("2");
   });
 
   it("without a place or a status is just the picture", () => {

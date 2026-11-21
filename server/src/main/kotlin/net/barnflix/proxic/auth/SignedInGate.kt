@@ -112,6 +112,12 @@ private val LOOPBACK = setOf("127.0.0.1", "::1", "0:0:0:0:0:0:0:1", "localhost")
 /** From inside the box: the TCP peer, never a forwarded header a client can write. */
 private fun ApplicationCall.fromInside(): Boolean = request.local.remoteHost in LOOPBACK
 
+/**
+ * Spec 0114 -- who the gate let in, for a route outside the database
+ * routes that answers an administrator differently (`/api/version`).
+ */
+val SIGNED_IN: AttributeKey<Principal> = AttributeKey("proxic.signed-in")
+
 fun Application.installSignedInGate(
     sessions: Sessions,
     staticRoot: File,
@@ -140,12 +146,15 @@ fun Application.installSignedInGate(
             call.isDeckRules(path) -> Unit
             isDeckBuilder(path) -> Unit
             path == "/api" || path.startsWith("/api/") || path == "/ws/system" -> {
-                if (call.principal(sessions) == null) {
+                val principal = call.principal(sessions)
+                if (principal == null) {
                     call.respond(
                         HttpStatusCode.Unauthorized,
                         ErrorResponse("UNAUTHENTICATED", "Sign in to continue.", null),
                     )
                     finish()
+                } else {
+                    call.attributes.put(SIGNED_IN, principal)
                 }
             }
             path.startsWith("/assets/") -> {

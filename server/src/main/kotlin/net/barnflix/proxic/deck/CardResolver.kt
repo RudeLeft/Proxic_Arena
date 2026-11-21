@@ -27,6 +27,9 @@ import java.util.concurrent.TimeUnit
 /** Spec 0012 — colour identity letters, in WUBRG order. */
 private val COLOR_LETTERS = Regex("^W?U?B?R?G?$")
 
+/** The worker's " (NOT_FOUND)" after an unresolved name in BUILD_DECK's reply. */
+private val STATUS_SUFFIX = Regex("""\s*\([A-Z_]+\)$""")
+
 /** What Forge said about one requested entry. */
 data class CardResolution(
     val name: String,
@@ -72,6 +75,24 @@ data class CardResolution(
         get() = status == Status.RESOLVED || (status == Status.PRINTING_MISMATCH && !printingMatters)
 
     enum class Status { RESOLVED, NOT_FOUND, PRINTING_MISMATCH, UNAVAILABLE }
+
+    companion object {
+        /** Spec 0114 (W2-099, W2-100): the card checker could not be asked, said once for the deck. */
+        const val NOT_CHECKED = "The cards could not be checked just now. Try sending the deck again in a minute."
+
+        /**
+         * Spec 0114 (W2-001, W2-101) -- a player's words for each answer,
+         * keyed on the answer's status, so no text of the rules engine's
+         * reaches a player unmapped. Null when there is nothing to say.
+         */
+        fun wordsFor(status: Status): String? =
+            when (status) {
+                Status.RESOLVED -> null
+                Status.NOT_FOUND -> "Arena doesn't know this card yet."
+                Status.PRINTING_MISMATCH -> "Arena doesn't have this printing of this card."
+                Status.UNAVAILABLE -> "The cards could not be checked just now."
+            }
+    }
 }
 
 /**
@@ -108,6 +129,8 @@ data class ForgeDeckBuild(
     val unresolved: List<String>,
     /** Phase 8 Amendment 3 — contraption and attraction cards: name to section. */
     val sections: Map<String, String> = emptyMap(),
+    /** False when the card checker could not be asked at all (spec 0114: said once, not as a card). */
+    val checked: Boolean = true,
 )
 
 class CardResolver(private val config: ServerConfig) {
@@ -149,7 +172,12 @@ class CardResolver(private val config: ServerConfig) {
     private fun unavailable(
         entries: List<DeckEntry>,
         why: String,
-    ) = entries.map { CardResolution(it.name, CardResolution.Status.UNAVAILABLE, why) }
+    ): List<CardResolution> {
+        // The reason is for the log; a player is told the same words whatever it was (W2-100).
+        log.warn("card checker unavailable: {}", why)
+        val words = CardResolution.wordsFor(CardResolution.Status.UNAVAILABLE)
+        return entries.map { CardResolution(it.name, CardResolution.Status.UNAVAILABLE, words) }
+    }
 
     /**
      * Build the deck in Forge and report what FORGE sees.
@@ -164,7 +192,8 @@ class CardResolver(private val config: ServerConfig) {
     ): ForgeDeckBuild {
         val jar = config.forgeWorkerJar
         if (jar.isNullOrBlank() || !File(jar).isFile) {
-            return ForgeDeckBuild(0, emptyMap(), listOf("the card checker is not configured"))
+            log.warn("card checker unavailable: not configured")
+            return ForgeDeckBuild(0, emptyMap(), emptyList(), checked = false)
         }
         val request =
             buildJsonObject {
@@ -190,10 +219,11 @@ class CardResolver(private val config: ServerConfig) {
 
         val reply =
             runCatching { exchange(request, File(jar), timeoutSeconds) }.getOrNull()
-                ?: return ForgeDeckBuild(0, emptyMap(), listOf("the card checker could not be reached"))
+                ?: return ForgeDeckBuild(0, emptyMap(), emptyList(), checked = false)
 
         if (reply["type"]?.jsonPrimitive?.content != "DECK_BUILT") {
-            return ForgeDeckBuild(0, emptyMap(), listOf("the card checker could not build the deck"))
+            log.warn("card checker could not build the deck")
+            return ForgeDeckBuild(0, emptyMap(), emptyList(), checked = false)
         }
         return ForgeDeckBuild(
             totalCards = reply["totalCards"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
@@ -201,7 +231,10 @@ class CardResolver(private val config: ServerConfig) {
                 reply["countsByName"]?.jsonObject?.mapValues {
                     it.value.jsonPrimitive.content.toIntOrNull() ?: 0
                 }.orEmpty(),
-            unresolved = reply["unresolved"]?.jsonArray?.map { it.jsonPrimitive.content }.orEmpty(),
+            // The worker writes "Name (NOT_FOUND)"; a player reads the name only (W2-107).
+            unresolved =
+                reply["unresolved"]?.jsonArray?.map { it.jsonPrimitive.content.replace(STATUS_SUFFIX, "") }
+                    .orEmpty(),
             sections =
                 reply["sections"]?.jsonObject?.mapValues { it.value.jsonPrimitive.content }
                     ?.filterValues { it in OpenFormat.SIDE_DECKS }.orEmpty(),
@@ -331,15 +364,18 @@ class CardResolver(private val config: ServerConfig) {
 
         return cards.map { element ->
             val card = element.jsonObject
+            val status =
+                runCatching {
+                    CardResolution.Status.valueOf(
+                        card["status"]?.jsonPrimitive?.content ?: "UNAVAILABLE",
+                    )
+                }.getOrDefault(CardResolution.Status.UNAVAILABLE)
             CardResolution(
                 name = card["name"]?.jsonPrimitive?.content ?: "",
-                status =
-                    runCatching {
-                        CardResolution.Status.valueOf(
-                            card["status"]?.jsonPrimitive?.content ?: "UNAVAILABLE",
-                        )
-                    }.getOrDefault(CardResolution.Status.UNAVAILABLE),
-                detail = (card["detail"] as? JsonPrimitive)?.content,
+                status = status,
+                // Spec 0114 (W2-101): fixed words by status; the worker's own
+                // detail is never passed on to a player.
+                detail = CardResolution.wordsFor(status),
                 actualSet = (card["actualSet"] as? JsonPrimitive)?.content,
                 actualNumber = (card["actualNumber"] as? JsonPrimitive)?.content,
                 category =

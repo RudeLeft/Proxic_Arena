@@ -1,5 +1,7 @@
 package net.barnflix.proxic.deck
 
+import net.barnflix.proxic.PlayerWords
+
 //
 // The Deck Builder decklist, parsed — PHASE_02 §2.39–§2.43.
 //
@@ -131,26 +133,31 @@ object DeckListParser {
                     val match =
                         LINE.matchEntire(line)
                             ?: return DeckParseResult.Invalid(
-                                "line is not '<quantity> <card name> [SET:NUMBER]'",
+                                "This line should be a number of copies and then a card name, " +
+                                    "for example \"4 Lightning Bolt\".",
                                 lineNumber,
                             )
                     val quantity =
                         match.groupValues[1].toIntOrNull()
-                            ?: return DeckParseResult.Invalid("quantity is not a number", lineNumber)
+                            ?: return DeckParseResult.Invalid(
+                                "The number of copies is missing or is not a number.",
+                                lineNumber,
+                            )
                     // §2.43: a quantity of zero is not a card, and an
                     // absurd one is a resource question, not a deck.
                     if (quantity <= 0) {
-                        return DeckParseResult.Invalid("quantity must be at least 1", lineNumber)
+                        return DeckParseResult.Invalid("A card needs at least one copy.", lineNumber)
                     }
                     if (quantity > MAX_QUANTITY) {
                         return DeckParseResult.Invalid(
-                            "quantity $quantity exceeds the sane maximum of $MAX_QUANTITY",
+                            "${PlayerWords.number(quantity)} copies is too many; a line can have at most " +
+                                "${PlayerWords.number(MAX_QUANTITY)}.",
                             lineNumber,
                         )
                     }
                     val name = match.groupValues[2].trim()
                     if (name.isEmpty()) {
-                        return DeckParseResult.Invalid("card name is empty", lineNumber)
+                        return DeckParseResult.Invalid("This line has no card name.", lineNumber)
                     }
                     (if (inTokens) tokens else entries) +=
                         DeckEntry(
@@ -166,7 +173,7 @@ object DeckListParser {
         }
 
         if (entries.isEmpty()) {
-            return DeckParseResult.Invalid("the decklist contains no cards", 0)
+            return DeckParseResult.Invalid("The deck list has no cards in it.", 0)
         }
         return DeckParseResult.Ok(ParsedDeck(declaredName, entries, tokens))
     }

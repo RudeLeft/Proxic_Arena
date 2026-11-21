@@ -20,9 +20,9 @@ describe("the Hall's words", () => {
     expect(monthName("2026-11")).toBe("November");
     const now = Date.parse("2026-11-18T12:00:00Z");
     expect(timeLeft("2026-12-01T00:00:00Z", now)).toBe("12 days");
-    expect(timeLeft("2026-11-19T13:00:00Z", now)).toBe("1 day");
-    expect(timeLeft("2026-11-18T17:00:00Z", now)).toBe("5 hours");
-    expect(heldFor("2026-11-14T12:00:00Z", now)).toBe("Held 4 days");
+    expect(timeLeft("2026-11-19T13:00:00Z", now)).toBe("one day");
+    expect(timeLeft("2026-11-18T17:00:00Z", now)).toBe("five hours");
+    expect(heldFor("2026-11-14T12:00:00Z", now)).toBe("Held for four days");
     expect(heldFor("2026-11-18T09:00:00Z", now)).toBe("Held since today");
   });
 
@@ -34,23 +34,23 @@ describe("the Hall's words", () => {
   it("says each kind of latest result", () => {
     const base = { at: "", turn: 9, change: 16, beltTaken: false };
     expect(latestText({ ...base, kind: "win", players: ["p", "a"] }, name)).toBe(
-      "Pat beat Ash on turn 9 · +16",
+      "Pat beat Ash on turn nine (+16)",
     );
     expect(latestText({ ...base, kind: "win", players: ["a", "p"], beltTaken: true }, name)).toBe(
-      "Ash beat Pat on turn 9 · +16 and took the Belt",
+      "Ash beat Pat on turn nine and took the Belt (+16)",
     );
     expect(latestText({ ...base, kind: "draw", players: ["p", "a"], change: null }, name)).toBe(
-      "Pat and Ash drew on turn 9",
+      "Pat and Ash drew on turn nine",
     );
     expect(latestText({ ...base, kind: "belt", players: ["a", "p"], turn: null }, name)).toBe(
-      "Ash took over the Belt: Pat hadn't played for 7 days",
+      "Ash took over the Belt: Pat hadn't played for seven days",
     );
   });
 
   it("says when the holder must defend the Belt, and reminds them two days before (spec 0048)", () => {
     const now = Date.parse("2026-11-04T12:00:00Z");
-    expect(defendText("2026-11-08T13:00:00Z", now)).toBe("Defend by Sun 8 Nov · 4 days left");
-    expect(defendText("2026-11-04T10:00:00Z", now)).toBe("Defend by Wed 4 Nov · due now");
+    expect(defendText("2026-11-08T13:00:00Z", now)).toBe("Defend by Sun, Nov 8 · four days left");
+    expect(defendText("2026-11-04T10:00:00Z", now)).toBe("Defend by Wed, Nov 4 · due now");
     expect(defendShare("2026-11-08T12:00:00Z", now)).toBeCloseTo(4 / 7);
     expect(defendShare("2026-11-01T12:00:00Z", now)).toBe(0);
     expect(remindHolder("2026-11-08T12:00:00Z", now)).toBe(false);

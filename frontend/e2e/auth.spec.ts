@@ -167,8 +167,9 @@ test("sign out everywhere ends sessions in other browsers too", async ({ browser
 
   await signIn(page);
   await page.goto("/account");
-  await page.getByRole("button", { name: "Sign out all" }).click();
-  await expect(page.getByText(/Signed out of \d+ session/)).toBeVisible();
+  await page.getByRole("button", { name: "Sign out everywhere" }).click();
+  // Spec 0114 (W2-014): "Signed out of two sessions.", the count in words.
+  await expect(page.getByText(/Signed out of [a-z0-9]+ sessions?\./)).toBeVisible();
 
   // The OTHER browser is now signed out, which it finds out on its
   // next request rather than being told.
@@ -233,7 +234,8 @@ test("the avatars fold away, open on request, and a pick saves and folds them ag
   const section = page.getByRole("region", { name: "Avatar" });
   const choices = section.getByRole("group", { name: "Choose your avatar" });
   await expect(choices).toBeHidden();
-  const open = section.getByRole("button", { name: /Choose an avatar \(132\)/ });
+  // Spec 0114 (W2-016): the button no longer shows the count; the 132 are counted below.
+  const open = section.getByRole("button", { name: "Choose an avatar", exact: true });
   await expect(open).toHaveAttribute("aria-expanded", "false");
   await open.click();
   await expect(choices).toBeVisible();

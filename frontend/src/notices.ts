@@ -9,7 +9,7 @@
 
 import type { ReactNode } from "react";
 import { goneTitle } from "./lobbyView";
-import type { LobbyState } from "./lobby";
+import { REQUEST_TAKEN_BACK, type LobbyState } from "./lobby";
 
 export type NoticeTone = "gold" | "red" | "blue" | "grey";
 
@@ -130,6 +130,8 @@ export function newsOf(text: string): NewsItem {
   if (/^An administrator changed your display name to /.test(text)) {
     return { label: "Account", title: text };
   }
+  // Spec 0114 W2-156: told to the host, who did not ask -- nothing to ask again.
+  if (text === REQUEST_TAKEN_BACK) return { label: "Request to join", title: asTitle(text) };
   return { label: "Request to join", title, line: "You can ask again, or open your own room." };
 }
 
@@ -148,7 +150,7 @@ export function lobbyNoticeOf(
 ): NewsItem & { problem: boolean } {
   if (notice.kind === "info") {
     if (notice.aboutMatch)
-      return { label: "Match", ...splitSentence(notice.detail), problem: false };
+      return { label: "Game", ...splitSentence(notice.detail), problem: false };
     return {
       label: "Room",
       title: asTitle(notice.detail),
@@ -157,9 +159,30 @@ export function lobbyNoticeOf(
     };
   }
   if (notice.aboutMatch) {
-    return { label: "Match", title: "The match did not start", line: notice.detail, problem: true };
+    return { label: "Game", title: "The game did not start", line: notice.detail, problem: true };
   }
-  return { label: "Room", title: "That couldn't be done", line: notice.detail, problem: true };
+  return { label: "Room", title: "That didn't work", line: notice.detail, problem: true };
+}
+
+/**
+ * Spec 0114 W2-081 -- the line under "Your deck needs attention", from the
+ * problem's code (the server's codes, room/MatchSetupService.kt and
+ * room/MatchPreflight.kt's DeckVerdict). A deck's own rule problem (too
+ * few cards, too many copies, a card that can't be played) names the
+ * card or the count, so the server's sentence is kept for those, and as
+ * the last resort for a code this page has never heard of.
+ */
+const SETUP_WORDS: Record<string, string> = {
+  DECK_REQUIRED: "Choose a deck.",
+  NOT_READY: "Mark yourself ready.",
+  NOT_CONNECTED: "You are not connected. Reload the lobby.",
+  ACCESS_REVOKED: "That deck is no longer available to you. Choose another.",
+};
+
+export function setupProblemLine(problem: { errorCode: string; detail: string }): string {
+  const words = SETUP_WORDS[problem.errorCode];
+  if (words) return words;
+  return problem.detail.trim() || "Your deck can't be used for this game. Choose another.";
 }
 
 /** Spec 0050 — a new version during a game waits until the game is over. */

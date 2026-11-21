@@ -59,10 +59,10 @@ describe("away after 5 minutes (A2)", () => {
 describe("the words (A1)", () => {
   it("says how long ago, roughly", () => {
     expect(agoText(minutesAgo(0), NOW)).toBe("just now");
-    expect(agoText(minutesAgo(5), NOW)).toBe("5 min ago");
-    expect(agoText(minutesAgo(130), NOW)).toBe("2h ago");
+    expect(agoText(minutesAgo(5), NOW)).toBe("five minutes ago");
+    expect(agoText(minutesAgo(130), NOW)).toBe("two hours ago");
     expect(agoText(minutesAgo(30 * 60), NOW)).toBe("yesterday");
-    expect(agoText(minutesAgo(72 * 60), NOW)).toBe("3 days ago");
+    expect(agoText(minutesAgo(72 * 60), NOW)).toBe("three days ago");
   });
 
   it("is online, away for so long, or offline and last seen", () => {
@@ -79,17 +79,24 @@ describe("the words (A1)", () => {
       },
     ]);
     expect(statusOf(lobby, "u-pat", NOW)).toEqual({ kind: "online", label: "Online" });
-    expect(statusOf(lobby, "u-dana", NOW)).toEqual({ kind: "away", label: "Away 7 min" });
+    expect(statusOf(lobby, "u-dana", NOW)).toEqual({
+      kind: "away",
+      label: "Away for seven minutes",
+    });
     expect(statusOf(lobby, "u-ash", NOW)).toEqual({
       kind: "offline",
-      label: "Offline · last seen 2h ago",
+      label: "Offline · last seen two hours ago",
     });
     // No session left (signed out everywhere): just offline.
     expect(statusOf(lobby, "u-kit", NOW)).toEqual({ kind: "offline", label: "Offline" });
 
     const rows = playerRows(lobby, "u-me", NOW);
-    expect(rows.find((r) => r.user.userId === "u-dana")?.where).toBe("Away 7 min · in the lobby");
-    expect(rows.find((r) => r.user.userId === "u-ash")?.where).toBe("Offline · last seen 2h ago");
+    expect(rows.find((r) => r.user.userId === "u-dana")?.where).toBe(
+      "Away for seven minutes · in the lobby",
+    );
+    expect(rows.find((r) => r.user.userId === "u-ash")?.where).toBe(
+      "Offline · last seen two hours ago",
+    );
   });
 });
 

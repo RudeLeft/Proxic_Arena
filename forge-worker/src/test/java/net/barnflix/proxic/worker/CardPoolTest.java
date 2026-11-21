@@ -102,6 +102,22 @@ class CardPoolTest {
         assertTrue(printings("Space Beleren").contains("UNF 178"));
     }
 
+    /**
+     * F-0114-B (W2-001): an unknown card reads "Arena doesn't know this card
+     * yet."; no resolver reason names the rules engine.
+     */
+    @Test
+    void resolverWordsNeverSayForge() {
+        ForgeRuntime.Resolution unknown = runtime.resolve("Foo the Unprinted", null, null);
+        assertEquals("NOT_FOUND", unknown.status);
+        assertEquals("Arena doesn't know this card yet.", unknown.detail);
+        ForgeRuntime.Resolution other = runtime.resolve("Island", "MDD", "294");
+        assertEquals("PRINTING_MISMATCH", other.status);
+        for (ForgeRuntime.Resolution r : List.of(unknown, other)) {
+            assertFalse(r.detail.toLowerCase(java.util.Locale.ROOT).contains("forge"), r.detail);
+        }
+    }
+
     /** F-0021-B: set codes are Forge's own lookup -- a second code finds its edition, a Scryfall code alone does not. */
     @Test
     void setCodesAreForgesLookup() {

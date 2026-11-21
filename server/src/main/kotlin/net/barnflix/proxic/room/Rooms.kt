@@ -66,11 +66,14 @@ data class Room(
     val lastActivityAt: java.time.Instant = java.time.Instant.EPOCH,
 ) {
     /**
-     * The name everybody sees: the host's choice, or "<host>'s room".
+     * The name everybody sees: the host's choice, or "<host>'s room" ("A room" with no host, spec 0114).
      * Worked out here rather than stored, so a host who changes their
      * display name does not leave a stale label behind.
      */
-    fun displayName(): String = name ?: "${members.firstOrNull { it.isHost }?.displayName ?: "A"}'s room"
+    fun displayName(): String {
+        val host = members.firstOrNull { it.isHost } ?: return name ?: "A room"
+        return name ?: "${host.displayName}'s room"
+    }
 
     fun isHost(userId: UUID): Boolean = hostUserId == userId
 

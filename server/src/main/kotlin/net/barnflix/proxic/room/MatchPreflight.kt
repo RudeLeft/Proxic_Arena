@@ -1,7 +1,9 @@
 package net.barnflix.proxic.room
 
+import net.barnflix.proxic.PlayerWords
 import net.barnflix.proxic.deck.CardResolver
 import net.barnflix.proxic.deck.DeckEntry
+import net.barnflix.proxic.deck.DeckViolation
 import net.barnflix.proxic.deck.OpenFormat
 import net.barnflix.proxic.deck.ParsedDeck
 import java.util.UUID
@@ -96,7 +98,7 @@ class MatchPreflight(
         // Proxic's free half first: a deck illegal whatever Forge says
         // does not need a JVM to be told so.
         OpenFormat.certainViolations(ParsedDeck(null, entries)).takeIf { it.isNotEmpty() }?.let { certain ->
-            return DeckCheck(DeckVerdict.INVALID_FOR_PRESET, certain.joinToString("; ") { it.detail })
+            return DeckCheck(DeckVerdict.INVALID_FOR_PRESET, sentences(certain))
         }
 
         // Then Forge's, since Phase 8 Amendment 3: which cards are
@@ -106,34 +108,51 @@ class MatchPreflight(
         // not forwarded.
         val built =
             runCatching { resolver.buildDeck(entries) }.getOrNull()
-                ?: return DeckCheck(
-                    DeckVerdict.FORGE_RESOLUTION_ERROR,
-                    "The deck could not be checked right now. Try again in a moment.",
-                )
+                ?: return notChecked()
 
         val violations = OpenFormat.validate(ParsedDeck(null, entries), built.sections)
         if (violations.isNotEmpty()) {
             return DeckCheck(
                 DeckVerdict.INVALID_FOR_PRESET,
-                violations.joinToString("; ") { it.detail },
+                sentences(violations),
             )
         }
 
+        // Spec 0114 (W2-100): the card checker could not be asked, said once.
+        if (!built.checked) return notChecked()
+
         if (built.unresolved.isNotEmpty()) {
-            val names = built.unresolved.take(MAX_NAMED).joinToString(", ")
-            val more = built.unresolved.size - MAX_NAMED
-            return DeckCheck(
-                DeckVerdict.FORGE_RESOLUTION_ERROR,
-                if (more > 0) {
-                    "Not supported yet: $names and $more more."
-                } else {
-                    "Not supported yet: $names."
-                },
-            )
+            return DeckCheck(DeckVerdict.FORGE_RESOLUTION_ERROR, notSupported(built.unresolved))
         }
 
         return DeckCheck(DeckVerdict.VALID, "")
     }
+
+    /** Spec 0114 (W2-106): one sentence per problem, joined with a space, never a semicolon chain. */
+    private fun sentences(violations: List<DeckViolation>) = violations.joinToString(" ") { it.detail }
+
+    /** Spec 0114 (W2-107): "These cards are not supported yet: A, B, C and two more." */
+    private fun notSupported(unresolved: List<String>): String {
+        val named = unresolved.take(MAX_NAMED)
+        val more = unresolved.size - named.size
+        val list =
+            when {
+                more > 0 -> "${named.joinToString(", ")} and ${PlayerWords.number(more)} more"
+                named.size == 1 -> named.single()
+                else -> "${named.dropLast(1).joinToString(", ")} and ${named.last()}"
+            }
+        return if (unresolved.size == 1) {
+            "This card is not supported yet: $list."
+        } else {
+            "These cards are not supported yet: $list."
+        }
+    }
+
+    private fun notChecked() =
+        DeckCheck(
+            DeckVerdict.FORGE_RESOLUTION_ERROR,
+            "The deck could not be checked right now. Try again in a moment.",
+        )
 
     private fun gone() =
         DeckCheck(

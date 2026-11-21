@@ -117,6 +117,8 @@ class MatchPreflightTest {
         assertEquals(DeckVerdict.FORGE_RESOLUTION_ERROR, check.verdict, check.detail)
         // §5.99 — a safe application-level message, not a trace.
         assertTrue(check.detail.isNotBlank())
+        // Spec 0114 (W2-100): said once, never "Not supported yet: the card checker ...".
+        assertEquals("The deck could not be checked right now. Try again in a moment.", check.detail)
         assertTrue(
             !check.detail.contains("Exception") && !check.detail.contains(".jar"),
             "a browser must not see internals: ${check.detail}",
@@ -157,6 +159,68 @@ class MatchPreflightTest {
         val withWorker = config().copy(forgeWorkerJar = workerJar.path, forgeResRoot = resRoot.path)
         val check = MatchPreflight(database!!.dataSource(), CardResolver(withWorker)).validate(deckId)
         assertEquals(DeckVerdict.VALID, check.verdict, check.detail)
+    }
+
+    /** Spec 0114: [lines] (quantity to name) as the deck's stored entries. */
+    private fun deckWith(vararg lines: Pair<Int, String>): UUID {
+        val deckId = deckOf(lines.sumOf { it.first }, withEntries = false)
+        database!!.dataSource().connection.use { connection ->
+            connection.prepareStatement(
+                """
+                INSERT INTO deck_entry
+                    (deck_id, line_number, quantity, card_name, source_text, resolution_status)
+                VALUES (?, ?, ?, ?, ?, 'RESOLVED')
+                """.trimIndent(),
+            ).use { statement ->
+                lines.forEachIndexed { index, (quantity, name) ->
+                    statement.setObject(1, deckId)
+                    statement.setInt(2, index + 1)
+                    statement.setInt(3, quantity)
+                    statement.setString(4, name)
+                    statement.setString(5, "$quantity $name")
+                    statement.addBatch()
+                }
+                statement.executeBatch()
+            }
+        }
+        return deckId
+    }
+
+    /** Spec 0114 (W2-105, W2-106): one sentence per problem, joined with a space, counts in words. */
+    @Test
+    fun `W2-105 and W2-106 each problem is its own sentence`() {
+        val check = preflight().validate(deckWith(47 to "Mountain", 5 to "Lightning Bolt"))
+        assertEquals(DeckVerdict.INVALID_FOR_PRESET, check.verdict, check.detail)
+        assertEquals(
+            "Open Format requires at least 60 cards. This deck has 52. " +
+                "Open Format allows at most four copies of \"Lightning Bolt\". This deck has five.",
+            check.detail,
+        )
+    }
+
+    /** Spec 0114 (W2-107): the cards the rules engine does not know, named, the rest counted in words. */
+    @Test
+    fun `W2-107 cards not supported yet`() {
+        val workerJar = java.io.File("../forge-worker/target/forge-worker-0.1.0.jar")
+        val resRoot = java.io.File("../spikes/forge-phase0a/forge-upstream/forge-gui/res")
+        assumeTrue(workerJar.isFile, "SKIPPED: build the worker first")
+        assumeTrue(resRoot.isDirectory, "SKIPPED: no Forge resource checkout")
+        val deckId =
+            deckWith(
+                55 to "Mountain",
+                1 to "Not A Card One",
+                1 to "Not A Card Two",
+                1 to "Not A Card Three",
+                1 to "Not A Card Four",
+                1 to "Not A Card Five",
+            )
+        val withWorker = config().copy(forgeWorkerJar = workerJar.path, forgeResRoot = resRoot.path)
+        val check = MatchPreflight(database!!.dataSource(), CardResolver(withWorker)).validate(deckId)
+        assertEquals(DeckVerdict.FORGE_RESOLUTION_ERROR, check.verdict, check.detail)
+        assertEquals(
+            "These cards are not supported yet: Not A Card One, Not A Card Two, Not A Card Three and two more.",
+            check.detail,
+        )
     }
 
     /**

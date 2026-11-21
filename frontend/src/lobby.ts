@@ -15,6 +15,7 @@
 import { apiFetch } from "./auth";
 import { REACTIONS } from "./chatEmoji";
 import { onPageBack, pageIsLeaving } from "./pageLife";
+import { countWords } from "./words";
 
 export const MAX_CHAT_LINES = 200;
 export const MAX_CHAT_LENGTH = 500;
@@ -616,7 +617,7 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
           notice: {
             kind: "info",
             errorCode: status,
-            detail: "The match was abandoned. Nobody won it, and the room is open again.",
+            detail: "The game was abandoned. Nobody won it, and the room is open again.",
             aboutMatch: true,
           },
         };
@@ -673,8 +674,10 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       const detail = asString(message["detail"]);
       if (!errorCode || !detail) return state;
       // Spec 0016 — answering a request that has just ended.
+      // Spec 0114 W2-156: the host did not ask, so the server's "That
+      // request is no longer open." is the wrong reader's sentence.
       if (errorCode === "INVITATION_GONE" && state.askedBy && !state.invitation) {
-        return { ...state, askedBy: null, news: [...state.news, detail] };
+        return { ...state, askedBy: null, news: [...state.news, REQUEST_TAKEN_BACK] };
       }
       // Accepting a moment too late: said the way a withdrawal is,
       // because to the player it is one (canvas note on WITHDRAWN).
@@ -695,6 +698,9 @@ export function reduceLobby(state: LobbyState, message: Record<string, unknown>)
       return state;
   }
 }
+
+/** Spec 0114 W2-156 — what the host hears when a request ended before they answered it. */
+export const REQUEST_TAKEN_BACK = "The player took back their request to join.";
 
 /** Spec 0016 R3 — why your request to join ended, when that needs saying; null when it does not. */
 function requestEnded(reason: string, host: string | null): string | null {
@@ -727,15 +733,15 @@ function asNamed(value: unknown): { userId: string; displayName: string } | null
 function matchFailed(code: string | null): string {
   switch (code) {
     case "DECK_UNAVAILABLE":
-      return "A deck could not be read, so the match did not start. The room is open again.";
+      return "A deck could not be read, so the game did not start. The room is open again.";
     case "WORKER_INCOMPATIBLE":
     case "WORKER_UNCONFIGURED":
     case "WORKER_MISSING":
-      return "This server cannot run matches right now. The room is open again.";
+      return "This server cannot run games right now. The room is open again.";
     case "GAME_START_TIMEOUT":
       return "The game took too long to start. The room is open again, so try once more.";
     default:
-      return "The match did not start. The room is open again.";
+      return "The game did not start. The room is open again.";
   }
 }
 
@@ -785,7 +791,7 @@ function closedBecause(reason: string | null): string {
     case "HOST_AWAY":
       return "The host went offline, so the room closed.";
     case "AWAY":
-      return "You were away for 10 minutes, so you left the room.";
+      return "You were away for ten minutes, so you left the room.";
     case "REMOVED_BY_HOST":
       return "The host removed you from the room.";
     default:
@@ -1356,8 +1362,9 @@ export function keepRoomOpen(roomId: string, fetchFn: typeof fetch = fetch): Pro
 /** Spec 0054 — "30 minutes", "2 hours", "90 minutes". */
 export function idleWords(minutes: number): string {
   if (!Number.isFinite(minutes) || minutes <= 0) return "a while";
-  if (minutes % 60 === 0) return minutes === 60 ? "1 hour" : `${minutes / 60} hours`;
-  return minutes === 1 ? "1 minute" : `${minutes} minutes`;
+  // Spec 0114 W2-031: one to ten as words ("two hours", "30 minutes").
+  if (minutes % 60 === 0) return countWords(minutes / 60, "hour");
+  return countWords(minutes, "minute");
 }
 
 export function removeMember(

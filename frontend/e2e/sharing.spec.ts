@@ -137,7 +137,7 @@ test("a deck is private until shared, visible once shared, and gone once revoked
   await expect(guest.getByRole("button", { name: "delete" })).toHaveCount(0);
 
   // --- User A revokes ---------------------------------------------
-  await owner.getByRole("button", { name: "revoke" }).first().click();
+  await owner.getByRole("button", { name: "Stop sharing" }).first().click();
   await expect(owner.getByText(/can no longer see this deck/)).toBeVisible();
 
   // --- User B, after the revoke -----------------------------------

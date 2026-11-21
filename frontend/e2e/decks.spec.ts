@@ -113,7 +113,8 @@ test("a real package imports and its artwork renders", async ({ page }) => {
   // Amendment 10 — banded the way Forge sorted them; the bands add
   // up to the deck.
   const bands = page.getByRole("region", { name: "Cards" }).getByRole("group", { name: / cards$/ });
-  await expect(bands.first()).toHaveAccessibleName(/^Lands, \d+ cards$/);
+  // Spec 0114 (W2-047): one to ten in words, bigger counts in digits.
+  await expect(bands.first()).toHaveAccessibleName(/^Lands, [a-z0-9]+ cards?$/);
   const counts = await bands.evaluateAll((groups) =>
     groups.map((group) =>
       Number(/, (\d+) cards$/.exec(group.getAttribute("aria-label") ?? "")?.[1]),
@@ -421,7 +422,7 @@ test("a deck selected in a room can be renamed, and the other player sees the ne
 
     // Pat, still in the room, sees the new name on the deck chosen there.
     const patsChoice = guest.getByLabel("Your deck for this match");
-    // Spec 0019: "Name (60 Cards) · shared by …".
+    // Spec 0019: "Name (60 cards) · shared by …".
     await expect(patsChoice.locator("option:checked")).toHaveText(new RegExp(`^${renamed} \\(`), {
       timeout: 15_000,
     });
@@ -503,7 +504,7 @@ test("a deck's token pictures show in their own band, outside the card count", a
 
   const cards = page.getByRole("region", { name: "Cards" });
   await expect(cards.getByRole("group", { name: "Lands, 60 cards" })).toBeVisible();
-  const tokens = cards.getByRole("group", { name: "Tokens, 1 picture" });
+  const tokens = cards.getByRole("group", { name: "Tokens, one picture" });
   await expect(tokens).toContainText("not part of the deck");
   const ape = tokens.getByRole("img", { name: "Ape token" });
   await expect

@@ -1,5 +1,7 @@
 package net.barnflix.proxic.deck
 
+import net.barnflix.proxic.PlayerWords
+
 /**
  * Open Format legality — PHASE_02 §2.44, §2.45.
  *
@@ -103,12 +105,14 @@ object OpenFormat {
             val cards = sideEntries.filter { sectionOf[it.name.lowercase()] == section }
             if (cards.isEmpty()) return@forEach
             val word = if (section == "CONTRAPTIONS") "Contraption" else "Attraction"
+            val a = if (section == "CONTRAPTIONS") "A" else "An"
             val total = cards.sumOf { it.quantity }
             if (total < least) {
                 violations +=
                     DeckViolation(
                         "${section}_DECK_TOO_SMALL",
-                        "A ${word.lowercase()} deck needs at least $least ${word}s, or none; this deck has $total.",
+                        "$a $word deck needs at least ${PlayerWords.number(least)} ${word}s, or none. " +
+                            "This deck has ${PlayerWords.number(total)}.",
                     )
             }
             cards.groupBy { it.name.lowercase() }.forEach { (_, same) ->
@@ -117,8 +121,8 @@ object OpenFormat {
                     violations +=
                         DeckViolation(
                             "TOO_MANY_COPIES",
-                            "A ${word.lowercase()} deck allows one copy of each; this deck has $copies of " +
-                                "\"${same.first().name}\".",
+                            "$a $word deck can have only one copy of each card. This deck has " +
+                                "${PlayerWords.count(copies, "copy", "copies")} of \"${same.first().name}\".",
                             same.first().lineNumber,
                         )
                 }
@@ -130,14 +134,14 @@ object OpenFormat {
             violations +=
                 DeckViolation(
                     "DECK_TOO_SMALL",
-                    "Open Format requires at least $MIN_CARDS cards; this deck has $total.",
+                    "Open Format requires at least $MIN_CARDS cards. This deck has ${PlayerWords.number(total)}.",
                 )
         }
         if (total > MAX_CARDS) {
             violations +=
                 DeckViolation(
                     "DECK_TOO_LARGE",
-                    "Open Format allows at most $MAX_CARDS cards; this deck has $total.",
+                    "Open Format allows at most $MAX_CARDS cards. This deck has ${PlayerWords.number(total)}.",
                 )
         }
 
@@ -153,8 +157,8 @@ object OpenFormat {
                     violations +=
                         DeckViolation(
                             "TOO_MANY_COPIES",
-                            "Open Format allows at most $MAX_COPIES copies of " +
-                                "\"${sameCard.first().name}\"; this deck has $copies.",
+                            "Open Format allows at most ${PlayerWords.number(MAX_COPIES)} copies of " +
+                                "\"${sameCard.first().name}\". This deck has ${PlayerWords.number(copies)}.",
                             sameCard.first().lineNumber,
                         )
                 }

@@ -102,7 +102,7 @@ describe("DeckIconPicker", () => {
         cancelLabel="Later"
       />,
     );
-    expect(screen.getByRole("tab", { name: "Colours" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Colors" }).getAttribute("aria-selected")).toBe("true");
     expect(
       screen.getByRole("button", { name: "Fire (suggested)" }).getAttribute("aria-pressed"),
     ).toBe("true");

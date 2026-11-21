@@ -35,6 +35,7 @@ import { DeckIconPicker } from "./DeckIconPicker";
 import { Avatar } from "./avatars";
 import { ICON, avatarOf } from "./lobbyView";
 import { useLobbyConnection } from "./shell/LobbyConnection";
+import { capital, countWords } from "./words";
 
 /** Spec 0008 — the narrow layout, where the open deck sits below the library. */
 const PHONE = "(max-width: 720px)";
@@ -101,7 +102,7 @@ function DeckGroup({
     const cards = `${deck.totalCards} cards`;
     if (!owned) return `${cards} · shared by ${deck.ownerDisplayName}`;
     const holders = deck.shareCount ?? 0;
-    return holders > 0 ? `${cards} · shared with ${holders}` : cards;
+    return holders > 0 ? `${cards} · shared with ${countWords(holders, "player")}` : cards;
   };
 
   return (
@@ -266,7 +267,7 @@ function OpenDeck({
 
   const stats = [
     { key: "Cards", value: String(detail.totalCards) },
-    { key: "Distinct", value: String(detail.distinctCards) },
+    { key: "Different cards", value: String(detail.distinctCards) },
     { key: "Format", value: "Open" },
   ];
 
@@ -429,7 +430,7 @@ function SharePanel({ detail, onChanged }: { detail: DeckDetail; onChanged: () =
     setMessage(
       done
         ? { ok: true, text: `${displayName} can no longer see this deck.` }
-        : { ok: false, text: "That share could not be revoked." },
+        : { ok: false, text: "Sharing could not be stopped. Try again." },
     );
     await refresh();
     await onChanged();
@@ -450,10 +451,10 @@ function SharePanel({ detail, onChanged }: { detail: DeckDetail; onChanged: () =
             <button
               type="button"
               className="pa-chip-button"
-              aria-label={`Revoke ${recipient.displayName}`}
+              aria-label={`Stop sharing with ${recipient.displayName}`}
               onClick={() => void revoke(recipient.userId, recipient.displayName)}
             >
-              Revoke
+              Stop sharing
             </button>
           </span>
         ))}
@@ -571,7 +572,11 @@ function CardsPanel({ detail }: { detail: DeckDetail }) {
         </div>
       </div>
       {bands.map((band) => (
-        <div key={band.label} role="group" aria-label={`${band.label}, ${band.count} cards`}>
+        <div
+          key={band.label}
+          role="group"
+          aria-label={`${band.label}, ${countWords(band.count, "card")}`}
+        >
           <div className="pa-band-head" aria-hidden="true">
             <span>{band.label}</span>
             <span className="pa-band-count">{band.count}</span>
@@ -593,7 +598,10 @@ function CardsPanel({ detail }: { detail: DeckDetail }) {
                     ) : (
                       <span className="pa-card-noart">No art</span>
                     )}
-                    <span className="pa-card-qty" aria-label={`${entry.quantity} copies`}>
+                    <span
+                      className="pa-card-qty"
+                      aria-label={capital(countWords(entry.quantity, "copy"))}
+                    >
                       {entry.quantity}
                     </span>
                   </button>
@@ -620,10 +628,7 @@ function TokensBand({ detail, size }: { detail: DeckDetail; size: CardSize }) {
   const tokens = detail.tokens ?? [];
   if (tokens.length === 0) return null;
   return (
-    <div
-      role="group"
-      aria-label={`Tokens, ${tokens.length} ${tokens.length === 1 ? "picture" : "pictures"}`}
-    >
+    <div role="group" aria-label={`Tokens, ${countWords(tokens.length, "picture")}`}>
       <div className="pa-band-head" aria-hidden="true">
         <span>Tokens</span>
         <span className="pa-band-count">{tokens.length}</span>
@@ -703,7 +708,7 @@ export default function DecksPage() {
             <div className="pa-section-head">
               <h2 id="library-heading">Deck library</h2>
               <span className="pa-spacer" />
-              <span className="pa-count" aria-label={`${total} decks`}>
+              <span className="pa-count" aria-label={capital(countWords(total, "deck"))}>
                 {total}
               </span>
               <button

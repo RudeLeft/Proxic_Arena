@@ -21,7 +21,7 @@ describe("the password checks", () => {
 
   it("count down what's left", () => {
     expect(passwordRule("")).toBe("At least 12 characters");
-    expect(passwordRule("short pass")).toBe("At least 12 characters · 2 more");
+    expect(passwordRule("short pass")).toBe("At least 12 characters: two more to go");
     expect(passwordRule("a long enough password")).toBe("At least 12 characters");
   });
 
@@ -31,7 +31,7 @@ describe("the password checks", () => {
       "the password again",
     ]);
     expect(passwordMissing("short pass", "")).toEqual([
-      "2 more password characters",
+      "two more password characters",
       "the password again",
     ]);
     expect(passwordMissing("a long enough password", "a long enough")).toEqual([
@@ -50,7 +50,7 @@ describe("the display name", () => {
     expect(displayNameOk("Penelope Marc")).toBe(false);
     expect(displayNameMissing("")).toEqual(["a display name"]);
     expect(displayNameMissing("Penelope Marchbanks")).toEqual([
-      "a shorter display name (7 too many characters)",
+      "a shorter display name (seven characters too many)",
     ]);
   });
 

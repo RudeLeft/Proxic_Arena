@@ -42,7 +42,7 @@ fun Route.renameRoute(
         val deckId =
             deckIdOrNull() ?: return@patch call.respond(
                 HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
+                ErrorResponse("INVALID_DECK_ID", "That deck doesn't exist.", null),
             )
 
         // The same three answers as delete (§4.65, §4.66): a stranger
@@ -75,7 +75,7 @@ fun Route.renameRoute(
                 HttpStatusCode.UnprocessableEntity,
                 ErrorResponse(
                     "INVALID_DECK_NAME",
-                    "A deck name is 1 to ${DeckNames.MAX_LENGTH} characters on one line.",
+                    DeckNames.RULE,
                     null,
                 ),
             )

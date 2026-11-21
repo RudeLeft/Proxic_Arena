@@ -19,30 +19,36 @@ import { Avatar } from "./avatars";
 import { FitName } from "./FitName";
 import { DeckIcon, iconOf } from "./deckIcons";
 import {
+  badgeName,
   badgeTip,
   fetchHall,
   BELT_DAYS,
   defendShare,
   defendText,
+  everyDays,
+  formWords,
   heldFor,
   latestText,
+  moveWords,
   monthName,
   ratingText,
   timeLeft,
   winPercent,
   wonText,
+  winsTo,
   type Hall,
   type HallPlace,
   type HallRow,
 } from "./hall";
 import type { LobbyState } from "./lobby";
 import { ICON, SEAT_AVATAR, avatarOf, type Rank } from "./lobbyView";
+import { numberWord, timesWord } from "./words";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 
 const PLACES: { place: number; label: string; trophy: string; rank: Rank }[] = [
-  { place: 1, label: "1st place", trophy: trophyGold, rank: 1 },
-  { place: 2, label: "2nd place", trophy: trophySilver, rank: 2 },
-  { place: 3, label: "3rd place", trophy: trophyBronze, rank: 3 },
+  { place: 1, label: "First place", trophy: trophyGold, rank: 1 },
+  { place: 2, label: "Second place", trophy: trophySilver, rank: 2 },
+  { place: 3, label: "Third place", trophy: trophyBronze, rank: 3 },
   { place: 4, label: "Last place", trophy: trophyLast, rank: "last" },
 ];
 
@@ -121,8 +127,7 @@ export default function HallPage() {
                     <b>{name(hall.belt.holder)}</b>
                     <small>
                       {heldFor(hall.belt.since, now)}
-                      {hall.belt.defences > 0 &&
-                        ` · defended ${hall.belt.defences} ${hall.belt.defences === 1 ? "time" : "times"}`}
+                      {hall.belt.defences > 0 && ` · defended ${timesWord(hall.belt.defences)}`}
                     </small>
                     {/* Spec 0048 — the date, and a bar that empties toward it. */}
                     {hall.belt.defendBy && (
@@ -147,7 +152,7 @@ export default function HallPage() {
               {/* Spec 0048 — the rule, in one plain line. */}
               <p>
                 {hall.belt.holder
-                  ? `Finish a game every ${beltDays(hall)} days or the belt passes to the top-rated active player.`
+                  ? `Finish a game every ${everyDays(beltDays(hall))}, or the belt passes to the top-rated active player.`
                   : "Nobody holds the belt. The next game's winner takes it."}
               </p>
             </div>
@@ -203,7 +208,7 @@ function RatingHelp() {
         <span id={tipId} role="tooltip" className="pa-hp-help-tip">
           Everyone starts each season at 1000. A win adds points and a loss takes them away; beating
           a higher-rated player is worth more (up to 32), a lower-rated one less. A draw changes
-          nothing. Five games in a season to be ranked.
+          nothing. You need five games in a season to be ranked.
         </span>
       )}
     </span>
@@ -280,7 +285,7 @@ function Board({
       </div>
       {rows.length === 0 ? (
         <p className="pa-group-empty pa-hp-empty">
-          Nobody is ranked yet: five finished games puts a player on the board.
+          Nobody is ranked yet: five finished games put a player on the board.
         </p>
       ) : (
         <div className="pa-hp-table-wrap">
@@ -296,13 +301,13 @@ function Board({
             </colgroup>
             <thead>
               <tr>
-                <th scope="col">#</th>
+                <th scope="col">Rank</th>
                 <th scope="col">Player</th>
                 <th scope="col">Rating</th>
-                <th scope="col">W · L · D</th>
+                <th scope="col">Won · Lost · Drawn</th>
                 <th scope="col">Win %</th>
                 <th scope="col">Last five</th>
-                <th scope="col">Favourite deck</th>
+                <th scope="col">Favorite deck</th>
               </tr>
             </thead>
             <tbody>
@@ -316,7 +321,7 @@ function Board({
                     {row.move !== null && row.move !== 0 && (
                       <span
                         className={row.move > 0 ? "pa-hp-up" : "pa-hp-down"}
-                        aria-label={row.move > 0 ? `up ${row.move}` : `down ${-row.move}`}
+                        aria-label={moveWords(row.move)}
                       >
                         {row.move > 0 ? `▲${row.move}` : `▼${-row.move}`}
                       </span>
@@ -336,7 +341,7 @@ function Board({
                                 className={`pa-hp-badge pa-hp-badge-${badge.key}`}
                                 title={badgeTip(badge)}
                               >
-                                {badge.label}
+                                {badgeName(badge)}
                               </span>
                             ))}
                             {row.badges.length > 1 && (
@@ -345,7 +350,7 @@ function Board({
                                 className="pa-hp-badge pa-hp-badge-more"
                                 title={row.badges
                                   .slice(1)
-                                  .map((b) => `${b.label}: ${badgeTip(b)}`)
+                                  .map((b) => `${badgeName(b)}: ${badgeTip(b)}`)
                                   .join("\n")}
                               >
                                 +{row.badges.length - 1}
@@ -369,10 +374,7 @@ function Board({
                   </td>
                   <td>{winPercent(row)}%</td>
                   <td>
-                    <span
-                      className="pa-hp-form"
-                      aria-label={`Last five: ${row.form.split("").join(" ")}`}
-                    >
+                    <span className="pa-hp-form" aria-label={`Last five: ${formWords(row.form)}`}>
                       {row.form.split("").map((mark, index) => (
                         <span key={index} className={`pa-hp-form-${mark}`}>
                           {mark}
@@ -397,7 +399,7 @@ function Board({
       )}
       {qualifying.length > 0 && (
         <div className="pa-hp-foot">
-          <span className="pa-hp-foot-label">Playing their way in · 5 games to be ranked</span>
+          <span className="pa-hp-foot-label">Playing their way in · five games to be ranked</span>
           {qualifying.map((q) => (
             <span key={q.userId} className="pa-hp-q">
               <Avatar avatar={avatarOf(lobby, q.userId)} size={ICON} />
@@ -405,7 +407,7 @@ function Board({
               <span className="pa-hp-bar" aria-hidden="true">
                 <i style={{ width: `${(q.games / 5) * 100}%` }} />
               </span>
-              {q.games} of 5
+              {numberWord(q.games)} of five
             </span>
           ))}
         </div>
@@ -483,8 +485,8 @@ function Side({
                   <Avatar avatar={avatarOf(lobby, r.a)} size={ICON} />
                   {name(r.a)}
                 </span>
-                <span className="pa-hp-val">
-                  {r.aWins} – {r.bWins}
+                <span className="pa-hp-val" aria-label={winsTo(r.aWins, r.bWins)}>
+                  {r.aWins} to {r.bWins}
                 </span>
                 <span className="pa-hp-h2h-side pa-hp-h2h-b">
                   {name(r.b)}
@@ -542,8 +544,8 @@ function Side({
               <Avatar avatar={avatarOf(lobby, me)} size={ICON} />
               You
             </span>
-            <span className="pa-hp-val">
-              {hall.rival.aWins} – {hall.rival.bWins}
+            <span className="pa-hp-val" aria-label={winsTo(hall.rival.aWins, hall.rival.bWins)}>
+              {hall.rival.aWins} to {hall.rival.bWins}
             </span>
             <span className="pa-hp-h2h-side pa-hp-h2h-b">
               {name(hall.rival.b)}

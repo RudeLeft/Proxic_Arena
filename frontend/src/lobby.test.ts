@@ -212,7 +212,7 @@ describe("the room", () => {
   // Spec 0054 — an idle room, and a host who went offline, said plainly.
   it.each([
     ["IDLE_30", "This room closed after 30 minutes with nothing happening."],
-    ["IDLE_120", "This room closed after 2 hours with nothing happening."],
+    ["IDLE_120", "This room closed after two hours with nothing happening."],
     ["HOST_AWAY", "The host went offline, so the room closed."],
   ])("says why an idle room closed (%s)", (reason, words) => {
     const state = apply([
@@ -428,7 +428,7 @@ describe("the match", () => {
         participants: seats,
       },
     ]);
-    expect(state.notice?.detail).toBe("The match did not start. The room is open again.");
+    expect(state.notice?.detail).toBe("The game did not start. The room is open again.");
   });
 
   it("a closed room takes the match with it", () => {

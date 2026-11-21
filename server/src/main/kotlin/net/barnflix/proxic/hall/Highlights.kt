@@ -1,5 +1,6 @@
 package net.barnflix.proxic.hall
 
+import net.barnflix.proxic.PlayerWords
 import java.util.UUID
 
 // Badges, records and rivalries — spec 0018 H4.
@@ -91,7 +92,7 @@ class Highlights(
         buildList {
             if (userId == beltHolder) add(Badge("belt", "Belt Holder"))
             val streak = streaks[userId] ?: 0
-            if (streak >= ON_FIRE) add(Badge("on-fire", "On Fire · $streak"))
+            if (streak >= ON_FIRE) add(Badge("on-fire", "On Fire: ${PlayerWords.number(streak)} wins in a row"))
             if (userId in giantSlayers) add(Badge("giant-slayer", "Giant Slayer"))
             if (season.any { it.winner?.userId == userId && (it.turn ?: Int.MAX_VALUE) <= SPEED_TURN }) {
                 add(Badge("speed-demon", "Speed Demon"))

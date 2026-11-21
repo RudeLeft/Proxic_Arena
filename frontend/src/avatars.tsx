@@ -118,8 +118,8 @@ function useRecoveringSrc(url: string): { src: string; onError: () => void } {
 /** Spec 0011 — what each place's medal says, for a screen reader. */
 export const RANK_WORDS: Record<Rank, string> = {
   1: "Reigning Proxic Champion",
-  2: "2nd place",
-  3: "3rd place",
+  2: "Second place",
+  3: "Third place",
   last: "Dead last",
 };
 

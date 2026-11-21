@@ -128,7 +128,7 @@ object AccountEmails {
 
             $link
 
-            This link works once and expires in 1 hour, on $until.
+            This link works once and runs out in one hour, on $until.
 
             Didn't ask for this? You can ignore this email. Your password stays the same until someone uses the link.
             """.trimIndent()
@@ -140,7 +140,7 @@ object AccountEmails {
                 "${EmailFrame.username(username)}</p>" +
                 EmailFrame.button("Choose a new password", link) +
                 "<p style=\"margin:14px 0 0;font-size:13px;line-height:1.5;color:#6a6f77\">This link works once " +
-                "and expires in 1 hour, on ${EmailFrame.escape(until)}.</p>" +
+                "and runs out in one hour, on ${EmailFrame.escape(until)}.</p>" +
                 "</td></tr>" +
                 "<tr><td style=\"$NOTE\">" +
                 "<p style=\"margin:0 0 10px;$SMALL\"><strong>Didn't ask for this?</strong> You can ignore this " +

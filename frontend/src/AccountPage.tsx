@@ -23,6 +23,7 @@ import {
 import { AVATARS, Avatar } from "./avatars";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 import { playChime, setSoundsOn, soundsOn } from "./sounds";
+import { countWords } from "./words";
 
 export function AccountPage() {
   const { state, signOut, signOutEverywhere, setUser } = useAuth();
@@ -92,7 +93,10 @@ export function AccountPage() {
       setSessionMessage({ ok: false, text: "Those sessions could not be ended. Try again." });
       return;
     }
-    setSessionMessage({ ok: true, text: `Signed out of ${revoked} session(s) everywhere.` });
+    setSessionMessage({
+      ok: true,
+      text: `Signed out of ${countWords(revoked, "session")}. You'll be taken to sign in.`,
+    });
     window.setTimeout(() => void signOut(), 1200);
   };
 
@@ -142,7 +146,7 @@ export function AccountPage() {
             </button>
             {/* Spec 0041: required, at most 12, so every place shows it whole. */}
             <CheckRule id="display-rule" ok={displayNameOk(displayName)}>
-              Required, up to {MAX_DISPLAY_NAME} characters
+              Needed, up to {MAX_DISPLAY_NAME} characters
             </CheckRule>
             <p className="pa-help">
               This is the name other players see in the lobby and across the table. Your username
@@ -273,7 +277,7 @@ export function AccountPage() {
               className="pa-button pa-button-warn"
               onClick={() => void everywhere()}
             >
-              Sign out all
+              Sign out everywhere
             </button>
           </div>
           {sessionMessage && (
@@ -389,7 +393,7 @@ function AvatarPicker() {
             aria-controls="avatar-choices"
             onClick={() => setOpen((was) => !was)}
           >
-            {open ? "Close" : `Choose an avatar (${AVATARS.length})`}
+            {open ? "Close" : "Choose an avatar"}
             <span aria-hidden="true" className="pa-avatar-toggle-mark">
               {open ? "▴" : "▾"}
             </span>

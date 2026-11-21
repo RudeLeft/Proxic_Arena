@@ -457,10 +457,11 @@ class LobbyService(
          * An id nobody has is harmless; no page has that line.
          */
         private suspend fun react(message: JsonObject) {
-            val lineId = message.uuid("lineId") ?: return reply(errorMessage("INVALID_REQUEST", "Which line?"))
+            val lineId =
+                message.uuid("lineId") ?: return reply(errorMessage("INVALID_REQUEST", "That message is gone."))
             val emoji = message.text("emoji")
             if (emoji == null || emoji !in REACTIONS) {
-                return reply(errorMessage("INVALID_REQUEST", "Not one of the reactions."))
+                return reply(errorMessage("INVALID_REQUEST", "That reaction isn't available."))
             }
             if (!chat.allow(me)) return reply(errorMessage("TOO_FAST", "Slow down a moment."))
             val on = runCatching { message["on"]?.jsonPrimitive?.booleanOrNull }.getOrNull() ?: true

@@ -110,10 +110,10 @@ fun Route.matchRoutes(
         post {
             val body =
                 runCatching { call.receive<LaunchRequest>() }.getOrNull()
-                    ?: return@post respondBadRequest("Expected a setup id.")
+                    ?: return@post respondBadRequest("That match could not be started. Press Start match again.")
             val setupId =
                 runCatching { UUID.fromString(body.setupId) }.getOrNull()
-                    ?: return@post respondBadRequest("That is not a setup id.")
+                    ?: return@post respondBadRequest("That match could not be started. Press Start match again.")
 
             when (val result = launcher.launch(setupId, callerId())) {
                 is LaunchResult.Refused -> respondRefusal(result.error)
@@ -170,7 +170,7 @@ fun Route.matchRoutes(
         post("/{$MATCH_ID}/abandon") {
             val matchId =
                 call.parameters[MATCH_ID]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-                    ?: return@post respondBadRequest("That is not a match id.")
+                    ?: return@post respondBadRequest("That game doesn't exist.")
 
             val match = matches.find(matchId)
             // A match you are not in and one that does not exist
@@ -207,7 +207,7 @@ fun Route.matchRoutes(
         get("/{$MATCH_ID}") {
             val matchId =
                 call.parameters[MATCH_ID]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-                    ?: return@get respondBadRequest("That is not a match id.")
+                    ?: return@get respondBadRequest("That game doesn't exist.")
 
             val match = matches.find(matchId)
             // §4.65's lesson for the fifth phase running: a match
@@ -237,7 +237,7 @@ private fun Route.watchRoute(
     get("/watch/{roomId}") {
         val roomId =
             call.parameters["roomId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-                ?: return@get respondBadRequest("That is not a room id.")
+                ?: return@get respondBadRequest("That room doesn't exist.")
         val room = rooms?.find(roomId)
         val match = room?.let { matches.activeMatchOf(it.hostUserId) }?.takeIf { it.roomId == roomId }
         if (match == null || !mayWatch(match, assets)) {
@@ -322,14 +322,14 @@ private fun Route.matchAssetRoute(
         if (!assetId.matches(Regex("[0-9a-f]{64}"))) {
             return@get call.respond(
                 HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_ASSET_ID", "That is not an asset id.", null),
+                ErrorResponse("INVALID_ASSET_ID", "That picture is no longer available.", null),
             )
         }
         val matchId =
             call.parameters["matchId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: return@get call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse("INVALID_MATCH_ID", "That is not a match id.", null),
+                    ErrorResponse("INVALID_MATCH_ID", "That game doesn't exist.", null),
                 )
 
         // §4.65's rule, for the sixth phase running: an asset
@@ -340,7 +340,7 @@ private fun Route.matchAssetRoute(
         if (!assets.mayFetch(matchId, callerId(), assetId)) {
             return@get call.respond(
                 HttpStatusCode.NotFound,
-                ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),
+                ErrorResponse("ASSET_NOT_FOUND", "That picture is no longer available.", null),
             )
         }
 
@@ -348,7 +348,7 @@ private fun Route.matchAssetRoute(
             artStore
                 ?: return@get call.respond(
                     HttpStatusCode.NotFound,
-                    ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),
+                    ErrorResponse("ASSET_NOT_FOUND", "That picture is no longer available.", null),
                 )
         // The table gets the 384-px copy made at import (§2.134); the close-up
         // asks for the full scan (?size=full, PHASE_07 AMENDMENT 8), under the
@@ -358,7 +358,7 @@ private fun Route.matchAssetRoute(
             store.fileFor(assetId, closeUp = full)
                 ?: return@get call.respond(
                     HttpStatusCode.NotFound,
-                    ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),
+                    ErrorResponse("ASSET_NOT_FOUND", "That picture is no longer available.", null),
                 )
 
         // `private`, for the reason the Deck Depot route gives:

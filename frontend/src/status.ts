@@ -19,9 +19,13 @@ export type ServiceState =
 export interface VersionInfo {
   proxicVersion: string;
   protocolVersion: number;
-  forgeCommit: string;
-  forgeRelease: string;
-  javaVersion: string;
+  /**
+   * The rules engine's version: sent to an administrator only (spec
+   * 0114, /status is theirs); absent for a player.
+   */
+  forgeCommit?: string;
+  forgeRelease?: string;
+  javaVersion?: string;
   buildId: string | null;
 }
 

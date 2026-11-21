@@ -51,7 +51,8 @@ test("every status indicator reflects a real backend check", async ({ page }) =>
   await expect(indicator(page, "WebSocket")).toContainText("Ready");
   await expect(indicator(page, "Pixi Renderer")).toContainText("Ready");
 
-  // §1.78 says the Forge runtime status must reflect the ACTUAL
+  // §1.78 says the rules engine status (its row was "Forge Runtime"
+  // until spec 0114) must reflect the ACTUAL
   // state, which is not the same as "Ready". So the UI is compared
   // against what the API reports, rather than against a list of
   // acceptable words — an earlier version of this test accepted
@@ -71,7 +72,7 @@ test("every status indicator reflects a real backend check", async ({ page }) =>
     "resources-missing": /Not configured/,
   };
   const forgeState = status.forgeRuntime;
-  await expect(indicator(page, "Forge Runtime")).toContainText(
+  await expect(indicator(page, "Rules engine")).toContainText(
     expected[forgeState] ?? /Not configured/,
   );
 
@@ -184,7 +185,9 @@ test("an unknown address goes to Sign in for a stranger, and to the Lobby when s
   const response = await page.goto("/no/such/page");
   expect(response?.status()).toBe(200);
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByText(/Not implemented|Not found|Foundation Build/)).toHaveCount(0);
+  await expect(
+    page.getByText(/Not implemented|Not found|Foundation Build|Rules engine/),
+  ).toHaveCount(0);
 
   await signIn(page);
   await page.goto("/accounts");

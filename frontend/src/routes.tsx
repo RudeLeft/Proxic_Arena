@@ -14,6 +14,7 @@ import { JoinPage } from "./JoinPage";
 // Spec 0026 — the same, for a password reset link.
 import { ResetPage } from "./ResetPage";
 import { RequireAuth, useAuth } from "./AuthContext";
+import { RequireAdmin } from "./AdminOnly";
 
 // Every signed-in page is its own download, fetched after signing in
 // and refused by the server to anybody without a session (owner
@@ -59,8 +60,17 @@ export function AppRoutes() {
           of PixiJS's lifecycle check (BATTLEFIELD_RENDERING.md §1).
           Signed-in only since 2026-10-22: a stranger has no use for the
           server's version and state, and an administrator has them on
-          the Admin page too. */}
-      <Route path="/status" element={<RequireAuth>{page(<App />)}</RequireAuth>} />
+          the Admin page too. Administrators only since spec 0114: a
+          player is shown the Admin page's notice, and the server sends
+          a player no engine version. */}
+      <Route
+        path="/status"
+        element={
+          <RequireAuth>
+            <RequireAdmin title="Server check">{page(<App />)}</RequireAdmin>
+          </RequireAuth>
+        }
+      />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/join" element={<JoinPage />} />
       <Route path="/reset" element={<ResetPage />} />

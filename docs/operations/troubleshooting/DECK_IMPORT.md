@@ -83,12 +83,19 @@ again.
 
 ## `CARDS_NOT_RESOLVED` — Forge does not recognise a card
 
-The message names each card and why.
+The message names each card and why ("Line 12, Foo: ..."; spec 0114
+gives fixed words for each answer, `CardResolution.wordsFor`, and never
+passes the worker's own text on).
 
 | Detail | Meaning |
 | --- | --- |
-| `Forge does not know a card named "..."` | the name is wrong, or the card is newer than the pinned Forge |
-| `this card plays differently in each printing, and this printing is not one Arena has` | a card whose printing changes what it does, in a printing Forge does not have; see below. Any other card in another printing is accepted (spec 0024) |
+| `Arena doesn't know this card yet.` | the name is wrong, or the card is newer than the pinned Forge |
+| `This card works differently in each printing, and Arena doesn't have this one.` | a card whose printing changes what it does, in a printing Forge does not have; see below. Any other card in another printing is accepted (spec 0024) |
+
+With the card checker down (no worker jar, or it did not answer) the
+refusal is one sentence and no list: "The cards could not be checked
+just now. Try sending the deck again in a minute." The server log says
+which (`card checker unavailable: ...`).
 
 **One unresolvable card refuses the whole import.** Arena does not
 import a partial deck and does not substitute another card: a deck
@@ -120,6 +127,13 @@ mismatch here means a genuinely different printing.
 | `UNDECODABLE_IMAGE` | a picture's header, but the data is corrupt |
 | `UNREASONABLE_DIMENSIONS` | smaller than 50 px or larger than 4000 px |
 | `IMAGE_TOO_LARGE` | a picture whose data turned out larger than the archive declared |
+
+Since spec 0114 the player sees each problem as a sentence naming the
+card, never the code or the file inside the deck file: "The picture for
+Foo is not a PNG or JPEG file.", "... could not be opened.", "... is too
+big (9000 by 9000 pixels).", "... is too small (10 by 10 pixels).", "...
+has no size we can read." The codes above are in the server's log
+("picture real_cards/... refused: NOT_A_PICTURE"), not the problem lines.
 
 A file the archive itself declares as over 16 MB is refused before any
 picture is read, as `ENTRY_TOO_LARGE` on its own rather than under

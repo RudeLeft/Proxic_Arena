@@ -67,7 +67,7 @@ fun Route.deckBuilderRoutes(
             if (asked == null || asked.size > MAX_ASKED || asked.any { !HASH.matches(it) }) {
                 return@post call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse("INVALID_REQUEST", "Ask about up to $MAX_ASKED picture hashes.", null),
+                    ErrorResponse("INVALID_REQUEST", "Too many pictures to check at once.", null),
                 )
             }
             val known = withContext(Dispatchers.IO) { ownedPictures(dataSource, user.userId, asked.toSet()) }

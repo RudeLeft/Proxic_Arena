@@ -100,7 +100,7 @@ describe("the players list (Amendment 11)", () => {
     });
     expect(row(state, sam.userId).control).toEqual({
       kind: "blocked",
-      why: "One invitation at a time",
+      why: "You can send one invitation at a time",
     });
   });
 
@@ -130,7 +130,7 @@ describe("the players list (Amendment 11)", () => {
       where: "In Late night",
       control: { kind: "blocked", why: "Sam is already in a room" },
     });
-    expect(row(state, pat.userId).where).toBe("In a match");
+    expect(row(state, pat.userId).where).toBe("In a game");
   });
 
   it("a guest does not invite, and a full room has no seat to offer", () => {
@@ -183,8 +183,8 @@ describe("rooms", () => {
   it("says when a room closes only in its last 3 hours (spec 0006 D3)", () => {
     const now = Date.parse("2026-10-21T12:00:00Z");
     expect(closesSoon("2026-10-22T11:30:00Z", now)).toBeNull();
-    expect(closesSoon("2026-10-21T14:30:00Z", now)).toBe("Closes in 2h");
-    expect(closesSoon("2026-10-21T12:45:00Z", now)).toBe("Closes in 45m");
+    expect(closesSoon("2026-10-21T14:30:00Z", now)).toBe("Closes in two hours");
+    expect(closesSoon("2026-10-21T12:45:00Z", now)).toBe("Closes in 45 minutes");
     expect(closesSoon("2026-10-21T12:00:30Z", now)).toBe("Closes now");
     expect(closesSoon(null, now)).toBeNull();
   });

@@ -332,7 +332,7 @@ class RoomService(
                 count < room.members.size ->
                     RoomResult.Refused(
                         RoomError.InvalidConfiguration(
-                            "Someone is sitting in a seat that change would remove.",
+                            "Someone is sitting in a seat this change would remove.",
                         ),
                     )
 

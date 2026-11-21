@@ -284,7 +284,7 @@ Per-player reasons:
 
 ## Forge preflight failure
 
-> **FORGE_RESOLUTION_ERROR** — Not supported yet: X.
+> **FORGE_RESOLUTION_ERROR** — This card is not supported yet: X. (or "These cards are not supported yet: A, B, C and two more.")
 >
 > or: The deck could not be checked right now. Try again in a moment.
 

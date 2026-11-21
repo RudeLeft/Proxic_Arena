@@ -18,8 +18,8 @@ function SignInNotice({ expired, failure }: { expired: boolean; failure: LoginFa
         <span className="pa-notice-text">
           {failure.detail}
           <span className="pa-notice-sub">
-            This is a throttle, not a lock. Nothing has been disabled, and no one can lock you out
-            by guessing.
+            This is only a short wait, not a lock. Nothing has been switched off, and no one can
+            lock you out by guessing.
           </span>
         </span>
       </div>

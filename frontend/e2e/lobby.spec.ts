@@ -92,7 +92,7 @@ test("a host invites somebody who is online, and they take the empty seat", asyn
 
     // Amendment 9 — a room is opened on demand, and may be named.
     await openRoom(host, "Kitchen Table");
-    await expect(yourRoom(host).locator(".pa-room-taken")).toHaveText("1/2");
+    await expect(yourRoom(host).locator(".pa-room-taken")).toHaveAttribute("data-taken", "1/2");
 
     // AMENDMENT 1 — no code is typed anywhere. The host clicks a
     // name, and that is the only door into the room.
@@ -117,7 +117,7 @@ test("a host invites somebody who is online, and they take the empty seat", asyn
 
     // BOTH sides learn, from one message with one source of truth.
     await expect(yourRoom(guest)).toBeVisible();
-    await expect(yourRoom(host).locator(".pa-room-taken")).toHaveText("2/2");
+    await expect(yourRoom(host).locator(".pa-room-taken")).toHaveAttribute("data-taken", "2/2");
     await expect(seatOf(host, secondUser)).toBeVisible();
     await expect(playerRow(host, secondUser)).toContainText("In your room");
 
@@ -188,13 +188,15 @@ test("chat: the time by the name, your own lines, emoji, reactions and New, and 
 
     // C4 -- pointing at the line brings up the six; a reaction reaches both, and comes back off.
     await message(two, line).hover();
-    await message(two, line).getByRole("button", { name: "React 😂" }).click();
-    await expect(message(one, line).getByRole("button", { name: /^😂 1/ })).toBeVisible();
-    await expect(message(two, line).getByRole("button", { name: /^😂 1/ })).toHaveAttribute(
+    await message(two, line).getByRole("button", { name: "React with 😂" }).click();
+    await expect(message(one, line).getByRole("button", { name: /^😂 from / })).toBeVisible();
+    await expect(message(two, line).getByRole("button", { name: /^😂 from / })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await message(two, line).getByRole("button", { name: /^😂 1/ }).click();
+    await message(two, line)
+      .getByRole("button", { name: /^😂 from / })
+      .click();
     await expect(message(one, line).getByRole("button", { name: /^😂/ })).toHaveCount(0);
 
     // C5 -- no lobby news in the chat (owner 2026-10-24): opening a room says nothing there.
@@ -280,12 +282,13 @@ test("a player idle for 5 minutes shows away to the other, on the list, the seat
           await guest.clock.fastForward(20_000);
           await pong;
         }
-        await expect(badge(row, /away \d+ min/)).toBeVisible({ timeout: 20_000 });
+        // Spec 0114 (W2-023): "away for five minutes", in words.
+        await expect(badge(row, /away for [a-z0-9]+ minutes?/)).toBeVisible({ timeout: 20_000 });
       } catch (error) {
         console.log(`guest socket:\n${said.join("\n")}`);
         throw error;
       }
-      await expect(row).toContainText(/Away \d+ min · in your room/);
+      await expect(row).toContainText(/Away for [a-z0-9]+ minutes? · in your room/);
       await expect(badge(seat, /away/)).toBeVisible();
       await expect(badge(chat, /away/).first()).toBeVisible();
 
@@ -349,7 +352,7 @@ test("Ask to join: the host declines, then accepts, and everybody sees the held 
     const told = noticeCard(guest, `${testUser} declined your request to join`);
     await expect(told).toContainText("You can ask again");
     await told.getByRole("button", { name: /^Close:/ }).click();
-    await expect(card).toContainText("1 seat open");
+    await expect(card).toContainText("One seat open");
 
     // Asked again, and accepted: the guest is seated.
     await card.getByRole("button", { name: "Ask to join" }).click();
@@ -357,7 +360,7 @@ test("Ask to join: the host declines, then accepts, and everybody sees the held 
       .getByRole("button", { name: "Accept" })
       .click();
     await expect(yourRoom(guest)).toBeVisible();
-    await expect(yourRoom(host).locator(".pa-room-taken")).toHaveText("2/2");
+    await expect(yourRoom(host).locator(".pa-room-taken")).toHaveAttribute("data-taken", "2/2");
   });
 });
 
@@ -435,7 +438,7 @@ test("leaving a room gives the lobby back without a refresh", async ({ browser }
     await expect(guest.getByRole("button", { name: "Open a room" })).toBeEnabled();
 
     // And the host sees the seat free again, also without a reload.
-    await expect(yourRoom(host).locator(".pa-room-taken")).toHaveText("1/2");
+    await expect(yourRoom(host).locator(".pa-room-taken")).toHaveAttribute("data-taken", "1/2");
 
     // The HOST closes: the HTTP answer must not put the dead room back.
     await host.getByRole("button", { name: "Close room" }).click();
@@ -463,11 +466,17 @@ test("removing a player asks first; keeping them changes nothing", async ({ brow
     await expect(ask).toContainText(`Remove ${secondUser} from the room?`);
     await ask.getByRole("button", { name: "Keep them" }).click();
     await expect(host.getByRole("dialog")).toHaveCount(0);
-    await expect(yourRoom(host).locator(".pa-room-taken"), "kept").toHaveText("2/2");
+    await expect(yourRoom(host).locator(".pa-room-taken"), "kept").toHaveAttribute(
+      "data-taken",
+      "2/2",
+    );
 
     await remove.click();
     await host.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
-    await expect(yourRoom(host).locator(".pa-room-taken"), "removed").toHaveText("1/2");
+    await expect(yourRoom(host).locator(".pa-room-taken"), "removed").toHaveAttribute(
+      "data-taken",
+      "1/2",
+    );
     await expect(guest.getByRole("button", { name: "Open a room" })).toBeEnabled();
   });
 });
@@ -487,7 +496,7 @@ test("the lobby survives a refresh, name and all", async ({ browser }) => {
     await page.reload();
 
     await expect(page.getByRole("article", { name: "Refresh Proof" })).toBeVisible();
-    await expect(yourRoom(page).locator(".pa-room-taken")).toHaveText("1/2");
+    await expect(yourRoom(page).locator(".pa-room-taken")).toHaveAttribute("data-taken", "1/2");
   } finally {
     await leaveAnyRoom(page);
     await context.close();
@@ -563,7 +572,7 @@ test("every room is listed for everybody, with seats, no decks and no way in una
     await expect(card).toContainText(testUser);
     // Spec 0016 R1 — where it stands, for everybody.
     await expect(card).toContainText("Open seat");
-    await expect(card).toContainText("1 seat open");
+    await expect(card).toContainText("One seat open");
     // ...and no control that would take a seat without the host: only Ask to join.
     await expect(card.getByRole("button")).toHaveCount(1);
     await expect(card.getByRole("button", { name: "Ask to join" })).toBeVisible();
@@ -723,7 +732,7 @@ test("the Hall's leaderboard spreads out, every badge shows and the trophies fil
   await page.screenshot({ path: "test-results/seen/hall-2560.png" });
 });
 
-test("spec 0060: a 12-letter name and its away line fit the players column, which grows with the screen", async ({
+test("spec 0060: a 12-letter name and its away line (two lines at most) fit the players column, which grows with the screen", async ({
   browser,
 }) => {
   // F-0060-C. The guest takes a 12-letter name (DisplayNames.MAX) for the
@@ -768,14 +777,20 @@ test("spec 0060: a 12-letter name and its away line fit the players column, whic
           return {
             nameCut: name.scrollWidth > name.clientWidth,
             room,
-            away: Math.ceil(ctx.measureText("Away 60 min · in the lobby").width),
+            away: Math.ceil(ctx.measureText("Away for seven minutes · in the lobby").width),
+            whereCut: where.scrollWidth > where.clientWidth,
           };
         });
         expect(fit.nameCut, `${at}: the name is cut`).toBe(false);
+        // Spec 0114 (W2-023, decided while owner away 2026-11-21, option A):
+        // the away line is in words now ("Away for seven minutes · in the
+        // lobby"), and in a row with an Invite button it may take two lines.
+        // It must still fit in two lines and never be cut.
+        expect(fit.whereCut, `${at}: the away line is cut`).toBe(false);
         expect(
           fit.away,
-          `${at}: the away line needs ${fit.away} of ${fit.room}`,
-        ).toBeLessThanOrEqual(fit.room);
+          `${at}: the away line needs ${fit.away} of two lines of ${fit.room}`,
+        ).toBeLessThanOrEqual(2 * fit.room);
       }
       expect(seen["1920x1080"]).not.toBe(seen["2560x1440"]);
       await host.setViewportSize({ width: 1920, height: 1080 });

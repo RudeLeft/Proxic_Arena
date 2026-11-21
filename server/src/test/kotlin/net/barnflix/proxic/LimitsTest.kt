@@ -38,9 +38,9 @@ class LimitsTest {
             assertEquals(HttpStatusCode.PayloadTooLarge, response.status)
             val body = response.bodyAsText()
             assertTrue(body.contains("BODY_TOO_LARGE"), body)
-            // The refusal states the limit; otherwise a client is left
-            // guessing how much smaller to go.
-            assertTrue(body.contains(Limits.MAX_HTTP_BODY_BYTES.toString()), body)
+            // Spec 0114 (W2-138): a player's words, the limit kept for the log.
+            assertTrue(body.contains("\"That was too much to send at once.\""), body)
+            assertTrue(!body.contains(Limits.MAX_HTTP_BODY_BYTES.toString()), body)
         }
 
     @Test

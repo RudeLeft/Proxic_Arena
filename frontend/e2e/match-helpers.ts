@@ -158,7 +158,7 @@ export async function inviteIn(host: Page, guest: Page, guestName: string) {
     .getByRole("button", { name: new RegExp(`^Invite ${guestName}$`, "i") })
     .click();
   await noticeCard(guest, "invited you to").getByRole("button", { name: "Accept" }).click();
-  await expect(yourRoom(host).locator(".pa-room-taken")).toHaveText("2/2");
+  await expect(yourRoom(host).locator(".pa-room-taken")).toHaveAttribute("data-taken", "2/2");
   await expect(yourRoom(guest)).toBeVisible();
 }
 
@@ -176,7 +176,7 @@ export async function chooseDeck(page: Page, deckName: string, sharedBy?: string
       options
         .map((o) => o as HTMLOptionElement)
         .find(
-          // Spec 0019: "Name (60 Cards)", "Name (60 Cards) · shared by Pat".
+          // Spec 0019: "Name (60 cards)", "Name (60 cards) · shared by Pat".
           (o) =>
             o.text.startsWith(`${name} (`) &&
             (owner ? o.text.includes(`· shared by ${owner}`) : !o.text.includes("shared by")),

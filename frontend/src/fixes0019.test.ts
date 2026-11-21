@@ -33,7 +33,7 @@ describe("the Belt holder (F1)", () => {
 describe("badge tooltips (9)", () => {
   it("say how each badge was earned", () => {
     expect(badgeTip({ key: "on-fire", label: "On Fire · 4" })).toBe(
-      "4 wins in a row (a loss or a draw ends the run).",
+      "Four wins in a row (a loss or a draw ends the run).",
     );
     expect(badgeTip({ key: "giant-slayer", label: "Giant Slayer" })).toBe(
       "Beat the player leading the season, this season.",

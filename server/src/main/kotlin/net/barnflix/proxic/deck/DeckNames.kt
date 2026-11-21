@@ -20,6 +20,9 @@ object DeckNames {
     /** Long enough for any real deck name, short enough for a list row. */
     const val MAX_LENGTH = 80
 
+    /** Spec 0114 (W2-137): what a deck name may be, as a player reads it. */
+    const val RULE = "A deck name can be up to $MAX_LENGTH characters, on one line."
+
     /**
      * A name a player typed, cleaned, or null when it cannot be one:
      * empty after trimming, too long, or carrying control characters

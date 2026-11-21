@@ -76,7 +76,9 @@ export function JoinPage() {
 
   // Spec 0041: every box says whether it's right, and the button what's missing.
   const missing = [
-    ...(usernameOk(username) ? [] : ["a username (3 to 32 letters or digits)"]),
+    ...(usernameOk(username)
+      ? []
+      : ["a username (three to 32 letters, digits, dots, underscores or hyphens)"]),
     ...displayNameMissing(displayName),
     ...passwordMissing(password, again),
   ];
@@ -130,8 +132,8 @@ export function JoinPage() {
               This invitation is no longer valid
             </h2>
             <p className="pa-join-sub">
-              It may have been used already, cancelled, or it expired. Ask whoever invited you for a
-              new one.
+              It may have been used already or canceled, or it may have expired. Ask whoever invited
+              you for a new one.
             </p>
             <Link className="pa-button pa-button-wide" to="/login">
               Go to sign in
@@ -170,7 +172,7 @@ export function JoinPage() {
                 ok={usernameOk(username)}
                 wrong={username.trim().length > 0}
               >
-                What you sign in with: 3 to 32 letters, digits, dot, underscore or hyphen
+                What you sign in with: three to 32 letters, digits, dots, underscores or hyphens
               </CheckRule>
 
               <label className="pa-label" htmlFor="join-name">

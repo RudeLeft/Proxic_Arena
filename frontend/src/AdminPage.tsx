@@ -11,6 +11,7 @@
 // for again before these actions. A browser left signed in as an
 // administrator can change accounts; that was decided, not missed.
 
+import { AdminOnlyNotice } from "./AdminOnly";
 import { ReportsPanel, fetchReports, type ReportsList } from "./AdminReports";
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -139,17 +140,7 @@ export default function AdminPage() {
   );
 
   if (!me) return null;
-  if (me.role !== "ADMIN") {
-    return (
-      <main className="pa-main pa-admin">
-        <h1 className="pa-title">Admin</h1>
-        <div className="pa-notice pa-notice-warn" role="status">
-          <span aria-hidden="true" className="pa-notice-mark" />
-          <span className="pa-notice-text">This page is for administrators.</span>
-        </div>
-      </main>
-    );
-  }
+  if (me.role !== "ADMIN") return <AdminOnlyNotice title="Admin" />;
 
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);

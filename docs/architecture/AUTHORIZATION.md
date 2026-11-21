@@ -62,7 +62,7 @@ to `/login` itself.
 | `GET /api/deck-rules` (spec 0021) | a signed-in user or a linked computer's device token; the route checks it |
 | `/api/deck-builder/…` (spec 0022) | a linked computer's device token only; the routes check it |
 | `GET /api/auth/me` | anyone (204, nothing, when not signed in) |
-| `GET /api/version`, `/api/system/status`, `/ws/system` | the signed-in user |
+| `GET /api/version`, `/api/system/status`, `/ws/system` | the signed-in user; `/api/version`'s engine fields (`forgeRelease`, `forgeCommit`, `javaVersion`) an administrator only (spec 0114: a player gets the version and build id, `PlayerVersionInfo`; the route reads the gate's `SIGNED_IN` principal) |
 | any other `/api/…` address, real or not | the signed-in user -- a stranger gets the same 401 for all (under `/api/deck-builder/` an unknown path is 404: those routes take a device token) |
 | `POST /api/auth/password`, `/display-name` | the signed-in user |
 | `POST /api/auth/logout-all` | the signed-in user, for their own sessions only |

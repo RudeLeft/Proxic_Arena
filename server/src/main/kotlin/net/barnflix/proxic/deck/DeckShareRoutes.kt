@@ -31,7 +31,7 @@ fun Route.shareRoutes(
         val deckId =
             deckIdOrNull() ?: return@post call.respond(
                 HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
+                ErrorResponse("INVALID_DECK_ID", "That deck doesn't exist.", null),
             )
 
         // §4.65 before anything else: a stranger must not be
@@ -79,7 +79,7 @@ fun Route.shareRoutes(
         val deckId =
             deckIdOrNull() ?: return@get call.respond(
                 HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
+                ErrorResponse("INVALID_DECK_ID", "That deck doesn't exist.", null),
             )
 
         when (authorization.accessFor(callerId(), deckId)) {
@@ -114,13 +114,13 @@ fun Route.shareRoutes(
         val deckId =
             deckIdOrNull() ?: return@delete call.respond(
                 HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
+                ErrorResponse("INVALID_DECK_ID", "That deck doesn't exist.", null),
             )
         val recipientId =
             call.parameters["userId"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
                 ?: return@delete call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse("INVALID_USER_ID", "That is not a user id.", null),
+                    ErrorResponse("INVALID_USER_ID", "That player doesn't exist.", null),
                 )
 
         if (!authorization.accessFor(callerId(), deckId).mayView()) {

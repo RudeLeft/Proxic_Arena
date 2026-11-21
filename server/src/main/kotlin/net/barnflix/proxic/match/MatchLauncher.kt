@@ -111,22 +111,22 @@ class MatchLauncher(
         // recorded when the room was prepared, and a server upgrade
         // between then and now could have withdrawn it.
         if (setup.presetId != OPEN_FORMAT_PRESET) {
-            return LaunchError.RevalidationFailed("That match preset is no longer available.")
+            return LaunchError.RevalidationFailed("That game type is no longer offered.")
         }
 
         if (setup.seats.isEmpty()) {
-            return LaunchError.RevalidationFailed("That setup has no players.")
+            return LaunchError.RevalidationFailed("Something changed. Press Start match again.")
         }
 
         for (seat in setup.seats) {
             if (!seat.accountActive) {
                 return LaunchError.RevalidationFailed(
-                    "${seat.displayName} can no longer play. Prepare the match again.",
+                    "${seat.displayName} can no longer play. Press Start match again.",
                 )
             }
             if (seat.deckId == null) {
                 return LaunchError.RevalidationFailed(
-                    "${seat.displayName}'s deck is gone. Prepare the match again.",
+                    "${seat.displayName}'s deck is gone. Press Start match again.",
                 )
             }
             // §6.12, §5.51 — asked again HERE, because a share
@@ -136,7 +136,7 @@ class MatchLauncher(
             if (!deckAuthorization.canUseDeck(seat.userId, seat.deckId)) {
                 return LaunchError.RevalidationFailed(
                     "${seat.displayName} can no longer use their deck. " +
-                        "Prepare the match again.",
+                        "Press Start match again.",
                 )
             }
         }

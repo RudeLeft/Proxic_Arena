@@ -608,6 +608,12 @@ class RoomRoutesTest {
             assertEquals(HttpStatusCode.Conflict, response.status)
             val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
             assertEquals("SETUP_NOT_READY", body["errorCode"]!!.jsonPrimitive.content)
+            // Spec 0114: not "Not everyone is ready yet." -- the host reads this
+            // with every seat ready when a deck is the problem.
+            assertEquals(
+                "A seat needs attention before the game can start.",
+                body["detail"]!!.jsonPrimitive.content,
+            )
 
             // Every member appears, so the answer does not reveal
             // the roster by omission.

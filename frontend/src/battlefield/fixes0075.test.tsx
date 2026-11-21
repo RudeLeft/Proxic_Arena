@@ -183,7 +183,7 @@ describe("the report window tells what the other player did (F-0075-A, B, C, D)"
     const mark = tray.querySelector<HTMLElement>('[data-mark="color"]')!;
     expect(mark).not.toBeNull();
     const picture = mark.querySelector<HTMLElement>(".gs-reveal-mark-white")!;
-    expect(picture.getAttribute("aria-label")).toBe("White, the colour chosen");
+    expect(picture.getAttribute("aria-label")).toBe("White, the color chosen");
     expect(picture.querySelector("img")!.getAttribute("src")).toMatch(/sym_W/);
     expect(mark.querySelector(".gs-reveal-name")!.textContent).toBe("White");
     // The card is still a card, and the colour comes after it.

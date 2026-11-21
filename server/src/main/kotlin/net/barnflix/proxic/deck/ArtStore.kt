@@ -1,5 +1,6 @@
 package net.barnflix.proxic.deck
 
+import net.barnflix.proxic.PlayerWords
 import java.awt.image.BufferedImage
 import java.io.File
 import java.security.MessageDigest
@@ -90,10 +91,14 @@ class ArtStore(dataRoot: File) {
         source: File,
         member: String,
     ): ArtResult {
+        // Spec 0114 (W2-086, W2-087): each problem names the card, never
+        // the file inside the deck file, and says sizes as a player would.
+        val card = "The picture for ${pictureName(member)}"
         if (source.length() > PackageLimits.MAX_ENTRY_BYTES) {
             return ArtResult.Rejected(
                 "IMAGE_TOO_LARGE",
-                "\"$member\" is ${source.length()} bytes.",
+                "$card is too big (${PlayerWords.megabytes(source.length())}; " +
+                    "the most is ${PlayerWords.megabytes(PackageLimits.MAX_ENTRY_BYTES)}).",
             )
         }
 
@@ -105,7 +110,7 @@ class ArtStore(dataRoot: File) {
             when {
                 headerRead >= PNG_MAGIC.size && header.copyOf(PNG_MAGIC.size).contentEquals(PNG_MAGIC) -> PNG
                 headerRead >= JPEG_MAGIC.size && header.copyOf(JPEG_MAGIC.size).contentEquals(JPEG_MAGIC) -> JPEG
-                else -> return ArtResult.Rejected("NOT_A_PICTURE", "\"$member\" is not a PNG or a JPEG.")
+                else -> return ArtResult.Rejected("NOT_A_PICTURE", "$card is not a PNG or JPEG file.")
             }
 
         // The size, from the header, BEFORE decoding (2026-10-22 review).
@@ -115,8 +120,10 @@ class ArtStore(dataRoot: File) {
         // JPEG's size is read by the decoder's reader without decoding.
         val claimed = if (kind == PNG) dimensionsOf(header, headerRead) else jpegDimensionsOf(source)
         if (claimed == null || !reasonable(claimed.first, claimed.second)) {
-            val size = claimed?.let { "${it.first}x${it.second}" } ?: "of no readable size"
-            return ArtResult.Rejected("UNREASONABLE_DIMENSIONS", "\"$member\" is $size.")
+            return ArtResult.Rejected(
+                "UNREASONABLE_DIMENSIONS",
+                claimed?.let { sizeWords(card, it.first, it.second) } ?: "$card has no size we can read.",
+            )
         }
 
         val sha = sha256(source)
@@ -130,13 +137,10 @@ class ArtStore(dataRoot: File) {
 
         val image: BufferedImage =
             runCatching { ImageIO.read(source) }.getOrNull()
-                ?: return ArtResult.Rejected("UNDECODABLE_IMAGE", "\"$member\" could not be decoded.")
+                ?: return ArtResult.Rejected("UNDECODABLE_IMAGE", "$card could not be opened.")
 
         if (!reasonable(image.width, image.height)) {
-            return ArtResult.Rejected(
-                "UNREASONABLE_DIMENSIONS",
-                "\"$member\" is ${image.width}x${image.height}.",
-            )
+            return ArtResult.Rejected("UNREASONABLE_DIMENSIONS", sizeWords(card, image.width, image.height))
         }
 
         // Already stored by another deck, or by this one: content
@@ -282,6 +286,16 @@ class ArtStore(dataRoot: File) {
 
         /** 745x1040 is the observed source; this leaves generous room. */
         private const val MAX_DIMENSION = 4000
+
+        /** "The picture for Foo is too big (9000 by 9000 pixels)." or "... too small (...)". */
+        private fun sizeWords(
+            card: String,
+            width: Int,
+            height: Int,
+        ): String {
+            val big = width > MAX_DIMENSION || height > MAX_DIMENSION
+            return "$card is too ${if (big) "big" else "small"} ($width by $height pixels)."
+        }
 
         private fun reasonable(
             width: Int,

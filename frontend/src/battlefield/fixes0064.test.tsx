@@ -408,7 +408,7 @@ describe("the window of its own (F-0064-D)", () => {
     expect(doc.title).toBe("Game chat, Proxic Arena");
     const tabs = [...doc.querySelectorAll('[role="tab"]')];
     expect(tabs.map(text)).toEqual(["Chat", "Play log"]);
-    expect(doc.querySelector('input[placeholder="Type a message..."]')).not.toBeNull();
+    expect(doc.querySelector('input[placeholder="Type a message…"]')).not.toBeNull();
     fireEvent.click(tabs[1]!);
     expect([...doc.querySelectorAll(".gs-log-ent")].map(text)).toContain(
       "Alice cast Lightning Bolt targeting Bob's Grizzly Bears",

@@ -2,6 +2,8 @@
 // names and pictures come from the lobby's PLAYERS list, as the
 // STANDINGS rings do, so the server sends players by id only.
 
+import { capital, countWords, numberWord } from "./words";
+
 export interface HallDeck {
   name: string;
   icon: string | null;
@@ -105,21 +107,21 @@ export function monthName(month: string): string {
   });
 }
 
-/** "12 days", "1 day", "5 hours" — how long the season has left. */
+/** "12 days", "one day", "five hours" — how long the season has left (spec 0114 W2-068). */
 export function timeLeft(endsAt: string, now: number): string {
   const ms = Math.max(0, Date.parse(endsAt) - now);
   const days = Math.floor(ms / 86_400_000);
-  if (days >= 1) return `${days} ${days === 1 ? "day" : "days"}`;
+  if (days >= 1) return countWords(days, "day");
   const hours = Math.max(1, Math.ceil(ms / 3_600_000));
-  return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  return countWords(hours, "hour");
 }
 
-/** "Held 4 days", "Held today". */
+/** "Held for four days", "Held since today". */
 export function heldFor(since: string | null, now: number): string {
   if (!since) return "";
   const days = Math.floor((now - Date.parse(since)) / 86_400_000);
   if (days < 1) return "Held since today";
-  return `Held ${days} ${days === 1 ? "day" : "days"}`;
+  return `Held for ${countWords(days, "day")}`;
 }
 
 /** Spec 0048 — the rule's days when the server does not say (it always does). */
@@ -128,16 +130,16 @@ export const BELT_DAYS = 7;
 /** Spec 0048 — the holder is reminded in the lobby this close to the date. */
 export const REMIND_MS = 2 * 86_400_000;
 
-/** "Sat 8 Nov" */
+/** "Sat, Nov 8" (spec 0114 W2-155: the American order the Deck Depot uses). */
 export function shortDate(at: string): string {
-  return new Date(at).toLocaleDateString("en-GB", {
+  return new Date(at).toLocaleDateString("en-US", {
     weekday: "short",
     day: "numeric",
     month: "short",
   });
 }
 
-/** Spec 0048 — "Defend by Sat 8 Nov · 4 days left". */
+/** Spec 0048 — "Defend by Sat, Nov 8 · four days left". */
 export function defendText(defendBy: string, now: number): string {
   const ms = Date.parse(defendBy) - now;
   const left = ms <= 0 ? "due now" : `${timeLeft(defendBy, now)} left`;
@@ -155,23 +157,31 @@ export function remindHolder(defendBy: string | null | undefined, now: number): 
   return !!defendBy && Date.parse(defendBy) - now <= REMIND_MS;
 }
 
+/**
+ * Spec 0114 (W2-151) -- a badge's name on its chip: "On Fire", never the run
+ * the server writes after it ("On Fire: six wins in a row"), which the
+ * tooltip says ({@link badgeTip}). Keeps the chip as short as it was.
+ */
+export function badgeName(badge: { label: string }): string {
+  return badge.label.split(/:| · /)[0]!.trim();
+}
+
 /** Spec 0019 — what a badge means, for its tooltip. */
 export function badgeTip(badge: { key: string; label: string }): string {
   switch (badge.key) {
     case "belt":
       return "Holds the Champion's Belt right now.";
     case "on-fire": {
-      const run = badge.label.match(/\d+/)?.[0] ?? "3";
-      return `${run} wins in a row (a loss or a draw ends the run).`;
+      return `${capital(numberWord(runOf(badge.label)))} wins in a row (a loss or a draw ends the run).`;
     }
     case "giant-slayer":
       return "Beat the player leading the season, this season.";
     case "speed-demon":
-      return "Won a game by turn 5, this season.";
+      return "Won a game by turn five this season.";
     case "never-conceded":
-      return "10 or more games, and never conceded one.";
+      return "Played ten or more games and never conceded one.";
     case "deck-master":
-      return "Won with 5 or more different decks.";
+      return "Won with five or more different decks.";
     default:
       return badge.label;
   }
@@ -180,8 +190,22 @@ export function badgeTip(badge: { key: string; label: string }): string {
 /** "1,184" */
 export const ratingText = (rating: number) => rating.toLocaleString("en");
 
-/** "won 9 of 12" */
-export const wonText = (wins: number, games: number) => `won ${wins} of ${games}`;
+/** "won nine of 12", "won three of five" */
+export const wonText = (wins: number, games: number) =>
+  `won ${numberWord(wins)} of ${numberWord(games)}`;
+
+/**
+ * The run in an On Fire badge's label, whether the server writes it in
+ * digits ("On Fire · 5") or words ("On Fire: five wins in a row"); three,
+ * the badge's least, when it says neither.
+ */
+function runOf(label: string): number {
+  const digits = label.match(/\d+/)?.[0];
+  if (digits) return Number(digits);
+  const words = label.toLowerCase().split(/[^a-z]+/);
+  for (let n = 10; n >= 0; n--) if (words.includes(numberWord(n))) return n;
+  return 3;
+}
 
 /** Win share, whole percent; draws count as games. */
 export function winPercent(row: Pick<HallRow, "wins" | "losses" | "draws">): number {
@@ -196,17 +220,43 @@ export function latestText(
   idleDays: number = BELT_DAYS,
 ): string {
   const [first = "", second = ""] = item.players;
-  const turn = item.turn ? ` on turn ${item.turn}` : "";
+  const turn = item.turn ? ` on turn ${numberWord(item.turn)}` : "";
   switch (item.kind) {
     case "draw":
       return `${name(first)} and ${name(second)} drew${turn}`;
     case "belt":
-      return `${name(first)} took over the Belt: ${name(second)} hadn't played for ${idleDays} days`;
+      return `${name(first)} took over the Belt: ${name(second)} hadn't played for ${countWords(idleDays, "day")}`;
     default:
+      // Spec 0114 W2-075: the rating change at the end, not wedged mid-sentence.
       return (
         `${name(first)} beat ${name(second)}${turn}` +
-        (item.change ? ` · +${item.change}` : "") +
-        (item.beltTaken ? " and took the Belt" : "")
+        (item.beltTaken ? " and took the Belt" : "") +
+        (item.change ? ` (+${item.change})` : "")
       );
   }
+}
+
+/** Spec 0114 W2-063: "Up two places", "Down one place". */
+export function moveWords(move: number): string {
+  return `${move > 0 ? "Up" : "Down"} ${countWords(Math.abs(move), "place")}`;
+}
+
+const FORM_WORDS: Record<string, string> = { W: "won", L: "lost", D: "drawn" };
+
+/** Spec 0114 W2-066: "won, lost, drawn, won, won" for "WLDWW". */
+export function formWords(form: string): string {
+  return form
+    .split("")
+    .map((mark) => FORM_WORDS[mark] ?? mark)
+    .join(", ");
+}
+
+/** Spec 0114 W2-067: "three wins to one", "one win to two" (said aloud). */
+export function winsTo(a: number, b: number): string {
+  return `${countWords(a, "win")} to ${numberWord(b)}`;
+}
+
+/** Spec 0114 W2-058: "every seven days", "every day". */
+export function everyDays(days: number): string {
+  return days === 1 ? "day" : countWords(days, "day");
 }

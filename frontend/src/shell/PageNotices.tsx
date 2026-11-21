@@ -28,6 +28,7 @@ import {
   inArrival,
   lobbyNoticeOf,
   newsOf,
+  setupProblemLine,
   questionArrived,
   questionKey,
   updateNoticeFor,
@@ -225,7 +226,7 @@ export function PageNoticesProvider({ children }: { children: ReactNode }) {
         tone: "red",
         label: "Your deck",
         title: "Your deck needs attention",
-        line: lobby.setupProblem.detail,
+        line: setupProblemLine(lobby.setupProblem),
         actions: [],
         close: () => setLobby((previous) => ({ ...previous, setupProblem: null })),
       });

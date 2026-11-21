@@ -12,6 +12,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.serialization.Serializable
 import net.barnflix.proxic.ErrorResponse
+import net.barnflix.proxic.PlayerWords
 import net.barnflix.proxic.ServerConfig
 import java.util.UUID
 
@@ -104,7 +105,11 @@ fun Route.deviceRoutes(
             call.response.headers.append("Retry-After", wait.toString())
             return@post call.respond(
                 HttpStatusCode.TooManyRequests,
-                ErrorResponse("TOO_MANY_ATTEMPTS", "Too many tries. Try again in $wait seconds.", null),
+                ErrorResponse(
+                    "TOO_MANY_ATTEMPTS",
+                    "Too many tries. Try again in ${PlayerWords.waitWords(wait)}.",
+                    null,
+                ),
             )
         }
         val body = runCatching { call.receive<DeviceLinkRequest>() }.getOrNull() ?: DeviceLinkRequest()

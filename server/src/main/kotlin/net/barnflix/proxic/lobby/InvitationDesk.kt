@@ -108,7 +108,7 @@ class InvitationDesk(
             when {
                 room == null || !room.isHost(me) -> "ROOM_HOST_REQUIRED" to "Open a room first."
                 room.isFull() -> "ROOM_FULL" to "Your room is full."
-                targetId == me -> "CANNOT_INVITE_YOURSELF" to "You are already here."
+                targetId == me -> "CANNOT_INVITE_YOURSELF" to "You can't invite yourself."
                 // D2 — online only.
                 hub.entryFor(targetId) == null -> "USER_NOT_ONLINE" to "That player is not signed in."
                 // One room at a time (§5.5): accepting would be refused,

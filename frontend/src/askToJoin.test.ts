@@ -35,7 +35,7 @@ const lobby = (overrides: Partial<LobbyState> = {}): LobbyState => ({
 
 describe("roomLine (R1, R2)", () => {
   it("says where a room stands, held seats included", () => {
-    expect(roomLine(room())).toEqual({ text: "1 seat open", tone: "open" });
+    expect(roomLine(room())).toEqual({ text: "One seat open", tone: "open" });
     expect(roomLine(room({ held: { userId: "u-pat", displayName: "Pat", asked: false } }))).toEqual(
       { text: "Waiting on Pat's answer", tone: "held" },
     );

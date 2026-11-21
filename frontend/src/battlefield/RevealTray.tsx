@@ -94,7 +94,7 @@ export function ReportMarkPicture({ mark }: { mark: ReportMark }) {
       <span
         className={`gs-reveal-mark gs-reveal-mark-color gs-reveal-mark-${mark.color}`}
         role="img"
-        aria-label={`${word}, the colour chosen`}
+        aria-label={`${word}, the color chosen`}
       >
         {url ? <img src={url} alt="" draggable={false} /> : <b>{symbol}</b>}
       </span>

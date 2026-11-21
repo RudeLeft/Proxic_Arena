@@ -96,8 +96,8 @@ export function ResetPage() {
               This reset link no longer works
             </h2>
             <p className="pa-join-sub">
-              It may have been used already, replaced by a newer one, or it expired after an hour.
-              Ask the person who runs your Proxic Arena for a new one.
+              It may have been used already or replaced by a newer one, or it may have expired
+              (links last an hour). Ask the person who runs your Proxic Arena for a new one.
             </p>
             <Link className="pa-button pa-button-wide" to="/login">
               Go to sign in

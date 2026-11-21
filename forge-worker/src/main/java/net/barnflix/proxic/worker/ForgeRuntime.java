@@ -275,6 +275,8 @@ public final class ForgeRuntime {
 
     /** What happened to one requested card. */
     public static final class Resolution {
+        /** Spec 0114 (W2-001): an unknown card's words, as a player reads them. */
+        public static final String NOT_FOUND_WORDS = "Arena doesn't know this card yet.";
         public final String status;
         public final String detail;
         public final String actualSet;
@@ -330,15 +332,18 @@ public final class ForgeRuntime {
         }
 
         static Resolution notFound(String name) {
-            return new Resolution("NOT_FOUND", "Forge does not know a card named \"" + name + "\".",
+            // Spec 0114 (W2-001): a player reads this after "Line 12, Foo: ",
+            // so it names neither the card again nor the rules engine. The
+            // server maps the status to its own fixed words anyway (W2-101).
+            return new Resolution("NOT_FOUND", NOT_FOUND_WORDS,
                     null, null, null, null, null, null, false);
         }
 
         static Resolution printingMismatch(String requested, PaperCard got) {
             return new Resolution(
                     "PRINTING_MISMATCH",
-                    "Requested " + requested + ", Forge returned "
-                            + got.getEdition() + "/" + got.getCollectorNumber() + ".",
+                    "Arena doesn't have this printing of this card (asked for " + requested
+                            + ", found " + got.getEdition() + " " + got.getCollectorNumber() + ").",
                     got.getEdition(), got.getCollectorNumber(), categoryOf(got), sectionOf(got),
                     backFaceOf(got), colorsOf(got), printingMatters(got.getRules()));
         }

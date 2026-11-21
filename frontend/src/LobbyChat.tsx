@@ -21,6 +21,7 @@ import { BeltMark } from "./BeltMark";
 import { PICKER, REACTIONS } from "./chatEmoji";
 import { Avatar } from "./avatars";
 import { setTitleCount } from "./tabTitle";
+import { andList, capitalNumber } from "./words";
 
 /** Within this many pixels of the bottom counts as reading the latest line. */
 const BOTTOM_SLACK = 24;
@@ -157,7 +158,9 @@ export function ChatPanel({
     <section className={`pa-panel pa-chat ${className}`} aria-labelledby={headingId}>
       <div className="pa-panel-head">
         <h2 id={headingId}>{title}</h2>
-        {unread > 0 && <span className="pa-panel-note pa-chat-unread">{unread} new</span>}
+        {unread > 0 && (
+          <span className="pa-panel-note pa-chat-unread">{capitalNumber(unread)} new</span>
+        )}
       </div>
       <div className="pa-chat-log" role="log" ref={logRef} onScroll={scrolled}>
         {items.map((item) => {
@@ -246,7 +249,7 @@ export function ChatPanel({
           className="pa-input"
           value={draft}
           maxLength={MAX_CHAT_LENGTH}
-          placeholder="Type a message..."
+          placeholder="Type a message…"
           autoComplete="off"
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
@@ -364,7 +367,7 @@ function ChatMessage({
               key={emoji}
               type="button"
               className={`pa-react-pick${mineOn(emoji) ? " pa-react-pick-on" : ""}`}
-              aria-label={`React ${emoji}`}
+              aria-label={`React with ${emoji}`}
               aria-pressed={mineOn(emoji)}
               onClick={() => onReact(emoji, !mineOn(emoji))}
             >
@@ -383,7 +386,7 @@ function ChatMessage({
                 type="button"
                 className={`pa-reaction${mineOn(emoji) ? " pa-reaction-mine" : ""}`}
                 title={who.map(nameOf).join(", ")}
-                aria-label={`${emoji} ${who.length}: ${who.map(nameOf).join(", ")}`}
+                aria-label={`${emoji} from ${andList(who.map(nameOf))}`}
                 aria-pressed={mineOn(emoji)}
                 onClick={() => onReact(emoji, !mineOn(emoji))}
               >

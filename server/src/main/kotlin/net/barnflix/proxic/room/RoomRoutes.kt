@@ -196,7 +196,7 @@ private fun Route.lifecycleRoutes(
         val roomId = roomIdOrNull() ?: return@put respondBadRoomId()
         val body =
             bodyOrNull<PlayerCountRequest>()
-                ?: return@put respondBadBody("Expected a player count.")
+                ?: return@put respondBadBody("Choose how many players.")
 
         respondRoom(
             rooms.setPlayerCount(roomId, callerId(), body.playerCount, body.expectedRoomRevision),
@@ -218,7 +218,7 @@ private fun Route.memberRoutes(
             call.parameters["memberUserId"]?.let(::uuidOrNull)
                 ?: return@delete call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse("INVALID_USER_ID", "That is not a user id.", call.callId),
+                    ErrorResponse("INVALID_USER_ID", "That player doesn't exist.", call.callId),
                 )
 
         // A DELETE carries no body, so the revision rides in the
@@ -245,14 +245,14 @@ private fun Route.memberRoutes(
         val roomId = roomIdOrNull() ?: return@put respondBadRoomId()
         val body =
             bodyOrNull<SelectDeckRequest>()
-                ?: return@put respondBadBody("Expected a deck id.")
+                ?: return@put respondBadBody("Choose a deck.")
 
         val raw = body.deckId
         val deckId = raw?.let(::uuidOrNull)
         if (raw != null && deckId == null) {
             return@put call.respond(
                 HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", call.callId),
+                ErrorResponse("INVALID_DECK_ID", "That deck doesn't exist.", call.callId),
             )
         }
 
@@ -270,7 +270,7 @@ private fun Route.memberRoutes(
         val roomId = roomIdOrNull() ?: return@put respondBadRoomId()
         val body =
             bodyOrNull<ReadyRequest>()
-                ?: return@put respondBadBody("Expected a ready flag.")
+                ?: return@put respondBadBody("That couldn't be changed. Try again.")
 
         respondRoom(
             rooms.setReady(roomId, callerId(), body.ready, body.expectedRoomRevision),

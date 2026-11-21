@@ -106,11 +106,19 @@ export async function login(
     detail?: string;
   } | null;
 
+  // Spec 0114 W2-018: the wrong-password words only for a 401. Any other
+  // reply without a sentence (a 500, a proxy's error page) is a fault on
+  // our side, never the player's password.
+  const refused = response.status === 401;
   const failure: LoginFailure = {
-    errorCode: payload?.errorCode ?? "INVALID_CREDENTIALS",
+    errorCode: payload?.errorCode ?? (refused ? "INVALID_CREDENTIALS" : "SIGN_IN_FAILED"),
     // The server's own sentence. Never "no such user" — the server
     // does not say that, and the page must not invent it (§3.44).
-    detail: payload?.detail ?? "That username and password do not match.",
+    detail:
+      payload?.detail ??
+      (refused
+        ? "That username and password do not match."
+        : "Signing in didn't work just now. Try again in a moment."),
   };
   const retryAfter = response.headers.get("Retry-After");
   if (retryAfter) failure.retryAfterSeconds = Number(retryAfter);

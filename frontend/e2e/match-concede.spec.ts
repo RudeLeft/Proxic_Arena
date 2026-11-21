@@ -137,7 +137,7 @@ test("abandoning still ends the match with no winner, after asking", async ({ br
 
     for (const page of [host, guest]) {
       // Spec 0050 — a card: the title, and what it means.
-      await expect(noticeCard(page, "The match was abandoned")).toContainText(
+      await expect(noticeCard(page, "The game was abandoned")).toContainText(
         "Nobody won it, and the room is open again.",
         { timeout: 60_000 },
       );

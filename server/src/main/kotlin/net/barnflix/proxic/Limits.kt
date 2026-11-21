@@ -6,6 +6,7 @@ import io.ktor.server.application.createApplicationPlugin
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.request.path
 import io.ktor.server.response.respond
+import org.slf4j.LoggerFactory
 
 /**
  * Infrastructure limits — PHASE_01 §1.99, §1.100.
@@ -109,13 +110,15 @@ val BodySizeLimit =
             // accepts a package, every other endpoint does not.
             val limit = Limits.bodyLimitFor(call.request.path())
             if (declared > limit) {
+                LoggerFactory.getLogger("net.barnflix.proxic.Limits")
+                    .info("body of {} bytes refused at {}; the limit is {}", declared, call.request.path(), limit)
                 call.respond(
                     HttpStatusCode.PayloadTooLarge,
                     ErrorResponse(
                         errorCode = "BODY_TOO_LARGE",
-                        // The limit is stated. A refusal that does not say
-                        // what the limit is leaves a client guessing.
-                        detail = "Request body exceeds $limit bytes.",
+                        // Spec 0114 (W2-138): a player's words; the limit is
+                        // in the log line above, not the sentence.
+                        detail = "That was too much to send at once.",
                         requestId = call.callId,
                     ),
                 )

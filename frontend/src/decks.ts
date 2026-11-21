@@ -275,7 +275,7 @@ export async function shareDeck(
       fetchFn,
     );
   } catch {
-    return { ok: false, message: "That share could not be sent. Try again." };
+    return { ok: false, message: "The deck could not be shared. Try again." };
   }
 
   if (response.ok) {
@@ -288,7 +288,7 @@ export async function shareDeck(
   // The server's own wording, because it knows which of the §4.72
   // cases happened. A message invented here would eventually
   // contradict it.
-  return { ok: false, message: body?.detail ?? "That share could not be created." };
+  return { ok: false, message: body?.detail ?? "The deck could not be shared." };
 }
 
 /** §4.34 — revoke by recipient. Idempotent server-side. */

@@ -345,7 +345,11 @@ class DeckImportTest {
         result as ImportResult.Rejected
         assertEquals("CARDS_NOT_RESOLVED", result.code)
         val problem = result.problems.single()
-        assertTrue(problem.contains("Everythingamajig") && problem.contains("plays differently"), problem)
+        // Spec 0114 (W2-102).
+        assertEquals(
+            "Line 4, Everythingamajig: This card works differently in each printing, and Arena doesn't have this one.",
+            problem,
+        )
         assertFalse(problem.contains("Forge"), "no engine name in player text: $problem")
         assertEquals(0, rowCount("imported_deck"))
     }

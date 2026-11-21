@@ -21,7 +21,7 @@ for (const [path, url] of Object.entries(files)) {
 /** The ten sheets, as the picker's tabs, each with its ten icons in order. */
 export const ICON_SHEETS: { name: string; icons: string[] }[] = [
   {
-    name: "Colours",
+    name: "Colors",
     icons: [
       "sun",
       "water",
@@ -141,7 +141,7 @@ export const ICON_SHEETS: { name: string; icons: string[] }[] = [
     ],
   },
   {
-    name: "Families 2",
+    name: "More families",
     icons: [
       "merfolk",
       "spirit",

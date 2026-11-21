@@ -99,9 +99,9 @@ class CardResolverTest {
             results.all { it.status == CardResolution.Status.PRINTING_MISMATCH },
             "expected mismatches, got $results",
         )
-        // The detail names what Forge returned instead, so the player
-        // can see the substitution that was refused.
-        assertTrue(results[0].detail!!.contains("TRK"), results[0].detail!!)
+        // Spec 0114 (W2-101): fixed words by status; what Forge returned
+        // instead is kept in the fields, never in a player's sentence.
+        assertEquals("Arena doesn't have this printing of this card.", results[0].detail)
         assertEquals("TRK", results[0].actualSet)
     }
 
@@ -151,9 +151,10 @@ class CardResolverTest {
     fun `an unknown card is NOT_FOUND, never substituted`() {
         val results = resolver().resolve(listOf(entry("Totally Not A Real Card")))
         assertEquals(CardResolution.Status.NOT_FOUND, results.single().status)
-        // §2.47: no silent substitution. The name is echoed back so
-        // the error can quote it.
-        assertTrue(results.single().detail!!.contains("Totally Not A Real Card"))
+        // §2.47: no silent substitution. Spec 0114 (W2-001, W2-101): the
+        // player's words are fixed by the status, never the worker's text;
+        // the import quotes the name itself ("Line 12, Foo: ...").
+        assertEquals("Arena doesn't know this card yet.", results.single().detail)
     }
 
     @Test

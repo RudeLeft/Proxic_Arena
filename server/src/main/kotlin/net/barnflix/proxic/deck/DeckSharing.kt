@@ -69,7 +69,7 @@ class DeckSharing(
             findUser(username)
                 ?: return ShareResult.Rejected(
                     "SHARE_USER_NOT_FOUND",
-                    "No account named \"$username\".",
+                    "There is no player with the username \"$username\".",
                 )
 
         // §4.27 — the owner already has it, and a share row to

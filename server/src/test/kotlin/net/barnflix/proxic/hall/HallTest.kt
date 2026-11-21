@@ -162,6 +162,11 @@ class HallTest {
         assertTrue("speed-demon" in badges("Pat"), "won on turn 5")
         assertTrue("deck-master" in badges("Pat"), "five decks")
         assertTrue("on-fire" in badges("Bree"), "six wins in a row")
+        // Spec 0114 (W2-151): the run in words, never "On Fire · 6".
+        assertEquals(
+            "On Fire: six wins in a row",
+            view.board.first { name(it.userId) == "Bree" }.badges.first { it.key == "on-fire" }.label,
+        )
         assertTrue("giant-slayer" in badges("Bree"), "beat the leader")
         assertTrue("never-conceded" !in badges("Pat"), "fewer than ten games, and conceded once")
 

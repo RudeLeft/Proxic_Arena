@@ -13,6 +13,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import kotlinx.serialization.Serializable
 import net.barnflix.proxic.ErrorResponse
+import net.barnflix.proxic.PlayerWords
 import net.barnflix.proxic.ServerConfig
 
 // Authentication HTTP surface — PHASE_03 §3.19–§3.24, §3.41–§3.55.
@@ -259,7 +260,7 @@ internal suspend fun ApplicationCall.respondThrottled(seconds: Long) {
         HttpStatusCode.TooManyRequests,
         ErrorResponse(
             "TOO_MANY_ATTEMPTS",
-            "Too many sign-in attempts. Try again in $seconds seconds.",
+            "Too many sign-in attempts. Try again in ${PlayerWords.waitWords(seconds)}.",
             null,
         ),
     )

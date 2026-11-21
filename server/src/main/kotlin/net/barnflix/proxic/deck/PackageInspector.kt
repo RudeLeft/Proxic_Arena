@@ -1,5 +1,6 @@
 package net.barnflix.proxic.deck
 
+import net.barnflix.proxic.PlayerWords
 import java.io.File
 import java.util.Locale
 import java.util.zip.ZipFile
@@ -53,13 +54,13 @@ object PackageInspector {
      */
     fun inspect(archive: File): PackageResult {
         if (!archive.isFile) {
-            return PackageResult.Rejected("NOT_A_FILE", "The upload is not a readable file.")
+            return PackageResult.Rejected("NOT_A_FILE", NO_DECK_FILE)
         }
         if (archive.length() > PackageLimits.MAX_ARCHIVE_BYTES) {
             return PackageResult.Rejected(
                 "ARCHIVE_TOO_LARGE",
-                "The package is ${archive.length()} bytes; the limit is " +
-                    "${PackageLimits.MAX_ARCHIVE_BYTES}.",
+                "This deck file is too big (${PlayerWords.megabytes(archive.length())}). " +
+                    "The most Arena takes is ${PlayerWords.megabytes(PackageLimits.MAX_ARCHIVE_BYTES)}.",
             )
         }
 
@@ -69,7 +70,7 @@ object PackageInspector {
             .getOrElse {
                 PackageResult.Rejected(
                     "NOT_A_ZIP",
-                    "The upload is not a readable ZIP archive.",
+                    "That file isn't a deck file Arena can open. Export the deck again from the Deck Builder.",
                 )
             }
     }
@@ -80,12 +81,12 @@ object PackageInspector {
         if (entries.size > PackageLimits.MAX_ENTRIES) {
             return PackageResult.Rejected(
                 "TOO_MANY_ENTRIES",
-                "The package has ${entries.size} entries; the limit is " +
-                    "${PackageLimits.MAX_ENTRIES}.",
+                "This deck file has too many files inside it (${PlayerWords.number(entries.size)}; " +
+                    "the most is ${PlayerWords.number(PackageLimits.MAX_ENTRIES)}).",
             )
         }
         if (entries.isEmpty()) {
-            return PackageResult.Rejected("EMPTY_ARCHIVE", "The package is empty.")
+            return PackageResult.Rejected("EMPTY_ARCHIVE", "This deck file is empty. Export the deck again.")
         }
 
         var compressed = 0L
@@ -109,8 +110,7 @@ object PackageInspector {
             if (entry.size > PackageLimits.MAX_ENTRY_BYTES) {
                 return PackageResult.Rejected(
                     "ENTRY_TOO_LARGE",
-                    "An entry is ${entry.size} bytes; the limit is " +
-                        "${PackageLimits.MAX_ENTRY_BYTES}.",
+                    entryTooLarge(entry.size),
                 )
             }
 
@@ -120,8 +120,8 @@ object PackageInspector {
             if (uncompressed > PackageLimits.MAX_UNCOMPRESSED_BYTES) {
                 return PackageResult.Rejected(
                     "UNCOMPRESSED_TOO_LARGE",
-                    "The package expands beyond " +
-                        "${PackageLimits.MAX_UNCOMPRESSED_BYTES} bytes.",
+                    "This deck file is too big once unpacked " +
+                        "(more than ${PlayerWords.megabytes(PackageLimits.MAX_UNCOMPRESSED_BYTES)}).",
                 )
             }
 
@@ -136,7 +136,8 @@ object PackageInspector {
             if (previous != null) {
                 return PackageResult.Rejected(
                     "DUPLICATE_PATH",
-                    "Two entries resolve to the same path: \"$previous\" and \"$name\".",
+                    "This deck file has two files with the same name (\"$previous\" and \"$name\"). " +
+                        "Export the deck again.",
                 )
             }
 
@@ -149,7 +150,7 @@ object PackageInspector {
                 // means this is not the package we think it is.
                 null -> return PackageResult.Rejected(
                     "UNEXPECTED_ENTRY",
-                    "The package contains an unexpected file: \"$name\".",
+                    "This deck file has a file Arena doesn't expect: \"$name\". Export the deck again.",
                 )
             }
         }
@@ -159,8 +160,8 @@ object PackageInspector {
         if (images.size > PackageLimits.MAX_IMAGE_COUNT) {
             return PackageResult.Rejected(
                 "TOO_MANY_IMAGES",
-                "The package has ${images.size} images; the limit is " +
-                    "${PackageLimits.MAX_IMAGE_COUNT}.",
+                "This deck file has ${PlayerWords.number(images.size)} pictures; the most a deck can have is " +
+                    "${PlayerWords.number(PackageLimits.MAX_IMAGE_COUNT)}.",
             )
         }
 
@@ -184,13 +185,13 @@ object PackageInspector {
             0 ->
                 PackageResult.Rejected(
                     "NO_DECK_LIST",
-                    "The package contains no decklist (.txt) at its root.",
+                    "This deck file has no deck list in it.",
                 )
 
             else ->
                 PackageResult.Rejected(
                     "MULTIPLE_DECK_LISTS",
-                    "The package contains ${deckTexts.size} decklists; exactly one is expected.",
+                    "This deck file has ${PlayerWords.number(deckTexts.size)} deck lists in it. It should have one.",
                 )
         }
     }
@@ -208,7 +209,7 @@ object PackageInspector {
         if (isUnsafePath(entry.name)) {
             return PackageResult.Rejected(
                 "UNSAFE_PATH",
-                "The package contains an entry with an unsafe path.",
+                CANNOT_OPEN_SAFELY,
             )
         }
         // §2.33 — anything other than stored or deflated, which
@@ -218,14 +219,13 @@ object PackageInspector {
         ) {
             return PackageResult.Rejected(
                 "UNSUPPORTED_COMPRESSION",
-                "The package uses an unsupported compression method.",
+                CANNOT_OPEN_SAFELY,
             )
         }
         if (!entry.isDirectory && entry.size > PackageLimits.MAX_ENTRY_BYTES) {
             return PackageResult.Rejected(
                 "ENTRY_TOO_LARGE",
-                "An entry is ${entry.size} bytes; the limit is " +
-                    "${PackageLimits.MAX_ENTRY_BYTES}.",
+                entryTooLarge(entry.size),
             )
         }
         return null
@@ -270,10 +270,21 @@ object PackageInspector {
         if (ratio <= PackageLimits.MAX_COMPRESSION_RATIO) return null
         return PackageResult.Rejected(
             "COMPRESSION_RATIO",
-            "The package expands %.1f times, above the limit of %.1f."
-                .format(ratio, PackageLimits.MAX_COMPRESSION_RATIO),
+            "This deck file unpacks to far more than its size, so Arena won't open it. Export the deck again.",
         )
     }
+
+    /** Spec 0114 (W2-134): no file arrived, or it could not be read. */
+    const val NO_DECK_FILE = "No deck file arrived. Try sending it again."
+
+    /** Spec 0114 (W2-132): an unsafe path or an unknown compression, said without the security words. */
+    private const val CANNOT_OPEN_SAFELY =
+        "This deck file can't be opened safely. Export the deck again from the Deck Builder."
+
+    /** Spec 0114 (W2-124). */
+    private fun entryTooLarge(size: Long) =
+        "One of the files inside this deck file is too big (${PlayerWords.megabytes(size)}; " +
+            "the most is ${PlayerWords.megabytes(PackageLimits.MAX_ENTRY_BYTES)})."
 
     private enum class MemberKind { DECK_TEXT, IMAGE, PICTURES }
 

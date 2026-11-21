@@ -10,6 +10,7 @@
 // button say so before anybody presses it.
 
 import type { ChatLine, DirectoryRoom, LobbyState, PresenceUser } from "./lobby";
+import { capital, countWords } from "./words";
 
 /** What the Invite control on one player's row is. */
 export type InviteControl =
@@ -68,10 +69,10 @@ export function playerRows(lobby: LobbyState, me: string, now: number = Date.now
     else if (invited) where = `Invited to ${mine?.name ?? "your room"}`;
     else if (declined) where = "Declined your invitation";
     else if (inMyRoom) where = "In your room";
-    else if (seatedIn?.status === "IN_MATCH") where = "In a match";
+    else if (seatedIn?.status === "IN_MATCH") where = "In a game";
     else if (seatedIn) where = `In ${seatedIn.name}`;
     else where = "In the lobby";
-    // Spec 0009 — away, and where: "Away 7 min · in the lobby".
+    // Spec 0009 — away, and where: "Away for seven minutes · in the lobby".
     if (status.kind === "away")
       where = `${status.label} · ${where.charAt(0).toLowerCase()}${where.slice(1)}`;
 
@@ -81,10 +82,11 @@ export function playerRows(lobby: LobbyState, me: string, now: number = Date.now
     else if (seatedIn)
       control = { kind: "blocked", why: `${user.displayName} is already in a room` };
     else if (mine === null) control = { kind: "invite", needsRoom: true };
-    else if (!iHost) control = { kind: "blocked", why: "Only the host of a room invites" };
+    else if (!iHost) control = { kind: "blocked", why: "Only the room's host can invite players" };
     else if (!roomOpen || !openSeat)
       control = { kind: "blocked", why: "Your room has no free seat" };
-    else if (lobby.outgoing) control = { kind: "blocked", why: "One invitation at a time" };
+    else if (lobby.outgoing)
+      control = { kind: "blocked", why: "You can send one invitation at a time" };
     else control = { kind: "invite", needsRoom: false };
 
     rows.push({
@@ -141,7 +143,7 @@ export interface RoomLine {
 
 /**
  * Spec 0016 R1/R2 — where somebody else's room stands, for everyone:
- * "1 seat open", "Waiting on Pat's answer" (a held seat), "Choosing
+ * "One seat open", "Waiting on Pat's answer" (a held seat), "Choosing
  * decks", "Ready to start", "Starting…", "In a game".
  */
 export function roomLine(room: DirectoryRoom): RoomLine {
@@ -158,7 +160,7 @@ export function roomLine(room: DirectoryRoom): RoomLine {
     const who = room.held.asked ? host : room.held.displayName;
     return { text: `Waiting on ${who}'s answer`, tone: "held" };
   }
-  return { text: `${open} ${open === 1 ? "seat" : "seats"} open`, tone: "open" };
+  return { text: `${capital(countWords(open, "seat"))} open`, tone: "open" };
 }
 
 /** What the viewer can do about somebody else's room. */
@@ -200,34 +202,44 @@ export function sortRooms(rooms: DirectoryRoom[], lobby: LobbyState): DirectoryR
 /** Spec 0006 D3 — how soon a room closes, but only in its last 3 hours. */
 const CLOSES_SOON_MS = 3 * 3_600_000;
 
-/** "Closes in 2h", "Closes in 45m", "Closes now" — or null while it is not soon (D3). */
+/** Spec 0114: "one minute", "45 minutes". */
+export function minutesWords(minutes: number): string {
+  return countWords(minutes, "minute");
+}
+
+/** Spec 0114: "an hour", "two hours". */
+export function hoursWords(hours: number): string {
+  return hours === 1 ? "an hour" : countWords(hours, "hour");
+}
+
+/** "Closes in two hours", "Closes in 45 minutes", "Closes now" — or null while it is not soon (D3). */
 export function closesSoon(clearsAt: string | null, now: number): string | null {
   if (!clearsAt) return null;
   const ms = Date.parse(clearsAt) - now;
   if (Number.isNaN(ms) || ms > CLOSES_SOON_MS) return null;
   if (ms <= 60_000) return "Closes now";
   const hours = Math.floor(ms / 3_600_000);
-  return `Closes in ${hours >= 1 ? `${hours}h` : `${Math.ceil(ms / 60_000)}m`}`;
+  return `Closes in ${hours >= 1 ? hoursWords(hours) : minutesWords(Math.ceil(ms / 60_000))}`;
 }
 
 // --- online, away, offline (spec 0009) -----------------------------------------
 
 export type PresenceKind = "online" | "away" | "offline";
 
-/** "just now", "5 min ago", "2h ago", "yesterday", "3 days ago". */
+/** "just now", "five minutes ago", "two hours ago", "yesterday", "three days ago". */
 export function agoText(at: string, now: number): string {
   const minutes = Math.floor((now - Date.parse(at)) / 60_000);
   if (Number.isNaN(minutes) || minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 60) return `${minutesWords(minutes)} ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hoursWords(hours)} ago`;
   const days = Math.floor(hours / 24);
-  return days === 1 ? "yesterday" : `${days} days ago`;
+  return days === 1 ? "yesterday" : `${countWords(days, "day")} ago`;
 }
 
 /**
- * Online, away or offline, and how to say it: "Away 7 min", "Offline ·
- * last seen 2h ago", or just "Offline" when no session remains.
+ * Online, away or offline, and how to say it: "Away for seven minutes",
+ * "Offline · last seen two hours ago", or just "Offline" when no session remains.
  */
 export function statusOf(
   lobby: LobbyState,
@@ -239,7 +251,7 @@ export function statusOf(
     const minutes = Math.max(1, Math.round((now - Date.parse(here.awaySince)) / 60_000));
     return {
       kind: "away",
-      label: minutes < 60 ? `Away ${minutes} min` : `Away ${Math.floor(minutes / 60)}h`,
+      label: `Away for ${minutes < 60 ? minutesWords(minutes) : hoursWords(Math.floor(minutes / 60))}`,
     };
   }
   if (here) return { kind: "online", label: "Online" };
@@ -247,7 +259,7 @@ export function statusOf(
   return { kind: "offline", label: seen ? `Offline · last seen ${agoText(seen, now)}` : "Offline" };
 }
 
-/** The badge an avatar wears, and its words for a screen reader: "Dana, away 7 min". */
+/** The badge an avatar wears, and its words for a screen reader: "Dana, away for seven minutes". */
 export function presenceOf(
   lobby: LobbyState,
   userId: string,

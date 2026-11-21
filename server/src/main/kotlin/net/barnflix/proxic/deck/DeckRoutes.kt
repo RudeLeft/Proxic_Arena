@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import net.barnflix.proxic.ErrorResponse
 import net.barnflix.proxic.PRINCIPAL_KEY
+import net.barnflix.proxic.PlayerWords
 import net.barnflix.proxic.ServerConfig
 import java.io.File
 import java.util.UUID
@@ -213,7 +214,7 @@ fun Route.deckRoutes(
             val deckId =
                 deckIdOrNull() ?: return@get call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
+                    ErrorResponse("INVALID_DECK_ID", "That deck doesn't exist.", null),
                 )
 
             // §4.63-§4.65. A deck you may not see and a deck that
@@ -246,14 +247,14 @@ fun Route.deckRoutes(
             if (!assetId.matches(Regex("[0-9a-f]{64}"))) {
                 return@get call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse("INVALID_ASSET_ID", "That is not an asset id.", null),
+                    ErrorResponse("INVALID_ASSET_ID", "That picture is no longer available.", null),
                 )
             }
 
             val deckId =
                 deckIdOrNull() ?: return@get call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
+                    ErrorResponse("INVALID_DECK_ID", "That deck doesn't exist.", null),
                 )
 
             // PHASE 4 AMENDMENT 2 — deck access AND the asset being
@@ -270,7 +271,7 @@ fun Route.deckRoutes(
             if (!authorization.mayViewAsset(callerId(), deckId, assetId)) {
                 return@get call.respond(
                     HttpStatusCode.NotFound,
-                    ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),
+                    ErrorResponse("ASSET_NOT_FOUND", "That picture is no longer available.", null),
                 )
             }
 
@@ -285,7 +286,7 @@ fun Route.deckRoutes(
                 artStore.fileFor(assetId, closeUp = full)
                     ?: return@get call.respond(
                         HttpStatusCode.NotFound,
-                        ErrorResponse("ASSET_NOT_FOUND", "No such asset.", null),
+                        ErrorResponse("ASSET_NOT_FOUND", "That picture is no longer available.", null),
                     )
 
             // PHASE 4 AMENDMENT 3, owner decision D2.
@@ -328,7 +329,7 @@ fun Route.deckRoutes(
             val deckId =
                 deckIdOrNull() ?: return@delete call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse("INVALID_DECK_ID", "That is not a deck id.", null),
+                    ErrorResponse("INVALID_DECK_ID", "That deck doesn't exist.", null),
                 )
 
             // §4.76, §4.80. Three outcomes, and the difference
@@ -607,7 +608,8 @@ internal suspend fun ImportContext.handleImport(
                 HttpStatusCode.PayloadTooLarge,
                 ImportRejectedResponse(
                     "ARCHIVE_TOO_LARGE",
-                    "The package exceeds ${PackageLimits.MAX_ARCHIVE_BYTES} bytes.",
+                    "This deck file is too big. The most Arena takes is " +
+                        "${PlayerWords.megabytes(PackageLimits.MAX_ARCHIVE_BYTES)}.",
                 ),
             )
             return
@@ -615,7 +617,7 @@ internal suspend fun ImportContext.handleImport(
         if (!upload.isFile || upload.length() == 0L) {
             call.respond(
                 HttpStatusCode.BadRequest,
-                ImportRejectedResponse("NO_FILE", "No package was uploaded."),
+                ImportRejectedResponse("NO_FILE", PackageInspector.NO_DECK_FILE),
             )
             return
         }
@@ -654,7 +656,7 @@ private suspend fun ImportContext.importAndRespond(
             HttpStatusCode.UnprocessableEntity,
             ImportRejectedResponse(
                 "INVALID_DECK_NAME",
-                "A deck name is 1 to ${DeckNames.MAX_LENGTH} characters on one line.",
+                DeckNames.RULE,
             ),
         )
         return

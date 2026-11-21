@@ -45,10 +45,10 @@ test("the Hall says when the holder must defend the Belt, and the rule; after a 
   await page.goto("/hall");
   const belt = page.getByLabel("The Champion's Belt");
   await expect(page.getByTestId("belt-defend")).toHaveText(
-    /^Defend by \w{3} \d{1,2} \w{3} · 4 days left$/,
+    /^Defend by \w{3}, \w{3} \d{1,2} · four days left$/,
   );
   await expect(belt).toContainText(
-    "Finish a game every 7 days or the belt passes to the top-rated active player.",
+    "Finish a game every seven days, or the belt passes to the top-rated active player.",
   );
   const bar = await page.locator(".pa-hp-defend-bar i").evaluate((el) => {
     const parent = el.parentElement!.getBoundingClientRect().width;
@@ -88,7 +88,8 @@ test("the holder is reminded in the lobby two days before the Belt is due, and n
   await page.goto("/lobby");
   const reminder = page.getByTestId("belt-remind");
   await expect(reminder).toHaveText(
-    /^Defend your belt by \w{3} \d{1,2} \w{3}: finish a game, or it passes on\.$/,
+    // Spec 0114 (W2-155): "Sun, Nov 22", the American order.
+    /^Defend your belt by \w{3}, \w{3} \d{1,2}: finish a game, or it passes on\.$/,
   );
   await page.screenshot({ path: "test-results/seen/lobby-belt-reminder.png" });
 
@@ -143,7 +144,7 @@ test("Belt and records: each purge shows what it deletes and needs PURGE; Reset 
 
   // The Belt, and Reset only once RESET is typed.
   await expect(panel.getByTestId("admin-belt")).toContainText("Pat holds it");
-  await expect(panel.getByTestId("admin-belt")).toContainText("5 days left");
+  await expect(panel.getByTestId("admin-belt")).toContainText("five days left");
   const reset = panel.getByRole("button", { name: "Reset the Belt" });
   await expect(reset).toBeDisabled();
   await panel.getByLabel("Type RESET to reset the Belt").fill("reset");

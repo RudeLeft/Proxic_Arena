@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { AppRoutes } from "./routes";
 import { AuthProvider } from "./AuthContext";
+import App from "./App";
 
 /**
  * Client-side routing — PHASE_01 §1.109, and the client half of
@@ -48,7 +49,7 @@ describe("routes", () => {
   it("sends an anonymous visitor at /status to sign in, not to the server's state", async () => {
     at("/status");
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeDefined();
-    expect(screen.queryByText(/Foundation Build/i)).toBeNull();
+    expect(screen.queryByText(/Foundation Build|Rules engine|Version /i)).toBeNull();
   });
 
   /** PHASE_07 §7.62, the canvas's note f1: the address everyone types
@@ -62,7 +63,9 @@ describe("routes", () => {
     // Owner 2026-10-24: no "Not found" placeholder for a stranger to read.
     at("/no/such/page");
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeDefined();
-    expect(screen.queryByText(/Not found|Not implemented|Foundation Build/i)).toBeNull();
+    expect(
+      screen.queryByText(/Not found|Not implemented|Foundation Build|Rules engine/i),
+    ).toBeNull();
   });
 
   /**
@@ -81,5 +84,60 @@ describe("routes", () => {
     at("/play");
     // The form, not the heading: both say "Sign in".
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeDefined();
+  });
+
+  /**
+   * Spec 0114 (F-0114-C) -- /status is the administrators': a player who
+   * opens it is shown the Admin page's notice, and the administrator the
+   * page, with the rules engine named in plain words.
+   */
+  function signedInAs(role: "PLAYER" | "ADMIN") {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        url === "/api/auth/me"
+          ? Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  authenticated: true,
+                  user: { userId: "u-1", username: "pat", displayName: "Pat", role },
+                }),
+                { status: 200, headers: { "Content-Type": "application/json" } },
+              ),
+            )
+          : Promise.reject(new Error("no server in this test")),
+      ),
+    );
+  }
+
+  it("shows a player at /status the not-an-administrator notice, and nothing of the server", async () => {
+    signedInAs("PLAYER");
+    at("/status");
+    expect(await screen.findByText("This page is for administrators.")).toBeDefined();
+    expect(screen.queryByText(/Rules engine|Forge|Application Server/)).toBeNull();
+  });
+
+  it("shows an administrator /status, with 'Rules engine' and the role in words", async () => {
+    signedInAs("ADMIN");
+    at("/status");
+    expect(await screen.findByText("Rules engine")).toBeDefined();
+    expect(screen.queryByText("Forge Runtime")).toBeNull();
+    expect(screen.getByText("Administrator")).toBeDefined();
+    expect(screen.queryByText("ADMIN")).toBeNull();
+    expect(screen.queryByText("This page is for administrators.")).toBeNull();
+  });
+
+  it("W2-085: the status page's own words for nobody signed in (kept, though the route now needs an administrator)", async () => {
+    render(
+      <AuthProvider>
+        <MemoryRouter>
+          <App />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+    expect(
+      await screen.findByText("Accounts are by invitation. Sign in to see your decks."),
+    ).toBeDefined();
+    expect(screen.getByText(/^Version /)).toBeDefined();
   });
 });

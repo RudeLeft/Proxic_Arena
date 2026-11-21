@@ -1,5 +1,6 @@
 package net.barnflix.proxic.room
 
+import net.barnflix.proxic.PlayerWords
 import net.barnflix.proxic.deck.DeckAuthorization
 import java.sql.Connection
 import java.time.Instant
@@ -175,7 +176,7 @@ class MatchSetupService(
             // supports. Not trusted from the browser's list.
             if (room.presetId != OPEN_FORMAT_PRESET) {
                 return@inTransaction refuse(
-                    RoomError.InvalidConfiguration("That match preset is no longer available."),
+                    RoomError.InvalidConfiguration("That game type is no longer offered."),
                 )
             }
 
@@ -184,8 +185,8 @@ class MatchSetupService(
             if (room.members.size != room.desiredPlayerCount) {
                 return@inTransaction refuse(
                     RoomError.InvalidConfiguration(
-                        "This room needs ${room.desiredPlayerCount} players " +
-                            "and has ${room.members.size}.",
+                        "This room needs ${PlayerWords.number(room.desiredPlayerCount)} players " +
+                            "and has ${PlayerWords.number(room.members.size)}.",
                     ),
                 )
             }

@@ -2,6 +2,16 @@
 
     python -I scripts/check-wording.py [--res <forge res dir>] [--report-only] <trace.jsonl>...
     python -I scripts/check-wording.py --self-test
+    python -I scripts/check-wording.py --source [--root <repo>] [--report-only]
+
+--source (spec 0114, F-0114-E) reads the source instead of traces: every
+player page's strings (frontend/src, through scripts/page-strings.mjs and
+the frontend's own TypeScript, so frontend/node_modules must be installed),
+every server string (server/src/main/kotlin) and the worker's deck-check
+words (ForgeRuntime.Resolution), and fails on a dash (the type line's
+excepted), "(s)", "colour" and "Forge". Admin pages, logs, exceptions,
+comments and code (class names, SQL, CSS, imports) are left out; see
+check_source.
 
 Reads every player-visible text field the worker sent in the traces'
 DECISION_REQUEST, MATCH_SNAPSHOT (the report window, the reveal tray, the
@@ -271,9 +281,307 @@ def self_test():
     return 1 if failed else 0
 
 
+# --- Spec 0114 F-0114-E: the source mode ------------------------------------------
+#
+# The player pages' strings (frontend/src, read by scripts/page-strings.mjs with
+# the frontend's own TypeScript) and the server's sentences (every string in
+# server/src/main/kotlin, read by the small Kotlin reader below) and the
+# worker's deck-check words (ForgeRuntime.Resolution), with the same rules as
+# the trace mode except the card-text ones (no card text lives in the source):
+# a dash, "(s)", "colour", "Forge". Admin pages and logs are exempt (the owner:
+# "admin and logs are exempt"), and so is what no player reads: comments, a
+# log or exception call, a class name or other code attribute, an import.
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Admin pages (spec 0115) and development pages: no player reads them. /status
+# (App.tsx) is admin-only since spec 0114 (W2-082).
+PAGE_EXEMPT = re.compile(r"(^|/)(Admin(?!Only)[A-Za-z]*\.tsx|admin\.ts|App\.tsx|Dev[A-Za-z]*Page\.tsx|bench[A-Za-z]*\.ts"
+                         r"|battlefield/fixture\.ts|battlefield/scenarios\.ts"
+                         r"|test-setup\.ts|[^/]*\.test\.tsx?|[^/]*\.d\.ts)$")
+# A string held by one of these is code, not words.
+PAGE_CODE_HOLDERS = re.compile(
+    r"^(import|type|index|key|case|compare|console\.[a-z]+|new (Error|TypeError|RangeError|URL|RegExp|Date)"
+    r"|attr:(className|class|data-[\w-]+|href|src|type|role|id|htmlFor|key|name|style|rel|target|method|autoComplete"
+    r"|inputMode|pattern|accept|viewBox|d|fill|stroke|transform|points|xmlns|lang|dir|mode|kind|sizes|srcSet)"
+    r"|[\w.]*(querySelector|querySelectorAll|getElementById|addEventListener|removeEventListener|fetch|getItem"
+    r"|setItem|removeItem|classList\.\w+|matchMedia|setAttribute|getAttribute|closest|startsWith|endsWith"
+    r"|includes|split|replace|replaceAll|test|match|join|padStart|toLocaleDateString|toLocaleTimeString"
+    r"|Intl\.\w+|send|postMessage|createElement|setProperty|getPropertyValue|track|mark|measure))$")
+# The server: admin routes (spec 0115) are exempt; a log line, an exception's own
+# message and a check's are logs, not words.
+# AdminTool.kt is `arena-admin`, the administrator's command line.
+SERVER_EXEMPT = re.compile(r"/admin/|/AdminTool\.kt$")
+SERVER_CODE_HOLDERS = re.compile(
+    r"^(([\w.]*\.)?(log|logger|LOG|\w*[lL]og)\.(trace|debug|info|warn|error)|println|print|error|check|require"
+    r"|checkNotNull|requireNotNull|\w*Exception|\w*Error|Regex|toRegex|getenv|System\.getenv|getProperty"
+    r"|System\.getProperty|env|header|appendHeader|Paths\.get|Path\.of|File|resolve|parameters|queryParameters"
+    r"|split|startsWith|endsWith|contains|replace|substringAfter|substringBefore|removePrefix|removeSuffix"
+    r"|prepareStatement|executeQuery|executeUpdate|sql|jsonPrimitive|getString|getInt"
+    r"|getLong|getBoolean|getTimestamp|getObject|setString|containsKey|MDC\.put|withLoggingContext"
+    # Logged only, never sent: a worker's failed start (MatchRuntime.start logs the detail and
+    # sends the room the code, which the page words itself, lobby.ts matchFailed) and the
+    # worker probe's reason (ForgeWorker.probe, the server log and the admin's Server tab).
+    r"|WorkerStart\.Failed|Result\.Incompatible)$")
+# Not words: CSS values and SQL.
+NOT_WORDS = re.compile(r"\b(calc|translate|translateX|translateY|clamp|var|rgba?|hsla?|url|scale|rotate|cubic-bezier)\("
+                       r"|^\s*(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER)\b|\bFROM\s+\w+\s|\bWHERE\b.*[<>=]")
+
+
+def kotlin_strings(path):
+    """Every string literal in a Kotlin file: (line, text, holders); "${...}" for a template hole."""
+    src = open(path, encoding="utf-8", errors="replace").read()
+    out = []
+    i, n, line = 0, len(src), 1
+    stack = []  # open calls: the word before each "(" still open
+
+    def word_before(at):
+        j = at - 1
+        while j >= 0 and src[j] in " \t":
+            j -= 1
+        k = j
+        while k >= 0 and (src[k].isalnum() or src[k] in "_."):
+            k -= 1
+        return src[k + 1:j + 1]
+
+    def read_string(at, raw):
+        nonlocal line
+        quote = '"""' if raw else '"'
+        j = at + len(quote)
+        start_line = line
+        text = []
+        while j < n:
+            if src.startswith(quote, j) and (not raw or not src.startswith('""""', j)):
+                return j + len(quote), start_line, "".join(text)
+            c = src[j]
+            if c == "\n":
+                line += 1
+            if c == "\\" and not raw:
+                text.append(src[j:j + 2])
+                j += 2
+                continue
+            if src.startswith("${", j):
+                depth, j = 1, j + 2
+                while j < n and depth:
+                    if src[j] == "{":
+                        depth += 1
+                    elif src[j] == "}":
+                        depth -= 1
+                    elif src[j] == "\n":
+                        line += 1
+                    j += 1
+                text.append("${...}")
+                continue
+            text.append(c)
+            j += 1
+        return j, start_line, "".join(text)
+
+    while i < n:
+        c = src[i]
+        if c == "\n":
+            line += 1
+            i += 1
+        elif src.startswith("//", i):
+            while i < n and src[i] != "\n":
+                i += 1
+        elif src.startswith("/*", i):
+            end = src.find("*/", i + 2)
+            end = n if end < 0 else end + 2
+            line += src.count("\n", i, end)
+            i = end
+        elif src.startswith('"""', i):
+            i, at, text = read_string(i, True)
+            out.append((at, text, list(stack)))
+        elif c == '"':
+            i, at, text = read_string(i, False)
+            out.append((at, text, list(stack)))
+        elif c == "'":
+            end = i + 1
+            while end < n and src[end] != "'":
+                end += 2 if src[end] == "\\" else 1
+            i = end + 1
+        elif c == "(":
+            stack.append(word_before(i))
+            i += 1
+        elif c == ")":
+            if stack:
+                stack.pop()
+            i += 1
+        else:
+            i += 1
+    return out
+
+
+def source_rules(text):
+    """The rules a source string breaks (no card text lives in the source)."""
+    hits = []
+    for m in DASH.finditer(text):
+        # The printed type line keeps its dash ("Creature — Goblin"), as in the trace mode.
+        if TYPE_LINE.search(text[:m.start()].rstrip()) and m.group(0).strip() == "—":
+            continue
+        hits.append(("dash", repr(m.group(0))))
+        break
+    if "(s)" in text:
+        hits.append(("maybe", "(s)"))
+    if re.search(r"colour", text, re.I):
+        hits.append(("colour", "colour"))
+    if re.search(r"\bforge\b", text, re.I):
+        hits.append(("forge", "Forge"))
+    return hits
+
+
+def words_like(text):
+    """A string a person reads: two words or more, not a path, a class list or a code."""
+    t = text.strip()
+    if " " not in t or not re.search(r"[A-Za-z]{2}", t) or NOT_WORDS.search(t):
+        return False
+    if re.fullmatch(r"[\w\-:./ ${}…]*", t) and not re.search(r"[A-Z][a-z]+ [a-z]", t) and " - " not in t \
+            and "Forge" not in t:
+        return False  # "pa-notice pa-notice-warn", "a b c": class lists and ids
+    return True
+
+
+def page_strings(files, node="node"):
+    import subprocess
+    script = os.path.join(ROOT, "scripts", "page-strings.mjs")
+    found = []
+    for at in range(0, len(files), 200):
+        run = subprocess.run([node, script, *files[at:at + 200]], capture_output=True, text=True,
+                             encoding="utf-8", check=False)
+        if run.returncode != 0:
+            raise SystemExit(f"page-strings.mjs failed: {run.stderr.strip()}")
+        for row in run.stdout.splitlines():
+            found.append(json.loads(row))
+    return found
+
+
+def check_source(root=ROOT, node="node"):
+    """Returns (hits, strings read): hits are (file, line, rule, detail, text)."""
+    pages = []
+    for base, _, names in os.walk(os.path.join(root, "frontend", "src")):
+        if "node_modules" in base:
+            continue
+        for name in names:
+            path = os.path.join(base, name)
+            rel = os.path.relpath(path, root).replace("\\", "/")
+            if name.endswith((".ts", ".tsx")) and not PAGE_EXEMPT.search(rel):
+                pages.append(path)
+    hits, read = [], 0
+    for s in page_strings(sorted(pages), node):
+        if PAGE_CODE_HOLDERS.match(s["where"]) or not words_like(s["text"]):
+            continue
+        read += 1
+        for rule, detail in source_rules(s["text"]):
+            rel = os.path.relpath(os.path.join(ROOT, s["file"]), root).replace("\\", "/")
+            hits.append((rel, s["line"], rule, detail, s["text"]))
+    kotlin = []
+    for base, _, names in os.walk(os.path.join(root, "server", "src", "main", "kotlin")):
+        for name in names:
+            path = os.path.join(base, name)
+            if name.endswith(".kt") and not SERVER_EXEMPT.search(path.replace("\\", "/")):
+                kotlin.append(path)
+    worker = os.path.join(root, "forge-worker", "src", "main", "java", "net", "barnflix", "proxic", "worker",
+                          "ForgeRuntime.java")
+    for path in sorted(kotlin) + ([worker] if os.path.exists(worker) else []):
+        rel = os.path.relpath(path, root).replace("\\", "/")
+        strings = kotlin_strings(path)
+        if path == worker:
+            strings = resolution_strings(path)
+        for line, text, holders in strings:
+            if any(SERVER_CODE_HOLDERS.match(h) for h in holders if h) or not words_like(text):
+                continue
+            read += 1
+            for rule, detail in source_rules(text):
+                hits.append((rel, line, rule, detail, text))
+    return hits, read
+
+
+def resolution_strings(path):
+    """The worker's deck-check words: the strings inside ForgeRuntime's Resolution class (F-0114-B)."""
+    src = open(path, encoding="utf-8", errors="replace").read()
+    start = src.find("public static final class Resolution")
+    if start < 0:
+        return []
+    depth, at, end = 0, src.find("{", start), None
+    for j in range(at, len(src)):
+        if src[j] == "{":
+            depth += 1
+        elif src[j] == "}":
+            depth -= 1
+            if depth == 0:
+                end = j
+                break
+    body = src[start:end]
+    first = src.count("\n", 0, start) + 1
+    body = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group(0).count("\n"), body, flags=re.S)
+    body = re.sub(r"//[^\n]*", "", body)
+    return [(first + body.count("\n", 0, m.start()), m.group(1), [])
+            for m in re.finditer(r'"((?:[^"\\\n]|\\.)*)"', body)]
+
+
+def source_self_test():
+    """One case per source rule and exemption, on files written to a temporary tree."""
+    import tempfile
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        def write(rel, text):
+            path = os.path.join(tmp, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        write("frontend/src/Page.tsx",
+              'import x from "a - b";\n'
+              'export const A = () => <p className="pa-a pa-b">Forge Runtime is down</p>;\n'
+              'export const B = `Choose a colour for ${"x"} now`;\n'
+              'export const C = "Pick card(s) to keep";\n'
+              'export const D = "Ready — go now";\n'
+              '// Forge said - colour (s)\n'
+              'console.log("Forge stopped - now");\n'
+              'export const E = "Two cards in your hand";\n')
+        write("frontend/src/AdminPage.tsx", 'export const F = "Forge Runtime here";\n')
+        write("frontend/src/Page.test.tsx", 'export const G = "Forge Runtime here";\n')
+        write("server/src/main/kotlin/x/Deck.kt",
+              'val a = ErrorResponse("NOT_FOUND", "Forge does not know a card named \\"$name\\".")\n'
+              'val b = ErrorResponse("BAD", "The deck has ${count} cards -- too many.")\n'
+              'fun f() { log.warn("Forge worker died - restarting") }\n'
+              '/* Forge - colour */\n'
+              'val c = ErrorResponse("OK", "The deck has no cards in it.")\n'
+              'val d = """\n  Choose a colour now\n"""\n')
+        write("server/src/main/kotlin/x/admin/Admin.kt", 'val a = "Forge Runtime is here"\n')
+        hits, read = check_source(tmp)
+        got = sorted((h[0].split("/")[-1], h[2]) for h in hits)
+        cases.append(("source rules and exemptions", got, sorted([
+            ("Page.tsx", "forge"), ("Page.tsx", "colour"), ("Page.tsx", "maybe"), ("Page.tsx", "dash"),
+            ("Deck.kt", "forge"), ("Deck.kt", "dash"), ("Deck.kt", "colour")])))
+        cases.append(("plain words are read", read >= 9, True))
+    failed = 0
+    for name, got, want in cases:
+        ok = got == want
+        failed += not ok
+        print(f"{'ok  ' if ok else 'FAIL'} {name}: {got}{'' if ok else f' (wanted {want})'}")
+    return failed
+
+
+def main_source(argv):
+    root = ROOT
+    if "--root" in argv:
+        root = argv[argv.index("--root") + 1]
+    hits, read = check_source(root)
+    for file, line, rule, detail, text in hits:
+        print(f"{file}:{line}: {rule} ({detail}): {text!r}")
+    print(f"check-wording --source: {read} player strings read; {len(hits)} hits "
+          f"({dict(Counter(h[2] for h in hits)) or 'none'})")
+    if read == 0:
+        return 2
+    return 1 if hits and "--report-only" not in argv else 0
+
+
 def main(argv):
     if "--self-test" in argv:
-        return self_test()
+        failed = self_test()
+        return 1 if failed or source_self_test() else 0
+    if "--source" in argv:
+        return main_source(argv)
     report_only = "--report-only" in argv
     res = None
     files = []

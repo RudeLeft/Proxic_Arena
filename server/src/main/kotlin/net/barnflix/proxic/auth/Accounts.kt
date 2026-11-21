@@ -50,10 +50,10 @@ object Usernames {
     fun rejectionReason(username: String): String? {
         val trimmed = username.trim()
         return when {
-            trimmed.length < 3 -> "A username must be at least 3 characters."
-            trimmed.length > 32 -> "A username may be at most 32 characters."
+            trimmed.length < 3 -> "A username must be at least three characters long."
+            trimmed.length > 32 -> "A username can be at most 32 characters."
             !trimmed.matches(Regex("[A-Za-z0-9._-]+")) ->
-                "A username may contain only letters, digits, dot, underscore and hyphen."
+                "A username can use only letters, numbers, dots (.), underscores (_) and hyphens (-)."
 
             else -> null
         }
@@ -71,7 +71,7 @@ object DisplayNames {
         val trimmed = displayName.trim()
         return when {
             trimmed.isEmpty() -> "Choose a display name: it is what other players see."
-            trimmed.length > MAX -> "A display name may be at most $MAX characters."
+            trimmed.length > MAX -> "A display name can be at most $MAX characters."
             else -> null
         }
     }

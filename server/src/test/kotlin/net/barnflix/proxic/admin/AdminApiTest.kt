@@ -689,6 +689,7 @@ class AdminApiTest {
             assertTrue(tooBig.length > 5 * 1024 * 1024)
             val refused = call(pat, "POST", "/api/reports", tooBig)
             assertEquals(HttpStatusCode.PayloadTooLarge, refused.status)
-            assertTrue(refused.bodyAsText().contains("5242880"))
+            // Spec 0114 (W2-138): the page shows these words; the limit is in the log.
+            assertTrue(refused.bodyAsText().contains("That was too much to send at once."), refused.bodyAsText())
         }
 }

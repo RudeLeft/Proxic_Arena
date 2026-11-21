@@ -19,6 +19,8 @@ import io.ktor.websocket.*
 import kotlinx.serialization.json.Json
 import net.barnflix.proxic.admin.adminRoutes
 import net.barnflix.proxic.auth.Principal
+import net.barnflix.proxic.auth.Role
+import net.barnflix.proxic.auth.SIGNED_IN
 import net.barnflix.proxic.auth.authRoutes
 import net.barnflix.proxic.auth.csrfOk
 import net.barnflix.proxic.auth.installSignedInGate
@@ -251,7 +253,7 @@ private fun Application.installPluginsAndDependencies(config: ServerConfig): Dep
         status(HttpStatusCode.NotFound) { call, _ ->
             call.respond(
                 HttpStatusCode.NotFound,
-                ErrorResponse("NOT_FOUND", "No such endpoint.", call.callId),
+                ErrorResponse("NOT_FOUND", "That page doesn't exist.", call.callId),
             )
         }
     }
@@ -308,9 +310,16 @@ private fun Application.installRoutes(
                 call.respond(code, result)
             }
 
-            // §1.25
+            // §1.25. Spec 0114: the engine fields go to an administrator
+            // only. With no database there are no accounts and no gate
+            // (Phase 1's foundation server), so everything is answered.
             get("/version") {
-                call.respond(VersionInfo())
+                val signedIn = call.attributes.getOrNull(SIGNED_IN)
+                if (signedIn == null || signedIn.user.role == Role.ADMIN) {
+                    call.respond(VersionInfo())
+                } else {
+                    call.respond(PlayerVersionInfo())
+                }
             }
 
             // §1.26 — never secrets, never traces.
@@ -352,7 +361,7 @@ private fun Application.installRoutes(
             if (path.startsWith("/api") || path.startsWith("/ws")) {
                 call.respond(
                     HttpStatusCode.NotFound,
-                    ErrorResponse("NOT_FOUND", "No such endpoint.", call.callId),
+                    ErrorResponse("NOT_FOUND", "That page doesn't exist.", call.callId),
                 )
                 return@get
             }
@@ -374,7 +383,7 @@ private fun Application.installRoutes(
                 // browser or cache keeps the failure.
                 call.respond(
                     HttpStatusCode.NotFound,
-                    ErrorResponse("NOT_FOUND", "No such asset.", call.callId),
+                    ErrorResponse("NOT_FOUND", "That picture is no longer available.", call.callId),
                 )
             } else if (indexHtml.isFile) {
                 // The page names THIS build's scripts by their hashed

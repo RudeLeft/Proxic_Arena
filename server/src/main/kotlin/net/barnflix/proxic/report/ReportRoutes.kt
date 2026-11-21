@@ -40,7 +40,7 @@ fun Route.reportRoutes(reports: Reports) {
         } catch (refused: ReportRefused) {
             call.respond(
                 HttpStatusCode.UnprocessableEntity,
-                ErrorResponse("REPORT_REFUSED", refused.message ?: "Refused.", null),
+                ErrorResponse("REPORT_REFUSED", refused.message ?: "Your report could not be sent. Try again.", null),
             )
         }
     }

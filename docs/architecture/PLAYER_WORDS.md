@@ -3,8 +3,9 @@
 The rules every word a player reads in a game follows: the windows, the
 play log, the act button, the close-ups, the status tray and the
 screen-reader text. Owner decisions 2026-11-19b (item 3) and 2026-11-20
-("Keep as printed"); built by spec 0113 (the game screen). Player pages,
-error messages and emails follow in spec 0114, admin pages in 0115.
+("Keep as printed"); built by spec 0113 (the game screen) and spec 0114
+(the player pages, the server's sentences a player reads, and the emails).
+Admin pages follow in 0115.
 
 ## The rules
 
@@ -66,6 +67,21 @@ error messages and emails follow in spec 0114, admin pages in 0115.
   and quoted card text (matched against the card's own Forge script and
   the printed fields the frames carry), " (N)", "(s)", a double space,
   "colour" and "Forge". `--self-test` has one case per rule.
+- **Safety net 3, the source sweep** (spec 0114). `scripts/check-wording.py
+  --source`, run in ci.yml's checks job: every string of the player pages
+  (`frontend/src`, read with the frontend's own TypeScript by
+  `scripts/page-strings.mjs`), every server string
+  (`server/src/main/kotlin`) and the worker's deck-check words
+  (`ForgeRuntime.Resolution`), with the same rules (no dash outside the
+  type line, no "(s)", no "colour", no "Forge"). Admin pages and
+  `arena-admin`, logs, exception messages, comments and code (class
+  names, SQL, CSS, imports) are left out; `check_source` lists them.
+- **The server's helpers.** `PlayerWords.number`, `PlayerWords.count`,
+  `PlayerWords.waitWords` ("about 15 minutes", "a minute", "a few
+  seconds") and `PlayerWords.megabytes`
+  (`server/.../proxic/PlayerWords.kt`). A worker's deck-check reason is
+  never passed on: `CardResolution.wordsFor` gives fixed words by its
+  status ("Arena doesn't know this card yet.").
 - **PROTO-006.** No page behaviour and no test locator hangs on these
   words: tests read the words from a window's role and assert them; they
   find things by role or data attribute.
