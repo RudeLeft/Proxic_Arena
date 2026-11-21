@@ -12,10 +12,10 @@
 //              first (two here), then one tray, "Split N damage", + and -,
 //              Done -- and no share asked again
 //   two targets Arc Lightning, Rolling Thunder (Phase 9 Amendment 17):
-//              with two chosen, "Choose up to 1 more target", "2 chosen:
+//              with two chosen, "Choose up to one more target", "Chosen so far:
 //              ...", a TARGET tag on each; the first time the act button's
 //              "Cancel ..." backs out (the card is back in hand), after that
-//              the bubble's "Done · 2 targets" goes on to the split
+//              the bubble's "Done with two targets" goes on to the split
 //
 // Each is pictured the first time, and its words written to
 // test-results/seen/numbers.json. Both players use the numbers test deck
@@ -146,13 +146,13 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
           const most = dial.getByRole("button", { name: /^Most you can pay/ });
           if (kind === "announceRequirements") {
             expect(title).toBe("Choose X");
-            expect(says, "what can be made").toMatch(/You can make \d+ mana\./);
+            expect(says, "what can be made").toMatch(/You can make \w+ mana\./);
           } else if (kind === "chooseNumberForKeywordCost") {
             expect(title).toBe("Kick it how many times?");
             expect(says).toContain("Each time costs");
           } else {
             expect(title).toBe("Pay how much energy?");
-            expect(says).toMatch(/You have \d+\./);
+            expect(says).toMatch(/You have \w+ energy\./);
           }
           if ((await most.count()) > 0) await click(most);
           // Nothing it offers can be paid (the dial starts at the least and
@@ -210,14 +210,16 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
             // Amendment 17: what is chosen is shown, and the act button
             // really cancels -- the first time; then Done goes on.
             const bubble = panel.locator('.gs-win[data-kind="chooseTargetsFor"]');
-            await expect(bubble.locator(".gs-targets-chosen")).toHaveText(/^2 chosen: .+, .+$/);
+            await expect(bubble.locator(".gs-targets-chosen")).toHaveText(
+              /^Chosen so far: .+ and .+$/,
+            );
             await expect(bubble.locator(".gs-win-title")).toHaveText(
-              /^Choose up to \d+ more targets?$/,
+              /^Choose up to \w+ more targets?$/,
             );
             const tags = page.locator('[data-chosen-target="true"]');
             await expect(tags, "a TARGET tag on each chosen target").toHaveCount(2);
             const done = bubble.locator("button.gs-targets-done");
-            await expect(done).toHaveText("Done · 2 targets");
+            await expect(done).toHaveText("Done with two targets");
             const cancel = panel.locator("button.gs-act-cancel");
             await expect(cancel).toContainText(`Cancel ${spellName}`);
             // Spec 0109, item 5: beside your own spell's big card the window

@@ -229,8 +229,8 @@ describe("F-0088-C · two fetch lands, then Consider: one window, older reports 
     expect(c.querySelectorAll(".gs-reveal")).toHaveLength(1);
     const rows = [...c.querySelectorAll<HTMLElement>(".gs-report-row")];
     expect(rows.map((r) => r.dataset["report"])).toEqual(["action:1", "action:2"]);
-    expect(rows[0]!.textContent).toContain("Bob · Polluted Delta");
-    expect(rows[1]!.textContent).toContain("Bob · Flooded Strand");
+    expect(rows[0]!.textContent).toContain("Bob, with Polluted Delta");
+    expect(rows[1]!.textContent).toContain("Bob, with Flooded Strand");
     expect(c.querySelector(".gs-report-full")!.textContent).toContain("Bob surveilled 1");
     // A row opens in full on a click.
     fireEvent.click(rows[0]!.querySelector("button")!);

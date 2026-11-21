@@ -313,7 +313,7 @@ describe("'Still to pay' on the stack card (F-0057-E)", () => {
     const pill = c.querySelector(".bf-stack-owe");
     expect(pill).not.toBeNull();
     expect(pill!.querySelector(".bf-stack-owe-word")!.textContent).toBe("Still to pay");
-    expect(pill!.getAttribute("aria-label")).toBe("Still to pay: 2");
+    expect(pill!.getAttribute("aria-label")).toBe("Still to pay: two generic");
   });
 });
 

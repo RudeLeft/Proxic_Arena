@@ -178,7 +178,7 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
           if (to.length > 0 && to.every((t) => t === "hand" || t === "bottom")) {
             // Amendment 12 -- who did it, in this reader's words; Amendment
             // 13 -- the caster, who chose, has no tray for it.
-            expect(seenTray.text).toMatch(/\S+ revealed the top 4 cards of their library/);
+            expect(seenTray.text).toMatch(/\S+ revealed the top four cards of their library/);
             await expect(
               other.locator(".gs-reveal").filter({ hasText: "Goblin Ringleader" }),
               "the player who cast it is not shown what they chose",

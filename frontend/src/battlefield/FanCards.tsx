@@ -13,6 +13,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { Box } from "./layout";
 import type { FanCard, FanMore, FanZone } from "./pileFan";
 import { paced } from "./motion";
+import { capitalNumber, countWords } from "../words";
 
 /** The canvas's corner signs: an exile star on blue, a tombstone on grey. */
 const SIGN: Record<FanZone, ReactNode> = {
@@ -190,7 +191,7 @@ export function FanMoreView({
       <button
         type="button"
         className="bf-card bf-fan-face bf-fan-more"
-        aria-label={`${more.count} more cards ${who} may play: open the pile`}
+        aria-label={`${capitalNumber(more.count)} more cards ${who} may play: open the pile`}
         onClick={() => onOpen?.(more)}
       >
         <span className="bf-card-back" aria-hidden="true" />
@@ -208,7 +209,7 @@ export function fanWords(card: FanCard, whose: string): string {
   const where = card.zone === "graveyard" ? `${whose} graveyard` : `${whose} exile`;
   const how =
     card.how === "suspended"
-      ? `suspended, ${card.time ?? 0} time ${card.time === 1 ? "counter" : "counters"}`
+      ? `suspended, with ${countWords(card.time ?? 0, "time counter")}`
       : card.how === "ability"
         ? card.mine
           ? "you may use its ability from there"

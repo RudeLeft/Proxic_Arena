@@ -157,7 +157,8 @@ class Game:
             label = o.get("label") or ""
             if contains is not None and contains not in label:
                 continue
-            if land is not None and ("Play land" in label) != land:
+            # Spec 0113 (W1-331): "Play land", or "Play this land from the top of your library (Courser of Kruphix)".
+            if land is not None and ("Play land" in label or "Play this land" in label) != land:
                 continue
             if name is not None:
                 cid = card_of(o.get("actionId"))

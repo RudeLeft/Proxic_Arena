@@ -428,8 +428,9 @@ export function ReportDialog({
                     Turn {game.turn} · {game.whose} · {game.step}
                   </span>
                 )}
+                {/* Spec 0113 (W1-139): no " · " after the version. */}
                 <span>
-                  {version ? `Proxic ${version} · ` : ""}
+                  {version ? `Proxic ${version}, ` : ""}
                   {browser} · {screen}
                 </span>
               </div>

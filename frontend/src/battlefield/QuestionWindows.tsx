@@ -17,6 +17,7 @@ import type { Decision, DecisionEarlier, DecisionOption, Snapshot, SnapshotCard 
 import { hintFor, targetWords } from "../matchText";
 import { SharpCard, closeUpOf } from "../closeUp";
 import { CardFace, figure, lookOf, shortType } from "./Board";
+import { capital, countWords, numberWord, timesWord } from "../words";
 import { Bubble, Tray } from "./GameWindow";
 import type { Question } from "./interaction";
 import type { Box, Geometry } from "./layout";
@@ -38,9 +39,15 @@ export function plainHint(kind: string, count: number): string {
     .trim();
 }
 
+/**
+ * Spec 0113 (W1-298) -- an option with no words of its own: "This choice",
+ * never its actionId (a protocol key).
+ */
+export const NO_LABEL = "This choice";
+
 /** An option's words without its card's name in front ("Faithless Looting — "). */
 export function optionWords(option: DecisionOption, name: string | null): string {
-  const label = option.label ?? option.actionId;
+  const label = option.label ?? NO_LABEL;
   if (!name) return label;
   // The worker joins a name and its words with " · " (Amendment 13); an
   // older one with " — ".
@@ -234,7 +241,10 @@ function OptionButton({
       >
         {/* The card's name stays in the text (the scripted games read the
             whole label); beside its picture it is only hidden from sight. */}
-        {name && optionWords(option, name) !== (option.label ?? option.actionId) && (
+        {/* Spec 0113 (W1-027, lead): the card and its option are two facts on one
+            button, so " · " stays between them (PLAYER_WORDS.md); the scripted
+            games read a choice as "Name · {cost} · ...". */}
+        {name && optionWords(option, name) !== (option.label ?? NO_LABEL) && (
           <span className="gs-win-option-card">{name} · </span>
         )}
         <ManaText text={optionWords(option, name)} />
@@ -244,10 +254,6 @@ function OptionButton({
   );
 }
 
-/**
- * Phase 9 Amendment 17 -- a target question's title once something is
- * chosen: how many more may be ("Choose up to 1 more target").
- */
 /**
  * Spec 0061, item 5 -- paying for an ability, the window says what for:
  * "Pay {R} to cycle Forgotten Cave" (the game's words after the mana still
@@ -266,19 +272,25 @@ export function payLine(decision: Decision): string | null {
     : null;
 }
 
+/**
+ * Phase 9 Amendment 17 -- a target question's title once something is
+ * chosen: how many more may be ("Choose up to one more target", spec 0113
+ * W1-009: the count in words).
+ */
 export function targetsTitle(decision: Decision, heading: string): string {
   const t = decision.arrange?.targets;
   if (decision.kind !== "chooseTargetsFor" || !t || t.chosen.length === 0 || t.more <= 0) {
     return heading;
   }
-  return `Choose up to ${t.more} more target${t.more === 1 ? "" : "s"}`;
+  return `Choose up to ${numberWord(t.more)} more target${t.more === 1 ? "" : "s"}`;
 }
 
 /** What one chosen target is called: a player's name, a card's, a spell's. */
 function targetName(board: Snapshot, id: string): string {
   if (id.startsWith("player:")) {
     const seat = Number(id.slice("player:".length));
-    return board.players.find((p) => p.seat === seat)?.name ?? `Seat ${seat}`;
+    // Spec 0113 (W1-026): never "Seat 2".
+    return board.players.find((p) => p.seat === seat)?.name ?? "the other player";
   }
   const entry = board.stack.find((s) => s.id === id);
   if (entry) return entry.name;
@@ -287,11 +299,14 @@ function targetName(board: Snapshot, id: string): string {
   return card.faceDown && !card.known ? "a face-down card" : card.name;
 }
 
-/** Amendment 17 -- "2 chosen: RudeLeft, Hill Giant", or nothing. */
+/**
+ * Amendment 17 -- what is chosen so far, or nothing. Spec 0113 (W1-024, and
+ * the 0109 note's "One chosen: ..."): "Chosen so far: RudeLeft and Hill Giant".
+ */
 export function chosenWords(decision: Decision, board: Snapshot): string | null {
   const chosen = decision.arrange?.targets?.chosen ?? [];
   if (decision.kind !== "chooseTargetsFor" || chosen.length === 0) return null;
-  return `${chosen.length} chosen: ${chosen.map((id) => targetName(board, id)).join(", ")}`;
+  return `Chosen so far: ${andList(chosen.map((id) => targetName(board, id)))}`;
 }
 
 /**
@@ -318,7 +333,10 @@ function DoneButton({
       disabled={busy}
       onClick={() => onAnswer(null)}
     >
-      {n === 0 ? "Done · no target" : `Done · ${n} target${n === 1 ? "" : "s"}`}
+      {/* Spec 0113 (W1-025): "Done with two targets", no " · ". */}
+      {n === 0
+        ? "Done with no target"
+        : `Done with ${n === 1 ? "one target" : countWords(n, "target")}`}
     </button>
   );
 }
@@ -410,7 +428,7 @@ export function EarlierLines({
               <div>
                 <span className="gs-reveal-by">
                   {name}
-                  {source ? ` · ${source}` : ""}
+                  {source ? `, with ${source}` : ""}
                 </span>
                 <p className="gs-reveal-said gs-earlier-said">{earlierWords(name, row)}</p>
               </div>
@@ -656,7 +674,7 @@ export function ChoiceWindow(props: Common) {
     </>
   );
   const colours = choices.length > 0 && choices.every((o) => colourSymbol(o.label) !== null);
-  const chips = choices.every((o) => (o.label ?? o.actionId).length <= CHIP);
+  const chips = choices.every((o) => (o.label ?? NO_LABEL).length <= CHIP);
   const chipList = (list: readonly DecisionOption[]) => (
     <ul className="gs-win-list gs-win-chips">
       {list.map((o) => (
@@ -667,7 +685,7 @@ export function ChoiceWindow(props: Common) {
             disabled={busy}
             onClick={() => onAnswer(o.actionId)}
           >
-            <ManaText text={o.label ?? o.actionId} />
+            <ManaText text={o.label ?? NO_LABEL} />
           </button>
         </li>
       ))}
@@ -755,7 +773,7 @@ export function ChoiceWindow(props: Common) {
     <Tray
       geometry={props.geometry}
       label={title}
-      from={name ?? `${choices.length} choices`}
+      from={name ?? capital(countWords(choices.length, "choice"))}
       title={title}
       titleClass="gs-question-title"
       kind={decision.kind}
@@ -802,7 +820,7 @@ export function ChoiceWindow(props: Common) {
                   type="button"
                   className={`gs-option gs-win-tile${smallTiles ? " gs-win-tile-small" : ""}`}
                   disabled={busy}
-                  aria-label={o.label ?? o.actionId}
+                  aria-label={o.label ?? NO_LABEL}
                   data-tile-of={o.objectId ?? undefined}
                   onClick={() => onAnswer(o.actionId)}
                 >
@@ -852,7 +870,7 @@ export function ListTray(props: Common & { onClose: () => void }) {
     <Tray
       geometry={props.geometry}
       label="Every choice"
-      from={`${options.length} choices`}
+      from={capital(countWords(options.length, "choice"))}
       title={title}
       titleClass="gs-question-title"
       kind={decision.kind}
@@ -873,7 +891,7 @@ export function ListTray(props: Common & { onClose: () => void }) {
       }
     >
       {!decision.prompt && decision.kind === "chooseSpellAbilityToPlay" && (
-        <p className="gs-win-prompt">Click one to do it. Dimmed: it can't be paid for right now.</p>
+        <p className="gs-win-prompt">Dimmed ones can't be paid for right now.</p>
       )}
       {decision.kind !== "chooseSpellAbilityToPlay" && (
         <p className="gs-win-prompt">
@@ -923,7 +941,7 @@ export function dialWords(
   const layout = decision.arrange?.number;
   const card = name ?? "it";
   const said = layout?.says ? `${layout.says} ` : "";
-  const make = layout?.canMake != null ? `You can make ${layout.canMake} mana.` : "";
+  const make = layout?.canMake != null ? `You can make ${numberWord(layout.canMake)} mana.` : "";
   if (decision.kind === "announceRequirements") {
     const spell = decision.about?.kind !== "ability";
     return {
@@ -948,14 +966,14 @@ export function dialWords(
           ? kicks
             ? "Cast it unkicked"
             : "None"
-          : `${kicks ? "Kick it" : "Pay it"} ${n} ${n === 1 ? "time" : "times"}`,
+          : `${kicks ? "Kick it" : "Pay it"} ${timesWord(n)}`,
     };
   }
   const energyAsked = /energy/i.test(decision.prompt ?? "");
   return {
     title: energyAsked ? "Pay how much energy?" : "Choose a number",
-    says: `${said}${energyAsked && energy !== null ? `You have ${energy}.` : ""}`.trim(),
-    button: (n) => (energyAsked ? `Pay ${n} energy` : `Choose ${n}`),
+    says: `${said}${energyAsked && energy !== null ? `You have ${numberWord(energy)} energy.` : ""}`.trim(),
+    button: (n) => (energyAsked ? `Pay ${numberWord(n)} energy` : `Choose ${n}`),
   };
 }
 
@@ -1056,12 +1074,17 @@ export function NumberWindow(props: Common) {
       </div>
       {(cost || !payable(at)) && (
         <p className="gs-win-prompt gs-dial-cost">
+          {/* Spec 0113 (W1-031): one sentence, no " · ". */}
           {cost && (
             <>
               Costs <ManaText text={cost} />
             </>
           )}
-          {!payable(at) && <span className="gs-dial-over"> · more than you can pay now</span>}
+          {!payable(at) && (
+            <span className="gs-dial-over">
+              {cost ? ", which is more than you can pay now" : "More than you can pay now"}
+            </span>
+          )}
         </p>
       )}
     </Bubble>
@@ -1136,7 +1159,7 @@ export function NameWindow(
       )}
       {props.naming && <p className="gs-win-prompt">Naming {props.naming}…</p>}
       {asked && !results && <p className="gs-win-prompt">Searching…</p>}
-      {results && results.total === 0 && <p className="gs-win-prompt">No card is called that.</p>}
+      {results && results.total === 0 && <p className="gs-win-prompt">No card has that name.</p>}
       {results && results.options.length > 0 && (
         <ul className="gs-name-results" aria-label="Matching names">
           {results.options.map((option) => (
@@ -1144,11 +1167,11 @@ export function NameWindow(
               <button
                 type="button"
                 className="gs-name-result"
-                aria-label={option.label ?? option.actionId}
+                aria-label={option.label ?? "This name"}
                 disabled={busy}
                 onClick={() => onAnswer(option.actionId)}
               >
-                <span className="gs-name-result-name">{option.label ?? option.actionId}</span>
+                <span className="gs-name-result-name">{option.label ?? "This name"}</span>
                 {option.cost && (
                   <span className="gs-name-result-cost">
                     <ManaText text={option.cost} />

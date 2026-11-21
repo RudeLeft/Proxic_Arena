@@ -11,6 +11,7 @@
 // Pure, so it is tested without a board.
 
 import type { Decision } from "../match";
+import { capitalNumber, countWords, numberWord } from "../words";
 
 /** Forge's question: discard down to the maximum hand size. */
 export const DISCARD_KIND = "chooseCardsToDiscardToMaximumHandSize";
@@ -32,7 +33,10 @@ export function togglePick(picked: readonly string[], id: string, count: number)
   return picked.length < count ? [...picked, id] : [...picked.slice(1), id];
 }
 
-/** What the act button says: idle until the picks are made, then what it discards. */
+/**
+ * What the act button says: idle until the picks are made, then what it
+ * discards. Spec 0113 (W1-049..W1-051): counts as words ("Discard two cards").
+ */
 export function discardWords(
   pickedNames: readonly string[],
   count: number,
@@ -40,17 +44,22 @@ export function discardWords(
   const k = pickedNames.length;
   if (k >= count && k > 0) {
     return {
-      word: count === 1 ? `Discard ${pickedNames[0]}` : `Discard ${count} cards`,
+      word: count === 1 ? `Discard ${pickedNames[0]}` : `Discard ${countWords(count, "card")}`,
       sub: "Or click another card",
       ready: true,
     };
   }
   if (k === 0) {
     return {
-      word: `Discard ${count}`,
-      sub: count === 1 ? "Click a card to pick it" : `Click ${count} cards to pick them`,
+      word: `Discard ${numberWord(count)}`,
+      sub:
+        count === 1 ? "Click a card to pick it" : `Click ${countWords(count, "card")} to pick them`,
       ready: false,
     };
   }
-  return { word: `Discard ${count}`, sub: `${k} picked · click ${count - k} more`, ready: false };
+  return {
+    word: `Discard ${numberWord(count)}`,
+    sub: `${capitalNumber(k)} picked. Click ${numberWord(count - k)} more.`,
+    ready: false,
+  };
 }

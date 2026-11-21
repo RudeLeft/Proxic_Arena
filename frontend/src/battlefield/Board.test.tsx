@@ -96,9 +96,9 @@ describe("Board", () => {
   it("an attacker says ATTACKING, a tapped card says TAPPED", () => {
     const container = draw();
     const attacker = container.querySelector('[data-attacking="true"]')!;
-    expect(attacker.querySelector(".bf-state")!.textContent).toBe("ATTACKING");
+    expect(attacker.querySelector(".bf-state")!.textContent).toBe("Attacking");
     const tapped = container.querySelector('.bf-card[data-tapped="true"]:not([data-attacking])')!;
-    expect(tapped.querySelector(".bf-state")!.textContent).toBe("TAPPED");
+    expect(tapped.querySelector(".bf-state")!.textContent).toBe("Tapped");
   });
 
   it("an opponent's face-down card shows no name", () => {
@@ -788,7 +788,7 @@ describe("Board lines and effects", () => {
       "card:202",
     ]);
     const guide = c.querySelector('[data-object-id="card:211"]')!;
-    expect(guide.textContent).toContain("BLOCKING");
+    expect(guide.textContent).toContain("Blocking");
     expect(guide.getAttribute("data-blocking")).toBe("true");
     expect(guide.classList.contains("bf-blocking")).toBe(true);
     expect(guide.getAttribute("aria-label")).toContain("blocking Serra Angel");
@@ -816,7 +816,7 @@ describe("Board lines and effects", () => {
     // Each attacker: the tag and the warm edge; the words still say what it attacks.
     for (const id of ["card:201", "card:202", "card:203"]) {
       const card = c.querySelector(`[data-object-id="${id}"]`)!;
-      expect(card.textContent).toContain("ATTACKING");
+      expect(card.textContent).toContain("Attacking");
       expect(card.classList.contains("bf-attacking")).toBe(true);
     }
     const token = c.querySelector('[data-object-id="card:203"]')!;
@@ -1298,7 +1298,7 @@ describe("Board lines and effects", () => {
       "stack:2 1",
       "stack:1 2",
     ]);
-    expect(cards[0]!.getAttribute("aria-label")).toContain("1st to resolve");
+    expect(cards[0]!.getAttribute("aria-label")).toContain("first to resolve");
   });
 
   it("F-0069-G: no line for an Aura or Equipment, before or after it is attached; a tab once attached", () => {
@@ -1360,8 +1360,8 @@ describe("Board lines and effects", () => {
       ...view.container.querySelectorAll<HTMLElement>(`[data-fight="${kind}"]`),
     ];
     expect(marks("caption").map((m) => m.textContent)).toEqual([
-      "Damage · the Serra Angel against your Goblin Guide and Llanowar Elves",
-      "Damage · Your opponent's Goblin Token hit The Wandering Emperor",
+      "Damage: the Serra Angel against your Goblin Guide and Llanowar Elves",
+      "Damage: your opponent's Goblin Token hit The Wandering Emperor",
     ]);
     expect(
       marks("number")
@@ -1385,7 +1385,7 @@ describe("Board lines and effects", () => {
     const knight = fightOn("card:202")!;
     expect(knight.frames[0]!.transform).toBe(rest);
     const caption = view.container.querySelector('[data-fight="caption"]')!;
-    expect(caption.textContent).toBe("First strike · the White Knight against your Grizzly Bears");
+    expect(caption.textContent).toBe("First strike: the White Knight against your Grizzly Bears");
     const ghost = view.container.querySelector('[data-ghost-of="card:213"]')!;
     expect(ghost.getAttribute("data-fought")).toBe("true");
   });
@@ -1577,7 +1577,7 @@ describe("Board lines and effects", () => {
     ];
     expect(marks("caption")).toHaveLength(20);
     expect(marks("caption")[0]!.textContent).toBe(
-      "Damage · Your opponent's 15 Goblin Token hit you",
+      "Damage: your opponent's 15 Goblin tokens hit you",
     );
     expect(marks("edge")).toHaveLength(20);
     expect(marks("number").map((m) => `${m.dataset.of} ${m.textContent}`)).toEqual(
@@ -1638,7 +1638,7 @@ describe("the line under the stack", () => {
   it("names who resolves next and how many wait", () => {
     const theirs = { by: "Pat", kind: "trigger", name: "Soul Warden", seat: 2 };
     expect(stackCaption([theirs], 1, 1, 4)).toBe("Next: Pat's trigger");
-    expect(stackCaption([theirs, theirs], 1, 2, 4)).toBe("Next: Pat's trigger · 2 on the stack");
+    expect(stackCaption([theirs, theirs], 1, 2, 4)).toBe("Next: Pat's trigger. Two on the stack.");
     expect(stackCaption([{ by: "RudeLeft", kind: "spell", name: "Shock", seat: 1 }], 1, 1, 4)).toBe(
       "Next: your Shock",
     );

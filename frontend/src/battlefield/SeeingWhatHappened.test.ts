@@ -11,7 +11,7 @@ describe("a card's counters, and where they came from", () => {
   it("names counters as players say them", () => {
     expect(counterName("P1P1")).toBe("+1/+1");
     expect(counterName("M1M1")).toBe("-1/-1");
-    expect(counterName("CHARGE")).toBe("Charge");
+    expect(counterName("CHARGE")).toBe("charge");
   });
 
   it("says where the last ones came from, and nothing it doesn't know", () => {
@@ -26,9 +26,11 @@ describe("a card's counters, and where they came from", () => {
       ],
     };
     expect(counterWords(pridemate)).toEqual([
-      "1 +1/+1 counter, the last from Ajani's Pridemate's trigger: RudeLeft gained 1 life (Soul Warden)",
+      "a +1/+1 counter, the last from Ajani's Pridemate's trigger: RudeLeft gained 1 life (Soul Warden)",
     ]);
-    expect(counterWords({ counters: [{ name: "P1P1", count: 2 }] })).toEqual(["2 +1/+1 counters"]);
+    expect(counterWords({ counters: [{ name: "P1P1", count: 2 }] })).toEqual([
+      "two +1/+1 counters",
+    ]);
   });
 });
 
@@ -37,9 +39,11 @@ describe("an empty library", () => {
     expect(libraryWarning(4)).toBeNull();
     expect(libraryWarning(3)).toBe("low");
     expect(libraryWarning(0)).toBe("empty");
-    expect(libraryWords(0, null)).toBe("Empty: your next draw loses the game");
-    expect(libraryWords(0, "Pat")).toBe("Empty: Pat’s next draw loses the game");
-    expect(libraryWords(1, null)).toMatch(/^1 card left/);
+    expect(libraryWords(0, null)).toBe("Empty: you lose if you have to draw");
+    expect(libraryWords(0, "Pat")).toBe("Empty: Pat loses if they have to draw");
+    expect(libraryWords(1, null)).toBe(
+      "One card left. Drawing from an empty library loses the game.",
+    );
     expect(libraryWords(9, null)).toBeNull();
   });
 });

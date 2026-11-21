@@ -174,7 +174,7 @@ describe("the hand-size discard needs a pick and Discard (F-0061-C)", () => {
 
   it("the button: grey until picked, then names the card (the canvas's words)", () => {
     expect(discardWords([], 1)).toEqual({
-      word: "Discard 1",
+      word: "Discard one",
       sub: "Click a card to pick it",
       ready: false,
     });
@@ -184,11 +184,11 @@ describe("the hand-size discard needs a pick and Discard (F-0061-C)", () => {
       ready: true,
     });
     expect(discardWords(["Shock"], 2)).toEqual({
-      word: "Discard 2",
-      sub: "1 picked · click 1 more",
+      word: "Discard two",
+      sub: "One picked. Click one more.",
       ready: false,
     });
-    expect(discardWords(["Shock", "Overrun"], 2).word).toBe("Discard 2 cards");
+    expect(discardWords(["Shock", "Overrun"], 2).word).toBe("Discard two cards");
   });
 
   it("only the button discards, and only once a card is picked", () => {

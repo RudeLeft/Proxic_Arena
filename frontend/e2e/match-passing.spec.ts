@@ -80,7 +80,7 @@ test("a turn with nothing to play: the act button says Passing and why, no notic
       }
       const panel = matchPanel(live);
       // The opening hand is its own window: keep it.
-      const keepButton = panel.getByRole("button", { name: /^Keep \d/ });
+      const keepButton = panel.getByRole("button", { name: /^Keep\b/ });
       if ((await keepButton.count()) > 0) {
         await answer(keepButton.first());
         continue;
@@ -101,7 +101,7 @@ test("a turn with nothing to play: the act button says Passing and why, no notic
     // F-0097-B: the act button says it ...
     expect(words).toContain("Passing");
     expect(words).toMatch(
-      /Nothing to play · (No lands|1 land|\d+ lands), (no land in hand|you've already played a land this turn|no land you can play)/,
+      /Nothing to play\W+(No lands|One land|\w+ lands); (no land in hand|a land already played this turn|no land you can play)/,
     );
     await page.screenshot({ path: "test-results/seen/0097-passing.png" });
     // ... and nothing says it at the top right, on either page.

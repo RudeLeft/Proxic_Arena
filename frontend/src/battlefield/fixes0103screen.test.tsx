@@ -236,7 +236,7 @@ describe("F-0103-C · replay: R or the medallion, at half speed, only while the 
     expect(c.querySelector(".gs-reveal")!.textContent).toContain("Bob returned your Serra Angel");
     // Offered: the medallion is a button (its replay sign), the foot names R.
     expect(medallion(c)!.dataset.replayOffered).toBe("true");
-    expect(c.querySelector(".gs-reveal-foot")!.textContent).toContain("R to replay");
+    expect(c.querySelector(".gs-reveal-foot")!.textContent).toContain("Press R to replay");
     const liveBefore = live(c).querySelector('[data-object-id="card:31"]')!.outerHTML;
     const liveAnimsBefore = animations.filter((a) => !layer(c)?.contains(a.element)).length;
     fireEvent.keyDown(document.body, { key: "r" });

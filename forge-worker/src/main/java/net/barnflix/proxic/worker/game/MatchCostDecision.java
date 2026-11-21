@@ -114,8 +114,9 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             // pay the loyalty?" after they pressed +1 is a question
             // with one answer.
             if (isEffect() && ability.hasParam("UnlessCost")
-                    && !confirm("Put " + amount + " " + cost.getCounter().getName()
-                            + " counter on " + ability.getHostCard().getDisplayName() + "?")) {
+                    // Spec 0113 (W1-223) -- "Put two charge counters on Pentad Prism?"
+                    && !confirm("Put " + PlainWords.counters(amount, cost.getCounter().getName())
+                            + " on " + ability.getHostCard().getDisplayName() + "?")) {
                 return null;
             }
             return PaymentDecision.card(source);
@@ -136,8 +137,9 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                 pickOne(
                         valid,
                         "CostPutCounter",
-                        "Put " + amount + " " + cost.getCounter().getName()
-                                + " counter on which " + cost.getDescriptiveType() + "?");
+                        // Spec 0113 (W1-224) -- "Put a +1/+1 counter on which creature?"
+                        "Put " + PlainWords.counters(amount, cost.getCounter().getName())
+                                + " on which " + PlainWords.lower(PlainWords.humanise(cost.getDescriptiveType())) + "?");
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
 
@@ -169,8 +171,9 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             final int available =
                     anyKind ? source.getNumAllCounters() : source.getCounters(counter);
             if (all) {
+                // Spec 0113 (W1-225) -- "Remove all charge counters from Pentad Prism?"
                 if (!confirm("Remove all "
-                        + (anyKind ? "" : counter.getName() + " ") + "counters from "
+                        + (anyKind ? "" : PlainWords.counterName(counter.getName()) + " ") + "counters from "
                         + source.getName() + "?")) {
                     return null;
                 }
@@ -179,9 +182,9 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                 if (available < toRemove) {
                     return null;
                 }
-                if (!confirm("Remove " + amount + " "
-                        + (anyKind ? "" : counter.getName().toLowerCase() + " ")
-                        + "counter from " + source.getName() + " to pay the cost?")) {
+                // Spec 0113 (W1-226) -- "Remove two charge counters from Pentad Prism?"
+                if (!confirm("Remove " + PlainWords.counters(toRemove, anyKind ? null : counter.getName())
+                        + " from " + source.getName() + "?")) {
                     return null;
                 }
             }
@@ -222,9 +225,9 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                 pickOne(
                         valid,
                         "CostRemoveCounter",
-                        "Remove " + toRemove + " "
-                                + (anyKind ? "" : counter.getName() + " ")
-                                + "counter from which permanent?");
+                        // Spec 0113 (W1-227) -- "Remove two +1/+1 counters: from which permanent?"
+                        "Remove " + PlainWords.counters(toRemove, anyKind ? null : counter.getName())
+                                + ": from which permanent?");
         return chosen == null ? null : decide(counterTable(chosen, counter, toRemove));
     }
 
@@ -276,7 +279,9 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                         cost.zoneRestriction != 1 ? game.getCardsIn(cost.from) : player.getCardsIn(cost.from));
 
         if ("All".equals(type)) {
-            if (confirm("Exile all " + list.size() + " cards from " + cost.from.get(0) + "?")) {
+            // Spec 0113 (W1-228) -- "Exile all five cards from your graveyard?"
+            if (confirm("Exile all " + PlainWords.count(list.size(), "card") + " from "
+                    + PlainWords.yourZone(ActionReports.zoneWords(cost.from.get(0))) + "?")) {
                 return PaymentDecision.card(list);
             }
             return null;
@@ -299,7 +304,10 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             forge.game.zone.ZoneType zone = cost.from.get(0);
             if (zone == forge.game.zone.ZoneType.Battlefield || zone == forge.game.zone.ZoneType.Hand) {
                 java.util.List<Card> chosen =
-                        pickCards(CostPicks.EXILE, list, needed, "CostExile", "Exile " + needed + " from your " + zone + ".");
+                        // Spec 0113 (W1-229) -- "Exile two cards from your hand.", "Exile two permanents you control."
+                        pickCards(CostPicks.EXILE, list, needed, "CostExile", zone == forge.game.zone.ZoneType.Hand
+                                ? "Exile " + PlainWords.counted(needed, "card") + " from your hand."
+                                : "Exile " + PlainWords.counted(needed, "permanent") + " you control.");
                 return chosen == null ? null : PaymentDecision.card(chosen);
             }
             if (zone == forge.game.zone.ZoneType.Library) {
@@ -385,7 +393,8 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         }
         java.util.List<Card> chosen =
                 pickCards(CostPicks.SACRIFICE, list, needed, "CostSacrifice",
-                        "Sacrifice " + needed + " " + cost.getDescriptiveType() + ".");
+                        // Spec 0113 (W1-230) -- "Sacrifice two creatures."
+                        "Sacrifice " + PlainWords.counted(needed, cost.getDescriptiveType()) + ".");
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
 
@@ -403,7 +412,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         java.util.List<forge.game.player.Player> who = cost.getPotentialPlayers(player, ability);
         String card = source == null ? "" : source.getName() + ": ";
         String draw = who.contains(player) && who.size() == 1 ? "draw " : "have that player draw ";
-        if (!confirm(card + draw + forge.util.Lang.nounWithNumeralExceptOne(needed, "card") + "?")) {
+        if (!confirm(card + draw + PlainWords.some(needed, "card") + "?")) {
             return null;
         }
         PaymentDecision decision = PaymentDecision.players(who);
@@ -456,8 +465,9 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             final forge.game.card.CardCollection colours = left;
             forge.game.card.CardCollection shown = new forge.game.card.CardCollection();
             while (shown.size() < needed) {
-                Pick next = pick(left, shown, CostPicks.REVEAL, "CostReveal", "Reveal " + needed
-                        + " cards of the same colour (" + (shown.size() + 1) + " of " + needed + ").", false);
+                // Spec 0113 (W1-231) -- "Reveal two cards that share a color (1 of 2)."
+                Pick next = pick(left, shown, CostPicks.REVEAL, "CostReveal", "Reveal " + PlainWords.count(needed, "card")
+                        + " that share a color (" + (shown.size() + 1) + " of " + needed + ").", false);
                 if (next.back() != null) {
                     shown.remove(next.back());
                 } else if (next.card() == null) {
@@ -481,7 +491,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return PaymentDecision.card(valid);
         }
         java.util.List<Card> chosen = pickCards(CostPicks.REVEAL, valid, needed, "CostReveal",
-                "Reveal " + forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType()) + ".");
+                "Reveal " + PlainWords.counted(needed, cost.getDescriptiveType()) + ".");
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
 
@@ -527,7 +537,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         if (valid.size() < needed) {
             return null;
         }
-        String what = forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType());
+        String what = PlainWords.counted(needed, cost.getDescriptiveType());
         java.util.List<Card> chosen = pickCards((cost instanceof forge.game.cost.CostBeholdExile ? CostPicks.EXILE : CostPicks.BEHOLD), valid, needed, "CostBehold",
                 (cost instanceof forge.game.cost.CostBeholdExile ? "Behold and exile " : "Behold ") + what
                         + ": one you control, or one from your hand.");
@@ -560,7 +570,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             boolean enough = have >= total;
             Pick next = pick(left, chosen, CostPicks.EXILE, "CostCollectEvidence", "Collect evidence " + total
                     + ": exile cards from your graveyard with total mana value " + total + " or more ("
-                    + have + " so far)" + (enough ? " -- or Done." : "."), enough);
+                    + have + " so far)" + (enough ? ", or choose Done." : "."), enough);
             if (next.back() != null) {
                 chosen.remove(next.back());
                 left = notPicked(grave, chosen);
@@ -592,7 +602,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return null;
         }
         Card chosen = pickOne(valid, "CostBlight", "Blight " + amount + ": put "
-                + forge.util.Lang.nounWithNumeral(amount, "-1/-1 counter") + " on a creature you control.");
+                + PlainWords.some(amount, "-1/-1 counter") + " on a creature you control.");
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
 
@@ -639,7 +649,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     @Override
     public PaymentDecision visit(forge.game.cost.CostMill cost) {
         int amount = cost.getAbilityAmount(ability);
-        return confirm("Mill " + forge.util.Lang.nounWithNumeral(amount, "card") + "?")
+        return confirm("Mill " + PlainWords.some(amount, "card") + "?")
                 ? PaymentDecision.number(amount) : null;
     }
 
@@ -755,7 +765,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         }
         String from = cost.getFrom() == forge.game.zone.ZoneType.Hand ? "hand" : "graveyard";
         java.util.List<Card> chosen = pickCards(CostPicks.TO_LIBRARY, list, needed, "CostPutCardToLib", "Put "
-                + forge.util.Lang.nounWithNumeralExceptOne(needed, "card") + " from your " + from
+                + PlainWords.some(needed, "card") + " from your " + from
                 + " on top of your library.");
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
@@ -779,7 +789,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return null;
         }
         java.util.List<Card> chosen = pickCards(CostPicks.UNTAP, list, needed, "CostUntapType", "Untap "
-                + forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType()) + ".");
+                + PlainWords.counted(needed, cost.getDescriptiveType()) + ".");
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
 
@@ -799,8 +809,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                 : forge.game.card.CardLists.getValidCards(player.getCardsIn(forge.game.zone.ZoneType.Battlefield),
                         cost.getType().split(";"), player, source, ability);
         final forge.game.GameEntityCounterTable table = new forge.game.GameEntityCounterTable();
-        String what = forge.util.Lang.nounWithNumeral(needed,
-                (cost.counter == null ? "" : cost.counter.getName() + " ") + "counter");
+        String what = PlainWords.counters(needed, cost.counter == null ? null : cost.counter.getName());
         for (int left = needed; left > 0; left--) {
             forge.game.card.CardCollection holding = forge.game.card.CardLists.filter(list,
                     c -> !removable(table, c, cost.counter).isEmpty());
@@ -816,7 +825,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                 }
             } else {
                 card = pickOne(holding, "CostRemoveAnyCounter", "Remove " + what
-                        + (left == needed ? "" : " (" + left + " more)") + ": from which permanent?");
+                        + (left == needed ? "" : " (" + PlainWords.number(left) + " more)") + ": from which permanent?");
                 if (card == null) {
                     return null;
                 }
@@ -825,7 +834,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                     new java.util.ArrayList<>(removable(table, card, cost.counter).elementSet());
             forge.game.card.CounterType kind = kinds.size() == 1 ? kinds.get(0)
                     : card.getController().getController().chooseCounterType(kinds, ability,
-                            "Which kind of counter to remove from " + card.getName() + "?", null);
+                            "Which kind of counter do you remove from " + card.getName() + "?", null);
             if (kind == null) {
                 return null;
             }
@@ -860,7 +869,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return null;
         }
         java.util.List<Card> chosen = pickCards(CostPicks.TO_GRAVEYARD, list, needed, "CostExiledMoveToGrave", "Put "
-                + forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType())
+                + PlainWords.counted(needed, cost.getDescriptiveType())
                 + " from exile into " + (needed == 1 ? "its owner's graveyard." : "their owners' graveyards."));
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
@@ -915,7 +924,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         java.util.List<SpellAbility> exiled = new java.util.ArrayList<>();
         for (int i = 0; i < needed; i++) {
             int picked = pickText(texts, "CostExileFromStack", "Exile a spell from the stack ("
-                    + (needed - i) + " more): which one?");
+                    + PlainWords.number(needed - i) + " more): which one?");
             if (picked < 0) {
                 return null;
             }
@@ -960,7 +969,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     @Override
     public PaymentDecision visit(forge.game.cost.CostFlipCoin cost) {
         int amount = cost.getAbilityAmount(ability);
-        return confirm("Flip " + forge.util.Lang.nounWithNumeral(amount, "coin") + " for " + source.getName() + "?")
+        return confirm("Flip " + PlainWords.some(amount, "coin") + " for " + source.getName() + "?")
                 ? PaymentDecision.number(amount) : null;
     }
 
@@ -968,8 +977,20 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     @Override
     public PaymentDecision visit(forge.game.cost.CostRollDice cost) {
         int amount = cost.getAbilityAmount(ability);
-        return confirm("Roll " + forge.util.Lang.nounWithNumeral(amount, "d" + cost.getType()) + " for "
+        // Spec 0113 (W1-238) -- "Roll a six-sided die for Clay Golem?", "Roll two six-sided dice ..."
+        return confirm("Roll " + diceWords(amount, cost.getType()) + " for "
                 + source.getName() + "?") ? PaymentDecision.number(amount) : null;
+    }
+
+    /** Spec 0113 (W1-238) -- "a six-sided die", "two six-sided dice" ([sides] Forge's "6"). */
+    static String diceWords(int amount, String sides) {
+        String kind;
+        try {
+            kind = PlainWords.number(Integer.parseInt(sides.trim())) + "-sided";
+        } catch (RuntimeException e) {
+            kind = "d" + sides;
+        }
+        return amount == 1 ? "a " + kind + " die" : PlainWords.number(amount) + " " + kind + " dice";
     }
 
     /**
@@ -990,7 +1011,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         }
         String desc = cost.getTypeDescription() == null ? cost.getType() : cost.getTypeDescription();
         forge.game.card.CardCollectionView chosen = player.getController().chooseCardsForCost(valid, ability, cost,
-                needed, false, "Gain control of " + forge.util.Lang.nounWithNumeralExceptOne(needed, desc) + ".");
+                needed, false, "Gain control of " + PlainWords.counted(needed, desc) + ".");
         return chosen == null || chosen.size() < needed ? null : PaymentDecision.card(chosen);
     }
 
@@ -1002,8 +1023,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
     @Override
     public PaymentDecision visit(forge.game.cost.CostPutCounterYou cost) {
         int amount = cost.getAbilityAmount(ability);
-        return confirm(source.getName() + ": get " + forge.util.Lang.nounWithNumeral(amount,
-                cost.getCounter().getName().toLowerCase(java.util.Locale.ROOT) + " counter") + "?")
+        return confirm(source.getName() + ": get " + PlainWords.counters(amount, cost.getCounter().getName()) + "?")
                 ? PaymentDecision.number(amount) : null;
     }
 
@@ -1032,8 +1052,9 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return null;
         }
         java.util.List<Card> chosen = pickCards(CostPicks.TO_HAND, valid, needed, "CostReturn",
-                "Return " + forge.util.Lang.nounWithNumeralExceptOne(needed, cost.getDescriptiveType())
-                        + (needed == 1 ? " to its" : " to their") + " owner's hand.");
+                // Spec 0113 (W1-239) -- "... to their owners' hands."
+                "Return " + PlainWords.counted(needed, cost.getDescriptiveType())
+                        + (needed == 1 ? " to its owner's hand." : " to their owners' hands."));
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
 
@@ -1083,9 +1104,10 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             while (!left.isEmpty()) {
                 int have = forge.game.card.CardLists.getTotalPower(chosen, ability);
                 boolean enough = have >= power;
-                Pick next = pick(left, chosen, CostPicks.TAP, "CostTapType", (ability.isCrew() ? "Crew " + power : "Tap")
-                        + ": tap creatures with total power " + power + " or more (" + have + " so far)"
-                        + (enough ? " -- or Done." : "."), enough);
+                // Spec 0113 (W1-240) -- "Crew 3: tap creatures with total power 3 or more (2 so far), or choose Done."
+                Pick next = pick(left, chosen, CostPicks.TAP, "CostTapType", (ability.isCrew()
+                        ? "Crew " + power + ": tap" : "Tap") + " creatures with total power " + power + " or more ("
+                        + have + " so far)" + (enough ? ", or choose Done." : "."), enough);
                 if (next.back() != null) {
                     chosen.remove(next.back());
                     left = notPicked(list, chosen);
@@ -1113,7 +1135,9 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             final forge.game.card.CardCollection sharing = left;
             forge.game.card.CardCollection tapped = new forge.game.card.CardCollection();
             while (tapped.size() < (needed == null ? 0 : needed)) {
-                Pick next = pick(left, tapped, CostPicks.TAP, "CostTapType", "Tap " + needed + " " + what
+                // Spec 0113 (W1-241) -- "Tap two creatures that share a creature type (1 of 2)."
+                Pick next = pick(left, tapped, CostPicks.TAP, "CostTapType", "Tap "
+                        + PlainWords.counted(needed == null ? 0 : needed, what)
                         + " that share a creature type (" + (tapped.size() + 1) + " of " + needed + ").", false);
                 if (next.back() != null) {
                     tapped.remove(next.back());
@@ -1133,8 +1157,9 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             forge.game.card.CardCollection chosen = new forge.game.card.CardCollection();
             forge.game.card.CardCollection left = new forge.game.card.CardCollection(list);
             while (!left.isEmpty()) {
-                Pick next = pick(left, chosen, CostPicks.TAP, "CostTapType", "Tap any number of " + what + " ("
-                        + chosen.size() + " so far) -- or Done.", true);
+                Pick next = pick(left, chosen, CostPicks.TAP, "CostTapType", "Tap any number of "
+                        + PlainWords.counted(2, what).replaceFirst("^two ", "") + " (" + chosen.size()
+                        + " so far), or choose Done.", true);
                 if (next.back() != null) {
                     chosen.remove(next.back());
                     left = notPicked(list, chosen);
@@ -1151,7 +1176,8 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
         if (needed > list.size()) {
             return null;
         }
-        java.util.List<Card> chosen = pickCards(CostPicks.TAP, list, needed, "CostTapType", "Tap " + needed + " " + what + ".");
+        java.util.List<Card> chosen = pickCards(CostPicks.TAP, list, needed, "CostTapType",
+                "Tap " + PlainWords.counted(needed, what) + "."); // spec 0113: "tap two creatures"
         return chosen == null ? null : PaymentDecision.card(chosen);
     }
 
@@ -1346,7 +1372,7 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
                     controller.chooseCounterType(
                             new java.util.ArrayList<>(kinds.elementSet()),
                             ability,
-                            "Which kind of counter to remove?",
+                            "Which kind of counter do you remove?",
                             null);
             if (chosen == null) {
                 break;
@@ -1356,7 +1382,8 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             int chosenAmount =
                     controller.chooseNumber(
                             ability,
-                            "How many " + chosen.getName() + " counters to remove?",
+                            // Spec 0113 (W1-235) -- "How many charge counters do you remove?"
+                            "How many " + PlainWords.counterName(chosen.getName()) + " counters do you remove?",
                             min, max, null);
             if (chosenAmount > 0) {
                 table.put(null, card, chosen, chosenAmount);
@@ -1399,7 +1426,8 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return hand.contains(source) ? PaymentDecision.card(source) : null;
         }
         if (type.equals("Hand")) {
-            return confirm("Discard your hand (" + hand.size() + " cards)?") ? PaymentDecision.card(hand) : null;
+            return confirm("Discard your hand (" + PlainWords.count(hand.size(), "card") + ")?")
+                    ? PaymentDecision.card(hand) : null;
         }
         if (type.equals("LastDrawn")) {
             Card last = player.getLastDrawnCard();
@@ -1440,7 +1468,8 @@ final class MatchCostDecision extends GeneratedCostDecisionBase {
             return null;
         }
         java.util.List<Card> picked = pickCards(CostPicks.DISCARD, valid, count, "CostDiscard",
-                "Discard " + count + " " + cost.getDescriptiveType() + " to pay the cost.");
+                // Spec 0113 (W1-242, W1-243) -- "Goblin Lore: discard two cards to pay its cost." (pickCards adds the rest)
+                "Discard " + PlainWords.counted(count, cost.getDescriptiveType()) + ".");
         return picked == null ? null : PaymentDecision.card(picked);
     }
 

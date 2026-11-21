@@ -160,7 +160,7 @@ export function PeekFoot({
 }: {
   className?: string;
   children?: ReactNode;
-  /** Spec 0103, item 3 -- words after "or hold Space" (a report's "· R to replay"). */
+  /** Spec 0103, item 3 -- words after "or hold Space" (a report's ". Press R to replay"). */
   after?: ReactNode;
 }) {
   return (

@@ -160,7 +160,8 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
       for (const label of await theirs.evaluateAll((els) =>
         els.map((el) => el.getAttribute("aria-label") ?? ""),
       )) {
-        expect(label).toMatch(/^Card \d+ of \d+ in .+'s hand$/);
+        // Spec 0113 (W1-295): the position in words ("Card three of seven"), 11 and up in digits.
+        expect(label).toMatch(/^Card \w+ of \w+ in .+'s hand$/);
       }
     }
 

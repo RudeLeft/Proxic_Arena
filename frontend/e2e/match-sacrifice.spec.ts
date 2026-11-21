@@ -89,7 +89,7 @@ test("a sacrifice is answered by clicking your own creature, and cannot be cance
 
         if ((await page.locator(SACRIFICE).count()) > 0) {
           const { heading, prompt } = await question(page);
-          expect(heading).toContain("Sacrifice");
+          expect(heading).toContain("Choose what to sacrifice");
           // What is asking is named: on the other player's spell, the
           // only way to know why your creature is going.
           expect(prompt).toContain("Innocent Blood: sacrifice a creature");
@@ -457,7 +457,7 @@ test("Barter in Blood: the waiting player is told they choose next, then what wa
     //    the two pictures (the cards the host clicked, in that order), first.
     const named = st.hostPicks.map((p) => p.name.match(/Typhoid Rats|Walking Corpse/)![0]);
     expect(st.guestAsked!.earlierSaid).toBe(`${hostName} sacrificed ${named[0]} and ${named[1]}.`);
-    expect(st.guestAsked!.earlierBy).toBe(`${hostName} · Barter in Blood`);
+    expect(st.guestAsked!.earlierBy).toBe(`${hostName}, with Barter in Blood`);
     expect(st.guestAsked!.earlierFace).toBe(true);
     expect(st.guestAsked!.earlierFirst).toBe(true);
     expect(st.guestAsked!.earlierPics.map((p) => p.id)).toEqual(st.hostPicks.map((p) => p.id));

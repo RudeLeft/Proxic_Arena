@@ -447,7 +447,9 @@ def spellskite():
             return next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) == st["bears"]), DEFAULT)
         if kind == "chooseTargetsFor" and st["changed"]:
             return next((o["actionId"] for o in f["options"]
-                         if (o.get("label") or "").startswith("on the stack: Lightning Bolt")), DEFAULT)
+                         # Spec 0113 (W1-003): the spell's button by its id, its card's name in the label.
+                         if o["actionId"].startswith("target:stack:") and "Lightning Bolt" in (o.get("label") or "")),
+                        DEFAULT)
         return DEFAULT
 
     g = game("spellskite", [("Mountain", 40), ("Lightning Bolt", 20)],

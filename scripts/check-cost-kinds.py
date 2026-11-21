@@ -1013,7 +1013,7 @@ def blight():
         problems.append("the opponent was asked which of seat 1's creatures to blight")
     if offered != st["mine"] or len(offered) < 2:
         problems.append(f"offered {offered}, not exactly seat 1's creatures {st['mine']} (two or more)")
-    if prompt != "Blight 1: put one -1/-1 counter on a creature you control.":
+    if prompt != "Blight 1: put a -1/-1 counter on a creature you control.":
         problems.append(f"the question should say blight in plain words: {prompt!r}")
     counted = {cid: v.get("M1M1") for cid, v in st["after"]["counters"].items() if v.get("M1M1")}
     if counted != {st["picked"]: 1}:
@@ -1196,8 +1196,8 @@ def concoction(yes):
     if not st["asked"] or not st["after"]:
         return "inconclusive", "Sinister Concoction's mill was never asked", found
     problems = []
-    if [seat for seat, _ in st["asked"]] != [1] or st["asked"][0][1] != "Mill one card?":
-        problems.append(f"seat 1 alone, asked once, \"Mill one card?\": {st['asked']}")
+    if [seat for seat, _ in st["asked"]] != [1] or st["asked"][0][1] != "Mill a card?":
+        problems.append(f"seat 1 alone, asked once, \"Mill a card?\": {st['asked']}")
     after = st["after"]
     if yes and (after["library"] != st["library"] - 1 or not after["bears_gone"] or after["concoction"]):
         problems.append(f"milled: library {st['library']} -> {after['library']}, the Bears destroyed, the "
@@ -1632,7 +1632,7 @@ def lamenter(yes):
     if not st["asked"] or not st["after"]:
         return "inconclusive", "Moonlit Lamenter never offered to remove its counter", found
     problems = []
-    if st["asked"] != [(1, "Remove one counter from Moonlit Lamenter?")]:
+    if st["asked"] != [(1, "Remove a counter from Moonlit Lamenter?")]:
         problems.append(f"seat 1 alone, asked once, plainly: {st['asked']}")
     after = st["after"]
     if yes and (after["counters"].get("M1M1") or after["hand"] != st["hand"] + 1):
@@ -2046,7 +2046,7 @@ def minotaur(yes):
     if not st["asked"] or st["after"] is None:
         return "inconclusive", "Karplusan Minotaur's upkeep was never asked", found
     problems = []
-    if st["asked"][0] != (1, "Flip one coin for Karplusan Minotaur?"):
+    if st["asked"][0] != (1, "Flip a coin for Karplusan Minotaur?"):
         problems.append(f"the question says what it costs: {st['asked'][0]}")
     if st["after"] != yes:
         problems.append(f"{'flipped: it stays' if yes else 'declined: it is sacrificed'}, stayed={st['after']}")
@@ -2124,7 +2124,7 @@ def golem():
     if not st["asked"] or st["after"] is None:
         return "inconclusive", "Clay Golem's die roll was never asked", found
     problems = []
-    if st["asked"][0] != (1, "Roll one d8 for Clay Golem?"):
+    if st["asked"][0] != (1, "Roll an eight-sided die for Clay Golem?"):
         problems.append(f"the question says what it costs: {st['asked'][0]}")
     if not 1 <= (st["after"].get("P1P1") or 0) <= 8:
         problems.append(f"monstrous: 1 to 8 +1/+1 counters, got {st['after']}")

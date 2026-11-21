@@ -159,10 +159,10 @@ describe("F-0092-A · no priority dot on either plate", () => {
       expect(bob.map((p) => p.who)).toEqual(alice.map((p) => p.who));
       // A screen reader is told who has it.
       const said = (list: typeof alice, seat: string) => list.find((p) => p.seat === seat)!.summary;
-      expect(said(alice, "1")).toContain(", has priority");
-      expect(said(alice, "2")).not.toContain("has priority");
-      expect(said(bob, "2")).toContain(", has priority");
-      expect(said(bob, "1")).not.toContain("has priority");
+      expect(said(alice, "1")).toContain("can act");
+      expect(said(alice, "2")).not.toContain("can act");
+      expect(said(bob, "2")).toContain("can act");
+      expect(said(bob, "1")).not.toContain("can act");
     });
   }
 });

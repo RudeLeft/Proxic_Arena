@@ -18,6 +18,7 @@ import { sameProps } from "./sameProps";
 import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Snapshot } from "../match";
 import { paced, hurry } from "./motion";
+import { countWords } from "../words";
 
 type Player = Snapshot["players"][number];
 
@@ -179,7 +180,7 @@ function PoisonBadgeView({
   }, [removed]);
   if (count <= 0 && !removed) return null;
   const lit = Math.min(count, POISON_NOTCHES);
-  const words = `${count} poison counter${count === 1 ? "" : "s"}`;
+  const words = countWords(count, "poison counter");
   return (
     <span
       ref={ref}

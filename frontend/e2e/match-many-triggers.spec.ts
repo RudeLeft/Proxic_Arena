@@ -58,10 +58,10 @@ const SEEN = "test-results/seen";
 // Arsonist?" after Boggart Shenanigans' "Yes to all 17".
 const BOGGART = "Boggart Shenanigans";
 
-/** The card a yes/no bubble asks about: its "from" line, "<name> · N on the stack". */
+/** The card a yes/no bubble asks about: its "from" line, "<name>: seven copies on the stack" (spec 0113). */
 async function bubbleCard(page: Page): Promise<string> {
   const from = await page.locator(".gs-bubble .gs-win-from").first().textContent();
-  return (from ?? "").split("·")[0]!.trim();
+  return (from ?? "").replace(/: \S+ cop(?:y|ies) on the stack$/, "").trim();
 }
 
 /** The host's untapped Mountains, piles counted. */
@@ -88,6 +88,25 @@ async function life(page: Page, side: "opponent" | "viewer"): Promise<number> {
   await lifeSettled(page); // spec 0067: the plate steps with the fights
   return Number((await page.locator(`.gs-seat-${side} .gs-life-n`).first().textContent()) ?? NaN);
 }
+/** Spec 0113: "Yes to all seven", "Same target for all 17": the count, in words up to ten. */
+const NUMBER_WORDS = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+];
+const countIn = (text: string | null | undefined): number => {
+  const last = (text ?? "").trim().split(/\s+/).pop() ?? "";
+  const word = NUMBER_WORDS.indexOf(last.toLowerCase());
+  return word >= 0 ? word : Number(/\d+/.exec(last)?.[0] ?? 0);
+};
 
 test("seven Goblins die: no order question for copies, one target, one yes to all", async ({
   browser,
@@ -169,21 +188,33 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
           // Another card's target (a Goblin Arsonist's): the opponent, unrecorded.
           const name = (await target.first().getAttribute("aria-label")) ?? "";
           if (!name.startsWith(`${BOGGART}:`)) {
-            await clickNow(target.locator("button.gs-win-chip").filter({ hasNotText: "(you)" }));
+            await clickNow(
+              target.locator("button.gs-win-chip").filter({ hasNotText: /\(you\)|^You$/ }),
+            );
             continue;
           }
           await page.screenshot({ path: `${SEEN}/copy-target.png` });
-          const same = target.getByRole("checkbox", { name: /^Same target for all \d+$/ });
+          const same = target.getByRole("checkbox", { name: /^Same target for all \w+$/ });
           await expect(same).toBeChecked();
           const words = await target.locator("label.gs-win-check").textContent();
-          copies = Number(words?.match(/\d+/)?.[0] ?? 0);
+          copies = countIn(words);
           lifeBefore = await life(page, "opponent");
-          await clickNow(target.locator("button.gs-win-chip").filter({ hasNotText: "(you)" }));
+          await clickNow(
+            target.locator("button.gs-win-chip").filter({ hasNotText: /\(you\)|^You$/ }),
+          );
+          continue;
+        }
+
+        // A lone trigger's own target window (one Goblin Arsonist dying on its
+        // own: no copies, so no "choose a target" window above): its "Don't".
+        const lone = panel.locator('.gs-win[data-kind="chooseTargetsFor"] button.gs-win-decline');
+        if ((await lone.count()) > 0) {
+          await clickNow(lone);
           continue;
         }
 
         // W-04: the yes -- "Yes to all N" when it is one of N copies.
-        const all = page.getByRole("button", { name: /^Yes to all \d+$/ });
+        const all = page.getByRole("button", { name: /^Yes to all \w+$/ });
         if ((await all.count()) > 0) {
           const card = await bubbleCard(page);
           if (yesFor.has(card)) throw new Error(`asked yes again after Yes to all (${card})`);
@@ -193,7 +224,7 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
             continue;
           }
           await page.screenshot({ path: `${SEEN}/yes-to-all.png` });
-          yesToAll = Number((await all.textContent())?.match(/\d+/)?.[0] ?? 0);
+          yesToAll = countIn(await all.textContent());
           // Spec 0058, item 5 -- from here the page answers the copies: the
           // act button's words, every one shown, are recorded as they change.
           await page.evaluate(() => {

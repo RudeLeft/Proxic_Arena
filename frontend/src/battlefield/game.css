@@ -2614,6 +2614,12 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   font-weight: 600;
   color: #fff;
 }
+.gs-log-glue {
+  white-space: nowrap;
+}
+.gs-log-glue > .gs-log-cn {
+  white-space: normal;
+}
 .gs-log-cn {
   display: inline;
   margin: 0;

@@ -1017,7 +1017,7 @@ describe("what Cancel says", () => {
       cancelWords({ name: "Arc Trail", kind: "spell", from: "hand", copy: null, copies: null }),
     ).toEqual({
       word: "Cancel Arc Trail",
-      sub: "Back to your hand · nothing is spent",
+      sub: "It goes back to your hand. Nothing is spent.",
     });
     expect(
       cancelWords({
@@ -1027,11 +1027,11 @@ describe("what Cancel says", () => {
         copy: null,
         copies: null,
       }).sub,
-    ).toBe("Back to your graveyard · nothing is spent");
+    ).toBe("It goes back to your graveyard. Nothing is spent.");
     expect(
       cancelWords({ name: "Gingerbrute", kind: "ability", from: null, copy: null, copies: null })
         .sub,
-    ).toContain("not activated");
+    ).toBe("The ability is not used. Nothing is spent.");
     expect(cancelWords(null)).toEqual({ word: "Cancel", sub: "Back out. Nothing is spent." });
   });
 });
@@ -1060,7 +1060,7 @@ describe("ending the game for an away player", () => {
     expect(awayEndText(sent.awayEnd, "Pat")).toBe("Ending the game: Pat concedes.");
     const refused = reduceMatch(EMPTY_MATCH, { type: "AWAY_END_REFUSED", reason: "NOT_AWAY" });
     expect(awayEndText(refused.awayEnd, "Pat")).toBe(
-      "Pat is back, or hasn't been gone 10 minutes yet.",
+      "Pat is back, or hasn't been gone ten minutes yet.",
     );
     // The server's own setting, not a fixed 10 (owner 2026-11-04).
     expect(awayEndText(refused.awayEnd, "Pat", 20)).toBe(

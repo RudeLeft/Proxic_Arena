@@ -257,10 +257,11 @@ public final class PriorityStops {
      * said: that question is still asked, on the same button.
      */
     static String nothingToPlay(int lands, int landsInHand, boolean landPlayed) {
-        String have = lands == 0 ? "No lands" : lands == 1 ? "1 land" : lands + " lands";
+        // Spec 0113 (W1-246) -- "Two lands; no land in hand", one voice throughout.
+        String have = lands == 0 ? "No lands" : PlainWords.capital(PlainWords.count(lands, "land"));
         String hand = landsInHand == 0
                 ? "no land in hand"
-                : landPlayed ? "you've already played a land this turn" : "no land you can play";
-        return have + ", " + hand;
+                : landPlayed ? "a land already played this turn" : "no land you can play";
+        return have + "; " + hand;
     }
 }

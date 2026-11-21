@@ -338,12 +338,14 @@ public final class WorkerMain {
                         // asked again, for the seat it was refused for.
                         String refusedWords = GAME.takeRefused(pending.actedForSeat());
                         if (refusedWords != null) {
-                            ask.addProperty("refused", refusedWords);
+                            ask.addProperty("refused", GAME.tidy(refusedWords));
                         }
                         // Forge's own wording, when it has any.
                         if (pending.prompt() != null && !pending.prompt().isBlank()) {
                             // Spec 0057, item 1 -- never Forge's script shorthand.
-                            ask.addProperty("prompt", net.barnflix.proxic.worker.game.PlainWords.humanise(pending.prompt()));
+                            // Spec 0113 -- then the cleanup, safety net 2.
+                            ask.addProperty("prompt", GAME.tidy(net.barnflix.proxic.worker.game.PlainWords.forgeWords(
+                                    net.barnflix.proxic.worker.game.PlainWords.humanise(pending.prompt()))));
                         }
                         JsonArray options = new JsonArray();
                         if (pending.searchable()) {
@@ -356,7 +358,7 @@ public final class WorkerMain {
                             // Phase 9 W-12 -- the card asking, and the window's
                             // title, words and the cards it may name.
                             if (GAME.subject() != null) {
-                                ask.add("about", GAME.subject());
+                                ask.add("about", GAME.tidyAbout(GAME.subject()));
                             }
                             if (GAME.arrange() != null) {
                                 ask.add("arrange", GAME.arrange());
@@ -373,7 +375,8 @@ public final class WorkerMain {
                             JsonObject option = new JsonObject();
                             option.addProperty("actionId", id);
                             option.addProperty("label",
-                                    net.barnflix.proxic.worker.game.PlainWords.humanise(labels.get(id)));
+                                    GAME.tidy(net.barnflix.proxic.worker.game.PlainWords.forgeWords(
+                                            net.barnflix.proxic.worker.game.PlainWords.humanise(labels.get(id)))));
                             // §7.61 B5 -- what this option is about.
                             String object = GAME.objectIdOf(id);
                             if (object != null) {
@@ -410,7 +413,7 @@ public final class WorkerMain {
                         java.util.Map<String, String> why = GAME.unavailable();
                         if (!why.isEmpty()) {
                             JsonObject reasons = new JsonObject();
-                            why.forEach(reasons::addProperty);
+                            why.forEach((k, v) -> reasons.addProperty(k, GAME.tidy(v)));
                             ask.add("unavailable", reasons);
                         }
                         // Phase 9 W-16 -- abilities not offered now, and why.
@@ -421,9 +424,9 @@ public final class WorkerMain {
                                 JsonArray rows = new JsonArray();
                                 for (String[] row : list) {
                                     JsonObject one = new JsonObject();
-                                    one.addProperty("label",
-                                            net.barnflix.proxic.worker.game.PlainWords.humanise(row[0]));
-                                    one.addProperty("why", row[1]);
+                                    one.addProperty("label", GAME.tidy(net.barnflix.proxic.worker.game.PlainWords
+                                            .forgeWords(net.barnflix.proxic.worker.game.PlainWords.humanise(row[0]))));
+                                    one.addProperty("why", GAME.tidy(row[1]));
                                     // Spec 0061, item 1 -- the play a card
                                     // can't make now ("land" or "spell").
                                     if (row.length > 2 && row[2] != null) {
@@ -442,7 +445,7 @@ public final class WorkerMain {
                         }
                         // What backing out of this question undoes (owner 2026-10-22).
                         if (GAME.subject() != null) {
-                            ask.add("about", GAME.subject());
+                            ask.add("about", GAME.tidyAbout(GAME.subject()));
                         }
                         // Spec 0005 -- a response window: the asked player's own
                         // spell or trigger is on top, and their page counts down.

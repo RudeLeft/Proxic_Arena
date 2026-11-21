@@ -63,7 +63,12 @@ final class Skips {
             case "begincombat", "combat", "combat_begin" -> "combat";
             case "endofturn", "end", "endturn" -> "end step";
             case "cleanup" -> "cleanup step";
-            default -> phase.toLowerCase(java.util.Locale.ROOT);
+            // Spec 0113 (W1-156) -- never Forge's PhaseType text ("combat_declare_attackers").
+            case "combat_declare_attackers", "declareattackers" -> "declare attackers step";
+            case "combat_declare_blockers", "declareblockers" -> "declare blockers step";
+            case "combat_first_strike_damage", "combat_damage", "combatdamage" -> "combat damage step";
+            case "combat_end", "endcombat" -> "end of combat step";
+            default -> p.replaceAll("^combat_", "").replace('_', ' ') + " step";
         };
     }
 }

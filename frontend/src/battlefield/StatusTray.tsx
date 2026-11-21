@@ -47,6 +47,14 @@ import {
 } from "./playerMarks";
 import { heldPool, poolKey, usePoolHeld } from "./poolHeld";
 import { paced } from "./motion";
+import {
+  andList,
+  capitalNumber,
+  countWords as nounCount,
+  numberWord,
+  symbolWords,
+  timesWord,
+} from "../words";
 
 type Player = Snapshot["players"][number];
 
@@ -62,12 +70,18 @@ const itemWidth = (text: string, dot: boolean) => 16 + (dot ? 12 : 0) + text.len
 const BADGE_W = 26;
 const MAP_CARD_W = 53;
 const EMBLEM_W = 24;
-/** "3 energy", "1 experience counter", "2 tickets": a badge's words. */
+/**
+ * "three energy", "one experience counter", "two tickets": a badge's words
+ * (spec 0113, W1-119: in words; a counter the tray has no look for is a
+ * counter, its name as players say it: "two charge counters").
+ */
 function countWords(name: string, count: number): string {
   const kind = countKind(name);
   const look = COUNT_LOOK[kind];
-  if (!look || kind === "other") return `${count} ${name.toLowerCase()}`;
-  return `${count} ${count === 1 ? look.one : look.many}`;
+  if (!look || kind === "other") {
+    return nounCount(count, `${name.replaceAll("_", " ").toLowerCase()} counter`);
+  }
+  return `${numberWord(count)} ${count === 1 ? look.one : look.many}`;
 }
 /** "monarch" → "Monarch": Forge names a designation in lower case. */
 const titled = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -108,10 +122,13 @@ function fullName(thing: string): string {
   return thing;
 }
 
-function manaText(pool: Record<string, number>): string {
-  return Object.entries(pool)
-    .map(([colour, n]) => `${n} ${colour}`)
-    .join(" · ");
+/** Spec 0113 (W1-280) -- the floating mana, said: "two red and one green". */
+export function poolWords(pool: Record<string, number>): string {
+  return andList(
+    Object.entries(pool)
+      .filter(([, n]) => n > 0)
+      .map(([colour, n]) => `${numberWord(n)} ${symbolWords(colour)}`),
+  );
 }
 
 // One list open on the whole page: opening one player's closes the other's.
@@ -176,7 +193,7 @@ function StatusTrayView({
   // Spec 0077 (A) -- poison is the badge by the life shield (PoisonBadge),
   // not a chip here; the tray keeps energy, experience and the rest.
   const kept = player.counters.filter((c) => c.name.toUpperCase() !== "POISON");
-  const counters = kept.map((c) => `${c.count} ${c.name.toLowerCase()}`);
+  const counters = kept.map((c) => countWords(c.name, c.count));
   // Spec 0086 (11 A) -- each chip less what is still flying in.
   usePoolHeld();
   const shownMana = (c: string) => (player.manaPool[c] ?? 0) - heldPool(poolKey(player.seat, c));
@@ -212,7 +229,7 @@ function StatusTrayView({
           data-shown={shownMana(c)}
           style={shownMana(c) <= 0 ? { visibility: "hidden" } : undefined}
         >
-          <img src={symbolUrl(c)} alt={c} draggable={false} />
+          <img src={symbolUrl(c)} alt={symbolWords(c)} draggable={false} />
           {Math.max(0, shownMana(c))}
         </span>
       ),
@@ -266,7 +283,7 @@ function StatusTrayView({
                 key="ring"
                 kind="ring"
                 count={player.ringTempted}
-                label={`The Ring has tempted ${player.name} ${player.ringTempted === 1 ? "once" : `${player.ringTempted} times`}`}
+                label={`The Ring has tempted ${player.name} ${timesWord(player.ringTempted)}`}
                 side={side}
                 expanded={open}
                 onClick={toggle}
@@ -347,15 +364,14 @@ function StatusTrayView({
     used += item.width + TRAY_GAP;
   }
   if (fits) shown.push(...items);
-  // The plates' old line, word for word, for a screen reader.
+  // For a screen reader (spec 0113, W1-122, W1-280, W1-359): "Alice:
+  // three energy, the monarch. Floating mana: two red and one green.
+  // Command zone: The Ring; the Ring has tempted them twice."
   const said = [
-    [
-      ...counters,
-      ...player.designations.map((d) => `· ${d.toLowerCase()}`),
-      ...(mana.length > 0 ? [`mana ${manaText(player.manaPool)}`] : []),
-    ].join("  "),
+    [...counters, ...player.designations.map((d) => `the ${d.toLowerCase()}`)].join(", "),
+    mana.length > 0 ? `Floating mana: ${poolWords(player.manaPool)}` : "",
     player.command.length > 0
-      ? `command zone: ${player.command.join(", ")}${player.ringTempted > 0 ? ` · the Ring has tempted ${player.ringTempted}×` : ""}`
+      ? `Command zone: ${player.command.join(", ")}${player.ringTempted > 0 ? `; the Ring has tempted them ${timesWord(player.ringTempted)}` : ""}`
       : "",
   ]
     .filter(Boolean)
@@ -374,7 +390,7 @@ function StatusTrayView({
           type="button"
           className="gs-chip gs-chip-more"
           aria-expanded={open}
-          aria-label={`${items.length - shown.length} more: list everything`}
+          aria-label={`${capitalNumber(items.length - shown.length)} more. Show everything`}
           onClick={toggle}
         >
           +{items.length - shown.length}
@@ -471,17 +487,18 @@ function StatusList({
   // Spec 0077 -- poison is the badge by the life shield, not listed here.
   const counters = player.counters
     .filter((c) => c.name.toUpperCase() !== "POISON")
-    .map((c) => `${c.count} ${c.name.toLowerCase()}`);
+    .map((c) => countWords(c.name, c.count));
   return (
     <div
       className={`gs-status-list${peek ? " gs-win-peek" : ""}`}
       role="dialog"
-      aria-label={`${player.name}: everything in play for ${yours ? "you" : "them"}`}
+      aria-label={`${player.name}: in play for ${yours ? "you" : "them"}`}
+      data-whose={yours ? "yours" : "theirs"}
     >
       <span className="gs-status-pointer" aria-hidden="true" />
       <div className="gs-status-body">
         <p className="gs-status-from">
-          {player.name} · in play for {yours ? "you" : "them"}
+          {player.name}: in play for {yours ? "you" : "them"}
         </p>
         {mana.length > 0 && (
           <section>
@@ -489,7 +506,7 @@ function StatusList({
             <p className="gs-status-line">
               {mana.map((c) => (
                 <span className="gs-mana" key={c}>
-                  <img src={symbolUrl(c)} alt={c} draggable={false} />
+                  <img src={symbolUrl(c)} alt={symbolWords(c)} draggable={false} />
                   {player.manaPool[c]}
                 </span>
               ))}
@@ -554,7 +571,7 @@ function CommandThing({
     return (
       <div className="gs-status-thing">
         <b>The Ring</b>
-        {tempted > 0 && ` · tempted ${tempted === 1 ? "once" : `${tempted} times`}`}
+        {tempted > 0 && `: tempted ${timesWord(tempted)}`}
         <ul className="gs-status-ring">
           {RING_WORDS.map((line, i) => (
             <li key={line} className={i < tempted ? "gs-status-lit" : "gs-status-off"}>
@@ -574,7 +591,7 @@ function CommandThing({
     return (
       <div className="gs-status-thing">
         <b>{fullName(thing)}</b>
-        {here && ` · in ${here.name}`}
+        {here && `: in ${here.name}`}
         {here && (
           <p className="gs-status-says">
             {next.length === 0 ? (

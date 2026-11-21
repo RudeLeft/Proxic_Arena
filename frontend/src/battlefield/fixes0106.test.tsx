@@ -134,7 +134,7 @@ describe("F-0106-D · the +N card", () => {
     const onOpen = vi.fn();
     const c = render(<FanMoreView more={more} who="you" onOpen={onOpen} />).container;
     const button = c.querySelector("button")!;
-    expect(button.getAttribute("aria-label")).toBe("3 more cards you may play: open the pile");
+    expect(button.getAttribute("aria-label")).toBe("Three more cards you may play: open the pile");
     expect(button.querySelector(".bf-card-back")).toBeTruthy();
     expect(button.textContent).toBe("+3");
     const wrap = c.querySelector<HTMLElement>("[data-fan-more]")!;

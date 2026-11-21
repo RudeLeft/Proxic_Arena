@@ -9,6 +9,8 @@
 // struck through. Long modes are shortened on the card (two lines at most);
 // the close-up has the full words.
 
+import { timesWord } from "../words";
+
 /** Round 2 Q1 B -- the X medallion on the stack card (0.8 the size it had on the casting card). */
 export function XMedallion({ x }: { x: number }) {
   return (
@@ -39,7 +41,8 @@ export function ModeLines({ modes }: { modes: readonly { text: string; chosen: b
 /** The close-up's words for the extra costs (spec 0100, item 3): "Kicked", "Overloaded"... */
 export function extraWords(extra: readonly string[] | undefined, kicks?: number): string[] {
   const words: Record<string, string> = {
-    kicked: kicks && kicks > 1 ? `Kicked ${kicks} times` : "Kicked",
+    // Spec 0113 (W1-104, W1-107): "Kicked twice", "Kicked three times".
+    kicked: kicks && kicks > 1 ? `Kicked ${timesWord(kicks)}` : "Kicked",
     overloaded: "Overloaded",
     evoked: "Evoked",
     entwined: "Entwined",

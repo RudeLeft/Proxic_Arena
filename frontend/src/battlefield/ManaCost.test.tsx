@@ -31,7 +31,7 @@ describe("mana costs", () => {
   it("draws the symbol pictures, and says the cost in words", () => {
     const { container, getByRole } = render(<ManaCost cost="{R}" change="down" />);
     expect(container.querySelectorAll("img.bf-pip")).toHaveLength(1);
-    expect(getByRole("img").getAttribute("aria-label")).toBe("Costs {R}, less than printed");
+    expect(getByRole("img").getAttribute("aria-label")).toBe("Costs one red, less than printed");
     // Spec 0058, item 2: no ring for a lower cost; a higher one keeps its edge.
     expect(container.querySelector(".bf-cost-down")).toBeNull();
     const up = render(<ManaCost cost="{2}{R}" change="up" />).container;
@@ -49,9 +49,15 @@ describe("card text with costs in it", () => {
 });
 
 describe("game words with mana in them", () => {
-  it("draws the symbols and keeps the letters in the text", () => {
+  it("draws the symbols, keeps the letters in the text, and names each run in words (spec 0113, W1-271)", () => {
     const { container } = render(<p>{<ManaText text="{T}: Add {R}. Still owing {1}{R}" />}</p>);
     expect(container.querySelectorAll("img.bf-pip")).toHaveLength(4);
+    // The letters stay in the text (copying, the scripted games); each run is
+    // an image named in words, so a screen reader never reads a brace.
     expect(container.textContent).toBe("{T}: Add {R}. Still owing {1}{R}");
+    const said = [...container.querySelectorAll('.bf-mana-inline[role="img"]')].map((e) =>
+      e.getAttribute("aria-label"),
+    );
+    expect(said).toEqual(["Tap", "one red mana", "one generic and one red"]);
   });
 });

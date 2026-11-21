@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import type { ThisTurn } from "../match";
+import { countWords } from "../words";
 
 /** The canvas's three pictures (TI.spell, TI.life, TI.left). */
 function SpellIcon() {
@@ -89,6 +90,19 @@ export function thisTurnRows(
   ];
 }
 
+/**
+ * Spec 0113 (W1-305) -- the counts, said: "Bob this turn: two spells cast,
+ * 3 life gained, and none of their permanents left the battlefield." Life is
+ * a game value: its digits stay.
+ */
+export function thisTurnWords(counts: ThisTurn, name: string, mine: boolean): string {
+  const whose = mine ? "your" : "their";
+  const left = counts.leftBattlefield
+    ? `a permanent of ${mine ? "yours" : "theirs"} left the battlefield`
+    : `none of ${whose} permanents left the battlefield`;
+  return `${name} this turn: ${countWords(counts.spells, "spell")} cast, ${counts.lifeGained} life gained, and ${left}.`;
+}
+
 const ICONS: Record<string, () => JSX.Element> = {
   spells: SpellIcon,
   life: LifeIcon,
@@ -114,7 +128,7 @@ export function ThisTurnCounts({
   const [open, setOpen] = useState(false);
   if (!counts) return null;
   const rows = thisTurnRows(counts, mine);
-  const said = `${name} this turn: ${rows.map((r) => `${r.words.toLowerCase()} ${r.value.toLowerCase()}`).join(", ")}`;
+  const said = thisTurnWords(counts, name, mine);
   return (
     <span
       className="gs-thisturn"
@@ -148,7 +162,7 @@ export function ThisTurnCounts({
           role="tooltip"
           aria-hidden="true"
         >
-          <span className="gs-reveal-by gs-thisturn-by">{`${name} · this turn`}</span>
+          <span className="gs-reveal-by gs-thisturn-by">{`${name}, this turn`}</span>
           {rows.map((r) => {
             const Icon = ICONS[r.key]!;
             return (

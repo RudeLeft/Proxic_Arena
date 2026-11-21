@@ -105,8 +105,8 @@ describe("the fights, in order (A-13)", () => {
     // The next starts only once the one before has ended (and its dead cracked).
     expect(plan.fights[1]!.start).toBeGreaterThanOrEqual(plan.fights[0]!.end);
     expect(plan.fights.map((f) => f.caption)).toEqual([
-      "Damage · the Serra Angel against your Goblin Guide and Llanowar Elves",
-      "Damage · Bob's Goblin Token hit The Wandering Emperor",
+      "Damage: the Serra Angel against your Goblin Guide and Llanowar Elves",
+      "Damage: Bob's Goblin Token hit The Wandering Emperor",
     ]);
     // The White Knight dealt nothing in this step: no fight.
     expect(plan.fighters.has("card:202")).toBe(false);
@@ -116,7 +116,7 @@ describe("the fights, in order (A-13)", () => {
     const { plan } = setup(3);
     expect(plan.firstStrike).toBe(true);
     expect(plan.fights.map((f) => f.caption)).toEqual([
-      "First strike · the White Knight against your Grizzly Bears",
+      "First strike: the White Knight against your Grizzly Bears",
     ]);
   });
 
@@ -199,7 +199,7 @@ describe("where the fighters go (A-13)", () => {
     expect(Math.hypot(LIFE.x - x, LIFE.y - y)).toBeGreaterThanOrEqual(27);
     expect(Math.hypot(p.dx, p.dy)).toBeGreaterThan(box.h);
     expect(fight.strikes.map((s) => s.target)).toEqual(["player:1"]);
-    expect(fight.caption).toBe("Damage · Bob's White Knight hit you");
+    expect(fight.caption).toBe("Damage: Bob's White Knight hit you");
   });
 
   it("trample's excess slashes the player in the same fight; lifelink rises as it lands", () => {
@@ -361,13 +361,13 @@ describe("captions", () => {
     };
     const bears: Stand = { ...giant, item: "b", name: "Grizzly Bears", seat: 2 };
     expect(captionOf(giant, [bears, { ...bears, item: "c" }], { player: 2 }, 1, "Bob", false)).toBe(
-      "Damage · your Hill Giant against their two Grizzly Bears",
+      "Damage: your Hill Giant against their two copies of Grizzly Bears",
     );
     expect(captionOf(giant, [], { player: 2 }, 1, "Bob", false)).toBe(
-      "Damage · your Hill Giant hit Bob",
+      "Damage: your Hill Giant hit Bob",
     );
     expect(captionOf({ ...giant, count: 5 }, [], { player: 2 }, 1, "Bob", true)).toBe(
-      "First strike · your 5 Hill Giant hit Bob",
+      "First strike: your five copies of Hill Giant hit Bob",
     );
   });
 });

@@ -150,7 +150,8 @@ def ringleader():
         problems.append(f"seat 1 cast it and chose, and was still sent a reveal: {st['reveals'][1].get('title')!r}")
     for seat, reveal in st["reveals"].items():
         cards = reveal.get("cards", [])
-        if not (reveal.get("title") or "").startswith("Goblin Ringleader"):
+        # Spec 0113 (W1-160): "Revealed by Goblin Ringleader".
+        if (reveal.get("title") or "") != "Revealed by Goblin Ringleader":
             problems.append(f"seat {seat}: titled {reveal.get('title')!r}")
         if not 1 <= len(cards) <= 4:
             problems.append(f"seat {seat}: {len(cards)} cards revealed")

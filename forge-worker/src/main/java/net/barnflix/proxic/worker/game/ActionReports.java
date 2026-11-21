@@ -1305,14 +1305,18 @@ final class ActionReports {
     }
 
     /**
-     * Spec 0102, item 3 -- "Bob's spell: you skip your next turn." To another
-     * reader: "Bob's spell: Alice skips their combat." ([player] null: the
-     * reader; [step] null: a whole turn, [turns] of them).
+     * Spec 0102, item 3 -- "Bob's Fatespinner: you skip your next turn." To
+     * another reader: "Bob's Fatespinner: Alice skips their next combat."
+     * ([card] the card that did it; [player] null: the reader; [step] null: a
+     * whole turn, [turns] of them).
      */
-    static String skipWords(String actor, String player, String step, int turns) {
-        String what = step != null ? step
-                : turns > 1 ? "next " + turns + " turns" : "next turn";
-        return actor + "'s spell: " + (player == null ? "you skip your " : player + " skips their ") + what + ".";
+    static String skipWords(String actor, String card, String player, String step, int turns) {
+        // Spec 0113 (W1-156) -- the card by its name (Fatespinner is no spell), "next two turns".
+        String what = step != null ? "next " + step
+                : turns > 1 ? "next " + PlainWords.count(turns, "turn") : "next turn";
+        String whose = card == null || card.isBlank() || card.startsWith("a face-down")
+                ? actor + "'s face-down card" : actor + "'s " + card;
+        return whose + ": " + (player == null ? "you skip your " : player + " skips their ") + what + ".";
     }
 
     /**
@@ -1494,7 +1498,8 @@ final class ActionReports {
         Report report = new Report(keys.incrementAndGet(), actor, source, Kind.EMPTY_LOOK, owner, 0, List.of(),
                 new java.util.HashMap<>(), false, -1, 0);
         report.chooser = actor;
-        report.zone = zone.getTranslatedName().toLowerCase(java.util.Locale.ROOT);
+        // Spec 0113 (W1-155) -- our own zone words, never Forge's translated name.
+        report.zone = zoneWords(zone);
         // Made for this reader alone (ReportBook's onlyFor).
         book.add(report.key, reader, report);
     }
@@ -2000,27 +2005,20 @@ final class ActionReports {
         String its = w.whose(r.subject);
         String cards = cardWords(named, hidden);
         String then = r.shuffled ? ", then shuffled" : "";
+        // Spec 0113 (W1-140..W1-157) -- counts as words, "an Island", "the other card", "putting".
         return switch (r.kind) {
             case SEARCH -> r.moves.isEmpty()
                     ? who + " searched " + its + " library and found nothing" + then + "."
-                    : who + " searched " + its + " library and put " + destinations(r, w, visible) + then + ".";
-            case DIG -> who + " looked at the top " + r.count + " " + plural(r.count) + " of " + its + " library"
-                    + (r.moves.isEmpty() ? "" : ", put " + destinations(r, w, visible))
-                    + rest(r) + ".";
-            case REVEAL_TOP -> who + " revealed the top " + r.count + " " + plural(r.count) + " of " + its + " library"
-                    + (r.moves.isEmpty() ? "" : ": " + destinations(r, w, visible)) + rest(r) + ".";
-            case REORDER -> who + " looked at the top " + r.count + " " + plural(r.count) + " of " + its
-                    + " library and put them back in an order " + (r.actor == w.reader ? "you" : "they") + " chose"
-                    + then + ".";
-            case SCRY -> who + " scried " + r.count + (r.bottom == 0
-                    ? " and kept " + (r.count == 1 ? "it" : "them") + " on top."
-                    : r.top == 0
-                    ? " and put " + (r.count == 1 ? "it" : "them") + " on the bottom."
-                    : ": " + r.top + " on top, " + r.bottom + " on the bottom.");
-            case SURVEIL -> who + " surveilled " + r.count
-                    + (r.moves.isEmpty() ? " and kept " + (r.count == 1 ? "it" : "them") + " on top"
-                    : " and put " + cards + " into " + its + " graveyard") + ".";
-            case PUT_BACK -> who + (r.drew > 0 ? " drew " + r.drew + " " + plural(r.drew) + ", then put " : " put ")
+                    : who + " searched " + its + " library, " + putting(went(r, w, visible), 0) + then + ".";
+            case DIG -> topWords(who, "looked at", its, r.count,
+                    r.moves.isEmpty() ? "" : putting(went(r, w, visible), r.count - r.moves.size()));
+            case REVEAL_TOP -> topWords(who, "revealed", its, r.count,
+                    r.moves.isEmpty() ? "" : putting(went(r, w, visible), r.count - r.moves.size()));
+            case REORDER -> reorderWords(who, its, r.count, r.actor == w.reader, r.shuffled);
+            case SCRY -> scryWords(who, r.count, r.top, r.bottom);
+            case SURVEIL -> surveilWords(who, its, r.count, r.moves.isEmpty() ? null : cards,
+                    r.count - r.moves.size());
+            case PUT_BACK -> who + (r.drew > 0 ? " drew " + PlainWords.some(r.drew, "card") + ", then put " : " put ")
                     + cards + " from " + its + " hand on top of " + its + " library.";
             case LOOK_HAND -> who + " looked at " + its + " hand." + (r.emptyHand ? " It has no cards." : "");
             case CHOOSE_DISCARD -> r.emptyHand ? who + " looked at " + its + " hand. It has no cards."
@@ -2030,12 +2028,13 @@ final class ActionReports {
                     + (r.subject == w.reader ? "you" : r.subject.getName()) + " to discard.";
             case DISCARD -> w.who(r.subject) + " discarded " + cards + ".";
             // Spec 0074, Amendment 1: one plain sentence; the cards are the pictures.
-            case MILL -> w.who(r.subject) + " milled " + r.count + " " + plural(r.count) + ".";
-            case COUNTER -> who + " countered " + its + " " + cards + ".";
+            case MILL -> w.who(r.subject) + " milled " + PlainWords.some(r.count, "card") + ".";
+            case COUNTER -> counteredWords(who, its, named.stream().anyMatch(n -> n != null && !n.isBlank())
+                    ? cards : null);
             case RETURN -> returned(r, w, visible);
             case BOUNCE -> bounced(r, w, visible);
             case CYCLE -> who + " cycled " + r.source + (r.drew > 0
-                    ? " and drew " + (r.drew == 1 ? "a card" : r.drew + " cards") : "") + ".";
+                    ? " and drew " + PlainWords.some(r.drew, "card") : "") + ".";
             case CHOICE -> "";
             case FIZZLE -> r.unpaid != null
                     ? unpaidSentence(r.actor == w.reader ? null : r.actor.getName(), r.source, r.unpaid)
@@ -2057,8 +2056,8 @@ final class ActionReports {
             case CONTROL -> controlWords(r.actor == w.reader ? null : r.actor.getName());
             case END_TURN -> endTurnWords(who,
                     r.moves.stream().anyMatch(m -> m.from() == ZoneType.Stack && m.cardId() != r.hostId));
-            case SKIP -> skipWords(r.actor.getName(), r.subject == w.reader ? null : r.subject.getName(), r.skipped,
-                    r.count);
+            case SKIP -> skipWords(r.actor.getName(), r.source, r.subject == w.reader ? null : r.subject.getName(),
+                    r.skipped, r.count);
             // Spec 0104, the spec's words.
             case HAND_EXILE -> handExileWords(who, its, cards, r.moves.isEmpty() ? null : r.moves.get(0).to());
             // Spec 0107 (Q5c A), the spec's words.
@@ -2170,10 +2169,14 @@ final class ActionReports {
     /** The fizzle sentence: [caster] null for the reader's own spell. */
     static String fizzleSentence(String caster, String spell, boolean copy, boolean gone, boolean many) {
         String whose = caster == null ? "Your" : caster + "'s";
-        String why = gone
+        return whose + " " + (copy ? "copy of " : "") + spell + " did nothing: " + fizzleWhy(gone, many) + ".";
+    }
+
+    /** Spec 0113 (W1-172) -- the reason half of a fizzle, shared with the play log's line. */
+    static String fizzleWhy(boolean gone, boolean many) {
+        return gone
                 ? (many ? "its targets were gone" : "its target was gone")
                 : (many ? "its targets could no longer be chosen" : "its target could no longer be chosen");
-        return whose + " " + (copy ? "copy of " : "") + spell + " did nothing: " + why + ".";
     }
 
     /**
@@ -2228,7 +2231,7 @@ final class ActionReports {
         return reader != who || "coin".equals(mark);
     }
 
-    /** Spec 0074, Amendment 1 -- "Bob returned Grizzly Bears to their hand", "You exiled 10 cards from Bob's graveyard". */
+    /** Spec 0074, Amendment 1 -- "Bob returned Grizzly Bears to their hand", "You exiled ten cards from Bob's graveyard". */
     private static String returned(Report r, Words w, java.util.Set<Integer> visible) {
         String who = w.who(r.actor);
         boolean allExiled = r.moves.stream().allMatch(m -> "exile".equals(r.where.get(m.cardId())));
@@ -2243,39 +2246,82 @@ final class ActionReports {
                     hidden++;
                 }
             }
-            String from = r.moves.get(0).from() == ZoneType.Exile ? "exile" : w.whose(r.subject) + " graveyard";
-            return who + " exiled " + cardWords(named, hidden) + " from " + from + ".";
+            // Spec 0113 (W1-150) -- out of exile it is only "exiled" again, never "from exile".
+            return exiledWords(who, cardWords(named, hidden),
+                    r.moves.get(0).from() == ZoneType.Exile ? null : w.whose(r.subject) + " graveyard");
         }
-        Map<String, List<String>> by = new LinkedHashMap<>();
-        Map<String, Integer> backs = new LinkedHashMap<>();
+        List<Went> went = new ArrayList<>();
         for (Move move : r.moves) {
             String to = r.where.get(move.cardId());
-            String place = to == null ? "somewhere" : switch (to) {
+            String place = to == null ? null : switch (to) {
                 case "hand" -> "to " + w.whose(move.owner()) + " hand";
                 case "battlefield" -> "to the battlefield";
                 case "graveyard" -> "to " + w.whose(move.owner()) + " graveyard";
-                case "exile" -> "into exile";
+                case "exile" -> EXILED;
                 case "top" -> "on top of " + w.whose(move.owner()) + " library";
                 case "bottom" -> "on the bottom of " + w.whose(move.owner()) + " library";
                 default -> "into " + w.whose(move.owner()) + " library";
             };
             Card card = r.cards.get(move.cardId());
-            if (visible.contains(move.cardId()) && card != null) {
-                by.computeIfAbsent(place, k -> new ArrayList<>()).add(card.getName());
+            went.add(new Went(visible.contains(move.cardId()) && card != null ? card.getName() : null, place, false));
+        }
+        return returnedWords(who, went);
+    }
+
+    /** Spec 0113 (W1-150) -- "You exiled ten cards from Bob's graveyard." ([from] null: out of exile). */
+    static String exiledWords(String who, String cards, String from) {
+        return who + " exiled " + cards + (from == null ? "" : " from " + from) + ".";
+    }
+
+    /** The place a card "went" that is an exile: said as the verb "exiled", with no place after it. */
+    static final String EXILED = "\u0000exiled";
+
+    /**
+     * Spec 0113 (W1-151) -- "Bob returned Grizzly Bears to their hand and
+     * exiled Lightning Bolt." A place unknown is no place ("returned
+     * Grizzly Bears."), never "somewhere"; into exile is "exiled".
+     */
+    static String returnedWords(String who, List<Went> went) {
+        List<Went> back = new ArrayList<>();
+        List<Went> exiled = new ArrayList<>();
+        for (Went one : went) {
+            (EXILED.equals(one.place()) ? exiled : back).add(one);
+        }
+        List<String> verbs = new ArrayList<>();
+        if (!back.isEmpty()) {
+            verbs.add("returned " + objects(back, false));
+        }
+        if (!exiled.isEmpty()) {
+            List<Went> bare = exiled.stream().map(one -> new Went(one.name(), null, false)).toList();
+            verbs.add("exiled " + objects(bare, false));
+        }
+        return who + " " + PlainWords.and(verbs) + ".";
+    }
+
+    /** "Grizzly Bears to their hand and a card to your hand": the cards by place, hidden ones after the named. */
+    private static String objects(List<Went> went, boolean otherBefore) {
+        Map<String, List<String>> by = new LinkedHashMap<>();
+        Map<String, Integer> backs = new LinkedHashMap<>();
+        for (Went one : went) {
+            String place = one.place() == null ? "" : one.place();
+            if (one.name() != null && !one.name().isBlank()) {
+                by.computeIfAbsent(place, k -> new ArrayList<>()).add(one.name());
             } else {
                 backs.merge(place, 1, Integer::sum);
             }
         }
+        boolean other = otherBefore || !by.isEmpty();
         List<String> parts = new ArrayList<>();
-        by.forEach((place, names) -> parts.add(and(grouped(names)) + " " + place));
-        backs.forEach((place, n) -> parts.add((n == 1 ? "a card" : n + " cards") + " " + place));
-        return who + " returned " + and(parts) + ".";
+        by.forEach((place, names) -> parts.add(PlainWords.and(grouped(names)) + (place.isEmpty() ? "" : " " + place)));
+        backs.forEach((place, n) -> parts.add(hiddenWords(n, other, false) + (place.isEmpty() ? "" : " " + place)));
+        return PlainWords.and(parts);
     }
 
     /**
      * Spec 0075 -- "Bob returned your Grizzly Bears to your hand.", "Bob put
      * your Serra Angel on top of your library.", "Bob shuffled your Serra
-     * Angel into your library."
+     * Angel into your library." Spec 0113 (W1-152): a place unknown is "Bob
+     * moved your Grizzly Bears.", never "somewhere"; counts as words.
      */
     private static String bounced(Report r, Words w, java.util.Set<Integer> visible) {
         Map<String, List<String>> by = new LinkedHashMap<>();
@@ -2289,62 +2335,199 @@ final class ActionReports {
                 case "bottom" -> new String[] {"put", "on the bottom of " + whose + " library"};
                 case "shuffled" -> new String[] {"shuffled", "into " + whose + " library"};
                 case "library" -> new String[] {"put", "into " + whose + " library"};
-                default -> new String[] {"moved", "somewhere"};
+                default -> new String[] {"moved", ""};
             };
             String key = verb[0] + "\u0000" + whose + "\u0000" + verb[1];
             Card card = r.cards.get(move.cardId());
-            if (visible.contains(move.cardId()) && card != null) {
+            if (visible.contains(move.cardId()) && card != null && !card.getName().isBlank()) {
                 by.computeIfAbsent(key, k -> new ArrayList<>()).add(card.getName());
             } else {
                 backs.merge(key, 1, Integer::sum);
             }
         }
-        List<String> parts = new ArrayList<>();
+        List<String[]> parts = new ArrayList<>();
         java.util.Set<String> keys = new java.util.LinkedHashSet<>(by.keySet());
         keys.addAll(backs.keySet());
         for (String key : keys) {
             String[] bits = key.split("\u0000", -1);
-            List<String> names = new ArrayList<>(grouped(by.getOrDefault(key, List.of())));
-            int n = backs.getOrDefault(key, 0);
+            List<String> names = by.getOrDefault(key, List.of());
+            parts.add(new String[] {bits[0], bits[1], bits[2], String.join("\u0000", names),
+                String.valueOf(backs.getOrDefault(key, 0))});
+        }
+        return bouncedWords(w.who(r.actor), parts);
+    }
+
+    /**
+     * Spec 0113 (W1-152) -- the bounce sentence from its parts, each {verb,
+     * whose, place, names joined by NUL, hidden count}: "Bob returned your
+     * Grizzly Bears to your hand.", "Bob put two cards on top of your library."
+     */
+    static String bouncedWords(String who, List<String[]> parts) {
+        List<String> said = new ArrayList<>();
+        for (String[] bits : parts) {
+            List<String> names = bits[3].isEmpty() ? List.of() : List.of(bits[3].split("\u0000"));
+            List<String> what = new ArrayList<>(grouped(names));
+            int n = Integer.parseInt(bits[4]);
             if (n > 0) {
-                names.add(n == 1 ? "a card" : n + " cards");
+                what.add(hiddenWords(n, !names.isEmpty(), false));
             }
             String whose = n == 0 ? bits[1] + " " : "";
-            parts.add(bits[0] + " " + whose + and(names) + " " + bits[2]);
+            said.add(bits[0] + " " + whose + PlainWords.and(what) + (bits[2].isEmpty() ? "" : " " + bits[2]));
         }
-        return w.who(r.actor) + " " + and(parts) + ".";
+        return who + " " + PlainWords.and(said) + ".";
     }
 
-    private static String rest(Report r) {
-        int restCount = r.count - r.moves.size();
-        if (r.moves.isEmpty() || restCount <= 0) {
-            return "";
-        }
-        return " and " + restCount + " on the bottom";
-    }
+    /**
+     * One card's move, for the words: [name] null when this reader may not
+     * know it; [place] where it went ("into their hand"); [faceDownExile] a
+     * card exiled face down (Hideaway), said with no name.
+     */
+    record Went(String name, String place, boolean faceDownExile) {}
 
-    /** "Goblin Matron into their hand", "a card into their hand", "Forest onto the battlefield and Forest into their hand". */
-    private static String destinations(Report r, Words w, java.util.Set<Integer> visible) {
-        Map<String, List<String>> by = new LinkedHashMap<>();
-        Map<String, Integer> backs = new LinkedHashMap<>();
+    /** The moves of a search or a look at the top, in this reader's words. */
+    private static List<Went> went(Report r, Words w, java.util.Set<Integer> visible) {
+        List<Went> out = new ArrayList<>();
         for (Move move : r.moves) {
             String to = r.where.get(move.cardId());
-            String place = placeWords(to, w.whose(move.owner()));
             Card card = r.cards.get(move.cardId());
-            if (visible.contains(move.cardId()) && card != null) {
-                by.computeIfAbsent(place, k -> new ArrayList<>()).add(card.getName());
+            String name = visible.contains(move.cardId()) && card != null && !card.getName().isBlank()
+                    ? card.getName() : null;
+            boolean faceDown = "exile".equals(to) && move.faceDown() && name == null;
+            out.add(new Went(name, placeWords(to, w.whose(move.owner())), faceDown));
+        }
+        return out;
+    }
+
+    /**
+     * Spec 0113 (W1-140, W1-141, W1-142, W1-337) -- "putting an Island into
+     * their graveyard and the other card into their hand", "putting Goblin
+     * Matron into their hand and the other three on the bottom", "exiling one
+     * face down and putting the other three cards on the bottom of their
+     * library". [rest] the cards left on the bottom without a move of their own.
+     */
+    static String putting(List<Went> went, int rest) {
+        Map<String, List<String>> by = new LinkedHashMap<>();
+        Map<String, Integer> backs = new LinkedHashMap<>();
+        int faceDown = 0;
+        for (Went one : went) {
+            if (one.faceDownExile()) {
+                faceDown++;
+            } else if (one.name() == null || one.name().isBlank()) {
+                backs.merge(one.place(), 1, Integer::sum);
             } else {
-                backs.merge(place, 1, Integer::sum);
+                by.computeIfAbsent(one.place(), k -> new ArrayList<>()).add(one.name());
             }
         }
-        List<String> parts = new ArrayList<>();
-        for (Map.Entry<String, List<String>> each : by.entrySet()) {
-            parts.add(and(grouped(each.getValue())) + " " + each.getKey());
+        List<String> doing = new ArrayList<>();
+        if (faceDown > 0) {
+            doing.add("exiling " + PlainWords.number(faceDown) + " face down");
         }
-        for (Map.Entry<String, Integer> each : backs.entrySet()) {
-            parts.add((each.getValue() == 1 ? "a card" : each.getValue() + " cards") + " " + each.getKey());
+        boolean other = faceDown > 0 || !by.isEmpty();
+        List<String> put = new ArrayList<>();
+        by.forEach((place, names) -> put.add(PlainWords.and(grouped(names)) + " " + place));
+        backs.forEach((place, n) -> put.add(hiddenWords(n, other, true) + " " + place));
+        if (rest > 0) {
+            put.add((!backs.isEmpty() ? "the rest" : rest == 1 ? "the other card" : "the other " + PlainWords.number(rest))
+                    + " on the bottom");
         }
-        return and(parts);
+        if (!put.isEmpty()) {
+            doing.add("putting " + PlainWords.and(put));
+        }
+        return PlainWords.and(doing);
+    }
+
+    /**
+     * Spec 0113 (W1-141, W1-142) -- "RudeLeft looked at the top two cards of
+     * their library, putting ..." / "Bob revealed the top card of their
+     * library." ([putting] "" when nothing moved).
+     */
+    static String topWords(String who, String verb, String its, int count, String putting) {
+        return who + " " + verb + " " + topCards(count) + " of " + its + " library"
+                + (putting == null || putting.isEmpty() ? "" : ", " + putting) + ".";
+    }
+
+    /** "the top card", "the top two cards". */
+    static String topCards(int count) {
+        return count == 1 ? "the top card" : "the top " + PlainWords.count(count, "card");
+    }
+
+    /**
+     * Spec 0113 (W1-143) -- "Bob looked at the top three cards of their
+     * library and put them back in the order they chose." / "... the top
+     * card of their library and put it back."
+     */
+    static String reorderWords(String who, String its, int count, boolean you, boolean shuffled) {
+        return who + " looked at " + topCards(count) + " of " + its + " library and put "
+                + (count == 1 ? "it back" : "them back in the order " + (you ? "you" : "they") + " chose")
+                + (shuffled ? ", then shuffled" : "") + ".";
+    }
+
+    /** "it", "both", "them all": the cards of a scry or a surveil kept together. */
+    private static String allOf(int count) {
+        return count == 1 ? "it" : count == 2 ? "both" : "them all";
+    }
+
+    /**
+     * Spec 0113 (W1-144, W1-145) -- "Bob scried 2 and kept both on top.",
+     * "Bob scried 3, keeping one on top and putting two on the bottom."
+     * ("Scry 2" keeps its digit: a printed game term.)
+     */
+    static String scryWords(String who, int count, int top, int bottom) {
+        if (bottom == 0) {
+            return who + " scried " + count + " and kept " + allOf(count) + " on top.";
+        }
+        if (top == 0) {
+            return who + " scried " + count + " and put " + allOf(count) + " on the bottom.";
+        }
+        return who + " scried " + count + ", keeping " + PlainWords.number(top) + " on top and putting "
+                + PlainWords.number(bottom) + " on the bottom.";
+    }
+
+    /**
+     * Spec 0113 (W1-146) -- "Bob surveilled 2, putting an Island into their
+     * graveyard and keeping the other card on top." ([cards] null: none went
+     * to the graveyard; [kept] the cards left on top.)
+     */
+    static String surveilWords(String who, String its, int count, String cards, int kept) {
+        if (cards == null) {
+            return who + " surveilled " + count + " and kept " + allOf(count) + " on top.";
+        }
+        if (kept <= 0) {
+            return who + " surveilled " + count + " and put " + cards + " into " + its + " graveyard.";
+        }
+        return who + " surveilled " + count + ", putting " + cards + " into " + its + " graveyard and keeping "
+                + hiddenWords(kept, true, true) + " on top.";
+    }
+
+    /**
+     * Spec 0113 (W1-149) -- "Alice countered your Grizzly Bears."; a spell the
+     * reader never saw ([cards] null): "Alice countered a spell of yours."
+     */
+    static String counteredWords(String who, String its, String cards) {
+        if (cards == null) {
+            String whose = switch (its) {
+                case "your" -> "yours";
+                case "their" -> "theirs";
+                default -> its;
+            };
+            return who + " countered a spell of " + whose + ".";
+        }
+        return who + " countered " + its + " " + cards + ".";
+    }
+
+    /** Spec 0113 (W1-155) -- a zone in our own words ("hand", "command zone"), never Forge's translated name. */
+    static String zoneWords(ZoneType zone) {
+        return switch (zone) {
+            case Hand -> "hand";
+            case Library -> "library";
+            case Graveyard -> "graveyard";
+            case Exile -> "exile";
+            case Battlefield -> "battlefield";
+            case Command -> "command zone";
+            case Sideboard -> "sideboard";
+            case Stack -> "stack";
+            default -> zone.name().replaceAll("([a-z])([A-Z])", "$1 $2").toLowerCase(java.util.Locale.ROOT);
+        };
     }
 
     /** Spec 0079 -- "Bob's hand", "your graveyard", "exile": where a card the spell aimed at is now. */
@@ -2374,36 +2557,81 @@ final class ActionReports {
         };
     }
 
-    /** "Goblin Piker x3" (the times sign) for three of a name, in the order first met. */
-    private static List<String> grouped(List<String> names) {
+    /**
+     * Spec 0113 (W1-157) -- "Goblin Matron", "an Island", "three Goblin
+     * Pikers", "two copies of Light Up the Stage", in the order first met
+     * (never the times sign inside a sentence).
+     */
+    static List<String> grouped(List<String> names) {
         Map<String, Integer> counts = new LinkedHashMap<>();
         names.forEach(name -> counts.merge(name, 1, Integer::sum));
         List<String> out = new ArrayList<>();
-        counts.forEach((name, n) -> out.add(n == 1 ? name : name + " \u00d7" + n));
+        counts.forEach((name, n) -> out.add(named(name, n)));
         return out;
     }
 
-    /** "A", "A and B", "A, B and C". */
-    private static String and(List<String> parts) {
-        if (parts.isEmpty()) {
-            return "";
-        }
-        if (parts.size() == 1) {
-            return parts.get(0);
-        }
-        return String.join(", ", parts.subList(0, parts.size() - 1)) + " and " + parts.get(parts.size() - 1);
+    /** The basic lands' names: said with "a" / "an" ("an Island"), as a kind of card, not one card's name. */
+    private static final java.util.Set<String> BASICS = java.util.Set.of("Plains", "Island", "Swamp", "Mountain",
+            "Forest", "Wastes", "Snow-Covered Plains", "Snow-Covered Island", "Snow-Covered Swamp",
+            "Snow-Covered Mountain", "Snow-Covered Forest", "Snow-Covered Wastes");
+
+    /** A basic land's name, said with "a" / "an" as a kind of card ("an Island"). */
+    static boolean isBasic(String name) {
+        return BASICS.contains(name);
     }
 
-    private static String cardWords(List<String> named, int hidden) {
-        List<String> parts = grouped(named);
+    /** Spec 0113 (W1-141, W1-157) -- [n] cards of one name: "an Island", "Goblin Matron", "three Goblin Pikers". */
+    static String named(String name, int n) {
+        if (n == 1) {
+            return BASICS.contains(name) ? PlainWords.withArticle(name) : name;
+        }
+        return PlainWords.number(n) + " " + pluralName(name);
+    }
+
+    /** A plain name of capitalised words ("Goblin Piker", "Snow-Covered Island"): its last word can take an "s". */
+    private static final java.util.regex.Pattern PLAIN_NAME =
+            java.util.regex.Pattern.compile("[A-Z][A-Za-z'-]*(?: [A-Z][A-Za-z'-]*){0,3}");
+
+    /** "Goblin Pikers", "Grizzly Bears" (as it is), "Elves"; a name that would read wrong: "copies of Fact or Fiction". */
+    static String pluralName(String name) {
+        if (name.endsWith("s")) {
+            return name;
+        }
+        if (PLAIN_NAME.matcher(name).matches() && !name.contains("'")) {
+            return PlainWords.plural(name);
+        }
+        return "copies of " + name;
+    }
+
+    /**
+     * Spec 0113 (W1-141, W1-157, W1-164) -- cards the reader may not see: "a
+     * card", "two cards"; beside named ones ([other]) "the other card", "the
+     * other two cards" ([the]), else "another card", "two other cards".
+     */
+    static String hiddenWords(int hidden, boolean other, boolean the) {
+        if (!other) {
+            return PlainWords.some(hidden, "card");
+        }
+        if (the) {
+            return hidden == 1 ? "the other card" : "the other " + PlainWords.count(hidden, "card");
+        }
+        return hidden == 1 ? "another card" : PlainWords.number(hidden) + " other cards";
+    }
+
+    /** "Island, Forest and two other cards", "a card", "nothing": a blank name is a hidden card. */
+    static String cardWords(List<String> named, int hidden) {
+        List<String> names = new ArrayList<>();
+        for (String name : named) {
+            if (name == null || name.isBlank()) {
+                hidden++;
+            } else {
+                names.add(name);
+            }
+        }
+        List<String> parts = grouped(names);
         if (hidden > 0) {
-            parts.add(named.isEmpty() ? (hidden == 1 ? "a card" : hidden + " cards")
-                    : hidden + " other " + (hidden == 1 ? "card" : "cards"));
+            parts.add(hiddenWords(hidden, !names.isEmpty(), false));
         }
-        return parts.isEmpty() ? "nothing" : and(parts);
-    }
-
-    private static String plural(int n) {
-        return n == 1 ? "card" : "cards";
+        return parts.isEmpty() ? "nothing" : PlainWords.and(parts);
     }
 }

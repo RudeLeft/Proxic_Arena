@@ -159,7 +159,7 @@ SCENARIOS = {
     "mill": S(actor=1, card="Thought Scour", lands=1,
               decks={2: BEARS, 1: [("Island", 30), ("Thought Scour", 30)]},
               deal={2: BEARS_DEAL, 1: {"hand": ["Island"] * 4 + ["Thought Scour"] * 3, "top": ["Island"] * 3}},
-              target="Bob", said={2: r"^You milled 2 cards\.$"}, silent=[1]),
+              target="Bob", said={2: r"^You milled two cards\.$"}, silent=[1]),
     "unpaid": S(actor=2, card="Lightning Rift", lands=2, rift=True,
                 decks={1: BEARS, 2: [("Mountain", 20), ("Lightning Rift", 10), ("Forgotten Cave", 30)]},
                 deal={1: BEARS_DEAL,

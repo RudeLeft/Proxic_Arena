@@ -166,7 +166,7 @@ function markWords(mark: ReportMark): [string, string] {
 
 /**
  * Spec 0088 (Q3 C) -- an older report folded into one line at the top of the
- * window: its player's medallion, WHO · CARD, the sentence, a small picture
+ * window: its player's medallion, "WHO, with CARD", the sentence, a small picture
  * of its first card. A click opens it in full.
  */
 function ReportRow({
@@ -204,7 +204,7 @@ function ReportRow({
         </span>
         <span className="gs-report-row-words">
           <span className="gs-reveal-by">
-            {who?.name ?? "A player"} · {report.source}
+            {who?.name ?? "A player"}, with {report.source}
           </span>
           <span className="gs-report-row-said">{report.said}</span>
         </span>
@@ -508,7 +508,7 @@ function ReportBody({
             )}
             <div>
               <span className="gs-reveal-by">
-                {who?.name ?? "A player"} · {reveal.source}
+                {who?.name ?? "A player"}, with {reveal.source}
               </span>
               <h2 className="gs-reveal-title gs-reveal-said">{reveal.said}</h2>
               {/* Spec 0057, item 7 -- why: a reveal paid as a cost. */}
@@ -572,7 +572,8 @@ function ReportBody({
           replay?.offered ? (
             // Spec 0103, item 3 -- the foot names the key.
             <span className="gs-reveal-replay-key">
-              {" · "}
+              {/* Spec 0113 (W1-096): a sentence of its own, no " · ". */}
+              {". Press "}
               <kbd className="gs-key">R</kbd> to replay
             </span>
           ) : null

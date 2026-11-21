@@ -4,7 +4,7 @@
 // 1. The host REALLY casts Raging Goblin (a real click on the hand card,
 //    clamped with hitPoint) and pays, the guest holding nothing it could
 //    cast: nobody can answer it. Both pages show its stack card with the
-//    resting ring, and the act line "Resolving · nobody can answer"; then
+//    resting ring, and the act line "Resolving. Nobody can respond."; then
 //    the Goblin is on the battlefield. From each page's own record
 //    (`window.__proxicStackRests`, performance.now() stamps the page writes
 //    when the resting card is first drawn, when it lands and when a board no
@@ -282,8 +282,8 @@ test("a creature nobody can answer rests on the stack with its ring on both page
     expect(goblinCast, "the host really clicked Raging Goblin").toBe(true);
     expect(rings.host, "the host's page showed the ring").not.toBeNull();
     expect(rings.guest, "the guest's page showed the ring").not.toBeNull();
-    expect(rings.guest!.act, "the guest's act line").toContain("Resolving · nobody can answer");
-    expect(rings.host!.act, "the host's act line").toContain("Resolving · nobody can answer");
+    expect(rings.guest!.act, "the guest's act line").toContain("Resolving. Nobody can respond.");
+    expect(rings.host!.act, "the host's act line").toContain("Resolving. Nobody can respond.");
     expect(goblinDown, "the Goblin landed on the battlefield").toBe(true);
     expect(goblin(guestSeen), "the guest's page recorded the resting card").toBeTruthy();
     expect(goblin(hostSeen), "the host's page recorded the resting card").toBeTruthy();

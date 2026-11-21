@@ -208,7 +208,9 @@ describe("each card picked to tap is marked at once and leans (F-0070-A)", () =>
     const picked = cardOnBoard(c, "card:10");
     expect(picked.dataset["payPicked"]).toBe("TAP");
     expect(picked.className).toContain("bf-pay-tap");
-    expect(picked.getAttribute("aria-label")).toContain("picked: tap");
+    expect(picked.getAttribute("aria-label")).toContain(
+      "picked to tap. Click again to take it back.",
+    );
     expect(ribbonOf(c, "card:10")?.textContent).toBe("TAP");
     // Leans as a tapped card does -- never sideways -- and is not tapped yet.
     expect(placeOf(c, "card:10").style.transform).toContain(`rotate(${TAPPED_TILT}deg)`);

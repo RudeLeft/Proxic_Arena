@@ -92,7 +92,7 @@ function openPopOut(name: string): { win: Window; root: HTMLElement } | null {
   }
   if (!win || win.closed) return null;
   const doc = win.document;
-  doc.title = "Game chat · Proxic Arena";
+  doc.title = "Game chat, Proxic Arena";
   doc.documentElement.lang = "en";
   // A window left from before a refresh is emptied and drawn again.
   doc.head.querySelectorAll("[data-proxic-style]").forEach((n) => n.remove());
@@ -416,6 +416,41 @@ export function GameChat({
   );
 }
 
+// A card name is a button, and a line may break after a button, so a comma
+// or "'s" straight after a name could start the next line on its own
+// (", Swamp and Swamp"). Keep that punctuation on the name's line.
+const GLUED = /^(?:['\u2019]s\b|[,.;:!?)]+)/;
+
+function gluePunctuation(
+  parts: PlayLogLine["parts"],
+  render: (p: PlayLogLine["parts"][number], i: number) => ReactNode,
+): ReactNode[] {
+  const out: ReactNode[] = [];
+  let carry = "";
+  parts.forEach((p, i) => {
+    if (typeof p === "string") {
+      const rest = p.slice(carry.length);
+      carry = "";
+      if (rest) out.push(<Fragment key={i}>{rest}</Fragment>);
+      return;
+    }
+    const next = parts[i + 1];
+    const glued = typeof next === "string" ? (GLUED.exec(next)?.[0] ?? "") : "";
+    carry = glued;
+    out.push(
+      glued ? (
+        <span key={i} className="gs-log-glue">
+          {render(p, i)}
+          {glued}
+        </span>
+      ) : (
+        render(p, i)
+      ),
+    );
+  });
+  return out;
+}
+
 function ChatWindow({
   logOnly = false,
   mode,
@@ -470,7 +505,7 @@ function ChatWindow({
         onPointerUp={onUp}
         onPointerCancel={onUp}
       >
-        <span className="gs-cw-title">{logOnly ? "Play log · read-only" : "Game chat"}</span>
+        <span className="gs-cw-title">{logOnly ? "Play log (read only)" : "Game chat"}</span>
         {mode === "docked" && (
           <button
             type="button"
@@ -753,8 +788,9 @@ export function PlayLogView({
                   "Before the game"
                 ) : (
                   <>
-                    Turn {g.turn} · <span className="gs-log-who">{nameOf(g.active)}</span>
-                    {g.active === mySeat && <span className="gs-log-you">your turn</span>}
+                    {/* Spec 0113 (W1-138): "Turn 3, RudeLeft (your turn)". */}
+                    Turn {g.turn}, <span className="gs-log-who">{nameOf(g.active)}</span>
+                    {g.active === mySeat && <span className="gs-log-you">(your turn)</span>}
                   </>
                 )}
               </h3>
@@ -777,7 +813,7 @@ export function PlayLogView({
                     >
                       <span className="gs-log-ic" aria-hidden="true" />
                       <span className="gs-log-text">
-                        {l.parts.map(part)}
+                        {gluePunctuation(l.parts, part)}
                         {l.life?.map((t) => (
                           <span key={t.seat} className="gs-log-total">
                             {nameOf(t.seat)} {t.total}

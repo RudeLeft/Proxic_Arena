@@ -1916,6 +1916,8 @@ public final class GameHost {
             // this seat cannot see: the name stays, the handle goes.
             // Spec 0103, items 1-2 -- a report card's link to the table, only
             // to a card this board shows; then nothing hidden, under any key.
+            // Spec 0113, safety net 2 -- every sentence on the board, tidied.
+            tidyTexts(snapshot, namesToKeep());
             HiddenIds.keepTableLinks(snapshot);
             HiddenIds.strip(snapshot, HiddenIds.hiddenZones(hiddenZones, seat));
             try {
@@ -1982,6 +1984,7 @@ public final class GameHost {
                 PlayLog.keepShownIds(lines, PlayLog.cardIds(everyone));
                 everyone.add("playLog", lines);
             }
+            tidyTexts(everyone, namesToKeep());
             HiddenIds.keepTableLinks(everyone);
             HiddenIds.strip(everyone, HiddenIds.hiddenZones(hiddenZones, null));
             try {
@@ -2244,6 +2247,148 @@ public final class GameHost {
     /** Spec 0097 -- the refusal for [seat]'s question being sent now, once; null when none. */
     public String takeRefused(int seat) {
         return refused.remove(seat);
+    }
+
+    /**
+     * Spec 0113, safety net 2 -- the game's card names the cleanup must not
+     * touch: only those with a bracket or a spaced hyphen in them ("Hazmat
+     * Suit (Used)"), read from Forge's cards. Empty before the game starts.
+     */
+    public java.util.Set<String> namesToKeep() {
+        Game g = game;
+        if (g == null) {
+            return java.util.Set.of();
+        }
+        forge.game.card.CardCollectionView cards = g.getCardsInGame();
+        Object[] cached = keptNames;
+        if (cached != null && cached[0] == g && (Integer) cached[1] == cards.size()) {
+            @SuppressWarnings("unchecked")
+            java.util.Set<String> same = (java.util.Set<String>) cached[2];
+            return same;
+        }
+        java.util.Set<String> keep = new java.util.HashSet<>();
+        for (forge.game.card.Card c : cards) {
+            String n = c.getName();
+            if (n != null && (n.contains("(") || n.contains(" - "))) {
+                keep.add(n);
+            }
+        }
+        keptNames = new Object[] {g, cards.size(), keep};
+        return keep;
+    }
+
+    /** {game, how many cards it had, the names kept}: read again when the game grows. */
+    private volatile Object[] keptNames;
+
+    /**
+     * Spec 0113, safety net 2 -- the cleanup run on every player-visible
+     * sentence a board carries that the worker built from Forge's words: the
+     * report window ({@code action}: its sentence, each gathered one's, a
+     * card's "in Bob's hand"), the reveal tray ({@code reveal}: title,
+     * sentence, why), the stack's and the copies' words ({@code description},
+     * {@code why}), the play log's words (its text pieces, their edge spaces
+     * kept), the notices, the act button's {@code passing} reason, the moves'
+     * and the left stack's {@code why}, the players' command list and a hand
+     * card's {@code costWhy}. Never a card's own fields (name, types, printed
+     * text): those are not walked.
+     */
+    static void tidyTexts(com.google.gson.JsonObject snapshot, java.util.Collection<String> names) {
+        java.util.function.Consumer<com.google.gson.JsonObject> said = o -> tidyField(o, names, "said", "title", "why");
+        com.google.gson.JsonObject action = object(snapshot, "action");
+        if (action != null) {
+            said.accept(action);
+            each(action.get("gathered"), said);
+            each(action.get("cards"), card -> tidyField(card, names, "toSaid"));
+            each(action.get("gathered"), one -> each(one.get("cards"), card -> tidyField(card, names, "toSaid")));
+        }
+        com.google.gson.JsonObject reveal = object(snapshot, "reveal");
+        if (reveal != null) {
+            said.accept(reveal);
+        }
+        for (String list : new String[] {"stack", "copying"}) {
+            each(snapshot.get(list), entry -> tidyField(entry, names, "description", "why"));
+        }
+        each(snapshot.get("moves"), entry -> tidyField(entry, names, "why"));
+        each(snapshot.get("left"), entry -> tidyField(entry, names, "why"));
+        each(snapshot.get("hand"), card -> tidyField(card, names, "costWhy"));
+        com.google.gson.JsonObject passing = object(snapshot, "passing");
+        if (passing != null) {
+            tidyField(passing, names, "why");
+        }
+        tidyStrings(snapshot.get("notices"), names, false);
+        each(snapshot.get("players"), p -> tidyStrings(p.get("command"), names, false));
+        each(snapshot.get("playLog"), line -> tidyStrings(line.get("parts"), names, true));
+    }
+
+    /**
+     * Spec 0113, safety net 2 -- a question's {@code about} (what backing out
+     * undoes): its effect, "then", pay and act words, tidied. A copy: the
+     * subject itself is left as it was. Null stays null.
+     */
+    public com.google.gson.JsonObject tidyAbout(com.google.gson.JsonObject about) {
+        if (about == null) {
+            return null;
+        }
+        com.google.gson.JsonObject copy = about.deepCopy();
+        tidyField(copy, namesToKeep(), "effect", "then", "pay", "act", "from");
+        return copy;
+    }
+
+    private static com.google.gson.JsonObject object(com.google.gson.JsonObject in, String key) {
+        com.google.gson.JsonElement e = in == null ? null : in.get(key);
+        return e != null && e.isJsonObject() ? e.getAsJsonObject() : null;
+    }
+
+    private static void each(com.google.gson.JsonElement list,
+            java.util.function.Consumer<com.google.gson.JsonObject> does) {
+        if (list != null && list.isJsonArray()) {
+            for (com.google.gson.JsonElement e : list.getAsJsonArray()) {
+                if (e.isJsonObject()) {
+                    does.accept(e.getAsJsonObject());
+                }
+            }
+        }
+    }
+
+    private static void tidyField(com.google.gson.JsonObject o, java.util.Collection<String> names, String... keys) {
+        for (String key : keys) {
+            com.google.gson.JsonElement e = o.get(key);
+            if (e != null && e.isJsonPrimitive() && e.getAsJsonPrimitive().isString()) {
+                o.addProperty(key, PlainWords.tidy(e.getAsString(), names));
+            }
+        }
+    }
+
+    /** Each string in [list] tidied; a play-log piece ([piece]) keeps the spaces it is joined by. */
+    private static void tidyStrings(com.google.gson.JsonElement list, java.util.Collection<String> names,
+            boolean piece) {
+        if (list == null || !list.isJsonArray()) {
+            return;
+        }
+        com.google.gson.JsonArray a = list.getAsJsonArray();
+        for (int i = 0; i < a.size(); i++) {
+            com.google.gson.JsonElement e = a.get(i);
+            if (e.isJsonPrimitive() && e.getAsJsonPrimitive().isString()) {
+                a.set(i, new com.google.gson.JsonPrimitive(piece ? tidyPiece(e.getAsString(), names)
+                        : PlainWords.tidy(e.getAsString(), names)));
+            }
+        }
+    }
+
+    /** " drew " stays " drew ": tidied inside, its edge spaces (one each) kept. */
+    static String tidyPiece(String text, java.util.Collection<String> names) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+        String inner = PlainWords.tidy(text, names);
+        boolean lead = Character.isWhitespace(text.charAt(0));
+        boolean trail = Character.isWhitespace(text.charAt(text.length() - 1));
+        return (lead ? " " : "") + inner + (trail ? " " : "");
+    }
+
+    /** {@link PlainWords#tidy} with this game's card names kept whole. */
+    public String tidy(String text) {
+        return PlainWords.tidy(text, namesToKeep());
     }
 
     /** Phase 9 Amendment 13 (items 8, 9) -- the mana still due, "{1}{R}", for

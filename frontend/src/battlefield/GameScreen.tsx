@@ -42,6 +42,15 @@ import { FitName } from "../FitName";
 import { Sight } from "./Sight";
 import { extraWords } from "./SpellMarks";
 import {
+  andList,
+  capital,
+  capitalNumber,
+  countWords,
+  manaTextWords,
+  numberWord,
+  ordinalWord,
+} from "../words";
+import {
   EMPTY_MATCH,
   concessionText,
   awayEndText,
@@ -2909,7 +2918,7 @@ export function GameScreen({
                       <span
                         key={id}
                         className="gs-hand-num"
-                        aria-label={`Number ${i + 1}`}
+                        aria-label={handNumberWords(i + 1)}
                         style={{ left: box.x + box.w / 2, top: box.y }}
                       >
                         {i + 1}
@@ -3006,7 +3015,7 @@ export function GameScreen({
           {watching ? (
             board && (
               <SwitchSides
-                from={board.players.find((p) => p.seat === board.seat)?.name ?? "one player"}
+                from={board.players.find((p) => p.seat === board.seat)?.name ?? null}
                 onSwitch={switchSides}
               />
             )
@@ -3145,7 +3154,7 @@ function nameOf(board: Snapshot | null, id: string): string {
   if (!board) return id;
   if (id.startsWith("player:")) {
     const seat = Number(id.slice("player:".length));
-    return board.players.find((p) => p.seat === seat)?.name ?? `Seat ${seat}`;
+    return board.players.find((p) => p.seat === seat)?.name ?? "the other player";
   }
   const stackEntry = board.stack.find((entry) => entry.id === id);
   if (stackEntry) return stackEntry.name;
@@ -3242,10 +3251,13 @@ function StepLadder({
   // Owner 2026-10-29: "Your turn" and "Opponent's turn", not a name --
   // except to a spectator (spec 0047), whose turn it is nobody's.
   const whose = board.spectator
-    ? `${board.players.find((p) => p.seat === board.activeSeat)?.name ?? "Their"}’s turn`
+    ? (() => {
+        const name = board.players.find((p) => p.seat === board.activeSeat)?.name;
+        return name ? `${name}’s turn` : "Their turn";
+      })()
     : mine
       ? "Your turn"
-      : "Opponent’s turn";
+      : "Your opponent’s turn";
   const part = combatPart(board.phase);
   // The passed gems fill in order as the gem goes over them.
   const delayOf = (i: number) =>
@@ -3268,9 +3280,13 @@ function StepLadder({
             {/* §6.70 — after a restart, say which game this is, or "turn 1"
               reads as the game having gone backwards. */}
             {board.gameEpoch > 1 && (
-              <span className="gs-day gs-game" title="The game was restarted">
+              <span
+                className="gs-day gs-game"
+                title="The game was restarted"
+                data-game={board.gameEpoch}
+              >
                 {" "}
-                · Game {board.gameEpoch}
+                (Game {board.gameEpoch})
               </span>
             )}
           </span>
@@ -3297,11 +3313,11 @@ function StepLadder({
           tabIndex={0}
           aria-label={
             watchers.length > 0
-              ? `${watching} watching: ${watchers.join(", ")}`
-              : `${watching} watching`
+              ? `${capitalNumber(watching)} watching: ${andList(watchers)}`
+              : `${capitalNumber(watching)} watching`
           }
         >
-          {`${watching} watching`}
+          {`${capitalNumber(watching)} watching`}
         </span>
       )}
       {/* Spec 0067 -- pointing at (or focusing) the pill opens who, beside
@@ -3430,11 +3446,49 @@ export function endingWords(
   );
 }
 
+/** Spec 0113 (W1-287) -- a pile's size, said: "empty", "one card", "seven cards", "40 cards". */
+export function pileWords(count: number): string {
+  return count === 0 ? "empty" : countWords(count, "card");
+}
+
+/**
+ * Spec 0113 (W1-307) -- who a plate is, said first: "Alice, you. It's your
+ * turn and you can act." / "Bob, your opponent." / "Alice." (a spectator's).
+ */
+export function plateWords({
+  name,
+  who,
+  active,
+  priority,
+}: {
+  name: string;
+  who: "you" | "opponent" | "player";
+  active: boolean;
+  priority: boolean;
+}): string {
+  const head =
+    who === "you" ? `${name}, you.` : who === "opponent" ? `${name}, your opponent.` : `${name}.`;
+  const subject = who === "you" ? "you" : "they";
+  const turn =
+    who === "you"
+      ? "It's your turn"
+      : who === "opponent"
+        ? "It's their turn"
+        : `It's ${name}'s turn`;
+  const act = `${subject} can act`;
+  if (active && priority) return `${head} ${turn} and ${act}.`;
+  if (active) return `${head} ${turn}.`;
+  if (priority) return `${head} ${capital(act)}.`;
+  return head;
+}
+
 export function libraryWords(count: number, whose: string | null): string | null {
-  const next = whose === null ? "your next draw" : `${whose}’s next draw`;
-  if (count === 0) return `Empty: ${next} loses the game`;
+  if (count === 0)
+    return whose === null
+      ? "Empty: you lose if you have to draw"
+      : `Empty: ${whose} loses if they have to draw`;
   if (count <= 3)
-    return `${count} ${count === 1 ? "card" : "cards"} left: drawing from an empty library loses the game`;
+    return `${capital(countWords(count, "card"))} left. Drawing from an empty library loses the game.`;
   return null;
 }
 
@@ -3644,7 +3698,12 @@ function SeatBlock({
   // just the name and the Belt; the gold ring on the life says whose turn).
   // Spec 0067 -- a spectator is nobody's "you" or "opponent".
   // Spec 0092 -- who has priority is said here only: the dot under the name is gone.
-  const role = `${board.spectator ? "player" : mine ? "you" : "opponent"}${active ? ", active turn" : ""}${priority ? ", has priority" : ""}`;
+  const said = plateWords({
+    name: player.name,
+    who: board.spectator ? "player" : mine ? "you" : "opponent",
+    active,
+    priority,
+  });
   const visibleHand = board.otherHands.filter((card) => card.seat === player.seat);
   // Spec 0082 -- a spell prepared on a creature is drawn on it, not in the pile.
   const exiled = exilePile(board).filter((card) => card.seat === player.seat).length;
@@ -3697,6 +3756,8 @@ function SeatBlock({
       className={`gs-seat gs-seat-${mine ? "viewer" : "opponent"}${active ? " gs-seat-active" : ""}${deciding ? " gs-seat-deciding" : ""}${end ? ` gs-seat-${end.role}` : ""}`}
       data-seat={player.seat}
       data-end={end ? `${end.role}:${end.how}` : undefined}
+      data-library={player.libraryCount}
+      data-priority={priority ? "true" : undefined}
     >
       <span ref={runRef} className="gs-seat-run" aria-hidden="true" />
       {/* Spec 0100, item 6 (round 2 Q5 A) -- the Curses on this player. */}
@@ -3705,9 +3766,11 @@ function SeatBlock({
       <ControlChain player={player} board={board} />
       {end?.role === "won" && <span ref={flareRef} className="gs-seat-flare" aria-hidden="true" />}
       <span className="pa-visually-hidden">
-        {player.name} ({role}): {life} life
-        {shown.poison > 0 ? `, ${shown.poison} poison` : ""}, {player.handCount} in hand,{" "}
-        {player.libraryCount} in library, {player.graveyardCount} in graveyard, {exiled} in exile.
+        {said} {life} life
+        {shown.poison > 0 ? `, ${countWords(shown.poison, "poison counter")}` : ""},{" "}
+        {countWords(player.handCount, "card")} in hand, {countWords(player.libraryCount, "card")} in
+        library, {countWords(player.graveyardCount, "card")} in graveyard and{" "}
+        {countWords(exiled, "card")} in exile.
       </span>
       <div className="gs-seat-head">
         <span className="gs-life-face">
@@ -3783,7 +3846,7 @@ function SeatBlock({
           <span className="gs-life-n">{life}</span>
           {chosenTarget && (
             <span className="gs-life-target" aria-hidden="true">
-              TARGET
+              Target
             </span>
           )}
         </button>
@@ -3798,7 +3861,7 @@ function SeatBlock({
           from the top edge; its count stays here for screen readers. */}
       {!mine && (
         <p className="pa-visually-hidden">
-          {`${player.name}'s hand, ${player.handCount} cards${visibleHand.length ? `, ${visibleHand.length} visible to you` : ""}`}
+          {`${player.name}'s hand, ${pileWords(player.handCount)}${visibleHand.length ? `, ${numberWord(visibleHand.length)} visible to you` : ""}`}
         </p>
       )}
       <div className="gs-zones">
@@ -3810,7 +3873,7 @@ function SeatBlock({
             libraryWords(player.libraryCount, mine && !board.spectator ? null : player.name) ??
             "Library"
           }
-          aria-label={`${player.name}'s library, ${player.libraryCount} cards${libraryWarning(player.libraryCount) ? `. ${libraryWords(player.libraryCount, mine && !board.spectator ? null : player.name)}` : ""}`}
+          aria-label={`${player.name}'s library, ${pileWords(player.libraryCount)}${libraryWarning(player.libraryCount) ? `. ${libraryWords(player.libraryCount, mine && !board.spectator ? null : player.name)}` : ""}`}
           data-warning={libraryWarning(player.libraryCount) ?? undefined}
           data-zone-tile={`${mine ? "viewer" : "opponent"}:library`}
           onMouseEnter={mine && !board.spectator ? () => setPointingLibrary(true) : undefined}
@@ -3837,7 +3900,7 @@ function SeatBlock({
           type="button"
           className={`gs-zone${glows.graveyard ? " gs-zone-playable" : ""}`}
           title="Graveyard"
-          aria-label={`${player.name}'s graveyard, ${player.graveyardCount} cards${glows.graveyard ? ", with cards that may be played from it" : ""}`}
+          aria-label={`${player.name}'s graveyard, ${pileWords(player.graveyardCount)}${glows.graveyard ? ", with cards that may be played from it" : ""}`}
           onClick={() => onView({ seat: player.seat, zone: "graveyard" })}
           data-zone-tile={`${mine ? "viewer" : "opponent"}:graveyard`}
           data-playable={glows.graveyard ? "true" : undefined}
@@ -3851,7 +3914,7 @@ function SeatBlock({
           type="button"
           className={`gs-zone${glows.exile ? " gs-zone-playable" : ""}`}
           title="Exile"
-          aria-label={`${player.name}'s exile, ${exiled} cards${glows.exile ? ", with cards that may be played from it" : ""}`}
+          aria-label={`${player.name}'s exile, ${pileWords(exiled)}${glows.exile ? ", with cards that may be played from it" : ""}`}
           onClick={() => onView({ seat: player.seat, zone: "exile" })}
           data-zone-tile={`${mine ? "viewer" : "opponent"}:exile`}
           data-playable={glows.exile ? "true" : undefined}
@@ -4336,7 +4399,7 @@ function Rail({
         <ul className="gs-combat-options">
           <li>
             <button type="button" className="gs-act-all" disabled={busy} onClick={combat.onAll}>
-              All attack
+              {ATTACK_ALL_WORDS}
             </button>
           </li>
         </ul>
@@ -4348,15 +4411,12 @@ function Rail({
           type="button"
           className="gs-act gs-act-combat gs-act-waiting"
           disabled
-          aria-label={`${combat.marked} selected. Click what they ${combat.kind === "declareAttackers" ? "attack" : "block"}, or press Escape to unselect them.`}
+          aria-label={markedWords(combat.marked, combat.kind).aria}
         >
           <Coin emblem={combat.kind === "declareAttackers" ? "sword" : "shield"} />
           <span className="gs-act-text">
-            <span className="gs-act-word">{combat.marked} selected</span>
-            <span className="gs-act-sub">
-              Click what they {combat.kind === "declareAttackers" ? "attack" : "block"} · Esc
-              unselects
-            </span>
+            <span className="gs-act-word">{markedWords(combat.marked, combat.kind).word}</span>
+            <span className="gs-act-sub">{markedWords(combat.marked, combat.kind).sub}</span>
           </span>
         </button>
       ) : (
@@ -4391,7 +4451,7 @@ function Rail({
       <Coin emblem="cancel" />
       <span className="gs-act-text">
         <span className="gs-act-word">{cancel.word}</span>
-        <span className="gs-act-sub">{cancel.sub} · Esc</span>
+        <span className="gs-act-sub">{cancel.sub} (Esc)</span>
       </span>
     </button>
   ) : myPriority && countdown !== null ? (
@@ -4404,15 +4464,13 @@ function Rail({
         className="gs-act gs-act-window"
         disabled={busy}
         onClick={() => onAnswer(null)}
-        aria-label={`Pass: Resolve ${top?.name ?? "it"} now, or in ${countdown}.`}
+        aria-label={resolveWords(top?.name ?? null, countdown).aria}
       >
         {/* Keyed: a new spell on top starts its ring again. */}
         <Coin key={top?.id} emblem="resolve" seconds={countdown} />
         <span className="gs-act-text">
-          <span className="gs-act-word">Resolves in {countdown}</span>
-          <span className="gs-act-sub">
-            {top ? `Your ${top.name}` : "Yours"} · click to resolve now
-          </span>
+          <span className="gs-act-word">{resolveWords(top?.name ?? null, countdown).word}</span>
+          <span className="gs-act-sub">{resolveWords(top?.name ?? null, countdown).sub}</span>
         </span>
       </button>
       {/* Amendment 13 (item 1) -- the circle pauses the countdown. Its own
@@ -4477,7 +4535,7 @@ function Rail({
       <Coin emblem="wait" />
       <span className="gs-act-text">
         <span className="gs-waiting-word">Passing</span>
-        <span className="gs-waiting-sub">Nothing to play · {passing.why}</span>
+        <span className="gs-waiting-sub">Nothing to play: {passing.why}</span>
       </span>
     </div>
   ) : waiting ? (
@@ -4654,7 +4712,7 @@ function ControlChain({ player, board }: { player: SnapshotPlayer; board: Snapsh
         </span>
       )}
       <span className="pa-visually-hidden">
-        {by} is playing this turn{from ? ` (${from.name})` : ""}.
+        {capital(by)} is playing this turn{from ? ` (${from.name})` : ""}.
       </span>
     </span>
   );
@@ -4726,7 +4784,7 @@ function QuestionBar({
         disabled={busy}
         onClick={() => onAnswer(o.actionId)}
       >
-        <ManaText text={o.label ?? o.actionId} />
+        <ManaText text={o.label ?? "This choice"} />
         {!o.payable && <span className="gs-option-note"> (not enough mana right now)</span>}
       </button>
     </li>
@@ -4783,7 +4841,7 @@ function QuestionBar({
                     faceDown={card.faceDown}
                     known={card.known}
                   />
-                  {chosen && <span className="bf-state">CHOSEN</span>}
+                  {chosen && <span className="bf-state">Chosen</span>}
                 </button>
                 {pick && <Breath />}
               </li>
@@ -5013,19 +5071,61 @@ interface CombatButton {
   notice: string | null;
 }
 
+/** Spec 0113 (W1-045) -- the button that selects every creature that can attack. */
+export const ATTACK_ALL_WORDS = "Attack with everything";
+
+/** Spec 0113 (W1-042) -- the combat button while some are selected and not yet pointed. */
+export function markedWords(
+  marked: number,
+  kind: string,
+): { word: string; sub: string; aria: string } {
+  const verb = kind === "declareAttackers" ? "attack" : "block";
+  const word = `${capitalNumber(marked)} selected`;
+  return {
+    word,
+    sub: `Click what they ${verb}, or press Esc to unselect them`,
+    aria: `${word}. Click what they ${verb}, or press Escape to unselect them.`,
+  };
+}
+
+/**
+ * Spec 0113 (W1-040, W1-292) -- your own spell's countdown on the act
+ * button: the word keeps the ring's number ("Resolves in 3"); the line
+ * under it, and what a screen reader hears, in words.
+ */
+export function resolveWords(
+  name: string | null,
+  countdown: number,
+): { word: string; sub: string; aria: string } {
+  return {
+    word: `Resolves in ${countdown}`,
+    sub: `${name ? `Your ${name}` : "Yours"}. Click to resolve it now.`,
+    aria: `Pass: Resolve ${name ?? "it"} now, or in ${countWords(countdown, "second")}.`,
+  };
+}
+
+/** Spec 0113 (W1-308) -- a hand card's place in the order being chosen: "First in the order". */
+export function handNumberWords(place: number): string {
+  return `${capital(ordinalWord(place))} in the order`;
+}
+
 /**
  * What the combat button says (AMENDMENT 13, owner 2026-10-22): what
  * pressing it does, and how many are in -- "No attacks", then "Attack (2)"
  * as creatures are clicked; the same for blocks.
  */
-function combatWords(kind: string, board: Snapshot, mySeat: number): { word: string; sub: string } {
+export function combatWords(
+  kind: string,
+  board: Snapshot,
+  mySeat: number,
+): { word: string; sub: string } {
   if (kind === "declareAttackers") {
     const attacking = board.battlefield.filter((c) => c.attacking && c.seat === mySeat);
     // Spec 0034: and their total power.
     return attacking.length > 0
       ? {
-          word: `Attack with ${attacking.length}`,
-          sub: `${totalPower(attacking)} power · select more, or click one to take it back`,
+          word: `Attack with ${numberWord(attacking.length)}`,
+          sub: `${totalPower(attacking)} power. Select more, or click one to take it back.`,
         }
       : { word: "No attacks", sub: "Select creatures, then click what they attack" };
   }
@@ -5033,7 +5133,7 @@ function combatWords(kind: string, board: Snapshot, mySeat: number): { word: str
   const through = unblockedPower(board);
   return n > 0
     ? {
-        word: `Block with ${n}`,
+        word: `Block with ${numberWord(n)}`,
         sub:
           through === null
             ? "Select more, or click a blocker to take it back"
@@ -5261,7 +5361,7 @@ export function ActionPopup({
                   ref={i === 0 ? first : undefined}
                   type="button"
                   className={`gs-option gs-ab${o.payable ? "" : " gs-option-unpayable"}`}
-                  aria-label={`${o.label ?? o.actionId}${o.payable ? "" : ", not enough mana right now"}`}
+                  aria-label={`${o.label ? manaTextWords(o.label) : "This choice"}${o.payable ? "" : ", not enough mana right now"}`}
                   disabled={busy}
                   onClick={() => onChoose(o.actionId)}
                 >
@@ -5420,7 +5520,7 @@ export function Inspect({
                     </s>
                   )}
                   {card.power}/{card.toughness}
-                  {card.damage > 0 && ` · ${card.damage} damage`}
+                  {card.damage > 0 && `, with ${card.damage} damage`}
                 </p>
               )}
               {card.keywords.length > 0 && <p>{withSymbols(card.keywords.join(", "))}</p>}
@@ -5668,7 +5768,7 @@ export function StackInspect({
             {copies > 1 && (
               <>
                 <dt>Copies</dt>
-                <dd>{copies} the same, resolving one after another</dd>
+                <dd>{capitalNumber(copies)} copies, resolving one after another</dd>
               </>
             )}
           </dl>
@@ -5687,13 +5787,6 @@ export function StackInspect({
       </div>
     </div>
   );
-}
-
-/** "2nd", "3rd", "11th". */
-function ordinalWord(n: number): string {
-  const tens = n % 100;
-  if (tens >= 11 && tens <= 13) return `${n}th`;
-  return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
 }
 
 /**
@@ -5748,8 +5841,12 @@ export function ZoneViewer({
   // Amendment 18 -- Space or Peek fades this window too.
   const peek = usePeek(true);
   useEffect(() => close.current?.focus({ preventScroll: true }), []);
-  const whose = (s: number) =>
-    s === mySeat ? "Your" : `${board.players.find((p) => p.seat === s)?.name ?? "Their"}'s`;
+  // Spec 0113 (W1-288): "Their graveyard" when the name is missing, never "Their's".
+  const whose = (s: number) => {
+    if (s === mySeat) return "Your";
+    const name = board.players.find((p) => p.seat === s)?.name;
+    return name ? `${name}'s` : "Their";
+  };
   const pile = (s: number, z: ZoneName) =>
     (z === "graveyard"
       ? board.graveyard
@@ -5766,7 +5863,7 @@ export function ZoneViewer({
   );
   const count = pile(seat, zone).length;
   const title =
-    zone === "hand" ? `${whose(seat)} hand, as far as you may see it` : `${whose(seat)} ${zone}`;
+    zone === "hand" ? `${whose(seat)} hand: the cards you can see` : `${whose(seat)} ${zone}`;
   // Your piles first, then theirs; a hand only when it is the one open.
   const seats = [...board.players]
     .sort((a, b) => Number(b.seat === mySeat) - Number(a.seat === mySeat))
@@ -5790,7 +5887,7 @@ export function ZoneViewer({
         <div className="gs-ztray-head">
           <h2 className="gs-viewer-title">{title}</h2>
           <span className="gs-ztray-count">
-            {count === 0 ? "empty" : `${count} card${count === 1 ? "" : "s"} · newest first`}
+            {count === 0 ? "Empty" : `${capital(countWords(count, "card"))}, newest first`}
           </span>
           <button
             ref={close}
@@ -5835,7 +5932,7 @@ export function ZoneViewer({
                   data-object-id={card.id}
                   data-choosable={casts ? "true" : undefined}
                   aria-label={[
-                    `${card.name}${copies > 1 ? ` ×${copies}` : ""}`,
+                    `${card.name}${copies > 1 ? `, ${numberWord(copies)} copies` : ""}`,
                     card.types,
                     ...notes,
                     casts ? "you may play it now" : "",
@@ -6200,11 +6297,17 @@ function SpectatingChip({ names, onStop }: { names: string[]; onStop: () => void
 }
 
 /** Spec 0067 (checklist 7) -- bottom left: which side you look from, and the switch. */
-function SwitchSides({ from, onSwitch }: { from: string; onSwitch: () => void }) {
+function SwitchSides({ from, onSwitch }: { from: string | null; onSwitch: () => void }) {
   return (
     <span className="gs-spectating gs-switch-sides">
       <span>
-        From <b>{from}</b>’s side
+        {from ? (
+          <>
+            From <b>{from}</b>’s side
+          </>
+        ) : (
+          "From this side"
+        )}
       </span>
       <button type="button" className="gs-switch-sides-button" onClick={onSwitch}>
         Switch sides

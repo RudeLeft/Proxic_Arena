@@ -228,7 +228,7 @@ test("Appetite for Brains with one card that fits: the host clicks it; the guest
           }
         }
         // Step 3 -- the host's plain reveal (nothing to take), kept past the turn line.
-        const revealed = windowSaying(page, /Appetite for Brains revealed/);
+        const revealed = windowSaying(page, /Revealed by Appetite for Brains/);
         if (isHost && casts >= 2 && (await revealed.count()) > 0) {
           const turn = await turnOf(page);
           if (!reveal) {
@@ -283,7 +283,7 @@ test("Appetite for Brains with one card that fits: the host clicks it; the guest
         // Any other window this test is not about: closed.
         const other = page
           .locator(".gs-reveal")
-          .filter({ hasNotText: /exiled your Hill Giant|Appetite for Brains revealed/ })
+          .filter({ hasNotText: /exiled your Hill Giant|Revealed by Appetite for Brains/ })
           .locator(".gs-reveal-close");
         if ((await other.count()) > 0) {
           await clickNow(other);
@@ -411,7 +411,7 @@ test("Appetite for Brains with one card that fits: the host clicks it; the guest
     expect(read.filter((r) => r.name !== "Hill Giant").every((r) => r.disabled && !r.lit)).toBe(
       true,
     );
-    expect(tray!["text"], "whose hand, in the tray's words").toContain("hand.");
+    expect(tray!["text"], "whose hand, in the tray's words").toMatch(/Look at .+’s hand/);
     expect(tray!["text"], "the card's own words").toContain("mana value 4 or greater");
     expect(tray!["text"]).not.toMatch(/Forge/);
     expect(tray!["guestTrays"], "the guest's page has no tray for the host's choice").toBe(0);
@@ -427,7 +427,7 @@ test("Appetite for Brains with one card that fits: the host clicks it; the guest
     expect(reveal, "the second Appetite: the host's plain reveal of the hand").not.toBeNull();
     expect(revealLater, "the reveal is still there after the next turn begins").toBe(true);
     expect(revealClosed, "the host really closed it").toBe(true);
-    await expect(windowSaying(host, /Appetite for Brains revealed/)).toHaveCount(0);
+    await expect(windowSaying(host, /Revealed by Appetite for Brains/)).toHaveCount(0);
     // Step 4 (owner 2026-11-19, "Ask her too"): the half, asked with one option, clicked.
     expect(agentCast, "the host cast Shardless Agent").toBe(true);
     expect(half, "the host was asked which half of Giant Killer to cast").not.toBeNull();

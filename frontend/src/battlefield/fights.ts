@@ -22,6 +22,7 @@
 import type { Box } from "./layout";
 import type { Point } from "./motion";
 import { paced } from "./motion";
+import { andList, numberWord } from "../words";
 
 /** What a hit or a fight points at: a permanent, or a player. */
 export type FightRef = { object: string } | { player: number };
@@ -209,16 +210,23 @@ const shifted = (b: Box, dx: number, dy: number): Box => ({ ...b, x: b.x + dx, y
 /** How far a card's tilt pushes its corners past its box's top or bottom. */
 const tiltReach = (b: Box) => (b.rotation ? (b.w / 2) * Math.sin(TILT_RAD) + 1 : 1);
 
-/** "two Grizzly Bears", "Grizzly Bears and Llanowar Elves". */
+/**
+ * Spec 0113 (W1-303, W1-304) -- some of one card, said: "Hill Giant", "two
+ * copies of Hill Giant", "three Goblin tokens" (a token's name made plural),
+ * "12 copies of Hill Giant".
+ */
+export function manyOf(name: string, n: number): string {
+  if (n <= 1) return name;
+  const token = / Token$/.exec(name);
+  if (token) return `${numberWord(n)} ${name.slice(0, token.index)} tokens`;
+  return `${numberWord(n)} copies of ${name}`;
+}
+
+/** "two copies of Grizzly Bears", "Grizzly Bears and Llanowar Elves". */
 function listOf(cards: readonly Stand[]): string {
   const counts = new Map<string, number>();
   for (const c of cards) counts.set(c.name, (counts.get(c.name) ?? 0) + c.count);
-  const words = [...counts].map(([name, n]) =>
-    n === 1 ? name : `${n === 2 ? "two" : n === 3 ? "three" : String(n)} ${name}`,
-  );
-  return words.length <= 1
-    ? (words[0] ?? "")
-    : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+  return andList([...counts].map(([name, n]) => manyOf(name, n)));
 }
 
 /**
@@ -235,27 +243,27 @@ export function captionOf(
   firstStrike: boolean,
   viewerName: string | null = null,
 ): string {
-  const lead = firstStrike ? "First strike" : "Damage";
-  const many = attacker.count > 1 ? `${attacker.count} ` : "";
+  const lead = firstStrike ? "First strike:" : "Damage:";
+  const them = manyOf(attacker.name, attacker.count);
   // Spec 0067 -- a spectator is nobody's "you": every side by name.
   if (viewerName) {
     const nameOf = (seat: number) => (seat === viewerSeat ? viewerName : opponentName);
-    const who = `${nameOf(attacker.seat)}'s ${many}${attacker.name}`;
+    const who = `${nameOf(attacker.seat)}'s ${them}`;
     if (blockers.length > 0) {
-      return `${lead} · ${who} against ${nameOf(blockers[0]!.seat)}'s ${listOf(blockers)}`;
+      return `${lead} ${who} against ${nameOf(blockers[0]!.seat)}'s ${listOf(blockers)}`;
     }
-    if ("player" in defender) return `${lead} · ${who} hit ${nameOf(defender.player)}`;
+    if ("player" in defender) return `${lead} ${who} hit ${nameOf(defender.player)}`;
     const theirs = /^The /.test(defender.name) ? "" : `${nameOf(defender.seat)}'s `;
-    return `${lead} · ${who} hit ${theirs}${defender.name}`;
+    return `${lead} ${who} hit ${theirs}${defender.name}`;
   }
   const mine = attacker.seat === viewerSeat;
   if (blockers.length > 0) {
     const whose = blockers[0]!.seat === viewerSeat ? "your" : "their";
-    return `${lead} · ${mine ? "your" : "the"} ${many}${attacker.name} against ${whose} ${listOf(blockers)}`;
+    return `${lead} ${mine ? "your" : "the"} ${them} against ${whose} ${listOf(blockers)}`;
   }
-  const who = mine ? `your ${many}${attacker.name}` : `${opponentName}'s ${many}${attacker.name}`;
+  const who = mine ? `your ${them}` : `${opponentName}'s ${them}`;
   if ("player" in defender) {
-    return `${lead} · ${who} hit ${defender.player === viewerSeat ? "you" : opponentName}`;
+    return `${lead} ${who} hit ${defender.player === viewerSeat ? "you" : opponentName}`;
   }
   // "your Jace", but "The Wandering Emperor" as it is.
   const whose = /^The /.test(defender.name)
@@ -263,7 +271,7 @@ export function captionOf(
     : defender.seat === viewerSeat
       ? "your "
       : "their ";
-  return `${lead} · ${who} hit ${whose}${defender.name}`;
+  return `${lead} ${who} hit ${whose}${defender.name}`;
 }
 
 const still = (at: number, bright = 1): Pose => ({ at, dx: 0, dy: 0, r: 0, s: 1, red: 0, bright });

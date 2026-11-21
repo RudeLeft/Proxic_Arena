@@ -285,8 +285,9 @@ def countered():
 # --- passed -------------------------------------------------------------------
 
 # Spec 0097, item 2 -- the board's why, for the act button's "Nothing to play · ...".
-WHY = re.compile(r"^(No lands|1 land|\d+ lands), "
-                 r"(no land in hand|you've already played a land this turn|no land you can play)$")
+# Spec 0113 (W1-246): "Two lands; no land in hand".
+WHY = re.compile(r"^(No lands|One land|\w+ lands); "
+                 r"(no land in hand|a land already played this turn|no land you can play)$")
 
 
 def passing_now(s):

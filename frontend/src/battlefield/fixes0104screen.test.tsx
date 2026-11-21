@@ -228,11 +228,11 @@ describe("F-0104-G · one card fits: it is lit, the rest dimmed with the game's 
       "mana value 2",
     ]);
     // The tray's words: whose hand, and the card's own words (its name is the tray's line).
-    expect(c.textContent).toContain("Look at Bob’s hand.");
+    expect(c.textContent).toContain("Look at Bob’s hand");
     expect(c.textContent).toContain(
       "You choose a card from it with mana value 4 or greater and exile that card.",
     );
-    expect(c.textContent).toContain("Appetite for Brains · only you see these");
+    expect(c.textContent).toContain("Appetite for Brains: only you can see these");
     // Owner 2026-11-19: the hand's window is the wide tray (seven cards in one row at 1920x1080).
     const tray = c.querySelector<HTMLElement>(".gs-tray")!;
     expect(parseFloat(tray.style.maxWidth)).toBeCloseTo(

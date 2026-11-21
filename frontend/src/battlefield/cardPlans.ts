@@ -10,6 +10,7 @@
 // W-06's rule: nothing is answered without the player's click).
 
 import type { Decision, Snapshot, SnapshotCard } from "../match";
+import { capital, ordinalWord } from "../words";
 
 /** One answer to a question still to come. */
 export type PlanStep =
@@ -133,7 +134,7 @@ export function askingName(board: Snapshot, decision: Decision): string | null {
 export function plainPrompt(prompt: string | null, asking: string | null): string | null {
   if (!prompt) return null;
   let words = prompt
-    .replace(/\s*-?\s*(Looking at cards in|You are looking at:)[\s\S]*$/, "")
+    .replace(/\s*-?\s*(Looking at cards in|You are looking at:?)[\s\S]*$/, "")
     .trim();
   if (asking && words.endsWith(` ${asking}`)) words = words.slice(0, -asking.length).trim();
   // Spec 0104 -- "Appetite for Brains: You choose a card ...": the tray's
@@ -193,15 +194,18 @@ export function cardGroups(
   return [...sorted, ...others];
 }
 
-/** "Top card", "2nd from the top", … -- where a numbered card ends up. */
+/**
+ * "Top card", "Second from the top", … -- where a numbered card ends up.
+ * Spec 0113 (W1-064): the place in words ("Second", "11th"), "Nearest the
+ * top" for the highest of cards put on the bottom.
+ */
 export function placeWords(index: number, to: string | null, first: string | null): string {
-  const nth = (n: number) =>
-    `${n}${n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th"}`;
+  const nth = (n: number) => capital(ordinalWord(n));
   if (to === "top") return index === 0 ? "Top card" : `${nth(index + 1)} from the top`;
   if (to === "bottom" && first === "bottom")
     return index === 0 ? "Very bottom" : `${nth(index + 1)} from the bottom`;
-  if (to === "bottom") return index === 0 ? "Highest of them" : `${nth(index + 1)} down`;
-  return `${nth(index + 1)} in`;
+  if (to === "bottom") return index === 0 ? "Nearest the top" : `${nth(index + 1)} down`;
+  return nth(index + 1);
 }
 
 /** The defending player, among the damage question's options. */

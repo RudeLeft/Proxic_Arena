@@ -143,7 +143,7 @@ test("a third player spectates: Starting…, Spectate, the log, Switch sides, a 
 
     // F-0067-H: the players see one person watching, and pointing lists who.
     for (const page of [host, guest]) {
-      await expect(page.locator(".gs-watching")).toContainText("1 watching", { timeout: 30_000 });
+      await expect(page.locator(".gs-watching")).toContainText("One watching", { timeout: 30_000 });
     }
     const pill = host.locator(".gs-watching");
     await pill.hover();
@@ -153,7 +153,7 @@ test("a third player spectates: Starting…, Spectate, the log, Switch sides, a 
     await expect(names.locator("li")).toHaveCount(1);
     await expect(names.locator("li")).not.toHaveText("");
     const label = (await pill.getAttribute("aria-label")) ?? "";
-    expect(label).toMatch(/^1 watching: .+/);
+    expect(label).toMatch(/^One watching: .+/);
     // Beside the column, over the table's edge: the ladder is not covered.
     const list = (await names.boundingBox())!;
     const ladder = (await host.locator(".gs-ladder-head").boundingBox())!;

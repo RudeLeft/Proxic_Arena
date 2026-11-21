@@ -351,7 +351,7 @@ describe("F-0106-F · the fan's +N opens the pile viewer, on the real game scree
     expect(more).toBeTruthy();
     expect(more.dataset["fanCount"]).toBe("3");
     const button = more.querySelector<HTMLButtonElement>("button")!;
-    expect(button.getAttribute("aria-label")).toBe("3 more cards you may play: open the pile");
+    expect(button.getAttribute("aria-label")).toBe("Three more cards you may play: open the pile");
     expect(button.textContent).toBe("+3");
     expect(c.querySelector(".gs-viewer")).toBeNull();
     act(() => button.click());
@@ -558,7 +558,9 @@ describe("F-0106-F · the fan's +N opens the pile viewer, on the real game scree
     expect(more.dataset["fanCount"]).toBe("3");
     expect(more.dataset["fanZone"]).toBe("exile");
     const button = more.querySelector<HTMLButtonElement>("button")!;
-    expect(button.getAttribute("aria-label")).toBe("3 more cards Alice may play: open the pile");
+    expect(button.getAttribute("aria-label")).toBe(
+      "Three more cards Alice may play: open the pile",
+    );
     act(() => button.click());
     const viewer = c.querySelector<HTMLElement>(".gs-viewer")!;
     expect(viewer.getAttribute("aria-label")).toBe("Alice's exile");

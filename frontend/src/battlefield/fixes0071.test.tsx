@@ -298,7 +298,7 @@ describe("picks stay in the window, signed, and can be taken back (F-0071-C)", (
     expect(picked.dataset["picked"]).toBe("exile");
     expect(picked.querySelector<HTMLElement>(".bf-pay-sign")!.dataset["sign"]).toBe("exile");
     expect(picked.getAttribute("aria-pressed")).toBe("true");
-    expect(picked.getAttribute("aria-label")).toContain("click again to take it back");
+    expect(picked.getAttribute("aria-label")).toContain("Click again to take it back.");
     // No word on it: the sign says it.
     expect(picked.textContent).not.toMatch(/EXILE/);
     // Where it was: first, before the cards still offered.

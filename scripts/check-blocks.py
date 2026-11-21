@@ -120,7 +120,8 @@ def menace():
     if not st["attacked"] or st["blocked"] == 0:
         return "inconclusive", "never had the Brute attacking into a Bear", found
     problems = []
-    told = [n for n in st["notes"] if "cannot be blocked with" in n]
+    # Spec 0113 (W1-336): "Boggart Brute has menace: block it with two or more creatures."
+    told = [n for n in st["notes"] if "has menace: block it with two or more creatures" in n]
     if not told:
         problems.append("the defender was never told why the lone block is not allowed")
     if not st["took_back"]:

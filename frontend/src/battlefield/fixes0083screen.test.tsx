@@ -223,7 +223,7 @@ describe("F-0083-E · the Chancellor's opening-hand reveal is a report window", 
     );
     const report = c.querySelector<HTMLElement>(".gs-reveal")!;
     expect(report).toBeTruthy();
-    expect(report.textContent).toContain("Bob · Chancellor of the Annex");
+    expect(report.textContent).toContain("Bob, with Chancellor of the Annex");
     expect(report.textContent).toContain("from their opening hand");
     expect(c.textContent).not.toContain("Looking at");
   });

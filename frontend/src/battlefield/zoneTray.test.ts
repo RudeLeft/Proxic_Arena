@@ -44,7 +44,7 @@ describe("the graveyard and exile tray (W-18)", () => {
     const lit = card("card:1", "Mountain", { exiledBy: "Light Up the Stage", playable: true });
     expect(zoneNotes(lit, "exile")).toEqual(["You may play it", "Exiled by Light Up the Stage"]);
     const suspended = card("card:2", "Rift Bolt", { counters: [{ name: "TIME", count: 1 }] });
-    expect(zoneNotes(suspended, "exile")).toEqual(["1 time counter"]);
+    expect(zoneNotes(suspended, "exile")).toEqual(["A time counter"]);
     // In a graveyard, exile's words never show.
     expect(zoneNotes(lit, "graveyard")).toEqual([]);
   });

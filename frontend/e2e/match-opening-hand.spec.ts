@@ -61,7 +61,9 @@ test("the opening hand: play or draw, a mulligan put back by clicking, a Leyline
           const title = (await page.locator(".gs-opening-title").textContent()) ?? "";
           const line = (await page.locator(".gs-opening-line").textContent()) ?? "";
           const buttons = page.locator(".gs-opening-button");
-          if (/^Put 1 card back/.test(title)) {
+          // The question's kind, not its words (PROTO-006, spec 0113).
+          if ((await window.getAttribute("data-kind")) === "tuckCardsViaMulligan") {
+            expect(title).toMatch(/^Put one card back/);
             await page.locator(".gs-opening-card:not(:disabled)").first().click();
             await expect(page.locator(".gs-opening-back")).toHaveCount(1);
             await buttons.first().click();
@@ -85,7 +87,7 @@ test("the opening hand: play or draw, a mulligan put back by clicking, a Leyline
             const card = page.locator(".gs-opening-card:not(:disabled)").first();
             const name = ((await card.getAttribute("aria-label")) ?? "").split(",")[0]!;
             await card.click();
-            await expect(buttons.first()).toHaveText(/Begin with 1 in play/);
+            await expect(buttons.first()).toHaveText(/Begin with one in play/);
             ticked = { page, name };
             await buttons.first().click();
           } else if (

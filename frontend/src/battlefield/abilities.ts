@@ -37,11 +37,11 @@ export function abilityParts(
   const segments = rest.split(/ [·—] /);
   // Amendment 13 (item 4) -- "no cost — Play land": nothing to pay.
   if (segments.length > 1 && /^no cost$/i.test(segments[0]!.trim())) {
-    return { cost: null, kind: null, text: plainLand(segments.slice(1).join(" — ").trim()) };
+    return { cost: null, kind: null, text: plainLand(joined(segments.slice(1))) };
   }
   if (segments.length > 1 && looksLikeCost(segments[0]!.trim())) {
     const cost = segments[0]!.trim();
-    return { cost, kind: costKind(cost), text: segments.slice(1).join(" — ").trim() };
+    return { cost, kind: costKind(cost), text: joined(segments.slice(1)) };
   }
   // Amendment 13 (item 4) -- mana and an action ("{R}, Discard Forgotten Cave
   // — Cycling ({R}, Discard this card: Draw a card.)"): the mana is the cost;
@@ -51,13 +51,14 @@ export function abilityParts(
   if (mixed) {
     const cost = mixed[1]!.trim();
     const action = mixed[2]!.replaceAll(name, "this card").trim();
-    const words = segments.slice(1).join(" — ").trim();
+    const words = joined(segments.slice(1));
     const keyword = /^([^(]+?)\s*\((.*)\)\s*$/.exec(words);
     if (keyword) {
       const reminder = keyword[2]!;
       const effect = reminder.includes(":") ? reminder.slice(reminder.indexOf(":") + 1).trim() : "";
-      const does = effect ? `: ${effect.charAt(0).toLowerCase()}${effect.slice(1)}` : "";
-      return { cost, kind: "mana", text: `${keyword[1]!.trim()} · ${action}${does}` };
+      // Spec 0113 (W1-098): "Cycling: discard this card to draw a card."
+      const does = effect ? ` to ${lowerFirst(effect)}` : "";
+      return { cost, kind: "mana", text: `${keyword[1]!.trim()}: ${lowerFirst(action)}${does}` };
     }
     return { cost, kind: "mana", text: `${action}: ${words}` };
   }
@@ -67,6 +68,22 @@ export function abilityParts(
     return { cost, kind: costKind(cost), text: colon[2]!.trim() };
   }
   return { cost: null, kind: null, text: plainLand(rest) };
+}
+
+/**
+ * Spec 0113 (W1-097) -- the game's further parts of a line, joined as a
+ * sentence would: ". " between them, never a dash.
+ */
+function joined(parts: readonly string[]): string {
+  return parts
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p, i, all) => (i < all.length - 1 && !/[.!?:]$/.test(p) ? `${p}.` : p))
+    .join(" ");
+}
+
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
 /** "Play land" said as the menu says it: "Play this land". */

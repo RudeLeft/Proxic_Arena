@@ -226,8 +226,9 @@ def fame(order):
     picks = {"away": None, "top": None}
 
     def answer(g, f, watch):
-        prompt = f.get("prompt") or ""
-        if "click any cards" in prompt:
+        # The pick question, not the order question (both arrangeForSurveil, nothing
+        # else tells them apart); spec 0113 changed "click" to "choose".
+        if " any cards " in (f.get("prompt") or ""):
             if order or picks["away"]:
                 return None  # done choosing
             picks["away"] = card_of(f["options"][-1]["actionId"])
@@ -268,7 +269,7 @@ def preordain():
     picks = {"top": None}
 
     def answer(g, f, watch):
-        if "click any cards" in (f.get("prompt") or ""):
+        if " any cards " in (f.get("prompt") or ""):  # the pick, not the order question
             return None  # none to the bottom
         picks["top"] = card_of(f["options"][-1]["actionId"])
         return f["options"][-1]["actionId"]

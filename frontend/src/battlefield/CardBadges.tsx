@@ -20,6 +20,7 @@ import {
   type Playing,
 } from "./sizeTicks";
 import { paced } from "./motion";
+import { capital, someWords } from "../words";
 
 const W = "#fff";
 
@@ -516,7 +517,7 @@ function CardBadgesView({
       ? "Phased out: treated as though it doesn't exist until its controller's next turn"
       : "",
     (card.shields ?? 0) > 0
-      ? `Regeneration shield${(card.shields ?? 0) > 1 ? ` ×${card.shields}` : ""}: the next time it would be destroyed, it taps instead`
+      ? `${(card.shields ?? 0) > 1 ? capital(someWords(card.shields ?? 0, "regeneration shield")) : "Regeneration shield"}: the next time it would be destroyed, it taps instead`
       : "",
     card.indestructible ? "Indestructible" : "",
     (card.preventNext ?? 0) > 0

@@ -59,7 +59,10 @@ describe("passWords", () => {
     // Tapped, summoning sick or a defender: nothing can attack.
     for (const more of [{ tapped: true }, { sick: true }, { keywords: ["Defender"] }]) {
       const idle = board("MAIN1", 1, [], [creature("card:1", 1, 2, more)] as never[]);
-      expect(passWords(idle, 1)).toEqual({ word: "Next", sub: "Nothing can attack · to Main 2" });
+      expect(passWords(idle, 1)).toEqual({
+        word: "Next",
+        sub: "Nothing can attack. On to Main 2.",
+      });
     }
     // Haste attacks the turn it arrives.
     const hasty = board("MAIN1", 1, [], [
@@ -80,14 +83,14 @@ describe("passWords", () => {
       board("MAIN1", 1, [{ name: "Lightning Bolt", controller, targets } as never]);
     expect(passWords(bolt(2, [{ player: 1 }]), 1)).toEqual({
       word: "Resolve",
-      sub: "Bob’s Lightning Bolt → you",
+      sub: "Bob’s Lightning Bolt at you",
     });
-    expect(passWords(bolt(1, [{ player: 2 }]), 1).sub).toBe("Your Lightning Bolt → Bob");
+    expect(passWords(bolt(1, [{ player: 2 }]), 1).sub).toBe("Your Lightning Bolt at Bob");
     const atBear = {
       ...bolt(2, [{ object: "card:7" }, { player: 1 }]),
       battlefield: [creature("card:7", 1, 2)],
     } as unknown as Snapshot;
-    expect(passWords(atBear, 1).sub).toBe("Bob’s Lightning Bolt → Bear card:7 +1");
+    expect(passWords(atBear, 1).sub).toBe("Bob’s Lightning Bolt at Bear card:7 (and one more)");
     expect(passWords(bolt(2, []), 1).sub).toBe("Bob’s Lightning Bolt");
   });
 
@@ -99,7 +102,7 @@ describe("passWords", () => {
     ];
     expect(passWords(board("COMBAT_DECLARE_ATTACKERS", 2, [], attacking), 1)).toEqual({
       word: "To blocks",
-      sub: "2 attackers · 7 power coming",
+      sub: "Two attackers with 7 power coming",
     });
     const blocked = {
       ...board("COMBAT_DECLARE_BLOCKERS", 2, [], attacking),
@@ -156,10 +159,10 @@ describe("gameOverWords (spec 0034)", () => {
 
   it("gives Forge's reason for the loss (spec 0045)", () => {
     expect(gameOverWords(lives(5, 5), 1, outcome(1, { lossReason: "Milled" })).sub).toBe(
-      "Bob lost: had to draw from an empty library",
+      "Bob had to draw from an empty library",
     );
     expect(gameOverWords(lives(5, 5), 1, outcome(2, { lossReason: "Milled" })).sub).toBe(
-      "You lost: had to draw from an empty library",
+      "You had to draw from an empty library",
     );
     expect(gameOverWords(lives(5, 0), 1, outcome(1, { lossReason: "Unheard" })).sub).toBe(
       "Bob’s life fell to 0",
@@ -197,7 +200,7 @@ describe("gameOverWords (spec 0034)", () => {
     const maniac = outcome(1, { reason: "has won due to effect of 'Laboratory Maniac'" });
     expect(gameOverWords(lives(20, 20), 2, maniac)).toEqual({
       word: "Alice won",
-      sub: "The winner has won due to effect of 'Laboratory Maniac'",
+      sub: "Alice won because of Laboratory Maniac",
       turn: "Turn 7",
     });
   });
@@ -236,7 +239,7 @@ describe("waitingLine", () => {
     // Priority says seat 2; the server says seat 1 is deciding.
     expect(waitingLine(table(2), 2, { seat: 1 }, 1, false)).toEqual({
       word: "Alice’s move",
-      sub: "Main 1 · their turn",
+      sub: "Main 1, their turn",
       seat: 1,
     });
     expect(waitingLine(table(2), 1, { seat: 1 }, 1, false)).toEqual(moment);
@@ -245,7 +248,7 @@ describe("waitingLine", () => {
   it("between two questions, stays on whoever was last asked rather than flicker", () => {
     expect(waitingLine(table(2), 1, { seat: null }, 2, false)).toEqual({
       word: "Bob’s move",
-      sub: "Main 1 · your turn",
+      sub: "Main 1, your turn",
       seat: 2,
     });
     expect(waitingLine(table(2), 1, { seat: null }, null, false)).toEqual(moment);
@@ -262,7 +265,7 @@ describe("waitingLine", () => {
     expect(sub(at("COMBAT_DECLARE_BLOCKERS", 1))).toBe("Choosing blockers");
     // Once they have declared, the step's priority follows: not choosing.
     expect(sub(at("COMBAT_DECLARE_BLOCKERS", 1, [{ seat: 2, blocking: true }]))).toBe(
-      "Combat · your turn",
+      "Combat, your turn",
     );
     expect(sub(at("MAIN1", 1, [], [{ name: "Shock", controller: 1 }]))).toBe(
       "May respond to your Shock",
@@ -287,7 +290,7 @@ describe("waitingLine", () => {
     const theirs = table(1, [{ name: "Shock", controller: 2 }]);
     expect(waitingLine(theirs, 1, null, null, false)).toEqual({
       word: "Bob’s move",
-      sub: "Main 1 · your turn",
+      sub: "Main 1, your turn",
       seat: 2,
     });
   });
@@ -306,7 +309,7 @@ describe("waitingLine", () => {
       "Choosing their opening hand",
     );
     expect(waitingLine(pregame(1), 1, { seat: 2 }, 2, false).sub).toBe("Mulliganed once");
-    expect(waitingLine(pregame(3), 1, { seat: 2 }, 2, false).sub).toBe("Mulliganed 3 times");
+    expect(waitingLine(pregame(3), 1, { seat: 2 }, 2, false).sub).toBe("Mulliganed three times");
   });
 
   it("a spectator waits for whoever is asked, never for a moment of their own", () => {

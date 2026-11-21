@@ -208,7 +208,7 @@ describe("the play log on the page", () => {
     expect(tab(chat(), /^Chat/).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(tab(chat(), /^Play log/));
     const log = within(chat()).getByRole("log", { name: "Play log" });
-    expect(text(log.querySelector(".gs-log-head")!)).toBe("Turn 5 · Aliceyour turn");
+    expect(text(log.querySelector(".gs-log-head")!)).toBe("Turn 5, Alice(your turn)");
     const rows = [...log.querySelectorAll(".gs-log-ent")].map(text);
     expect(rows).toEqual([
       "Alice drew Lightning Bolt (only you were told)",
@@ -405,7 +405,7 @@ describe("the window of its own (F-0064-D)", () => {
     fireEvent.click(
       within(chat()).getByRole("button", { name: "Open the chat in its own window" }),
     );
-    expect(doc.title).toBe("Game chat · Proxic Arena");
+    expect(doc.title).toBe("Game chat, Proxic Arena");
     const tabs = [...doc.querySelectorAll('[role="tab"]')];
     expect(tabs.map(text)).toEqual(["Chat", "Play log"]);
     expect(doc.querySelector('input[placeholder="Type a message..."]')).not.toBeNull();

@@ -36,7 +36,7 @@ import { figure } from "./Board";
 import { TWIN } from "./CardBadges";
 import type { Box, Geometry } from "./layout";
 import { manaSymbols, symbolUrl } from "./ManaCost";
-import { assignBalls, litShadow, type PaidStep } from "./manaBalls";
+import { assignBalls, litShadow, pipWords, type PaidStep } from "./manaBalls";
 import { paced, MOVE_EASING, MOVE_MS, glideFramesAs, lateFade } from "./motion";
 import { castingStackBox, runFrames, runMs, type AsideRun, type Offset } from "./stepAside";
 
@@ -554,7 +554,7 @@ export function CastingCard({
                   key={i}
                   className={`gs-cast-pip gs-cast-pip-generic${pip.paid ? " gs-cast-pip-paid" : ""}`}
                   role="img"
-                  aria-label={pip.paid ? "1 generic paid" : "1 generic"}
+                  aria-label={pipWords(pip, true)}
                   style={lit}
                   {...data}
                 />
@@ -566,7 +566,7 @@ export function CastingCard({
                 key={i}
                 className={`gs-cast-pip${pip.paid ? " gs-cast-pip-paid" : ""}`}
                 src={url}
-                alt={pip.paid ? `${pip.symbol} paid` : pip.symbol}
+                alt={pipWords(pip, true)}
                 style={lit}
                 {...data}
               />

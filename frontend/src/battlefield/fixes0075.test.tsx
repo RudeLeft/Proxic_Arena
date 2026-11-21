@@ -156,7 +156,7 @@ describe("the report window tells what the other player did (F-0075-A, B, C, D)"
       },
     });
     const tray = c.querySelector<HTMLElement>(".gs-reveal")!;
-    expect(tray.querySelector(".gs-reveal-by")!.textContent).toBe("Bob · Unsummon");
+    expect(tray.querySelector(".gs-reveal-by")!.textContent).toBe("Bob, with Unsummon");
     expect(tray.querySelector(".gs-reveal-said")!.textContent).toBe(
       "Bob returned your Grizzly Bears to your hand.",
     );
@@ -242,7 +242,7 @@ describe("the report window tells what the other player did (F-0075-A, B, C, D)"
       },
     });
     const tray = c.querySelector<HTMLElement>(".gs-reveal")!;
-    expect(tray.querySelector(".gs-reveal-by")!.textContent).toBe("You · Stitch in Time");
+    expect(tray.querySelector(".gs-reveal-by")!.textContent).toBe("You, with Stitch in Time");
     expect(tray.querySelector(".gs-reveal-said")!.textContent).toBe("You flipped a coin and won.");
     expect(tray.querySelector('[data-mark="coin"] .gs-reveal-mark-won')).not.toBeNull();
   });

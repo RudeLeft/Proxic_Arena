@@ -112,7 +112,7 @@ describe("the dial's words", () => {
       null,
     );
     expect(words.title).toBe("Choose X");
-    expect(words.says).toBe("Fireball deals X damage. You can make 5 mana.");
+    expect(words.says).toBe("Fireball deals X damage. You can make five mana.");
     expect(words.button(3)).toBe("Cast Fireball with X = 3");
   });
 
@@ -123,10 +123,10 @@ describe("the dial's words", () => {
       null,
     );
     expect(words.title).toBe("Kick it how many times?");
-    expect(words.says).toBe("Each time costs {2} more. You can make 5 mana.");
+    expect(words.says).toBe("Each time costs {2} more. You can make five mana.");
     expect(words.button(0)).toBe("Cast it unkicked");
-    expect(words.button(1)).toBe("Kick it 1 time");
-    expect(words.button(2)).toBe("Kick it 2 times");
+    expect(words.button(1)).toBe("Kick it once");
+    expect(words.button(2)).toBe("Kick it twice");
   });
 
   it("energy: how much there is", () => {
@@ -141,9 +141,9 @@ describe("the dial's words", () => {
     );
     expect(words.title).toBe("Pay how much energy?");
     expect(words.says).toBe(
-      "Harnessed Lightning deals that much damage to that creature. You have 3.",
+      "Harnessed Lightning deals that much damage to that creature. You have three energy.",
     );
-    expect(words.button(2)).toBe("Pay 2 energy");
+    expect(words.button(2)).toBe("Pay two energy");
   });
 });
 
@@ -165,16 +165,16 @@ describe("Phase 9 Amendment 17 -- choosing several targets", () => {
   it("titles the question by how many more may be chosen", () => {
     expect(targetsTitle(asked([], 3, false), "Choose a target")).toBe("Choose a target");
     expect(targetsTitle(asked(["player:2"], 2), "Choose a target")).toBe(
-      "Choose up to 2 more targets",
+      "Choose up to two more targets",
     );
     expect(targetsTitle(asked(["player:2", "card:7"], 1), "Choose a target")).toBe(
-      "Choose up to 1 more target",
+      "Choose up to one more target",
     );
   });
 
   it("names what is chosen, players and cards, in the order chosen", () => {
     expect(chosenWords(asked(["player:2", "card:7"], 1), table)).toBe(
-      "2 chosen: RudeLeft, Hill Giant",
+      "Chosen so far: RudeLeft and Hill Giant",
     );
     expect(chosenWords(asked([], 3, false), table)).toBeNull();
   });

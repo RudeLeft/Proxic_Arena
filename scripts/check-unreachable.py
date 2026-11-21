@@ -115,7 +115,7 @@ def ante():
     found = {"turn": g.turn, "stopped": g.stopped_badly(), "notices": g.notices}
     if not started(g):
         return "wrong", f"a deck with Contract from Below should start: {found['stopped']}", found
-    told = [n for n in g.notices.get(1, []) if "ante" in n]
+    told = [n for n in g.notices.get(1, []) if "ante" in n.lower()]
     problems = []
     if not told or "Contract from Below" not in told[0]:
         problems.append(f"seat 1 should be told its ante cards were taken out: {g.notices.get(1)}")

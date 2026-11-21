@@ -6,6 +6,7 @@
 
 import type { ReactNode } from "react";
 import { PeekButton, usePeek } from "./GameWindow";
+import { countWords } from "../words";
 
 export function AwayWindow({
   name,
@@ -29,7 +30,7 @@ export function AwayWindow({
   onEnd: () => void;
 }) {
   const peek = usePeek(true);
-  const title = `${name} has been gone ${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+  const title = `${name} has been gone ${countWords(minutes, "minute")}`;
   return (
     <div
       className={`gs-win gs-bubble gs-away-win${peek ? " gs-win-peek" : ""}`}
@@ -64,7 +65,7 @@ export function AwayWindow({
           disabled={sent}
           onClick={onEnd}
         >
-          End the game · you win
+          End the game. You win.
         </button>
       </div>
     </div>

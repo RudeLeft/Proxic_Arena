@@ -140,7 +140,7 @@ final class ManaPayment {
             // still due is shown on the card (sent as its own field), so the
             // buttons say only what each one does.
             floating.forEach((id, kind) -> labels.put(id, "Use {" + id.substring(POOL.length())
-                    + "} you already made (" + player.getManaPool().getAmountOfColor(kind) + " left)"));
+                    + "} you already made (" + PlainWords.number(player.getManaPool().getAmountOfColor(kind)) + " left)"));
             sources.forEach((id, card) -> labels.put(id, card.getName()));
             if (lifeForMana) {
                 labels.put(PHYREXIAN, "Pay 2 life instead (you have " + (player.getLife() - lifeToLose) + ")");
@@ -436,7 +436,9 @@ final class ManaPayment {
         String effect = PlainWords.effectWords(
                 paidFor.getParamOrDefault("SpellDescription", String.valueOf(paidFor.getDescription())),
                 card.getName());
-        String[] words = PlainWords.payFor(way, card.getName(), effect);
+        // Spec 0113 (W1-333) -- a face-down card has no name to say: "the face-down creature".
+        String name = card.isFaceDown() || card.getName().isBlank() ? "the face-down creature" : card.getName();
+        String[] words = PlainWords.payFor(way, name, effect);
         host.offerPurpose(words[0], words[1]);
     }
 

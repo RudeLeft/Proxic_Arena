@@ -11,6 +11,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
+import { capitalNumber } from "../src/words";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
@@ -133,7 +134,9 @@ test("a stack blocks a stack: select from the pile, point at theirs, and blocker
           expect(shown, "the seal's count is not clipped or covered").toBe(true);
           // Selected and not pointed: the button waits (owner: locked).
           await expect(panel.locator("button.gs-act-combat")).toBeDisabled();
-          await expect(panel.locator("button.gs-act-combat")).toContainText(`${n} selected`);
+          await expect(panel.locator("button.gs-act-combat")).toContainText(
+            `${capitalNumber(n)} selected`,
+          );
           await page.screenshot({ path: "test-results/seen/block-selected.png" });
           const theirs = page
             .locator(

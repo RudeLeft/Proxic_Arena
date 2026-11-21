@@ -27,6 +27,7 @@
 import { useMemo, useState } from "react";
 import type { Decision, Snapshot, SnapshotCard } from "../match";
 import { Tray } from "./GameWindow";
+import { countWords, numberWord } from "../words";
 import type { Geometry } from "./layout";
 import { BigCard, PickedTile } from "./QuestionWindows";
 import { payMarks } from "./payPicks";
@@ -177,21 +178,21 @@ export function OrderCardsTray(props: TrayProps) {
       : to === "bottom"
         ? "Put them on the bottom"
         : to === "graveyard"
-          ? "The order they go to your graveyard"
+          ? "Choose the order they go to your graveyard"
           : "Put them in order";
   const prompt =
     to === "top"
       ? "Click them in the order you'll draw them: 1 is the top card. Click a numbered card to take it back."
       : to === "bottom" && first === "bottom"
-        ? "Click them in order: 1 goes to the very bottom. Or Any order. Click a numbered card to take it back."
+        ? "Click them in order: 1 goes to the very bottom. Or click Any order. Click a numbered card to take it back."
         : to === "bottom"
-          ? "Click them in order: 1 goes highest of them. Or Any order. Click a numbered card to take it back."
+          ? "Click them in order: 1 ends up nearest the top. Or click Any order. Click a numbered card to take it back."
           : "Click them in the order they go: 1 goes first. Click a numbered card to take it back.";
   return (
     <Tray
       geometry={props.geometry}
       label={title}
-      from={name ? `${name} · only you see these` : "Only you see these"}
+      from={name ? `${name}: only you can see these` : "Only you can see these"}
       title={title}
       kind={decision.kind}
       prompt={prompt}
@@ -306,10 +307,10 @@ export function RowsTray(props: TrayProps) {
     <Tray
       geometry={props.geometry}
       label={title}
-      from={name ? `${name} · only you see these` : "Only you see these"}
+      from={name ? `${name}: only you can see these` : "Only you can see these"}
       title={title}
       kind={decision.kind}
-      prompt={`Click a card to move it to the other row.${top.length > 1 ? " On top, 1 is drawn first: Sooner moves a card up." : ""}`}
+      prompt={`Click a card to move it to the other row.${top.length > 1 ? " In the top row, card 1 is drawn first. Click Sooner to move a card up." : ""}`}
       actions={
         <MainButton busy={busy} onClick={finish}>
           Done
@@ -319,7 +320,7 @@ export function RowsTray(props: TrayProps) {
       <div className="gs-win-rows">
         <div className="gs-win-row" aria-label="Top of library">
           <span className="gs-win-row-name">
-            Top of library{top.length > 1 ? " · in draw order" : ""}
+            Top of library{top.length > 1 ? ", in draw order" : ""}
           </span>
           <div className="gs-win-tiles">
             {top.map((id, i) => (
@@ -366,6 +367,11 @@ export function RowsTray(props: TrayProps) {
       </div>
     </Tray>
   );
+}
+
+/** Spec 0113 (W1-302) -- a tile's spoken name: "Island, three copies, can't be chosen". */
+export function tileLabel(name: string, copies: number, why?: string | null): string {
+  return `${name}${copies > 1 ? `, ${numberWord(copies)} copies` : ""}${why ? `, ${why}` : ""}`;
 }
 
 /** W-09 -- choosing from a hidden zone: one picture per card, with a count. */
@@ -425,7 +431,7 @@ export function HiddenZoneTray(props: TrayProps) {
   const title =
     zone === "hand"
       ? ownerName
-        ? `Look at ${ownerName}’s hand.`
+        ? `Look at ${ownerName}’s hand`
         : "Choose a card from their hand"
       : few
         ? "Choose from these"
@@ -447,7 +453,7 @@ export function HiddenZoneTray(props: TrayProps) {
     <Tray
       geometry={props.geometry}
       label={title}
-      from={name ? `${name} · only you see these` : "Only you see these"}
+      from={name ? `${name}: only you can see these` : "Only you can see these"}
       title={title}
       kind={decision.kind}
       prompt={plainPrompt(decision.prompt, name)}
@@ -517,7 +523,7 @@ export function HiddenZoneTray(props: TrayProps) {
               caption={g.why}
               disabled={busy || !option}
               lit={zone === "hand" && !!option && !busy}
-              label={`${g.card.name}${g.ids.length > 1 ? ` ×${g.ids.length}` : ""}${g.why ? `, ${g.why}` : ""}`}
+              label={tileLabel(g.card.name, g.ids.length, g.why)}
               onClick={() => option && props.onAnswer(option.actionId)}
             />
           );
@@ -541,7 +547,7 @@ export function SplitTray(props: TrayProps) {
   const pile = (label: string, ids: string[]) => (
     <div className="gs-win-pile" aria-label={label}>
       <span className="gs-win-row-name">
-        {label} · {ids.length} card{ids.length === 1 ? "" : "s"}
+        {label}: {countWords(ids.length, "card")}
       </span>
       <div className="gs-win-tiles">
         {ids.length === 0 && <span className="gs-win-pile-empty">empty</span>}
@@ -565,7 +571,7 @@ export function SplitTray(props: TrayProps) {
     <Tray
       geometry={props.geometry}
       label="Split these into two piles"
-      from={caster ? `${name} · ${caster}'s spell` : name}
+      from={caster ? `${name}, ${caster}'s spell` : name}
       title="Split these into two piles"
       kind={decision.kind}
       prompt={`Click a card to move it to the other pile. ${caster ?? "The caster"} takes one pile; the other goes to their graveyard.`}
@@ -618,8 +624,9 @@ export function PilesTray(props: TrayProps) {
           return (
             <div key={label} className="gs-win-pile" aria-label={label}>
               <span className="gs-win-row-name">
-                {label} · {pile.count} card{pile.count === 1 ? "" : "s"}
-                {hidden > 0 ? ` (${hidden} face down)` : ""}
+                {/* Spec 0113 (W1-069, W1-361): "Pile 1: three cards, one face down". */}
+                {label}: {countWords(pile.count, "card")}
+                {hidden > 0 ? `, ${numberWord(hidden)} face down` : ""}
               </span>
               <div className="gs-win-tiles">
                 {pile.count === 0 && <span className="gs-win-pile-empty">empty</span>}
@@ -722,13 +729,13 @@ export function DamageTray(props: TrayProps) {
     <Tray
       geometry={props.geometry}
       label="Assign combat damage"
-      from={`${name} · ${total} damage`}
+      from={`${name}: ${total} damage`}
       title="Assign combat damage"
       kind={decision.kind}
       prompt={
         fight.trample
-          ? "Filled in: lethal to each blocker, the rest to the player (trample). + and − to change it."
-          : "Filled in: lethal to each blocker in order, the rest to the last. + and − to change it."
+          ? "Already filled in: enough to destroy each blocker, the rest to the player (trample). Use + and − to change it."
+          : "Already filled in: enough to destroy each blocker in order, the rest to the last one. Use + and − to change it."
       }
       actions={
         <>
@@ -787,7 +794,7 @@ export function DamageTray(props: TrayProps) {
                 ? fight.trample
                   ? "trample: the rest"
                   : "any of it"
-                : "after lethal to each blocker"}
+                : "after each blocker has enough to die"}
             </span>
             {stepper("player", split.player, fight.divides || allLethal)}
           </div>
@@ -821,7 +828,7 @@ export function DivideTray(props: TrayProps) {
       from={name}
       title={title}
       kind={decision.kind}
-      prompt="Each target gets at least 1. + and − to change it."
+      prompt="Each target gets at least one. Use + and − to change it."
       actions={
         <>
           <span className={`gs-win-left${left === 0 ? " gs-win-left-done" : ""}`}>

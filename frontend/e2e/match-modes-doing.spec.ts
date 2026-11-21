@@ -104,10 +104,10 @@ test("several modes are ticked then Done, and the page answers the rest; the wai
     ask(1, [], true);
     const window = panel.getByRole("dialog", { name: /^Choose one to three/ });
     await expect(window).toBeVisible();
-    await expect(window.locator(".gs-win-title")).toHaveText("Choose one to three · 0 chosen");
+    await expect(window.locator(".gs-win-title")).toHaveText("Choose one to three");
     await window.getByRole("button", { name: "Draw a card." }).click();
     await window.getByRole("button", { name: "Tap all creatures your opponents control." }).click();
-    await expect(window.locator(".gs-win-title")).toHaveText("Choose one to three · 2 chosen");
+    await expect(window.locator(".gs-win-title")).toHaveText("Choose one to three (two chosen)");
     await guest.screenshot({ path: "test-results/seen/a21-modes.png" });
     await window.locator(".gs-modes-done").click();
     // The first tick, in the window's order, answers the first question.

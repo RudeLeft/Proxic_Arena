@@ -56,7 +56,7 @@ export function payMarks(decision: Decision | null | undefined): ReadonlyMap<str
 
 /** What a screen reader hears on a picked card. */
 export function payWords(mark: PayMark): string {
-  return `picked: ${mark.word.toLowerCase()} -- click again to take it back`;
+  return `picked to ${mark.word.toLowerCase()}. Click again to take it back.`;
 }
 
 /**

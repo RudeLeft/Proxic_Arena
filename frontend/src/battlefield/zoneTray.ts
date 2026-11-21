@@ -2,6 +2,8 @@
 // "what has changed": the words and the grouping, apart from the drawing.
 
 import type { SnapshotCard } from "../match";
+import { counterName } from "./Board";
+import { capital, someWords } from "../words";
 
 export type ZoneName = "graveyard" | "exile" | "hand";
 
@@ -39,7 +41,8 @@ export function zoneNotes(card: SnapshotCard, zone: ZoneName): string[] {
   if (zone === "exile" && card.exiledBy) notes.push(`Exiled by ${card.exiledBy}`);
   // A suspended card's time counters say when it comes back.
   for (const c of card.counters) {
-    notes.push(`${c.count} ${c.name.toLowerCase()} counter${c.count === 1 ? "" : "s"}`);
+    // Spec 0113 (W1-112): the players' name ("+1/+1", "time"), in words.
+    notes.push(capital(someWords(c.count, `${counterName(c.name)} counter`)));
   }
   return notes;
 }

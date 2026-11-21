@@ -239,13 +239,13 @@ describe("F-0097-A · a notice is never stuck", () => {
 describe("F-0097-B · your turn passing for you: the act button says why", () => {
   const passing = { turn: 5, why: "2 lands, no land in hand" };
 
-  it("Passing · Nothing to play · 2 lands, no land in hand; nothing top right", () => {
+  it("Passing / Nothing to play: 2 lands, no land in hand; nothing top right", () => {
     const c = open();
     send(state({ passing }));
     const act = c.querySelector<HTMLElement>("[data-passing]")!;
     expect(act).not.toBeNull();
     expect(act.textContent).toContain("Passing");
-    expect(act.textContent).toContain("Nothing to play · 2 lands, no land in hand");
+    expect(act.textContent).toContain("Nothing to play: 2 lands, no land in hand");
     expect(notes(c)).toEqual([]);
     expect(c.textContent).not.toContain("Nothing you can play");
   });

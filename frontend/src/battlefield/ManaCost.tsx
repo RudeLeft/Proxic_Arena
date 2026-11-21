@@ -10,6 +10,7 @@
 import { sameProps } from "./sameProps";
 import { memo } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { manaTextParts, manaWords } from "../words";
 
 const PICTURES = import.meta.glob<string>("../assets/mana/*.png", {
   eager: true,
@@ -74,7 +75,7 @@ function ManaCostView({
       // a higher one (Thalia's tax) keeps its red edge.
       className={`bf-cost${change === "up" ? " bf-cost-up" : ""}`}
       role="img"
-      aria-label={`Costs ${cost}${words}`}
+      aria-label={`Costs ${manaWords(cost) || cost}${words}`}
       style={style}
     >
       {symbols.map((symbol, i) => {
@@ -104,22 +105,26 @@ export function withSymbols(text: string): ReactNode[] {
 /**
  * Game words with every mana symbol in them ("{T}: Add {R}.", "still
  * owing {1}") drawn as its picture (owner 2026-10-30: icons wherever mana
- * is named). The letters stay in the text, out of sight, for reading aloud
- * and copying.
+ * is named). Spec 0113 (W1-271): each run of symbols is an image named in
+ * words for reading aloud ("Tap", "one red mana"), never the braces; the
+ * letters stay in the text, out of sight and out of the reading, for
+ * copying (and for the scripted games, which read a label's text).
  */
 export function ManaText({ text }: { text: string }) {
   return (
     <>
-      {text.split(/((?:\{[^}]+\})+)/).map((part, i) =>
-        part.startsWith("{") ? (
-          <span key={i} className="bf-mana-inline">
+      {manaTextParts(text).map((part, i) =>
+        part.mana ? (
+          <span key={i} className="bf-mana-inline" role="img" aria-label={part.said}>
             <span aria-hidden="true">
-              <ManaCost cost={part} />
+              <ManaCost cost={part.shown} />
             </span>
-            <span className="pa-visually-hidden">{part}</span>
+            <span className="pa-visually-hidden" aria-hidden="true">
+              {part.shown}
+            </span>
           </span>
         ) : (
-          part
+          part.shown
         ),
       )}
     </>

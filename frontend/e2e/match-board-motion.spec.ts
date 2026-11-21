@@ -112,7 +112,7 @@ test("flyers hover, tapped ones rest; a creature that just came in shows its z's
           }
           if (c.zz > 0) {
             expect(c.zz).toBe(3);
-            expect(c.label).toContain("summoning sick");
+            expect(c.label).toContain("came in this turn: can attack next turn");
             if (!sickOn.has(c.id)) sickOn.set(c.id, { page, turn });
             if (!seen.has("zz")) {
               seen.add("zz");

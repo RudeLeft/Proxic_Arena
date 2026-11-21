@@ -66,7 +66,17 @@ import {
 } from "./FanCards";
 import { fanBoxes, fanMore, fanReach, type FanCard, type FanMore, type FanZone } from "./pileFan";
 import { ManaCost, ManaText, costChange, symbolUrl } from "./ManaCost";
-import { litShadow, owingWords, type PayPip } from "./manaBalls";
+import { litShadow, owingWords, pipWords, type PayPip } from "./manaBalls";
+import {
+  capitalNumber,
+  manaWords,
+  numberWord,
+  ordinalWord,
+  orList,
+  pictureSymbol,
+  someWords,
+  symbolWords,
+} from "../words";
 import { ASIDE_MS, castCoverBox, castingStackBox, covers } from "./stepAside";
 import { SharpCard, closeUpOf } from "../closeUp";
 import {
@@ -477,7 +487,8 @@ export interface HeldCard {
 export function counterName(name: string): string {
   const pt = /^([PM])(\d+)([PM])(\d+)$/.exec(name);
   if (pt) return `${pt[1] === "P" ? "+" : "-"}${pt[2]}/${pt[3] === "P" ? "+" : "-"}${pt[4]}`;
-  return name.charAt(0) + name.slice(1).toLowerCase();
+  // Spec 0113 (W1-282): "FIRST_STRIKE" is "first strike", "CHARGE" "charge".
+  return name.replaceAll("_", " ").toLowerCase();
 }
 
 /**
@@ -495,7 +506,7 @@ export function counterWords(
   return (card.counters ?? []).map((c) => {
     const from = [...(card.counterFrom ?? [])].reverse().find((o) => o.counter === c.name);
     // Spec 0076: a pile's badges are per card ("on each").
-    const what = `${c.count} ${counterName(c.name)} counter${c.count === 1 ? "" : "s"}${each ? " on each" : ""}`;
+    const what = `${someWords(c.count, `${counterName(c.name)} counter`)}${each ? " on each" : ""}`;
     return from ? `${what}, the last from ${from.from}` : what;
   });
 }
@@ -932,15 +943,13 @@ export function stackCaption(
     front.seat === viewerSeat && !viewerName ? "your" : front.by ? `${front.by}'s` : null;
   const next = whose ? `Next: ${whose} ${what}` : `Next: ${what}`;
   if (total <= 1) return next;
-  const hidden = stack.length > shown ? `, ${stack.length - shown} not shown` : "";
-  return `${next} · ${total} on the stack${hidden}`;
+  const hidden = stack.length > shown ? `, ${numberWord(stack.length - shown)} not shown` : "";
+  return `${next}. ${capitalNumber(total)} on the stack${hidden}.`;
 }
 
-/** "1st", "2nd", "3rd", "4th"… for a screen reader's "2nd to resolve". */
-function ordinal(n: number): string {
-  const tens = n % 100;
-  if (tens >= 11 && tens <= 13) return `${n}th`;
-  return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+/** Spec 0113 (W1-277, W1-278) -- what a land makes, said: "green or blue mana". */
+export function makesWords(makes: readonly string[]): string {
+  return `${orList(makes.map((m) => symbolWords(pictureSymbol(m))))} mana`;
 }
 
 /** A stack object's kind, on its card's bottom bar. */
@@ -2552,26 +2561,28 @@ function tableCard(k: TableCardKey): { drawn: Drawn; content: ReactNode } {
             />
             {k.act.chosen ? (
               // Phase 9 Amendment 17: already chosen for the spell being cast.
-              <span className="bf-state bf-state-target">TARGET</span>
+              <span className="bf-state bf-state-target">Target</span>
             ) : lead.blocking ? (
               // Phase 10 A-12: blue, on a blocker standing facing its attacker.
-              <span className="bf-state bf-state-blocking">BLOCKING</span>
+              <span className="bf-state bf-state-blocking">Blocking</span>
             ) : lead.attacking ? (
-              <span className="bf-state bf-state-attacking">ATTACKING</span>
+              <span className="bf-state bf-state-attacking">Attacking</span>
             ) : lead.tapped ? (
-              <span className="bf-state">TAPPED</span>
+              <span className="bf-state">Tapped</span>
             ) : null}
             {shownCount > 1 && <span className="bf-pile">×{shownCount}</span>}
             {/* Spec 0046 -- what a land makes, as mana symbols. */}
             {lead.makes && lead.makes.length > 0 && !lead.faceDown && (
-              <span
-                className="bf-makes"
-                title={`Makes ${lead.makes.map((m) => `{${m}}`).join(" or ")}`}
-              >
+              <span className="bf-makes" title={`Makes ${makesWords(lead.makes)}`}>
                 {lead.makes.map((m) => {
                   const url = symbolUrl(m);
                   return url ? (
-                    <img key={m} className="bf-makes-pip" src={url} alt={m} />
+                    <img
+                      key={m}
+                      className="bf-makes-pip"
+                      src={url}
+                      alt={symbolWords(pictureSymbol(m))}
+                    />
                   ) : (
                     <span key={m} className="bf-makes-pip">
                       {m}
@@ -2652,7 +2663,7 @@ function tableCard(k: TableCardKey): { drawn: Drawn; content: ReactNode } {
                             : "yours"
                           : k.viewerName
                             ? `${k.opponentName}'s`
-                            : "opponent's",
+                            : "your opponent's",
                         ...tagAct.words,
                       ]
                         .filter(Boolean)
@@ -2912,7 +2923,7 @@ function theirHandCard(k: TheirHandCardKey): { drawn: Drawn; content: ReactNode 
           aria-label={
             shown
               ? `${shown.name}, in ${opponentName}'s hand, ${shown.seen ? "revealed to you" : "shown to you"}`
-              : `Card ${k.nth + 1} of ${k.of} in ${opponentName}'s hand`
+              : `Card ${numberWord(k.nth + 1)} of ${numberWord(k.of)} in ${opponentName}'s hand`
           }
           disabled={!k.onOpponentHand}
           onClick={k.onOpponentHand}
@@ -3316,7 +3327,7 @@ function OwePill({ pips }: { pips: readonly PayPip[] }) {
               key={i}
               className={className}
               src={url}
-              alt={pip.paid ? `${pip.symbol} paid` : pip.symbol}
+              alt={pipWords(pip)}
               style={style}
               {...data}
             />
@@ -3512,7 +3523,7 @@ export function Board({
   battlefield,
   hand,
   opponentHand = NO_CARDS,
-  opponentName = "Your opponent",
+  opponentName = "your opponent",
   viewerName = null,
   onOpponentHand,
   onFanMore,
@@ -4203,7 +4214,7 @@ export function Board({
           : lead.faceDown
             ? `${lead.name}, face down`
             : lead.name,
-        count > 1 ? `${count} of them` : "",
+        count > 1 ? `${numberWord(count)} of them` : "",
         pt,
         // Spec 0078 (6 A): the damage it has taken, said as the close-up says it.
         lead.damage ? `${lead.damage} damage` : "",
@@ -4216,9 +4227,9 @@ export function Board({
         // Spec 0111 -- its soulbond partner, as this viewer may know it.
         lead.pairedWith ? `paired with ${lead.pairedName ?? "another creature"}` : "",
         flies(lead) ? "flying" : "",
-        sick(lead) ? "summoning sick: can attack next turn" : "",
+        sick(lead) ? "came in this turn: can attack next turn" : "",
         ...counterWords(lead),
-        lead.makes?.length ? `makes ${lead.makes.join(" or ")}` : "",
+        lead.makes?.length ? `makes ${makesWords(lead.makes)}` : "",
         lead.sector ? `sector ${lead.sector}` : "",
         lead.sprocket ? `on sprocket ${lead.sprocket}` : "",
         attached.length > 0 ? `with ${attached.map((card) => card.name).join(" and ")}` : "",
@@ -4228,7 +4239,7 @@ export function Board({
             : "yours"
           : viewerName
             ? `${opponentName}'s`
-            : "opponent's",
+            : "your opponent's",
         ...leadAct.words,
       ]
         .filter(Boolean)
@@ -10151,10 +10162,10 @@ export function Board({
                 type="button"
                 className={`bf-card bf-stack-card bf-look-artifact${i === 0 ? " bf-stack-top" : ""}${whose}${a.className}${a.breathing && !a.pay && !a.still ? " bf-breathes" : ""}`}
                 aria-label={[
-                  `${s.copy ? "a copy of " : ""}${s.name}${s.count ? ` ×${s.count}` : ""}, ${waiting ? "on its way to the stack" : "on the stack"}`,
+                  `${s.copy ? "a copy of " : ""}${s.count ? `${numberWord(s.count)} copies of ` : ""}${s.name}, ${waiting ? "on its way to the stack" : "on the stack"}`,
                   s.splitSecond ? "split second" : "",
                   s.cantBeCountered ? "can't be countered" : "",
-                  waiting ? "" : `${ordinal(i + 1)} to resolve`,
+                  waiting ? "" : `${ordinalWord(i + 1)} to resolve`,
                   s.by ? `from ${s.by}` : "",
                   ...a.words,
                 ]
@@ -10273,7 +10284,10 @@ export function Board({
                   under its words, as on a card being cast. */}
               {i === 0 && stackPay && stackPay.length > 0 && <OwePill pips={stackPay} />}
               {i === 0 && !stackPay && stackOwing && stackOwing.length > 0 && (
-                <span className="bf-stack-owe" aria-label={`Still to pay: ${stackOwing.join(" ")}`}>
+                <span
+                  className="bf-stack-owe"
+                  aria-label={`Still to pay: ${manaWords(stackOwing.map((m) => `{${m}}`).join("")) || "nothing"}`}
+                >
                   {/* Spec 0057, item 4 -- bigger, and plainer. */}
                   <span className="bf-stack-owe-word">Still to pay</span>
                   <ManaText text={stackOwing.map((m) => `{${m}}`).join("")} />

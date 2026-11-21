@@ -231,8 +231,8 @@ describe("a spectator is nobody's you (spec 0067)", () => {
     const said = heard.join(" ");
     // The moments did reach the screen, in names.
     expect(said).toContain("Alice");
-    expect(said).toMatch(/Damage · Alice's Grizzly Bears hit Bob/);
-    expect(said).toContain("Main 1 · Bob’s turn");
+    expect(said).toMatch(/Damage: Alice's Grizzly Bears hit Bob/);
+    expect(said).toContain("Main 1, Bob’s turn");
     expect(said).toContain("Next: Alice's trigger");
     expect(said).not.toMatch(PLAYER_WORDS);
 
@@ -245,7 +245,7 @@ describe("a spectator is nobody's you (spec 0067)", () => {
     heard.length = 0;
     playMoments(true);
     const turned = heard.join(" ");
-    expect(turned).toMatch(/Damage · Alice's Grizzly Bears hit Bob/);
+    expect(turned).toMatch(/Damage: Alice's Grizzly Bears hit Bob/);
     expect(turned).not.toMatch(PLAYER_WORDS);
 
     // The end: who won and why, by name.
@@ -269,7 +269,7 @@ describe("a spectator is nobody's you (spec 0067)", () => {
     render(<GameScreen match={match} me="u-1" onLeave={() => {}} />);
     heard.length = 0;
     playMoments(false);
-    expect(heard.join(" ")).toMatch(/Damage · your Grizzly Bears hit Bob/);
+    expect(heard.join(" ")).toMatch(/Damage: your Grizzly Bears hit Bob/);
     expect(heard.join(" ")).toMatch(PLAYER_WORDS);
   });
 });

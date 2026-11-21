@@ -221,7 +221,7 @@ def meditate():
     board, report = first_with(w, 1, "skips their next turn")
     if not report:
         return result(problems + ["seat 1: no skip window at all"], "", found)
-    want = "Bob's spell: Bob skips their next turn."
+    want = "Bob's Meditate: Bob skips their next turn."  # spec 0113 (W1-156)
     found["said1"] = report.get("said")
     if report.get("said") != want:
         problems.append(f"seat 1: the window says {want!r}: {report.get('said')!r}")
@@ -295,7 +295,7 @@ def fatespinner():
     board, report = first_with(w, 1, "skip your")
     if not report:
         return result(problems + ["seat 1: no skip window at all"], "", found)
-    want = "Bob's spell: you skip your combat."
+    want = "Bob's Fatespinner: you skip your next combat."  # spec 0113 (W1-156)
     found["said1"] = report.get("said")
     if report.get("said") != want:
         problems.append(f"seat 1: the window says {want!r}: {report.get('said')!r}")

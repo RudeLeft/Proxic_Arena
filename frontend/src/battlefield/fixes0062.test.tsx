@@ -180,7 +180,7 @@ describe("abilities, mana already made, Phyrexian life (F-0062-B)", () => {
       />,
     ).container;
     const pill = c.querySelector(".bf-stack-owe")!;
-    expect(pill.getAttribute("aria-label")).toBe("Still to pay: 1");
+    expect(pill.getAttribute("aria-label")).toBe("Still to pay: one generic");
     expect(pill.querySelectorAll(".bf-owe-pip")).toHaveLength(2);
     expect(pill.querySelector('[data-ball="7:0"]')!.classList.contains("bf-owe-pip-paid")).toBe(
       true,

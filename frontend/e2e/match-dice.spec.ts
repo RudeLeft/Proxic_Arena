@@ -294,8 +294,8 @@ test("dice tumble on the stack; the roll, sector, sprocket and crank windows say
     const sprocket = window(/^Put Goblin Slingshot on a sprocket$/);
     await expect(sprocket.locator(".gs-place")).toHaveText([
       /cranks next turn · empty/,
-      /cranks in 2 turns · empty/,
-      /cranks in 3 turns · Goblin Slingshot/,
+      /cranks in two turns · empty/,
+      /cranks in three turns · Goblin Slingshot/,
     ]);
     await expect(sprocket).not.toContainText("--");
     await guest.screenshot({ path: "test-results/seen/w17-sprocket.png" });

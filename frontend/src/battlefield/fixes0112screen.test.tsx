@@ -178,7 +178,7 @@ describe("F-0112-D · Bob's window opens with what Alice sacrificed", () => {
     const head = win.querySelector(".gs-win-head")!;
     expect(earlier.compareDocumentPosition(head) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(earlier.querySelector(".gs-reveal-face")).not.toBeNull();
-    expect(earlier.querySelector(".gs-reveal-by")!.textContent).toBe("Alice · Barter in Blood");
+    expect(earlier.querySelector(".gs-reveal-by")!.textContent).toBe("Alice, with Barter in Blood");
     expect(earlier.querySelector(".gs-earlier-said")!.textContent).toBe(
       "Alice sacrificed Walking Corpse and Walking Corpse.",
     );
@@ -187,7 +187,7 @@ describe("F-0112-D · Bob's window opens with what Alice sacrificed", () => {
     // Each picture is the board's own card (in Alice's graveyard on Bob's board).
     expect(pics.every((p) => p.querySelector(".gs-win-bigcard"))).toBe(true);
     // The question as today: its heading, and the table is the answer.
-    expect(win.querySelector(".gs-question-title")!.textContent).toBe("Sacrifice");
+    expect(win.querySelector(".gs-question-title")!.textContent).toBe("Choose what to sacrifice");
     const choosable = [
       ...c.querySelectorAll<HTMLElement>('.bf-cards button.bf-card[data-choosable="true"]'),
     ].map((b) => b.dataset.objectId);
@@ -234,6 +234,6 @@ describe("F-0112-D · Bob's window opens with what Alice sacrificed", () => {
     const win = sacrificeWindow(c)!;
     expect(win).not.toBeNull();
     expect(win.querySelector(".gs-earlier")).toBeNull();
-    expect(win.querySelector(".gs-question-title")!.textContent).toBe("Sacrifice");
+    expect(win.querySelector(".gs-question-title")!.textContent).toBe("Choose what to sacrifice");
   });
 });

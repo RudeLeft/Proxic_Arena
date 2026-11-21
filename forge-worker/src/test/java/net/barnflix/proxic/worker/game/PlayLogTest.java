@@ -98,7 +98,7 @@ class PlayLogTest {
             return out;
         };
         Map<Integer, JsonArray> out = PlayLog.lines(List.of(fact), List.of(1, 2), 3, new HashMap<>());
-        assertEquals("Alice drew 7 cards", words(out.get(2).get(0).getAsJsonObject()));
+        assertEquals("Alice drew seven cards", words(out.get(2).get(0).getAsJsonObject()));
         assertEquals("Alice drew Island, Island, Island, Island, Island, Island and Island",
                 words(out.get(1).get(0).getAsJsonObject()));
     }
@@ -229,7 +229,7 @@ class PlayLogTest {
         items.add(null);
         PlayLog.list(out, items, "a card", "cards");
         assertEquals(", ", out.get(1).getAsString());
-        assertEquals(" and 2 cards", out.get(3).getAsString());
+        assertEquals(" and two other cards", out.get(3).getAsString());
         assertEquals("Hello", PlayLog.capital(jsonOf("hello")).get(0).getAsString());
     }
 

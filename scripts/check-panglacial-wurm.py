@@ -141,7 +141,8 @@ for line in proc.stdout:
     options = frame.get("options", [])
     labels = [o.get("label") or "" for o in options]
     pick = None
-    stack = [x.get("description", "") for x in state.get(seat, {}).get("stack", [])]
+    # Spec 0113 (W1-249): the card's name is its own field, not Forge's "Name (N)->" before the words.
+    stack = [(x.get("name") or "") + " " + x.get("description", "") for x in state.get(seat, {}).get("stack", [])]
 
     if dkind == "chooseSpellAbilityToPlay":
         def on(zone, name, play_land=None, ability=False):

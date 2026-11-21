@@ -42,7 +42,7 @@ describe("the status tray (spec 0038)", () => {
     ).container;
     const mana = [...c.querySelectorAll(".gs-mana")];
     expect(mana.map((m) => m.textContent)).toEqual(["1", "5"]);
-    expect(mana.map((m) => m.querySelector("img")!.getAttribute("alt"))).toEqual(["U", "R"]);
+    expect(mana.map((m) => m.querySelector("img")!.getAttribute("alt"))).toEqual(["blue", "red"]);
     expect(mana[1]!.querySelector("img")!.getAttribute("src")).toMatch(/sym_R/);
   });
 
@@ -53,7 +53,7 @@ describe("the status tray (spec 0038)", () => {
     const counted = tray({ counters: [{ name: "ENERGY", count: 3 }], designations: ["Monarch"] });
     const energy = counted.querySelector('[data-count-kind="energy"]')!;
     expect(energy.textContent).toBe("3");
-    expect(energy.getAttribute("aria-label")).toBe("RudeLeft: 3 energy");
+    expect(energy.getAttribute("aria-label")).toBe("RudeLeft: three energy");
     expect(counted.querySelector(".gs-chip")).toBeNull();
     // Spec 0077 (F-0077-E): poison is the badge by the life shield, never in the tray.
     const poisoned = tray({ counters: [{ name: "POISON", count: 3 }] });
@@ -80,7 +80,7 @@ describe("the status tray (spec 0038)", () => {
       command: ["Chandra emblem", "The Ring"],
     });
     expect(all.querySelector(".pa-visually-hidden")!.textContent).toBe(
-      "RudeLeft: 3 energy  · monarch. command zone: Chandra emblem, The Ring · the Ring has tempted 2×",
+      "RudeLeft: three energy, the monarch. Command zone: Chandra emblem, The Ring; the Ring has tempted them twice",
     );
   });
 
@@ -131,13 +131,13 @@ describe("the status tray (spec 0038)", () => {
     const list = c.querySelector(".gs-status-list")!;
     // Mana as the real symbols, not letters; counters on one line.
     expect([...list.querySelectorAll(".gs-mana img")].map((i) => i.getAttribute("alt"))).toEqual([
-      "W",
-      "U",
-      "B",
-      "R",
+      "white",
+      "blue",
+      "black",
+      "red",
     ]);
     expect(list.textContent).not.toMatch(/\d [WUBR] mana/);
-    expect(list.textContent).toContain("4 energy · 2 experience");
+    expect(list.textContent).toContain("four energy · two experience counters");
     fireEvent.click(more);
   });
 });
@@ -218,14 +218,14 @@ describe("the status tray's list (W-21)", () => {
     const ring = c.querySelectorAll('[data-count-kind="ring"]');
     expect(ring).toHaveLength(1);
     expect(ring[0]!.textContent).toBe("2");
-    expect(ring[0]!.getAttribute("aria-label")).toBe("The Ring has tempted RudeLeft 2 times");
+    expect(ring[0]!.getAttribute("aria-label")).toBe("The Ring has tempted RudeLeft twice");
   });
 
   it("says names and what they do: held rules, the Ring's four with two lit, the room and where next, the emblem's words", () => {
     const c = render(<StatusTray player={busy()} side="viewer" />).container;
     fireEvent.click(c.querySelector(".gs-map")!);
     const list = c.querySelector(".gs-status-list")!;
-    expect(list.getAttribute("aria-label")).toBe("Pat: everything in play for you");
+    expect(list.getAttribute("aria-label")).toBe("Pat: in play for you");
     expect(list.textContent).toContain(HELD_WORDS["monarch"]);
     expect(list.textContent).toContain(HELD_WORDS["initiative"]);
     const ring = [...list.querySelectorAll(".gs-status-ring li")];
@@ -237,7 +237,7 @@ describe("the status tray's list (W-21)", () => {
       "gs-status-off",
     ]);
     expect(ring[0]!.textContent).toContain(RING_WORDS[0]);
-    expect(list.textContent).toContain("Undercity · in Secret Entrance");
+    expect(list.textContent).toContain("Undercity: in Secret Entrance");
     expect(list.textContent).toContain(
       "Next: Forge (Put two +1/+1 counters on target creature) or Lost Well (Scry 2)",
     );
@@ -264,7 +264,7 @@ describe("the status tray's list (W-21)", () => {
       [...c.querySelectorAll(".gs-status-list")].map((l) => l.getAttribute("aria-label"));
 
     fireEvent.click(mine);
-    expect(lists()).toEqual(["Pat: everything in play for you"]);
+    expect(lists()).toEqual(["Pat: in play for you"]);
     act(() => {
       fireEvent.keyDown(window, { key: "Escape" });
     });
@@ -281,7 +281,7 @@ describe("the status tray's list (W-21)", () => {
       fireEvent.pointerDown(theirs);
     });
     fireEvent.click(theirs);
-    expect(lists()).toEqual(["RudeLeft: everything in play for them"]);
+    expect(lists()).toEqual(["RudeLeft: in play for them"]);
     fireEvent.click(theirs);
     expect(lists()).toEqual([]);
   });

@@ -215,10 +215,15 @@ class ActionReportsTest {
         assertFalse(ActionReports.tells(ActionReports.Kind.SKIP, BOB, BOB, ALICE, BOB));
         // Meditate: Bob skips his own turn, told to Alice.
         assertTrue(ActionReports.tells(ActionReports.Kind.SKIP, ALICE, BOB, BOB, BOB));
-        assertEquals("Bob's spell: you skip your next turn.", ActionReports.skipWords("Bob", null, null, 1));
-        assertEquals("Bob's spell: you skip your combat.", ActionReports.skipWords("Bob", null, "combat", 0));
-        assertEquals("Bob's spell: Bob skips their next turn.", ActionReports.skipWords("Bob", "Bob", null, 1));
-        assertEquals("Bob's spell: you skip your next 2 turns.", ActionReports.skipWords("Bob", null, null, 2));
+        // Spec 0113 (W1-156): the card by its name, "next two turns".
+        assertEquals("Bob's Meditate: you skip your next turn.",
+                ActionReports.skipWords("Bob", "Meditate", null, null, 1));
+        assertEquals("Bob's Fatespinner: you skip your next combat.",
+                ActionReports.skipWords("Bob", "Fatespinner", null, "combat", 0));
+        assertEquals("Bob's Meditate: Bob skips their next turn.",
+                ActionReports.skipWords("Bob", "Meditate", "Bob", null, 1));
+        assertEquals("Bob's Time Walk: you skip your next two turns.",
+                ActionReports.skipWords("Bob", "Time Walk", null, null, 2));
         // What Forge's effect card skips, in the player's words.
         assertEquals("combat", Skips.stepWords("BeginCombat"));
         assertEquals("draw step", Skips.stepWords("Draw"));

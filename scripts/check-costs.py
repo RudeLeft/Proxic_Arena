@@ -18,8 +18,8 @@ fact that a question was asked.
                  lands and those cards together cannot pay it; 2026-11-08)
   affinity       Thoughtcast: artifacts reduce the cost, nothing tapped
   warchief       spec 0058, item 2: with Goblin Warchief out, a Goblin Piker
-                 in hand carries costNow {R} and costWhy "Costs {1} less:
-                 Goblin Warchief" on its owner's snapshots -- on their own
+                 in hand carries costNow {R} and costWhy "Costs {1} less (Goblin
+                 Warchief)" on its owner's snapshots -- on their own
                  turn and the other player's -- and none before; never on
                  the other seat's; then it is cast for {R}
 
@@ -610,7 +610,7 @@ def warchief():
     problems = []
     for when in ("mine", "theirs_turn"):
         c = st[when]
-        if c.get("costNow") != "{R}" or c.get("costWhy") != "Costs {1} less: Goblin Warchief":
+        if c.get("costNow") != "{R}" or c.get("costWhy") != "Costs {1} less (Goblin Warchief)":
             problems.append(f"{when}: Piker should cost {{R}} because of the Warchief: {c}")
     if st["before"] is not None and st["before"].get("costNow"):
         problems.append(f"before the Warchief the Piker costs what it says: {st['before']}")
@@ -619,7 +619,7 @@ def warchief():
     if st["cast"] is None or not until(g):
         problems.append("the Piker was not cast for {R}")
     return ("wrong", "; ".join(problems), found) if problems else \
-        ("ok", "Goblin Piker: costNow {R}, 'Costs {1} less: Goblin Warchief' on both turns; cast for {R}", found)
+        ("ok", "Goblin Piker: costNow {R}, 'Costs {1} less (Goblin Warchief)' on both turns; cast for {R}", found)
 
 
 SCENARIOS = {"dismember": dismember, "force-of-will": force_of_will, "delve": delve,

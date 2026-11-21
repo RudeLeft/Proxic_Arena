@@ -175,12 +175,19 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
           // index (§6.50). If this ever shows two, the adapter has
           // started deciding something that is the player's.
           const offered = await panel.getByRole("listitem").getByRole("button").allTextContents();
-          expect(offered.sort()).toEqual(["First Strike", "Flying", "Lifelink", "Vigilance"]);
+          // Spec 0113 (W1-186): each kind said as a counter, in lower case.
+          expect(offered.sort()).toEqual([
+            "first strike counter",
+            "flying counter",
+            "lifelink counter",
+            "vigilance counter",
+          ]);
 
           // Forge's own wording, passed through rather than
           // rewritten — it is the only thing that says which card
           // this is about.
-          await expect(panel.getByText(/Select counter type to add to/)).toBeVisible();
+          // Spec 0113 (W1-313): Forge's question in our words.
+          await expect(panel.getByText(/Choose a kind of counter to put on/)).toBeVisible();
 
           // Mandatory: there is no "neither", so no Pass.
           await expect(panel.getByRole("button", { name: "Pass" })).toHaveCount(0);
@@ -263,7 +270,7 @@ test("a planeswalker ability is paid for, and modal cards ask which mode", async
           await expect(panel.locator("button.gs-dial-go")).toHaveText(
             /^Cast Secure the Wastes with X = \d+$/,
           );
-          await expect(panel.getByText(/You can make \d+ mana\./)).toBeVisible();
+          await expect(panel.getByText(/You can make \w+ mana\./)).toBeVisible();
 
           // Every value is still an option, in "List choices": consecutive,
           // starting at the minimum, so the player is not quietly offered

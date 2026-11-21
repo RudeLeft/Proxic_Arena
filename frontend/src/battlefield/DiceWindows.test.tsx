@@ -127,7 +127,7 @@ describe("the roll windows (W-17)", () => {
       title: "Reroll the 4 for {1}?",
       says: "Monitor Monitor lets you reroll for {1}.",
       pass: "Keep the 4",
-      main: "Reroll · {1}",
+      main: "Reroll for {1}",
     });
     const nudge = decision({
       kind: "chooseRollToModify",
@@ -250,8 +250,8 @@ describe("sectors and sprockets (W-17)", () => {
     const c = render(<SprocketWindow {...common(d, b)} onLight={vi.fn()} />).container;
     expect([...c.querySelectorAll(".gs-place")].map((p) => p.textContent)).toEqual([
       "Sprocket 1cranks next turn · empty",
-      "Sprocket 2cranks in 2 turns · empty",
-      "Sprocket 3cranks in 3 turns · Boomflinger",
+      "Sprocket 2cranks in two turns · empty",
+      "Sprocket 3cranks in three turns · Boomflinger",
     ]);
   });
 
@@ -373,7 +373,7 @@ describe("dungeons (Phase 9 Amendment 20)", () => {
   it("says how many rooms, how deep, and the first and last room's words", () => {
     expect(dungeonDepth(lostMine)).toBe(4);
     expect(dungeonWords(lostMine)).toBe(
-      "7 rooms, 4 deep: Cave Entrance (scry 1) → … → Temple of Dumathoin (draw a card)",
+      "Seven rooms, four deep: Cave Entrance (scry 1) to Temple of Dumathoin (draw a card)",
     );
   });
 
@@ -389,7 +389,7 @@ describe("dungeons (Phase 9 Amendment 20)", () => {
     const b = board({ stack: [{ id: "stack:1", name: "Nadaar, Selfless Paladin" }] as never });
     const c = render(<DungeonWindow {...common(d, b, onAnswer)} />).container;
     expect(c.textContent).toContain("Nadaar, Selfless Paladin");
-    expect(c.querySelector(".gs-place")!.textContent).toContain("7 rooms, 4 deep");
+    expect(c.querySelector(".gs-place")!.textContent).toContain("Seven rooms, four deep");
     fireEvent.click(c.querySelector(".gs-place")!);
     expect(onAnswer).toHaveBeenCalledWith("chooseSingleCardFace:0");
   });
@@ -466,16 +466,16 @@ describe("several modes, ticked then Done (Phase 9 Amendment 21)", () => {
     const title = () => c.querySelector(".gs-win-title")!.textContent;
     const modes = () => [...c.querySelectorAll<HTMLButtonElement>(".gs-mode")];
     const done = () => c.querySelector<HTMLButtonElement>(".gs-modes-done")!;
-    expect(title()).toBe("Choose two · 0 of 2");
+    expect(title()).toBe("Choose two");
     expect(done().disabled).toBe(true);
     fireEvent.click(modes()[3]!);
     fireEvent.click(modes()[1]!);
-    expect(title()).toBe("Choose two · 2 of 2");
+    expect(title()).toBe("Choose two (two chosen)");
     // The count is reached: the others dim and can't be added.
     expect(modes()[0]!.disabled).toBe(true);
     // A tick taken back.
     fireEvent.click(modes()[3]!);
-    expect(title()).toBe("Choose two · 1 of 2");
+    expect(title()).toBe("Choose two (one chosen)");
     fireEvent.click(modes()[2]!);
     fireEvent.click(done());
     expect(onDone).toHaveBeenCalledWith([
@@ -500,7 +500,7 @@ describe("several modes, ticked then Done (Phase 9 Amendment 21)", () => {
         1,
         0,
       ),
-    ).toBe("Choose one to three · 1 chosen");
+    ).toBe("Choose one to three (one chosen)");
     expect(
       modesTitle(
         {
@@ -516,7 +516,7 @@ describe("several modes, ticked then Done (Phase 9 Amendment 21)", () => {
         2,
         3,
       ),
-    ).toBe("Choose modes · 3 of 5 paw prints");
+    ).toBe("Choose modes: 3 of 5 paw prints used");
     const c = render(
       <ModesFree
         d={cryptic({

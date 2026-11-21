@@ -197,7 +197,32 @@ final class CombatChoices {
      * game id ("Boggart Brute (38)"), the player sees names.
      */
     static String blockRefused(String problem) {
-        return "Not allowed: " + problem.replaceAll("\\s\\(\\d+\\)", "");
+        return blockRefused(problem, java.util.Set.of());
+    }
+
+    private static final java.util.regex.Pattern TOO_FEW =
+            java.util.regex.Pattern.compile("^(.+?) cannot be blocked with (\\d+) creatures you've assigned\\.?$");
+
+    /**
+     * Spec 0113 (W1-264, W1-336) -- Forge's reason, without its card numbers;
+     * a menace attacker blocked by one creature ([menace] the attackers with
+     * menace, by name): "Boggart Brute has menace: block it with two or more
+     * creatures." Too few blockers otherwise: "... can't be blocked by just
+     * one creature."
+     */
+    static String blockRefused(String problem, java.util.Set<String> menace) {
+        String plain = problem.replaceAll("\\s\\(\\d+\\)", "").trim();
+        java.util.regex.Matcher few = TOO_FEW.matcher(plain);
+        if (few.matches()) {
+            String attacker = few.group(1).trim();
+            int n = Integer.parseInt(few.group(2));
+            if (menace.contains(attacker)) {
+                return attacker + " has menace: block it with two or more creatures.";
+            }
+            return "Not allowed: " + attacker + " can't be blocked by " + (n == 1 ? "just one creature"
+                    : "only " + PlainWords.count(n, "creature")) + ".";
+        }
+        return "Not allowed: " + plain;
     }
 
     /** Forge's verdict on the whole block, with Forge's own reason when it refuses. */
@@ -206,8 +231,14 @@ final class CombatChoices {
         if (problem == null) {
             return true;
         }
+        java.util.Set<String> menace = new java.util.HashSet<>();
+        for (Card attacker : combat.getAttackers()) {
+            if (attacker.hasKeyword(forge.game.keyword.Keyword.MENACE)) {
+                menace.add(attacker.getName());
+            }
+        }
         // Spec 0097, item 5 -- on the combat button, as the attack's.
-        host.offerRefused(actedForSeat, blockRefused(problem));
+        host.offerRefused(actedForSeat, blockRefused(problem, menace));
         return false;
     }
 
@@ -705,7 +736,9 @@ final class CombatChoices {
             // damage as it chooses may give the player any of it.
             if ((trampleOver && allLethal(attacker, blockers, assigned)) || (divides && defender != null)) {
                 labels.put("damage:defender", String.valueOf(defender)
-                        + " · " + assigned.getOrDefault(null, 0) + " damage so far (trample)");
+                        // Spec 0113 (W1-221) -- "(trample)" only when it is trample.
+                        + " · " + assigned.getOrDefault(null, 0) + " damage so far"
+                        + (trampleOver && allLethal(attacker, blockers, assigned) ? " (trample)" : ""));
             }
 
             String choice =

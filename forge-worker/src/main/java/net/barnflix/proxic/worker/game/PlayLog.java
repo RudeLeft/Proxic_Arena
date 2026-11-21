@@ -328,7 +328,7 @@ final class PlayLog {
         }
         List<Object> all = new ArrayList<>(named);
         if (hidden > 0) {
-            all.add(hidden == 1 ? one : hidden + " " + many);
+            all.add(hiddenWords(hidden, !named.isEmpty(), one, many));
         }
         for (int i = 0; i < all.size(); i++) {
             if (i > 0) {
@@ -336,6 +336,13 @@ final class PlayLog {
             }
             Object each = all.get(i);
             if (each instanceof JsonElement element) {
+                // Spec 0113 -- one basic land is a kind of card: "an Island", "a Forest"
+                // (a run of them stays a list of names: "Island, Island and Forest").
+                if (named.size() == 1 && element.isJsonObject() && element.getAsJsonObject().has("name")
+                        && ActionReports.isBasic(element.getAsJsonObject().get("name").getAsString())) {
+                    String article = PlainWords.article(element.getAsJsonObject().get("name").getAsString());
+                    text(out, (out.isEmpty() ? PlainWords.capital(article) : article) + " ");
+                }
                 part(out, element, one);
             } else {
                 text(out, (String) each);
@@ -348,7 +355,45 @@ final class PlayLog {
     }
 
     static String cards(int n, String one, String many) {
-        return n == 1 ? one : n + " " + many;
+        return n == 1 ? one : PlainWords.number(n) + " " + many;
+    }
+
+    /**
+     * Spec 0113 (W1-164) -- hidden cards in a list: "a card", "seven cards";
+     * beside named ones "another card", "two other cards" (as the report
+     * windows' ActionReports#cardWords say it).
+     */
+    static String hiddenWords(int hidden, boolean other, String one, String many) {
+        if (!other) {
+            return cards(hidden, one, many);
+        }
+        return hidden == 1 ? one.replaceFirst("^an? ", "another ") : PlainWords.number(hidden) + " other " + many;
+    }
+
+    /** Spec 0113 (W1-167) -- "rolled 4 on a six-sided die", "rolled 4, 5 and 6 on six-sided dice". */
+    static String rolledWords(List<Integer> results, int sides) {
+        List<String> each = new ArrayList<>();
+        results.forEach(n -> each.add(String.valueOf(n)));
+        String kind = PlainWords.number(sides) + "-sided";
+        return " rolled " + PlainWords.and(each) + (results.size() > 1 ? " on " + kind + " dice" : " on a " + kind + " die");
+    }
+
+    /**
+     * Spec 0113 (W1-169, W1-170) -- " scried 3, keeping one on top and
+     * putting two on the bottom", " surveilled 2 and kept both on top" (the
+     * zero half never said). [away] the cards that went to [awayPlace].
+     */
+    static String lookedWords(String verb, int top, int away, String awayPlace) {
+        int total = top + away;
+        String all = total == 1 ? "it" : total == 2 ? "both" : "them all";
+        if (away == 0) {
+            return verb + total + " and kept " + all + " on top";
+        }
+        if (top == 0) {
+            return verb + total + " and put " + all + " " + awayPlace;
+        }
+        return verb + total + ", keeping " + PlainWords.number(top) + " on top and putting "
+                + PlainWords.number(away) + " " + awayPlace;
     }
 
     /** The line starts with a capital, whatever its first words are. */
@@ -454,7 +499,9 @@ final class PlayLog {
             Fact rest = fact("other");
             rest.phrase = (seat, items) -> {
                 JsonArray words = new JsonArray();
-                words.add("And " + more + " more things happened");
+                // Spec 0113 (W1-166) -- "And two more things happened" (12 stays digits).
+                words.add(more == 1 ? "And one more thing happened"
+                        : "And " + PlainWords.number(more) + " more things happened");
                 return words;
             };
             pending.add(rest);
@@ -660,18 +707,14 @@ final class PlayLog {
     /** A die rolled (public). */
     synchronized void rolled(int seat, Card source, int sides, List<Integer> results) {
         Fact fact = fact("other");
-        StringBuilder rolledWords = new StringBuilder();
-        for (int i = 0; i < results.size(); i++) {
-            rolledWords.append(i == 0 ? "" : i == results.size() - 1 ? " and " : ", ").append(results.get(i));
-        }
         if (source != null) {
             addCard(fact, source, null);
         }
-        String what = rolledWords.toString();
+        String what = rolledWords(results, sides);
         fact.phrase = (s, items) -> {
             JsonArray out = new JsonArray();
             out.add(player(seat));
-            text(out, " rolled " + what + " on a " + sides + "-sided die");
+            text(out, what);
             if (!items.isEmpty() && items.get(0) != null) {
                 text(out, " for ");
                 part(out, items.get(0), "a card");
@@ -727,6 +770,8 @@ final class PlayLog {
             cast(cast);
         } else if (event instanceof forge.game.event.GameEventSpellResolved resolved && resolved.hasFizzled()) {
             fizzled(resolved);
+        } else if (event instanceof forge.game.event.GameEventSpellResolved resolved) {
+            controlGained(resolved);
         } else if (event instanceof forge.game.event.GameEventAttackersDeclared attack) {
             attacked(attack);
         } else if (event instanceof forge.game.event.GameEventBlockersDeclared blocks) {
@@ -750,11 +795,10 @@ final class PlayLog {
             };
             add(fact);
         } else if (event instanceof forge.game.event.GameEventScry scry) {
-            looked(scry.player(), " scried ", scry.toTop() + scry.toBottom(),
-                    scry.toTop() + " on top, " + scry.toBottom() + " on the bottom");
+            looked(scry.player(), lookedWords(" scried ", scry.toTop(), scry.toBottom(), "on the bottom"));
         } else if (event instanceof forge.game.event.GameEventSurveil surveil) {
-            looked(surveil.player(), " surveilled ", surveil.toLibrary() + surveil.toGraveyard(),
-                    surveil.toLibrary() + " on top, " + surveil.toGraveyard() + " into the graveyard");
+            looked(surveil.player(), lookedWords(" surveilled ", surveil.toLibrary(), surveil.toGraveyard(),
+                    "into their graveyard"));
         } else if (event instanceof forge.game.event.GameEventCardSacrificed sacrificed && sacrificed.card() != null) {
             sacrificing.add(sacrificed.card().getId());
         } else if (event instanceof forge.game.event.GameEventCardChangeZone moved && moved.card() != null) {
@@ -762,13 +806,13 @@ final class PlayLog {
         }
     }
 
-    private void looked(PlayerView who, String verb, int total, String split) {
+    private void looked(PlayerView who, String words) {
         int seat = seat(who);
         Fact fact = fact("other");
         fact.phrase = (s, items) -> {
             JsonArray out = new JsonArray();
             out.add(player(seat));
-            text(out, verb + total + " (" + split + ")");
+            text(out, words);
             return out;
         };
         add(fact);
@@ -907,15 +951,79 @@ final class PlayLog {
         boolean down = source.isFaceDown();
         Fact fact = fact("death");
         addCard(fact, source, null);
+        // Spec 0113 (W1-172) -- the report window's reason: one target or
+        // many, gone or no longer allowed (ActionReports#fizzleWhy).
+        int aimed = 0;
+        boolean gone = true;
+        for (forge.game.spellability.SpellAbility part = sa; part != null; part = part.getSubAbility()) {
+            if (part.getTargets() == null) {
+                continue;
+            }
+            aimed += part.getTargets().size();
+            for (Card target : part.getTargets().getTargetCards()) {
+                Card now = game.findById(target.getId());
+                gone &= now == null || now.getZone() == null || !now.equalsWithGameTimestamp(target);
+            }
+            if (part.getTargets().getTargetPlayers().iterator().hasNext()) {
+                gone = false;
+            }
+        }
+        String why = ActionReports.fizzleWhy(gone || aimed == 0, aimed > 1);
         fact.phrase = (s, items) -> {
             JsonArray out = new JsonArray();
             out.add(player(by));
             text(out, copy ? "'s copy of " : "'s ");
             part(out, items.isEmpty() ? null : items.get(0), down ? "face-down spell" : "spell");
-            text(out, " did nothing: its target was gone");
+            text(out, " did nothing: " + why);
             return out;
         };
         add(fact);
+    }
+
+    /**
+     * Spec 0113 (0109 note) -- a spell or ability that gained control of a
+     * permanent (Act of Treason): its own line, "Bob gains control of your
+     * Grizzly Bears until the end of the turn.", once it has resolved and the
+     * permanent is the new controller's.
+     */
+    private void controlGained(forge.game.event.GameEventSpellResolved resolved) {
+        forge.game.spellability.SpellAbility sa = Copies.resolved(game, resolved);
+        for (forge.game.spellability.SpellAbility part = sa; part != null; part = part.getSubAbility()) {
+            if (part.getApi() != forge.game.ability.ApiType.GainControl || part.getTargets() == null) {
+                continue;
+            }
+            for (Card target : part.getTargets().getTargetCards()) {
+                Card now = game.findById(target.getId());
+                if (now == null || !now.isInZone(forge.game.zone.ZoneType.Battlefield) || now.getOwner() == null
+                        || now.getController() == null || now.getController() == now.getOwner()) {
+                    continue;
+                }
+                int gainer = seat(now.getController());
+                int owner = seat(now.getOwner());
+                String until = controlUntil(part.getParam("LoseControl"));
+                Fact fact = fact("move");
+                addCard(fact, now, null);
+                fact.phrase = (s, items) -> {
+                    JsonArray out = new JsonArray();
+                    out.add(player(gainer));
+                    text(out, " gains control of ");
+                    out.add(player(owner));
+                    text(out, "'s ");
+                    part(out, items.isEmpty() ? null : items.get(0), "a card");
+                    text(out, until);
+                    return out;
+                };
+                add(fact);
+            }
+        }
+    }
+
+    /** Spec 0113 -- how long a control change lasts, as Forge's LoseControl param says: " until the end of the turn". */
+    static String controlUntil(String loseControl) {
+        if (loseControl != null && java.util.Arrays.asList(loseControl.split(",")).contains("EOT")) {
+            return " until the end of the turn";
+        }
+        return "";
     }
 
     private void attacked(forge.game.event.GameEventAttackersDeclared attack) {
@@ -1013,10 +1121,12 @@ final class PlayLog {
             addHidden(fact);
         }
         target.accept(fact);
+        // Spec 0113 (W1-173) -- no source at all is "something", never a creature.
+        String unseen = source == null ? "something" : "a face-down creature";
         fact.phrase = (s, items) -> {
             JsonArray out = new JsonArray();
             // Item 0 of a merged run is every source again: show the first.
-            part(out, items.get(0), "a face-down creature");
+            part(out, items.get(0), unseen);
             text(out, " dealt " + amount + " damage to ");
             List<JsonElement> targets = new ArrayList<>();
             for (int i = 1; i < items.size(); i += 2) {
@@ -1135,7 +1245,9 @@ final class PlayLog {
                     fact.key = "sacrifice:" + controller;
                     fact.phrase = (s, items) -> lead(player(controller), " sacrificed ", items);
                 } else if (said != null) {
-                    fact.phrase = (s, items) -> tail(items, said, said);
+                    // Spec 0113 (W1-174) -- "A and B were destroyed".
+                    String many = " was destroyed".equals(said) ? " were destroyed" : said;
+                    fact.phrase = (s, items) -> tail(items, said, many);
                 } else {
                     fact.phrase = (s, items) -> tail(items, " was put into ", " were put into ", owner, "'s graveyard");
                 }
@@ -1210,8 +1322,9 @@ final class PlayLog {
             }
             case "library-graveyard" -> {
                 fact.key = "libgy:" + owner;
-                fact.phrase = (s, items) -> tail(items, " went to ", " went to ", owner,
-                        "'s graveyard from their library");
+                // Spec 0113 (W1-176) -- "Grizzly Bears went from Bob's library to their graveyard".
+                fact.phrase = (s, items) -> tail(items, " went from ", " went from ", owner,
+                        "'s library to their graveyard");
             }
             case "library-battlefield" -> fact.phrase = (s, items) -> tail(items,
                     " was put onto the battlefield from ", " were put onto the battlefield from ", owner, "'s library");
@@ -1247,7 +1360,8 @@ final class PlayLog {
                 fact.phrase = (s, items) -> {
                     JsonArray out = new JsonArray();
                     out.add(player(controller));
-                    text(out, " created " + (items.size() == 1 ? "a" : String.valueOf(items.size())) + " ");
+                    // Spec 0113 (W1-177) -- "an Elf Warrior token", "two Goblin tokens", "12 Goblin tokens".
+                    text(out, " created " + tokenCount(items.size(), items.get(0) == null ? null : name) + " ");
                     JsonElement first = items.get(0);
                     part(out, first, "face-down");
                     text(out, items.size() == 1 ? " token" : " tokens");
@@ -1259,6 +1373,11 @@ final class PlayLog {
             }
         }
         add(fact);
+    }
+
+    /** Spec 0113 (W1-177) -- "a" / "an" before [name] for one token ([name] null: a face-down one), else the count. */
+    static String tokenCount(int n, String name) {
+        return n == 1 ? PlainWords.article(name == null ? "face-down" : name) : PlainWords.number(n);
     }
 
     private static void setKind(Fact fact, String kind) {

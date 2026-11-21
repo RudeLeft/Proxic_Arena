@@ -258,12 +258,146 @@ final class Causes {
                 return null;
             }
             // Forge's card numbers ("Soul Warden (65)") are not for players.
-            return forge.replaceAll("\\s*\\(\\d+\\)", "").trim();
+            String plain = forge.replaceAll("\\s*\\(\\d+\\)", "").trim();
+            // Spec 0113 (W1-163, W1-265, W1-321..W1-327) -- never Forge's labels.
+            Player controller = sa.getActivatingPlayer();
+            return whyWords(sa.getTrigger().getMode().name(), labelled(plain),
+                    "True".equalsIgnoreCase(sa.getTrigger().getParam("CombatDamage")),
+                    sa.getTrigger().getParam("Phase"), controller == null ? null : controller.getName());
         } catch (RuntimeException e) {
             // A trigger kind with objects shaped otherwise: say nothing
             // rather than something wrong.
             return null;
         }
+    }
+
+    /** Spec 0113 (W1-160) -- a reveal tray's title: "Revealed by Goblin Ringleader". */
+    static String revealedBy(String card) {
+        return "Revealed by " + card;
+    }
+
+    /** Forge's labels in a trigger's stored objects (Trigger*.getImportantStackObjects), longest first. */
+    private static final java.util.regex.Pattern LABEL = java.util.regex.Pattern.compile(
+            "(?:^|,\\s*|\\s+)(Damage Source|Damaged|Amount|Removed from|Zone Changer|Player|Card|Phase|Mutates|Room"
+                    + "|Source|Target|Attackers|Attacker|Defenders|Defender|Blockers|Blocker|Cause|Spell|Activator"
+                    + "|Sacrificed|Destroyed|Counter Type|Cards|Life Amount|Transformer|Discarded|Explorer)\\s*:\\s*");
+
+    /** "Damage Source: Grizzly Bears, Damaged: Bob, Amount: 2" -> {Damage Source=Grizzly Bears, Damaged=Bob, Amount=2}. */
+    static java.util.Map<String, String> labelled(String forge) {
+        java.util.Map<String, String> out = new java.util.LinkedHashMap<>();
+        if (forge == null) {
+            return out;
+        }
+        java.util.regex.Matcher m = LABEL.matcher(forge);
+        String label = null;
+        int from = 0;
+        while (m.find()) {
+            if (label != null) {
+                out.put(label, forge.substring(from, m.start()).replaceAll("[,\\s]+$", "").trim());
+            } else if (m.start() > 0 && !forge.substring(0, m.start()).isBlank()) {
+                out.put("", forge.substring(0, m.start()).replaceAll("[,\\s]+$", "").trim());
+            }
+            label = m.group(1);
+            from = m.end();
+        }
+        if (label != null) {
+            out.put(label, forge.substring(from).replaceAll("[,\\s]+$", "").trim());
+        } else if (!forge.isBlank()) {
+            out.put("", forge.trim());
+        }
+        return out;
+    }
+
+    /**
+     * Spec 0113 (W1-163, W1-321..W1-327) -- why a trigger triggered, from the
+     * objects Forge stored, in our words: "Grizzly Bears dealt combat damage
+     * to Bob", "A counter was removed from Invasion of Zendikar", "Alice
+     * unlocked a door of Grand Entryway", "Bob took the initiative", "It is
+     * Alice's upkeep", "Trumpeting Gnarr mutated", "Alice entered Trapped
+     * Entry", "Lightning Bolt targeted The Serpent Society", "Goblin Token
+     * moved". [mode] the trigger's mode (TriggerType's name); [phase] its
+     * Phase param; [controller] the trigger's controller. Any other kind:
+     * the values alone, never the labels; null for nothing.
+     */
+    static String whyWords(String mode, java.util.Map<String, String> f, boolean combat, String phase,
+            String controller) {
+        String player = f.get("Player");
+        switch (mode == null ? "" : mode) {
+            case "DamageDone", "DamageDoneOnce", "DamageDoneOnceByController" -> {
+                String source = f.get("Damage Source");
+                String damaged = f.get("Damaged");
+                if (source != null && damaged != null) {
+                    String amount = f.get("Amount");
+                    return source + " dealt " + (combat ? "combat damage"
+                            : amount != null && amount.matches("\\d+") ? amount + " damage" : "damage") + " to " + damaged;
+                }
+            }
+            case "CounterRemoved", "CounterRemovedOnce" -> {
+                String from = f.get("Removed from");
+                if (from != null) {
+                    String amount = f.get("Amount");
+                    int n = amount != null && amount.matches("\\d+") ? Integer.parseInt(amount) : 1;
+                    return n == 1 ? "A counter was removed from " + from
+                            : PlainWords.capitalNumber(n) + " counters were removed from " + from;
+                }
+            }
+            case "UnlockDoor" -> {
+                String card = f.get("Card");
+                if (player != null && card != null) {
+                    return player + " unlocked a door of " + card.split(" // ", 2)[0];
+                }
+            }
+            case "TakesInitiative" -> {
+                if (player != null && !player.isBlank()) {
+                    return player + " took the initiative";
+                }
+            }
+            case "BecomeMonarch" -> {
+                if (player != null && !player.isBlank()) {
+                    return player + " became the monarch";
+                }
+            }
+            case "Phase" -> {
+                String whose = f.get("Phase");
+                if (whose != null && !whose.isBlank()) {
+                    String step = phase == null ? null : Skips.stepWords(phase.split(",", 2)[0]);
+                    return "It is " + whose + "'s " + (step == null ? "turn" : step);
+                }
+            }
+            case "Mutates" -> {
+                String card = f.get("Mutates");
+                if (card != null) {
+                    return card + " mutated";
+                }
+            }
+            case "RoomEntered" -> {
+                String room = f.get("Room");
+                if (room != null) {
+                    return (controller == null ? "A player" : controller) + " entered " + room;
+                }
+            }
+            case "BecomesTarget", "BecomesTargetOnce" -> {
+                String source = f.get("Source");
+                String target = f.get("Target");
+                if (source != null && target != null) {
+                    return source + " targeted " + target;
+                }
+            }
+            default -> {
+                // The values alone, below.
+            }
+        }
+        String changer = f.get("Zone Changer");
+        if (changer != null && !changer.isBlank()) {
+            return changer + " moved";
+        }
+        java.util.List<String> values = new java.util.ArrayList<>();
+        for (String value : f.values()) {
+            if (value != null && !value.isBlank()) {
+                values.add(value);
+            }
+        }
+        return values.isEmpty() ? null : String.join(", ", values);
     }
 
     /**
@@ -334,7 +468,8 @@ final class Causes {
         // that effect's report window carries a hidden fact and stays.
         actions.revealedNow();
         String by = resolvingName();
-        String title = told != null ? told.said() : by != null ? by + " revealed:" : forgeWords;
+        // Spec 0113 (W1-160) -- "Revealed by Goblin Ringleader".
+        String title = told != null ? told.said() : by != null ? revealedBy(by) : forgeWords;
         reveals.put(seat, new Reveal(revealKeys.incrementAndGet(), title, java.util.List.copyOf(cardIds), told,
                 game.getPhaseHandler().getTurn(), own));
     }

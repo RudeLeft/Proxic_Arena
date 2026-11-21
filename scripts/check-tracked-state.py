@@ -399,7 +399,8 @@ def initiative():
     if not st["room_question"] or len(st["room_question"]) != 2:
         problems.append(f"the next room should be the player's choice of two: {st['room_question']}")
     # Phase 9 Amendment 20: each room is named, with what it does.
-    elif sorted(l.split(" \u2014 ")[0] for l in st["room_question"]) != ["Forge", "Lost Well"]:
+    # Spec 0113 (W1-197): "Lost Well: Scry 2." -- a colon, no dash.
+    elif sorted(l.split(": ")[0] for l in st["room_question"]) != ["Forge", "Lost Well"]:
         problems.append(f"the rooms are named: {st['room_question']}")
     if "Lost Well" not in st["rooms"][-1]:
         problems.append(f"the room chosen (Lost Well) should be shown: {st['rooms']}")

@@ -165,7 +165,9 @@ test("a stolen creature wears its owner's picture, and the graveyard shows pictu
       .poll(
         async () =>
           (await matchPanel(host)
-            .getByRole("button", { name: new RegExp(`^${testUser}'s graveyard, [1-9]`) })
+            .getByRole("button", {
+              name: new RegExp(`^${testUser}'s graveyard, (?!empty)`) /* spec 0113: "one card" */,
+            })
             .count()) > 0,
         { timeout: 60_000 },
       )

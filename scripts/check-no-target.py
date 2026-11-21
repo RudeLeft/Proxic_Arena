@@ -458,8 +458,11 @@ def slayer():
             return None
         if kind == "chooseTargetsFor" and seat == 2:
             st["labels"] = [o.get("label") for o in f["options"]]
+            st["stackLabels"] = [o.get("label") for o in f["options"] if o["actionId"].startswith("target:stack:")]
             return next((o["actionId"] for o in f["options"]
-                         if (o.get("label") or "").startswith("on the stack: When Slayer")), DEFAULT)
+                         # Spec 0113 (W1-003): the ability's button by its id, its card's name in the label.
+                         if o["actionId"].startswith("target:stack:")
+                         and "Slayer of the Wicked" in (o.get("label") or "")), DEFAULT)
         return DEFAULT
 
     def until(g):
@@ -497,7 +500,8 @@ def slayer():
     if not any((b.get("copying") or []) or any(e.get("copy") for e in b.get("stack") or [])
                for b in w.boards(1)):
         problems.append("the trigger was never copied (no copy entry)")
-    stacked = [x for x in st["labels"] if (x or "").startswith("on the stack: When Slayer")]
+    # Spec 0113 (W1-003): "Slayer of the Wicked's ability (first)", "(second)" -- no Forge note.
+    stacked = [x for x in st.get("stackLabels") or [] if (x or "").startswith("Slayer of the Wicked's ability")]
     if len(stacked) < 2:
         problems.append(f"Stifle's target buttons: the trigger and its copy: {st['labels']}")
     return result(problems, "Slayer's trigger, its copy and Stifle's target buttons: the sentence whole, no "

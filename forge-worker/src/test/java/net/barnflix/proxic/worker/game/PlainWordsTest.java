@@ -88,7 +88,7 @@ class PlainWordsTest {
 
     @Test
     void aCostRevealSaysWhoWhatAndWhy() {
-        assertEquals("Pat revealed Llanowar Elves from their hand",
+        assertEquals("Pat revealed Llanowar Elves from their hand.",
                 PlainWords.revealSaid("Pat", List.of("Llanowar Elves"), "hand"));
         assertEquals("to cast Wren's Run Vanquisher for {1}{G} instead of {4}{G}",
                 PlainWords.revealWhy("Wren's Run Vanquisher", true, "{1}{G}", "{4}{G}"));

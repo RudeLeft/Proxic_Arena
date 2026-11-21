@@ -128,7 +128,9 @@ def adventure():
             exiled = [c for c in g.zone(1, "exile", owner=1, name="Bonecrusher Giant")]
             if st["stomp"] and exiled and not st["giant"] and len(g.untapped_lands(1)) >= 3:
                 o = next((o["actionId"] for o in f["options"]
-                          if card_of(o["actionId"]) == exiled[0]["id"] and "Creature" in o["label"]), None)
+                          # Spec 0113 (W1-332): "Cast it from exile (after Stomp)", not Forge's "Creature 4 / 3 by Stomp".
+                          if card_of(o["actionId"]) == exiled[0]["id"]
+                          and ("Cast it" in o["label"] or "creature" in o["label"].lower())), None)
                 if o:
                     st["giant"], st["card"], st["in_exile"] = True, exiled[0]["id"], True
                     return o
@@ -331,7 +333,8 @@ def fuse():
     def until(g):
         for entry in g.state.get(1, {}).get("stack") or []:
             text = entry.get("description") or ""
-            if "Wear // Tear" in text and "artifact" in text and "enchantment" in text:
+            # Spec 0113 (W1-249): the stack words no longer repeat Forge's "Wear // Tear (N)->"; the name is its own field.
+            if "Wear // Tear" in (entry.get("name") or "") + text and "artifact" in text and "enchantment" in text:
                 st["cast"] = True
         return st["cast"] and calm(g) and len(g.zone(1, "graveyard", owner=1, name="Wear // Tear")) >= 1
 

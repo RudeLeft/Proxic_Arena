@@ -220,9 +220,9 @@ describe("F-0109-A · the short window only while your own spell's big card show
       arrange: arrange({ chosen: ["card:60"], enough: true, more: 1 }),
       options: targets,
     });
-    expect(title(c)).toBe("Choose up to 1 more target");
+    expect(title(c)).toBe("Choose up to one more target");
     expect(lines(c)).toEqual([
-      "1 chosen: Gryff Vanguard",
+      "Chosen so far: Gryff Vanguard",
       "Choose a creature that isn't a Vampire, Werewolf or Zombie.",
     ]);
     expect(c.querySelector(".gs-bubble .gs-targets-done")).toBeTruthy();

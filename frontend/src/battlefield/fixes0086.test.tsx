@@ -1127,7 +1127,7 @@ describe("a trigger the hit caused rises only once the hit has landed", () => {
     act(() => {
       vi.advanceTimersByTime(30_000);
     });
-    expect(caption()).toBe("Next: Bob's trigger · 2 on the stack");
+    expect(caption()).toBe("Next: Bob's trigger. Two on the stack.");
   });
 
   it("with no fights playing it rises at once", () => {

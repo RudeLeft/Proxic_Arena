@@ -198,7 +198,7 @@ test("each player's play log, the floating window and the window of its own", as
       expect(theirDraws.length, `${who} reads the other player's draws`).toBeGreaterThan(0);
       for (const l of theirDraws) {
         expect(l.cards, `${who} is never told what ${other} drew: ${l.text}`).toEqual([]);
-        expect(l.text).toMatch(/drew (a card|\d+ cards)$/);
+        expect(l.text).toMatch(/drew (a card|\w+ cards)$/); // spec 0113: "two cards", "12 cards"
       }
       // Lands are public: both read both.
       expect(

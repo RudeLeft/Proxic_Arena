@@ -365,13 +365,13 @@ def redirect(name, by, aim_self=False):
                 # the Bolt's new target: Alice herself (Bob's swat) or
                 # Bob (Alice's own).
                 o = next((o["actionId"] for o in f["options"]
-                          if (o.get("label") or "").startswith("on the stack: Lightning Bolt")), None)
+                          if (o["actionId"].startswith("target:stack:") and "Lightning Bolt" in (o.get("label") or ""))), None)
                 if o:
                     return o
                 want = "Bob" if own else "Alice"
                 return next((o["actionId"] for o in f["options"] if o.get("label") == want), DEFAULT)
             return next((o["actionId"] for o in f["options"]
-                         if (o.get("label") or "").startswith("on the stack: Lightning Bolt")), DEFAULT)
+                         if (o["actionId"].startswith("target:stack:") and "Lightning Bolt" in (o.get("label") or ""))), DEFAULT)
         if k == "confirmAction" and st["changed"]:
             st["asked"].append((seat, k, f.get("prompt"), [o.get("label") for o in f["options"]]))
             return f["options"][0]["actionId"]

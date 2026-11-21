@@ -19,6 +19,7 @@ import type { SnapshotPayment } from "../match";
 import type { Box, Geometry } from "./layout";
 import { paced, hurry } from "./motion";
 import { offsetAt, type AsideRun } from "./stepAside";
+import { manaWords, pictureSymbol, symbolWords } from "../words";
 
 /** One ball's flight (the canvas's look C: 0.62 s). */
 export const BALL_MS = paced(620);
@@ -192,9 +193,22 @@ export function assignBalls(
 
 /** "Still to pay: 1 B" -- the unpaid generic as one number, then the other symbols. */
 export function owingWords(pips: readonly PayPip[]): string {
-  const generic = pips.filter((p) => p.generic && !p.paid).length;
-  const rest = pips.filter((p) => !p.generic && !p.paid).map((p) => p.symbol);
-  return [...(generic > 0 ? [String(generic)] : []), ...rest].join(" ");
+  // Spec 0113 (W1-273): said in words, "two generic, one red and one green".
+  const owed = pips.filter((p) => !p.paid).map((p) => (p.generic ? "1" : pictureSymbol(p.symbol)));
+  return manaWords(owed);
+}
+
+/**
+ * Spec 0113 (W1-275, W1-276) -- one pip, said: "red" / "red, paid" (the
+ * pay pills), or with `mana` "red mana, paid" / "one generic mana" (the
+ * card being cast).
+ */
+export function pipWords(
+  pip: { symbol: string; paid: boolean; generic?: true },
+  mana = false,
+): string {
+  const what = pip.generic ? "one generic" : symbolWords(pictureSymbol(pip.symbol));
+  return `${what}${mana || pip.generic ? " mana" : ""}${pip.paid ? ", paid" : ""}`;
 }
 
 /**

@@ -237,8 +237,10 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
     // Opened, beside the tray: left of the column, clear of the steps,
     // the action button and both plates.
     await myTray.locator(".gs-chip-more").click();
-    const list = panel.getByRole("dialog", { name: /everything in play for you/ });
+    // Found by its role and whose it is, its words read (PROTO-006, spec 0113).
+    const list = panel.locator('[role="dialog"][data-whose="yours"]');
     await expect(list).toBeVisible();
+    await expect(list).toHaveAccessibleName(/: in play for you/);
     const listBox = await box(list);
     const rail = await box(panel.locator(".bf-rail"));
     expect(listBox.x + listBox.width, "left of the right-hand column").toBeLessThanOrEqual(
@@ -256,7 +258,7 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
     await expect(list).toContainText("Venture into the Undercity each upkeep");
     await expect(list.locator(".gs-status-ring .gs-status-lit")).toHaveCount(2);
     await expect(list.locator(".gs-status-ring .gs-status-off")).toHaveCount(2);
-    await expect(list).toContainText("Undercity · in Secret Entrance");
+    await expect(list).toContainText("Undercity: in Secret Entrance");
     await expect(list).toContainText(
       "Next: Forge (Put two +1/+1 counters on target creature) or Lost Well (Scry 2)",
     );
@@ -281,8 +283,9 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
     await myTray.locator(".gs-chip-more").click();
     await expect(list).toBeVisible();
     await theirTray.locator(".gs-chip-more, .gs-count, .gs-emblem").first().click();
-    const theirs = panel.getByRole("dialog", { name: /everything in play for them/ });
+    const theirs = panel.locator('[role="dialog"][data-whose="theirs"]');
     await expect(theirs).toBeVisible();
+    await expect(theirs).toHaveAccessibleName(/: in play for them/);
     await expect(list).toHaveCount(0);
     await expect(theirs).toContainText(
       "Yours for the rest of the game: cards with ascend count it.",
@@ -300,7 +303,7 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
 
     // The graveyard viewer fades too.
     await panel
-      .getByRole("button", { name: /'s graveyard, \d+ cards$/ })
+      .getByRole("button", { name: /'s graveyard, (\w+ cards?|empty)$/ })
       .first()
       .click();
     const viewer = panel.locator(".gs-backdrop").filter({ has: guest.locator(".gs-viewer") });

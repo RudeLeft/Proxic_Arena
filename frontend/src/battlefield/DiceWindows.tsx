@@ -15,6 +15,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import type { Decision, DecisionOption, Snapshot, SnapshotCard, SnapshotRoll } from "../match";
+import { capitalNumber, numberWord } from "../words";
 import { Die3D } from "./Die3D";
 import { Bubble } from "./GameWindow";
 import { ManaText } from "./ManaCost";
@@ -85,7 +86,7 @@ export function diceWords(decision: Decision): {
         title: one ? `Reroll the ${r}${price ? ` for ${price}` : ""}?` : "Reroll which dice?",
         says: by ? `${by} lets you reroll${price ? ` for ${price}` : ""}.` : null,
         pass: chosen ? "Done" : one ? `Keep the ${r}` : "Keep them",
-        main: one ? `Reroll${price ? ` · ${price}` : ""}` : null,
+        main: one ? `Reroll${price ? ` for ${price}` : ""}` : null,
         dieWord: "reroll",
       };
     }
@@ -146,10 +147,11 @@ export function DiceWindow(props: Common) {
     dice.how === "swapValue"
       ? decision.options.map((o) => {
           const which = /power/i.test(o.label ?? "")
-            ? `Power (${dice.power ?? "?"})`
+            ? // Spec 0113 (W1-360): no "(?)" for a value the game didn't send.
+              `Power${dice.power != null ? ` (${dice.power})` : ""}`
             : /toughness/i.test(o.label ?? "")
-              ? `Toughness (${dice.toughness ?? "?"})`
-              : (o.label ?? o.actionId);
+              ? `Toughness${dice.toughness != null ? ` (${dice.toughness})` : ""}`
+              : (o.label ?? "This choice");
           return (
             <button
               key={o.actionId}
@@ -212,7 +214,7 @@ export function DiceWindow(props: Common) {
           ) : (
             <span key={`${i}:${value}`} className="gs-dice-pick">
               {die}
-              <span>your {value}</span>
+              <span>your roll of {value}</span>
             </span>
           );
         })}
@@ -335,7 +337,12 @@ export function SprocketWindow(props: Common & { onLight: (ids: readonly string[
       option,
       name: `Sprocket ${n || "?"}`,
       cards: mine.filter((c) => c.sprocket === n),
-      note: turns === null ? null : turns === 1 ? "cranks next turn" : `cranks in ${turns} turns`,
+      note:
+        turns === null
+          ? null
+          : turns === 1
+            ? "cranks next turn"
+            : `cranks in ${numberWord(turns)} turns`,
     };
   });
   const what = /^Assemble (.+) onto a sprocket/.exec(decision.prompt ?? "")?.[1] ?? "it";
@@ -353,7 +360,7 @@ export function SprocketWindow(props: Common & { onLight: (ids: readonly string[
       actions={null}
     >
       <p className="gs-win-prompt">
-        Each of your turns one sprocket cranks, in turn: 1, 2, 3, then 1 again.
+        On each of your turns, one sprocket cranks: 1, then 2, then 3, then 1 again.
       </p>
       <PlaceChoices
         options={options}
@@ -419,8 +426,8 @@ export function CrankWindow(props: Common) {
     >
       <p className="gs-win-prompt">
         {one
-          ? "Cranked, it does its thing now."
-          : "Click each one to crank, then Don't crank for the rest."}
+          ? "When cranked, it does what it says right away."
+          : "Click each one you want to crank, then click Don't crank for the rest."}
       </p>
       {body}
     </Bubble>
@@ -534,12 +541,16 @@ const effectWords = (says: string) => {
   return short.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase());
 };
 
-/** Amendment 20 -- a dungeon in a few words: its rooms, how deep, first and last room. */
+/**
+ * Amendment 20 -- a dungeon in a few words: its rooms, how deep, first and
+ * last room. Spec 0113 (W1-080): "Four rooms, three deep: Yawning Portal
+ * (gain 1 life) to Throne of the Dead Three (...)", no arrows.
+ */
 export function dungeonWords(dungeon: Dungeon): string {
   const first = dungeon.rooms[0];
   const last = dungeon.rooms[dungeon.rooms.length - 1];
   if (!first || !last) return "";
-  return `${dungeon.rooms.length} rooms, ${dungeonDepth(dungeon)} deep: ${first.name} (${effectWords(first.says)}) → … → ${last.name} (${effectWords(last.says)})`;
+  return `${capitalNumber(dungeon.rooms.length)} rooms, ${numberWord(dungeonDepth(dungeon))} deep: ${first.name} (${effectWords(first.says)}) to ${last.name} (${effectWords(last.says)})`;
 }
 
 /** Amendment 20 -- which dungeon to venture into: each with its rooms, in the game's words. */
@@ -587,25 +598,28 @@ export function DungeonWindow(props: Common) {
   );
 }
 
-const NUMBER_WORDS = ["none", "one", "two", "three", "four", "five", "six", "seven", "eight"];
-const say = (n: number) => NUMBER_WORDS[n] ?? String(n);
-
-/** Amendment 21 -- the title of a modes window: what to choose, and how far along. */
+/**
+ * Amendment 21 -- the title of a modes window: what to choose, and how far
+ * along. Spec 0113 (W1-081..W1-083): "Choose modes: 3 of 5 paw prints used",
+ * "Choose two (one chosen)", "Choose one to three (two chosen)"; nothing in
+ * brackets before the first is chosen.
+ */
 export function modesTitle(
   modes: NonNullable<NonNullable<Decision["arrange"]>["modes"]>,
   count: number,
   used: number,
 ): string {
-  if (modes.budget != null) return `Choose modes · ${used} of ${modes.budget} paw prints`;
-  if (modes.min === modes.num) return `Choose ${say(modes.num)} · ${count} of ${modes.num}`;
-  const from = modes.min <= 0 ? "up to" : `${say(modes.min)} to`;
-  return `Choose ${from} ${say(modes.num)} · ${count} chosen`;
+  if (modes.budget != null) return `Choose modes: ${used} of ${modes.budget} paw prints used`;
+  const so = count > 0 ? ` (${numberWord(count)} chosen)` : "";
+  if (modes.min === modes.num) return `Choose ${numberWord(modes.num)}${so}`;
+  const from = modes.min <= 0 ? "up to" : `${numberWord(modes.min)} to`;
+  return `Choose ${from} ${numberWord(modes.num)}${so}`;
 }
 
 /**
  * Phase 9 Amendment 21 (owner: tick them, then Done) -- a card that
  * chooses several modes: every mode in one window, ticked (or counted,
- * when a mode may be taken again), "Choose two · 1 of 2"; modes that can't
+ * when a mode may be taken again), "Choose two (one chosen)"; modes that can't
  * be added any more dim; Done gives the screen the modes in order, which
  * answers the game's one-mode-at-a-time questions from them.
  */
@@ -650,7 +664,7 @@ export function ModesWindow(props: Common & { onDone: (labels: string[]) => void
           disabled={busy || !enough}
           onClick={() => onDone(plan())}
         >
-          {enough ? "Done" : `Pick ${Math.max(1, modes.min - count)} more`}
+          {enough ? "Done" : `Pick ${numberWord(Math.max(1, modes.min - count))} more`}
         </button>
       }
     >
@@ -679,7 +693,7 @@ export function ModesWindow(props: Common & { onDone: (labels: string[]) => void
                     {paws(i) > 0 && (
                       <small>
                         {" "}
-                        · {paws(i)} paw {paws(i) === 1 ? "print" : "prints"}
+                        ({paws(i)} paw {paws(i) === 1 ? "print" : "prints"})
                       </small>
                     )}
                   </span>

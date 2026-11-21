@@ -193,7 +193,7 @@ def grace():
           "lethal": None, "bolt_seen": False, "after": None, "grace_seen": False}
 
     def grace_on_stack(g):
-        return any("Angel's Grace" in (s.get("description") or "") for s in g.state.get(1, {}).get("stack") or [])
+        return any("Angel's Grace" in (s.get("name") or "") + (s.get("description") or "") for s in g.state.get(1, {}).get("stack") or [])
 
     def stack_empty(g):
         return not g.state.get(1, {}).get("stack")
@@ -258,7 +258,7 @@ def grace():
             st["grace_seen"] = True
         # Life is read once the Bolt has been on the stack and left it.
         stack = g.state.get(1, {}).get("stack") or []
-        if st["lethal"] is not None and any("Lightning Bolt" in (s.get("description") or "") for s in stack):
+        if st["lethal"] is not None and any("Lightning Bolt" in (s.get("name") or "") + (s.get("description") or "") for s in stack):
             st["bolt_seen"] = True
         if st["bolt_seen"] and not stack and st["after"] is None:
             st["after"] = life(g, 1)

@@ -250,9 +250,9 @@ describe("a search as one picture per card", () => {
 
   it("says where each numbered card ends up", () => {
     expect(placeWords(0, "top", "top")).toBe("Top card");
-    expect(placeWords(1, "top", "top")).toBe("2nd from the top");
+    expect(placeWords(1, "top", "top")).toBe("Second from the top");
     expect(placeWords(0, "bottom", "bottom")).toBe("Very bottom");
-    expect(placeWords(2, "bottom", "bottom")).toBe("3rd from the bottom");
+    expect(placeWords(2, "bottom", "bottom")).toBe("Third from the bottom");
   });
 });
 

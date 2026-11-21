@@ -636,7 +636,7 @@ describe("F-0088-C · reports gather in one window", () => {
     expect(c.querySelector<HTMLElement>(".gs-reveal")!.style.minWidth).toBe("600px");
     const rows = [...c.querySelectorAll<HTMLElement>(".gs-report-row")];
     expect(rows.map((r) => r.dataset["report"])).toEqual(["action:1", "action:2"]);
-    expect(rows[0]!.textContent).toContain("Bob · Polluted Delta");
+    expect(rows[0]!.textContent).toContain("Bob, with Polluted Delta");
     // No row is a list item: a question's choices are list items' buttons (the scripted games).
     expect(c.querySelector(".gs-report-rows li, .gs-report-row[role='listitem']")).toBeNull();
     expect(rows[0]!.textContent).toContain("put Island onto the battlefield");

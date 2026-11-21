@@ -114,8 +114,8 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
     const deckName = await sharedDeck(host, guest, karnPackage);
     await startAMatch(host, guest, deckName, { settle: false });
 
-    // Spec 0030: the ladder's turn line reads "Turn 1 · Game 2".
-    const restarted = /· Game 2\b/;
+    // Spec 0030: the ladder's turn line reads "Turn 1 (Game 2)" (spec 0113, W1-116).
+    const restarted = /\(Game 2\)/;
     const asking = async (page: Page) =>
       (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
@@ -128,7 +128,8 @@ test("Karn's ultimate restarts the game, and both players see game 2 begin", asy
     const watch = watchGame([host, guest], () => "", { allowEnd: true });
     let held = false;
     while (Date.now() < deadline) {
-      if ((await matchPanel(host).getByText(restarted).count()) > 0) break;
+      // The ladder's game number, not its words (PROTO-006, spec 0113).
+      if ((await matchPanel(host).locator('[data-game="2"]').count()) > 0) break;
       // Spec 0102 -- the window holds the guest's table: look, then close it.
       if (!held && (await told(guest))) {
         held = true;

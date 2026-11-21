@@ -49,7 +49,7 @@ describe("an ability's cost, first (W-16)", () => {
         "Forgotten Cave — {R}, Discard Forgotten Cave — Cycling ({R}, Discard this card: Draw a card.)",
         "Forgotten Cave",
       ),
-    ).toEqual({ cost: "{R}", kind: "mana", text: "Cycling · Discard this card: draw a card." });
+    ).toEqual({ cost: "{R}", kind: "mana", text: "Cycling: discard this card to draw a card." });
   });
 
   it("says a land play plainly, with nothing to pay", () => {

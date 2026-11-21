@@ -489,7 +489,7 @@ export function DungeonMap({
       data-room={at?.name}
       aria-expanded={expanded}
       aria-label={`${name}${at ? `, in ${at.name}` : ""}`}
-      title={`${name}${at ? ` · ${at.name}` : ""}`}
+      title={`${name}${at ? `: in ${at.name}` : ""}`}
       onClick={onClick}
     >
       <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} aria-hidden="true">
@@ -657,9 +657,10 @@ export const INITIATIVE = (
 
 /** The rules' own words for each (they never change), as the tray's list says them. */
 export const HOLDER_WORDS: Record<string, string> = {
-  monarch: "The monarch: draws a card at the end of their turn. Combat damage to them takes it.",
+  monarch:
+    "The monarch draws a card at the end of their turn. Dealing combat damage to them takes it.",
   initiative:
-    "The initiative: ventures into the Undercity each upkeep. Combat damage to them takes it.",
+    "The player with the initiative ventures into the Undercity each upkeep. Dealing combat damage to them takes it.",
 };
 
 /**

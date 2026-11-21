@@ -89,7 +89,7 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
           ranOutFrom = await opponentLife(page);
           // F-0035-H: it starts from 5, and is still counting past 2 s.
           await expect(windowButton).toContainText(/Resolves in [45]/);
-          await expect(windowButton).toContainText("click to resolve now");
+          await expect(windowButton).toContainText("Click to resolve it now.");
           await host.screenshot({ path: "test-results/seen/window-counting.png" });
           await page.waitForTimeout(2_500);
           await expect(windowButton, "still counting after 2.5 s").toHaveCount(1);

@@ -583,7 +583,7 @@ describe("F-0080-F · a click hurries it; reduce motion keeps the marks; marks n
     const view = render(draw([myr]));
     const badges = slotOf(view.container, "card:50").querySelector<HTMLElement>(".bf-badges")!;
     expect(badges.dataset["badges"]).toBe("3");
-    expect(badges.title).toMatch(/Regeneration shield ×2/);
+    expect(badges.title).toMatch(/Two regeneration shields: /);
     expect(badges.title).toMatch(/Indestructible/);
     expect(badges.title).toMatch(/Phased out/);
   });

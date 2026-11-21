@@ -112,9 +112,8 @@ public final class MatchController extends GeneratedControllerBase {
                             new java.util.ArrayList<>(labels.keySet()),
                             // Mandatory: there is no third answer.
                             true,
-                            "Keep this hand of "
-                                    + player.getCardsIn(forge.game.zone.ZoneType.Hand).size()
-                                    + ", or mulligan?",
+                            // Spec 0113 (W1-178) -- "Keep this hand of seven cards, or mulligan?"
+                            keepWords(player.getCardsIn(forge.game.zone.ZoneType.Hand).size()),
                             pending -> host.publishDecision(pending, labels));
             return !"mulligan:again".equals(choice);
         } catch (InterruptedException e) {
@@ -165,8 +164,8 @@ public final class MatchController extends GeneratedControllerBase {
                                 "tuckCardsViaMulligan",
                                 new java.util.ArrayList<>(byId.keySet()),
                                 true,
-                                "Choose a card to put back ("
-                                        + (cardsToReturn - back.size()) + " to go).",
+                                // Spec 0113 (W1-179) -- it goes to the bottom (London mulligan).
+                                tuckWords(cardsToReturn - back.size()),
                                 pending -> host.publishDecision(pending, labels));
                 picked = byId.get(choice);
             } catch (InterruptedException e) {
@@ -225,7 +224,7 @@ public final class MatchController extends GeneratedControllerBase {
             }
             String prompt = chosen.isEmpty()
                     ? "Begin the game with any of these on the battlefield? Choose them in the order they happen."
-                    : "Any more? " + chosen.size() + " chosen so far.";
+                    : "Any more? " + PlainWords.capitalNumber(chosen.size()) + " chosen so far.";
             String choice;
             try {
                 choice = host.gate().ask(
@@ -420,7 +419,8 @@ public final class MatchController extends GeneratedControllerBase {
                             ? (onlyGeneric ? "Costs {" + -less + "} more" : "Costs more")
                             : "Costs something different";
             java.util.List<String> by = costChangers(sa, player, less > 0);
-            out.addProperty("why", by.isEmpty() ? change : change + ": " + String.join(", ", by));
+            // Spec 0113 (W1-220) -- "Costs {1} less (Goblin Electromancer and Baral)".
+            out.addProperty("why", costWhyWords(change, by));
             return out;
         } catch (RuntimeException e) {
             System.err.println("proxic: current cost failed for " + card + ": " + e);
@@ -992,7 +992,7 @@ public final class MatchController extends GeneratedControllerBase {
             return true;
         }
         String words = cost.getTotalMana().toString();
-        String name = sa.getHostCard() == null ? "This trigger" : sa.getHostCard().getName();
+        String name = sa.getHostCard() == null ? "this trigger" : sa.getHostCard().getName();
         if (!payable(sa, player)) {
             // Spec 0097, item 3 (owner) -- the fizzle window, to both players;
             // no grey line.
@@ -1249,8 +1249,15 @@ public final class MatchController extends GeneratedControllerBase {
         }
         forge.game.spellability.TargetChoices old = sa.getTargets();
         sa.clearTargets();
-        String prompt = "New target for " + sa.getHostCard().getName()
-                + " (now: " + old.toString() + ")" + (optional ? " -- pass to keep the targets it has." : "");
+        // Spec 0113 (W1-182, W1-270) -- the targets by their names, never Forge's TargetChoices text.
+        java.util.List<String> now = new java.util.ArrayList<>();
+        for (forge.game.GameObject target : old) {
+            now.add(target instanceof forge.game.card.Card card ? ViewerSnapshot.nameFor(card, player.getView())
+                    : target instanceof Player p ? (p == player ? "you" : p.getName())
+                    : target instanceof SpellAbility spell && spell.getHostCard() != null
+                    ? ViewerSnapshot.nameFor(spell.getHostCard(), player.getView()) : String.valueOf(target));
+        }
+        String prompt = newTargetWords(sa.getHostCard().getName(), sa.isCopied(), now, optional);
         if (selectTargets(sa, filter, prompt)) {
             return sa.getTargets();
         }
@@ -1335,7 +1342,15 @@ public final class MatchController extends GeneratedControllerBase {
             for (String id : byId.keySet()) {
                 labels.put(id, shown.get(at++));
             }
-            onStack.forEach((id, spell) -> labels.put(id, "on the stack: " + PlainWords.stackText(spell.getStackDescription())));
+            // Spec 0113 (W1-003, W1-183, W1-250) -- the spell or ability by its card's name.
+            java.util.List<String> stackWords = new java.util.ArrayList<>();
+            onStack.forEach((id, spell) -> stackWords.add(onStackWords(spell.getHostCard() == null ? null
+                    : ViewerSnapshot.nameFor(spell.getHostCard(), player.getView()), spell.isSpell())));
+            java.util.List<String> stackShown = targetLabels(stackWords);
+            int on = 0;
+            for (String id : onStack.keySet()) {
+                labels.put(id, stackShown.get(on++));
+            }
             // Phase 9 Amendment 17 -- backing out is its own answer, last
             // (a pass with enough chosen means "no more", so it cannot
             // also mean "cancel"), and the page is told what is chosen
@@ -1521,9 +1536,9 @@ public final class MatchController extends GeneratedControllerBase {
         com.google.gson.JsonObject how = new com.google.gson.JsonObject();
         how.add("divide", split);
         host.offerSubject(ability);
-        String prompt = "How much " + verb + (target instanceof forge.game.card.Card card
-                ? ViewerSnapshot.nameFor(card, player.getView()) : String.valueOf(target))
-                + "? (" + left + " left to assign)";
+        // Spec 0113 (W1-184) -- "How much damage goes to Bob? (Five left to divide.)"
+        String prompt = divideWords(String.valueOf(ability.getApi()), target instanceof forge.game.card.Card card
+                ? ViewerSnapshot.nameFor(card, player.getView()) : String.valueOf(target), left);
         try {
             String choice = askArranged(how, "divideAsYouChoose", new java.util.ArrayList<>(labels.keySet()),
                     true, prompt, labels);
@@ -1619,6 +1634,12 @@ public final class MatchController extends GeneratedControllerBase {
             String prompt,
             forge.game.mana.ManaConversionMatrix matrix,
             boolean effect) {
+        // Spec 0113 (W1-312) -- Forge's prompt that is only the card's name
+        // ("Monitor Monitor (38)\n"): dropped, the pay window says what it is for.
+        if (prompt != null && ability != null && ability.getHostCard() != null
+                && PlainWords.tidy(prompt).equals(ability.getHostCard().getName())) {
+            prompt = null;
+        }
         try {
             return new ManaPayment(host, this, player, actedForSeat, authorisedSeat)
                     .pay(toPay, ability, effect, prompt);
@@ -1806,7 +1827,8 @@ public final class MatchController extends GeneratedControllerBase {
         for (forge.game.replacement.ReplacementEffect effect : possible) {
             String id = "replacement:" + byId.size();
             byId.put(id, effect);
-            labels.put(id, withoutCardNumbers(String.valueOf(effect)));
+            // Spec 0113 (W1-185, W1-255) -- "Leyline of the Void: If a card would ...".
+            labels.put(id, withoutCardNumbers(String.valueOf(effect)).replaceFirst(" - ", ": "));
         }
 
         try {
@@ -1899,7 +1921,8 @@ public final class MatchController extends GeneratedControllerBase {
             // client what it is answering about.
             String id = "counter:" + type.getName();
             byId.put(id, type);
-            labels.put(id, type.getName());
+            // Spec 0113 (W1-186, W1-256) -- "+1/+1 counter", "charge counter", never "Blood_token".
+            labels.put(id, PlainWords.counterName(type.getName()) + " counter");
         }
 
         try {
@@ -2166,7 +2189,9 @@ public final class MatchController extends GeneratedControllerBase {
     private com.google.gson.JsonObject nameLayout(SpellAbility sa, java.util.Set<String> allowed) {
         com.google.gson.JsonObject name = new com.google.gson.JsonObject();
         String desc = sa == null ? null : sa.getParam("ValidDescription");
-        name.addProperty("title", desc == null || desc.isBlank() ? "Name a card" : "Name a " + desc + " card");
+        // Spec 0113 (W1-188, W1-268) -- Forge's ValidDescription through humanise; "a" / "an" by its sound.
+        name.addProperty("title", desc == null || desc.isBlank() ? "Name a card"
+                : "Name " + PlainWords.withArticle(PlainWords.lower(PlainWords.humanise(desc.trim()))) + " card");
         String says = sa == null || sa.getHostCard() == null ? null
                 : NumberCosts.sentence(sa.getHostCard().getOracleText(),
                         "chosen name|that name|the named|with the name");
@@ -2337,12 +2362,22 @@ public final class MatchController extends GeneratedControllerBase {
         // cards a player may actually TAKE are the options, which
         // are never capped.
         int shown = Math.min(names.size(), REVEAL_LIMIT);
-        String more = names.size() > shown
-                ? ", and " + (names.size() - shown) + " more"
-                : "";
         String prefix = reveal.getMessagePrefix();
-        prefix = (prefix == null || prefix.isBlank()) ? "You are looking at:" : prefix.trim();
-        return prefix + " " + String.join(", ", names.subList(0, shown)) + more + ".";
+        return revealedWords(prefix, names.subList(0, shown), names.size() - shown);
+    }
+
+    /**
+     * Spec 0113 (W1-189, W1-253, W1-310) -- "You are looking at Island,
+     * Impulse and Forest.", "..., Forest and 44 more." ([prefix] Forge's own,
+     * its colon dropped; blank: ours).
+     */
+    static String revealedWords(String prefix, java.util.List<String> names, int more) {
+        String p = prefix == null || prefix.isBlank() ? "You are looking at" : prefix.trim().replaceAll(":$", "");
+        java.util.List<String> all = new java.util.ArrayList<>(names);
+        if (more > 0) {
+            all.add(PlainWords.number(more) + " more");
+        }
+        return p + " " + PlainWords.and(all) + ".";
     }
 
     /**
@@ -2482,9 +2517,9 @@ public final class MatchController extends GeneratedControllerBase {
             String prompt = min == 1 && max == 1
                     ? title
                     : title + (mandatory
-                        ? " (" + (min - chosen.size()) + " more needed)"
-                        : " (up to " + (chosen.isEmpty() ? String.valueOf(max) : (max - chosen.size()) + " more")
-                                + ", " + stop + ")");
+                        ? " (" + PlainWords.number(min - chosen.size()) + " more needed)"
+                        : " (up to " + (chosen.isEmpty() ? PlainWords.number(max)
+                                : PlainWords.number(max - chosen.size()) + " more") + ", " + stop + ")");
             if (chosen.isEmpty() && !context.isEmpty()) {
                 prompt = prompt + " " + context;
             }
@@ -2578,9 +2613,9 @@ public final class MatchController extends GeneratedControllerBase {
         // player's card: "Diabolic Edict: sacrifice a creature".
         String what = message == null || message.isBlank() ? "permanent" : message;
         String count = least == most
-                ? forge.util.Lang.nounWithNumeralExceptOne(most, what)
-                : (least == 0 ? "up to " : forge.util.Lang.getNumeral(least) + " to ")
-                        + forge.util.Lang.getNumeral(most) + " " + forge.util.Lang.getPlural(what);
+                ? PlainWords.some(most, what)
+                : (least == 0 ? "up to " : PlainWords.number(least) + " to ")
+                        + PlainWords.number(most) + " " + PlainWords.plural(what);
         forge.game.card.Card source = sa == null ? null : sa.getHostCard();
         String title = source == null
                 ? verb + " " + count
@@ -2662,7 +2697,7 @@ public final class MatchController extends GeneratedControllerBase {
             try {
                 String choice = host.gate().ask(actedForSeat, authorisedSeat, "chooseCardsForCost",
                         CostPicks.answers(byId.keySet(), picked), !isOptional,
-                        line + count + (isOptional && !saysOr ? " Or pass, and don't pay." : ""),
+                        line + count + (isOptional && !saysOr ? " Or pass and don't pay." : ""),
                         pending -> host.publishDecision(pending, labels));
                 forge.game.card.Card back = CostPicks.taken(choice, chosen);
                 if (back != null) {
@@ -2750,7 +2785,7 @@ public final class MatchController extends GeneratedControllerBase {
             int manaAmount, boolean different) {
         java.util.Map<Byte, Integer> result = new java.util.HashMap<>();
         int most = different ? 1 : manaAmount;
-        String source = sa == null || sa.getHostCard() == null ? "" : sa.getHostCard().getName() + ": ";
+        String source = sa == null || sa.getHostCard() == null ? null : sa.getHostCard().getName();
         for (int n = 1; n <= manaAmount; n++) {
             java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
             for (byte color : forge.card.mana.ManaAtom.MANATYPES) {
@@ -2762,8 +2797,8 @@ public final class MatchController extends GeneratedControllerBase {
             if (labels.isEmpty()) {
                 break;
             }
-            String answer = askOne("specifyManaCombo", source + "mana " + n + " of " + manaAmount
-                    + (different ? ", each a different colour" : "") + ": which colour?", labels, true);
+            // Spec 0113 (W1-193) -- "First of two mana: which color?"
+            String answer = askOne("specifyManaCombo", manaComboWords(source, n, manaAmount, different), labels, true);
             String id = answer == null ? labels.keySet().iterator().next() : answer;
             result.merge(Byte.parseByte(id.substring("color:".length())), 1, Integer::sum);
         }
@@ -2804,13 +2839,14 @@ public final class MatchController extends GeneratedControllerBase {
             String spell = allTargets.get(n).getLeft().getSourceCard() == null ? "the spell"
                     : allTargets.get(n).getLeft().getSourceCard().getName();
             byId.put(id, n);
-            labels.put(id, name + " -- targeted by " + spell);
+            labels.put(id, name + " (targeted by " + spell + ")");
         }
         host.offerSubject(sa, player.getView());
         try {
             String choice = host.gate().ask(actedForSeat, authorisedSeat, "chooseTarget",
                     new java.util.ArrayList<>(byId.keySet()), true,
-                    (sa.getHostCard() == null ? "" : sa.getHostCard().getName() + ": ") + "which target do you change?",
+                    sa.getHostCard() == null ? "Which target will you change?"
+                            : sa.getHostCard().getName() + ": which target will you change?",
                     pending -> host.publishDecision(pending, labels));
             Integer picked = byId.get(choice);
             return allTargets.get(picked == null ? 0 : picked);
@@ -2833,7 +2869,7 @@ public final class MatchController extends GeneratedControllerBase {
         // Forge's prompt is "Council's Judgment (47) Vote:" -- its own card
         // number has no place on the page. A vote comes from a resolving
         // spell or ability, so the card's name is public.
-        String asked = sa.getHostCard().getName() + ": vote for one";
+        String asked = sa.getHostCard().getName() + ": vote for one.";
         if (sa.hasParam("Choices")) {
             List<SpellAbility> modes = new java.util.ArrayList<>();
             for (Object o : options) {
@@ -2892,7 +2928,9 @@ public final class MatchController extends GeneratedControllerBase {
             return first;
         }
         java.util.List<String> texts = new java.util.ArrayList<>();
-        possible.forEach(st -> texts.add(st.getHostCard() + " · " + st));
+        // Spec 0113 (W1-196, W1-261) -- the card by its name, never Card.toString's "(12)".
+        possible.forEach(st -> texts.add(ViewerSnapshot.nameFor(st.getHostCard(), player.getView()) + " · "
+                + withoutCardNumbers(String.valueOf(st))));
         int picked = askIndex("chooseSingleStaticAbility", texts, true, "Which applies first?");
         return picked < 0 ? first : possible.get(picked);
     }
@@ -3108,7 +3146,7 @@ public final class MatchController extends GeneratedControllerBase {
             forge.game.card.CardCollectionView pile2, String faceUp) {
         boolean firstShown = "False".equals(faceUp);
         boolean secondShown = !"True".equals(faceUp);
-        String card = sa.getHostCard() == null ? "Choose" : sa.getHostCard().getName();
+        String card = sa.getHostCard() == null ? null : sa.getHostCard().getName();
         // Phase 9 W-10 -- the two piles as pictures: each pile's cards
         // this player may see, by id, and its size (a face-down pile is
         // only counted).
@@ -3133,7 +3171,7 @@ public final class MatchController extends GeneratedControllerBase {
         how.add("piles", piles);
         java.util.List<String> texts =
                 java.util.List.of(pile("Pile 1", pile1, firstShown), pile("Pile 2", pile2, secondShown));
-        return shownNow(seen, how, () -> askIndex("chooseCardsPile", texts, true, card + ": choose a pile.")) == 0;
+        return shownNow(seen, how, () -> askIndex("chooseCardsPile", texts, true, asked(card, "choose a pile."))) == 0;
     }
 
     /** "Pile 1: Island, Lightning Bolt", or "Pile 1: 2 face-down cards". */
@@ -3142,7 +3180,7 @@ public final class MatchController extends GeneratedControllerBase {
             return title + ": no cards";
         }
         if (!shown) {
-            return title + ": " + forge.util.Lang.nounWithNumeral(cards.size(), "face-down card");
+            return title + ": " + PlainWords.count(cards.size(), "face-down card");
         }
         java.util.List<String> names = new java.util.ArrayList<>();
         cards.forEach(c -> names.add(ViewerSnapshot.nameFor(c, player.getView())));
@@ -3160,10 +3198,10 @@ public final class MatchController extends GeneratedControllerBase {
         if (options.size() <= 1) {
             return options.isEmpty() ? null : options.get(0);
         }
-        String card = sa.getHostCard() == null ? "Choose" : sa.getHostCard().getName();
+        String card = sa.getHostCard() == null ? null : sa.getHostCard().getName();
         String who = tgtCard == null ? "it" : ViewerSnapshot.nameFor(tgtCard, player.getView());
         return options.get(Math.max(0, askIndex("chooseKeywordForPump", options, true,
-                card + ": choose what " + who + " gains.")));
+                asked(card, "choose what " + who + " gains."))));
     }
 
     /**
@@ -3201,9 +3239,9 @@ public final class MatchController extends GeneratedControllerBase {
             }
             labels.add(door);
         }
-        String card = sa.getHostCard() == null ? "Choose" : sa.getHostCard().getName();
+        String card = sa.getHostCard() == null ? null : sa.getHostCard().getName();
         String what = message == null ? "choose one." : message.replace("Choose Room to ", "choose a door to ") + ".";
-        return states.get(Math.max(0, askIndex("chooseSingleCardState", labels, true, card + ": " + what)));
+        return states.get(Math.max(0, askIndex("chooseSingleCardState", labels, true, asked(card, what))));
     }
 
     /**
@@ -3220,8 +3258,9 @@ public final class MatchController extends GeneratedControllerBase {
         hand.forEach(left::add);
         while (chosen.size() < num && !left.isEmpty()) {
             java.util.List<forge.game.card.Card> one = pickSeveral("chooseCardsToDiscardUnlessType", left, 1, 1,
-                    "Discard " + num + " cards, or one " + type + " card"
-                            + (chosen.isEmpty() ? "." : " (" + (num - chosen.size()) + " more, or one " + type + ")."), "");
+                    "Discard " + PlainWords.count(num, "card") + ", or one " + type + " card"
+                            + (chosen.isEmpty() ? "." : " (" + PlainWords.number(num - chosen.size()) + " more, or one "
+                            + type + ")."), "");
             if (one.isEmpty()) {
                 break;
             }
@@ -3245,13 +3284,14 @@ public final class MatchController extends GeneratedControllerBase {
     public forge.game.card.CardCollection chooseCardsForEffectMultiple(
             java.util.Map<String, forge.game.card.CardCollection> validMap, SpellAbility sa, String title,
             boolean isOptional) {
-        String card = sa.getHostCard() == null ? "Choose" : sa.getHostCard().getName();
+        String card = sa.getHostCard() == null ? null : sa.getHostCard().getName();
         forge.game.card.CardCollection result = new forge.game.card.CardCollection();
         for (java.util.Map.Entry<String, forge.game.card.CardCollection> e : validMap.entrySet()) {
             // "Creature", "Card.Cleric", "Card.withFlying" -> "creature", "cleric", "flying".
-            String kind = e.getKey().replace("Card.", "").replace("with", "");
-            kind = kind.matches("[A-Za-z ]+") ? kind.toLowerCase() : "matching";
-            result.addAll(chooseCardsForEffect(e.getValue(), sa, card + ": choose up to one " + kind + " card.",
+            // Spec 0113 (W1-199) -- Forge's filter through humanise, never "matching".
+            String kind = PlainWords.humanise(e.getKey() + " card").replaceAll("(?i)\\bcard card$", "card");
+            result.addAll(chooseCardsForEffect(e.getValue(), sa, (card == null ? "Choose" : card + ": choose")
+                    + " up to one " + PlainWords.lowerType(kind) + ".",
                     0, 1, isOptional, null));
         }
         return result;
@@ -3294,7 +3334,7 @@ public final class MatchController extends GeneratedControllerBase {
                 new forge.game.mana.ManaCostBeingPaid(forge.card.mana.ManaCost.get(willPay));
         try {
             if (new ManaPayment(host, this, player, actedForSeat, authorisedSeat)
-                    .pay(assist, sa, false, "Assist: pay " + willPay + " for " + caster + "'s " + card + ".")) {
+                    .pay(assist, sa, false, "Assist: pay {" + willPay + "} toward " + caster + "'s " + card + ".")) {
                 cost.decreaseGenericMana(willPay);
                 return true;
             }
@@ -3324,9 +3364,9 @@ public final class MatchController extends GeneratedControllerBase {
     @Override
     public boolean confirmBidAction(SpellAbility sa, forge.game.player.PlayerActionConfirmMode bidlife, String string,
             int bid, Player winner) {
-        String card = sa.getHostCard() == null ? "Bid" : sa.getHostCard().getName();
-        return askYesNo("confirmBidAction", card + ": top the bid? The highest bid is " + bid + " life, by "
-                + winner.getName() + ".", false);
+        // Spec 0113 (W1-202) -- "Top the bid? Bob's bid is 5 life."
+        return askYesNo("confirmBidAction", "Top the bid? " + (winner == player ? "Your" : winner.getName() + "'s")
+                + " bid is " + bid + " life.", false);
     }
 
     /**
@@ -3386,7 +3426,7 @@ public final class MatchController extends GeneratedControllerBase {
     @Override
     public Integer chooseRollToIgnore(List<Integer> rolls) {
         int picked = arranged(diceLayout("ignore", rolls, java.util.List.of(), null), () -> askIndex(
-                "chooseRollToIgnore", rollLabels(rolls), true, "Rolled " + rollList(rolls) + ". Choose a roll to ignore."));
+                "chooseRollToIgnore", rollLabels(rolls), true, "You rolled " + rollList(rolls) + ". Choose a roll to ignore."));
         return rolls.get(Math.max(0, picked));
     }
 
@@ -3442,7 +3482,8 @@ public final class MatchController extends GeneratedControllerBase {
         for (int sprocket : sprockets) {
             int there = forge.game.card.CardLists.count(player.getCardsIn(forge.game.zone.ZoneType.Battlefield),
                     forge.game.card.CardPredicates.isContraptionOnSprocket(sprocket));
-            labels.add("Sprocket " + sprocket + (there > 0 ? " (" + there + " there)" : "")
+            labels.add("Sprocket " + sprocket + (there > 0 ? " (" + PlainWords.number(there) + " "
+                    + (there == 1 ? "Contraption" : "Contraptions") + " on it)" : "")
                     + (sprocket == next ? ", cranks next turn" : ""));
         }
         // Phase 9 W-17 -- the sprocket the crank marker moves to next turn.
@@ -3510,9 +3551,10 @@ public final class MatchController extends GeneratedControllerBase {
             for (int amount = 0; amount <= most; amount++) {
                 amounts.add(String.valueOf(amount));
             }
-            int picked = Math.max(0, askIndex("divideShield", amounts, true, source + ": how much of the "
-                    + shieldAmount + " prevented goes to " + who + "? (" + left + " left; it would take "
-                    + affected.get(entity) + ")"));
+            // Spec 0113 (W1-206) -- "Healing Salve prevents 3 damage. How much goes to Bob? (3 left; it would take 2.)"
+            int picked = Math.max(0, askIndex("divideShield", amounts, true, source + " prevents " + shieldAmount
+                    + " damage. How much goes to " + who + "? (" + left + " left; it would take "
+                    + affected.get(entity) + ".)"));
             if (picked > 0) {
                 result.put(entity, picked);
             }
@@ -3588,8 +3630,9 @@ public final class MatchController extends GeneratedControllerBase {
         return labels;
     }
 
-    private static String rollList(List<Integer> rolls) {
-        return String.join(", ", rolls.stream().map(String::valueOf).toList());
+    /** Spec 0113 (W1-203) -- "4 and 5", "3, 4 and 6" (a roll keeps its digit). */
+    static String rollList(List<Integer> rolls) {
+        return PlainWords.and(rolls.stream().map(String::valueOf).toList());
     }
 
     /** The same, for a cost paid during a die roll. */
@@ -3644,7 +3687,7 @@ public final class MatchController extends GeneratedControllerBase {
         }
         // Phase 9 W-08 -- the tray's second row is the bottom.
         return arranged(layout("to", "bottom"), () -> arrange("arrangeForScry", topN,
-                "Scry " + topN.size() + ": click any cards to put on the bottom of your library"));
+                "Scry " + topN.size() + ": choose any cards to put on the bottom of your library."));
     }
 
     /** Top or bottom of the library, for one card -- Forge's own question. */
@@ -3700,8 +3743,8 @@ public final class MatchController extends GeneratedControllerBase {
             forge.game.card.Card card = topN.get(0);
             int picked = looking(topN, () -> arranged(how, () -> askIndex("arrangeForSurveil",
                     java.util.List.of("Keep it on top", "Put it into your graveyard"), true,
-                    "Surveil 1: " + ViewerSnapshot.nameFor(card, player.getView())
-                            + " -- keep it on top of your library, or put it into your graveyard?")));
+                    "Surveil 1: keep " + ViewerSnapshot.nameFor(card, player.getView())
+                            + " on top of your library, or put it into your graveyard?")));
             if (picked != 1) {
                 knownOnTop(topN);
             }
@@ -3710,7 +3753,7 @@ public final class MatchController extends GeneratedControllerBase {
                     : org.apache.commons.lang3.tuple.ImmutablePair.of(topN, null);
         }
         return arranged(how, () -> arrange("arrangeForSurveil", topN,
-                "Surveil " + topN.size() + ": click any cards to put into your graveyard"));
+                "Surveil " + topN.size() + ": choose any cards to put into your graveyard."));
     }
 
     /**
@@ -3974,7 +4017,8 @@ public final class MatchController extends GeneratedControllerBase {
             text = text == null || text.isBlank() ? spell.toString() : text;
             // Phase 9 Amendment 20: a dungeon room, named ("Forge -- Put two...").
             if (spell.hasParam("RoomName") && !text.startsWith(spell.getParam("RoomName"))) {
-                text = spell.getParam("RoomName") + " \u2014 " + text;
+                // Spec 0113 (W1-197) -- "Trapped Entry: Each player loses 1 life.", no dash.
+                text = spell.getParam("RoomName") + ": " + text;
             }
             texts.add(text);
         }
@@ -4035,7 +4079,9 @@ public final class MatchController extends GeneratedControllerBase {
             int max,
             forge.game.card.CardCollectionView visibleToChooser) {
         String whose = discarder == player ? "your hand" : discarder.getName() + "'s hand";
-        String title = (min == max ? "Discard " + max : "Discard up to " + max) + " from " + whose;
+        // Spec 0113 (W1-211) -- "Discard two cards from your hand.", "Discard up to one card from Bob's hand."
+        String title = (min == max ? "Discard " : "Discard up to ") + PlainWords.count(max, "card") + " from " + whose
+                + ".";
         return new forge.game.card.CardCollection(
                 chooseEntitiesForEffect(valid, min, max, null, sa, title, discarder, null));
     }
@@ -4053,10 +4099,12 @@ public final class MatchController extends GeneratedControllerBase {
         java.util.List<forge.game.spellability.OptionalCostValue> taken = new java.util.ArrayList<>();
         while (!left.isEmpty()) {
             java.util.List<String> texts = new java.util.ArrayList<>();
-            left.forEach(v -> texts.add(String.valueOf(v)));
+            // Spec 0113 (W1-212, W1-260) -- "Kicker {2}{R}", never Forge's en dash.
+            left.forEach(v -> texts.add(optionalCostWords(String.valueOf(v))));
             int picked = askIndex("chooseOptionalCosts", texts, false,
                     "Pay any optional costs for " + chosen.getHostCard().getName()
-                            + (taken.isEmpty() ? "?" : "? (" + taken.size() + " chosen; pass when done)"));
+                            + (taken.isEmpty() ? "?" : "? (" + PlainWords.capitalNumber(taken.size())
+                            + " chosen; pass when done.)"));
             if (picked < 0) {
                 break;
             }
@@ -4094,7 +4142,7 @@ public final class MatchController extends GeneratedControllerBase {
         // Spec 0071 -- each card picked shows the exile star, and can be taken back.
         return new forge.game.card.CardCollection(chooseEntities(
                 grave, 0, most, null, null,
-                "Delve: exile cards from your graveyard, each paying {1}", CostPicks.EXILE));
+                "Delve: exile cards from your graveyard, each paying {1}.", CostPicks.EXILE));
     }
 
     /**
@@ -4195,7 +4243,8 @@ public final class MatchController extends GeneratedControllerBase {
                     colours = forge.card.ColorSet.fromMask(colours.getColor() & remaining.getUnpaidColors());
                 }
                 colour = colours.isMulticolor()
-                        ? chooseColorAllowColorless(keyword + " " + ViewerSnapshot.nameFor(picked, player.getView()) + " for which colour?", picked, colours)
+                        ? chooseColorAllowColorless("Which color does " + ViewerSnapshot.nameFor(picked, player.getView())
+                                + " pay for " + keyword.toLowerCase(java.util.Locale.ROOT) + "?", picked, colours)
                         : colours.getColor();
             }
             forge.card.mana.ManaCostShard shard = remaining.payManaViaConvoke(colour);
@@ -4456,14 +4505,14 @@ public final class MatchController extends GeneratedControllerBase {
             boolean firstPick, int left) {
         if (destination == forge.game.zone.ZoneType.Library && topOfDeck) {
             return "Which card do you want to draw " + (firstPick ? "first" : "next")
-                    + "? (" + left + " left)";
+                    + "? (" + PlainWords.capitalNumber(left) + " left.)";
         }
         // Phase 9 W-07: Impulse's rest, the first pick at the very bottom.
         if ("at the very bottom".equals(end)) {
             return (firstPick ? "Which goes at the very bottom of your library?" : "Which goes next, above it?")
-                    + " (" + left + " left)";
+                    + " (" + PlainWords.capitalNumber(left) + " left.)";
         }
-        return "Which goes " + end + "? (" + left + " left)";
+        return "Which goes " + end + "? (" + PlainWords.capitalNumber(left) + " left.)";
     }
 
     /**
@@ -4678,8 +4727,8 @@ public final class MatchController extends GeneratedControllerBase {
                             "chooseColors",
                             // One colour, required: the message says it.
                             min == 1 && max == 1 ? message : message + (mandatory
-                                    ? " (" + (min - taken) + " more needed)"
-                                    : " (up to " + (max - taken) + " more, or pass)"),
+                                    ? " (" + PlainWords.number(min - taken) + " more needed)"
+                                    : " (up to " + PlainWords.number(max - taken) + " more, or pass)"),
                             labels,
                             mandatory);
             if (answer == null) {
@@ -4697,7 +4746,7 @@ public final class MatchController extends GeneratedControllerBase {
     private byte askColor(String message, forge.card.ColorSet colors, boolean allowColorless) {
         java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
         if (allowColorless) {
-            labels.put("color:0", "Colourless");
+            labels.put("color:0", "Colorless");
         }
         for (byte color : forge.card.mana.ManaAtom.MANATYPES) {
             if (colors.hasAnyColor(color)) {
@@ -4973,7 +5022,8 @@ public final class MatchController extends GeneratedControllerBase {
             modes.addProperty("spent", spentPawprint);
         }
         com.google.gson.JsonArray picked = new com.google.gson.JsonArray();
-        chosen.forEach(mode -> picked.add(mode.toUnsuppressedString()));
+        // Spec 0113 -- trimmed, as the option labels are (Forge leaves a trailing space).
+        chosen.forEach(mode -> picked.add(PlainWords.tidy(mode.toUnsuppressedString())));
         modes.add("chosen", picked);
         com.google.gson.JsonArray costs = new com.google.gson.JsonArray();
         offered.forEach(mode -> costs.add(paws ? pawprintOf(mode) : 0));
@@ -5306,7 +5356,9 @@ public final class MatchController extends GeneratedControllerBase {
      */
     private boolean askYesNo(String kind, String question, boolean fallback) {
         java.util.LinkedHashMap<String, String> labels = new java.util.LinkedHashMap<>();
-        labels.put("confirm:yes", yesLabel(question));
+        // Spec 0113 (W1-254, W1-343..W1-346) -- Forge's question in our words,
+        // tidied, before the yes answer is made from it.
+        labels.put("confirm:yes", yesLabel(host.tidy(PlainWords.forgeWords(question))));
         labels.put("confirm:no", "No");
         try {
             String choice =
@@ -5344,7 +5396,8 @@ public final class MatchController extends GeneratedControllerBase {
         host.offerSubject(wrapper, player.getView());
         return askYesNo(
                 "confirmTrigger",
-                "use the triggered ability of " + card + "?",
+                // Spec 0113 (W1-215) -- a capital, and the card's own.
+                "Use " + card + "'s triggered ability?",
                 // Declining an OPTIONAL trigger is the safe
                 // answer when nobody is there to say.
                 false);
@@ -5738,6 +5791,13 @@ public final class MatchController extends GeneratedControllerBase {
         if (!cost.isEmpty() && what.startsWith(cost)) {
             cost = "";
         }
+        // Spec 0113 (W1-219, W1-262, W1-331, W1-332, W1-350) -- never Forge's
+        // "Creature 3 / 1", "by Courser of Kruphix (50)" or " - ".
+        forge.game.card.Card host = sa.getHostCard();
+        String zone = host == null || host.getZone() == null ? null : ActionReports.zoneWords(host.getZone().getZoneType());
+        String other = host != null && host.isAdventureCard()
+                ? host.getState(forge.card.CardStateName.Secondary).getName() : null;
+        what = actionWords(what, zone, other);
 
         StringBuilder label = new StringBuilder(name);
         if (!cost.isEmpty()) {
@@ -5830,7 +5890,8 @@ public final class MatchController extends GeneratedControllerBase {
                     }
                     case "spell" -> {
                         use.addProperty("title", "Cast it");
-                        String types = card.getType() == null ? "" : card.getType().toString();
+                        // Spec 0113 (W1-349) -- the printed type-line dash ("Creature — Goblin").
+                        String types = card.getType() == null ? "" : card.getType().toString().replace(" - ", " — ");
                         if (!types.isBlank()) {
                             use.addProperty("line", types);
                         }
@@ -6138,8 +6199,148 @@ public final class MatchController extends GeneratedControllerBase {
         // Forge takes out every copy; it names each card once.
         java.util.Set<String> names = new java.util.TreeSet<>();
         mine.forEach(card -> names.add(card.getName()));
-        host.note(actedForSeat, "Every copy of " + String.join(", ", names)
-                + " was taken out of your deck before the game: ante is not played.");
+        host.note(actedForSeat, anteWords(new java.util.ArrayList<>(names)));
+    }
+
+    /** Spec 0113 (W1-218) -- "Ante isn't played, so every copy of A and B was taken out of your deck." */
+    // --- Spec 0113: the question words, as plain functions -------------------------------
+
+    private static final java.util.regex.Pattern PLAY_LAND_BY =
+            java.util.regex.Pattern.compile("^Play land by (.+?)$");
+    private static final java.util.regex.Pattern CAST_BY = java.util.regex.Pattern.compile(
+            "^(.*?)\\s*\\bby ([A-Z][^()]*?)\\s*(\\((by paying [^)]*?)(?: instead of paying (?:its|this spell's) mana cost)?\\))?"
+                    + "\\s*(\\((may [^)]*)\\))?\\s*$");
+    private static final java.util.regex.Pattern POWER_TOUGHNESS = java.util.regex.Pattern.compile(
+            "^(?:(.+?) - )?((?:Legendary |Snow |Artifact |Enchantment |Kindred |Tribal )*Creature)(?: [A-Z][A-Za-z' ]*?)?"
+                    + " (\\d+|\\*) / (\\d+|\\*)$");
+
+    /**
+     * Spec 0113 (W1-219, W1-262, W1-331, W1-332, W1-350) -- what an action
+     * does, in its menu line, from Forge's SpellAbility text with the name
+     * taken off: "Creature 3 / 1" is "3/1 creature"; "Play land by Courser of
+     * Kruphix" is "Play this land from the top of your library (Courser of
+     * Kruphix)"; "... by Bolas's Citadel (by paying 1 life ...)" is "Cast it by
+     * paying 1 life (Bolas's Citadel)"; "Creature 4 / 3 by Stomp" for an
+     * adventurer in exile is "Cast it from exile (after Stomp)"; "Grizzly
+     * Bears - Creature 2 / 2" is "Grizzly Bears, a 2/2 creature". [zone] where
+     * the card is now (our word); [adventure] its adventure's name, or null.
+     */
+    static String actionWords(String what, String zone, String adventure) {
+        if (what == null || what.isBlank()) {
+            return what;
+        }
+        String w = what.replaceAll("(?<=\\S) \\(\\d+\\)", "").replaceAll("\\s{2,}", " ").trim();
+        String from = zone == null ? "" : switch (zone) {
+            case "library" -> " from the top of your library";
+            case "exile" -> " from exile";
+            case "graveyard" -> " from your graveyard";
+            default -> "";
+        };
+        java.util.regex.Matcher land = PLAY_LAND_BY.matcher(w);
+        if (land.matches()) {
+            return "Play this land" + from + " (" + land.group(1).trim() + ")";
+        }
+        java.util.regex.Matcher by = CAST_BY.matcher(w);
+        if (by.matches() && !by.group(2).isBlank()) {
+            String source = by.group(2).trim();
+            String rest = by.group(1).trim();
+            if (by.group(4) != null) {
+                return "Cast it " + by.group(4).trim() + " (" + source + ")";
+            }
+            if (adventure != null && adventure.equals(source)) {
+                return "Cast it" + from + " (after " + source + ")";
+            }
+            java.util.regex.Matcher face = POWER_TOUGHNESS.matcher(rest);
+            if (face.matches() && face.group(1) != null) {
+                return creatureWords(face) + " (" + source + ")";
+            }
+            return "Cast it" + from + " (" + source + ")";
+        }
+        java.util.regex.Matcher pt = POWER_TOUGHNESS.matcher(w);
+        if (pt.matches()) {
+            return pt.group(1) != null ? creatureWords(pt)
+                    : pt.group(3) + "/" + pt.group(4) + " " + pt.group(2).toLowerCase(java.util.Locale.ROOT);
+        }
+        return w;
+    }
+
+    /** "Grizzly Bears, a 2/2 creature". */
+    private static String creatureWords(java.util.regex.Matcher m) {
+        return m.group(1).trim() + ", a " + m.group(3) + "/" + m.group(4) + " "
+                + m.group(2).toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /** W1-178 -- "Keep this hand of seven cards, or mulligan?" */
+    static String keepWords(int cards) {
+        return "Keep this hand of " + PlainWords.count(cards, "card") + ", or mulligan?";
+    }
+
+    /** W1-179 -- "Choose a card to put on the bottom (two to go)." */
+    static String tuckWords(int toGo) {
+        return "Choose a card to put on the bottom (" + PlainWords.number(toGo) + " to go).";
+    }
+
+    /** W1-220 -- "Costs {1} less (Goblin Electromancer and Baral)"; no cards named: the change alone. */
+    static String costWhyWords(String change, java.util.List<String> by) {
+        return by == null || by.isEmpty() ? change : change + " (" + PlainWords.and(by) + ")";
+    }
+
+    /**
+     * W1-182 -- "New target for the copy of Lightning Bolt (now targeting
+     * Bob). Or pass to keep its targets." ([copy] a copy's; [now] its targets
+     * by name; [optional] a pass keeps them.)
+     */
+    static String newTargetWords(String card, boolean copy, java.util.List<String> now, boolean optional) {
+        return "New target for " + (copy ? "the copy of " : "") + card
+                + (now.isEmpty() ? "" : " (now targeting " + PlainWords.and(now) + ")") + "."
+                + (optional ? " Or pass to keep its targets." : "");
+    }
+
+    /** W1-003 -- a spell or an ability on the stack, as a target: "Lightning Bolt on the stack", "Prodigal Pyromancer's ability". */
+    static String onStackWords(String card, boolean spell) {
+        if (card == null || card.isBlank()) {
+            return spell ? "A spell on the stack" : "An ability on the stack";
+        }
+        return spell ? card + " on the stack" : card + "'s ability";
+    }
+
+    /** W1-184 -- "How much damage goes to Bob? (Five left to divide.)", by the ability's kind (Forge's ApiType). */
+    static String divideWords(String api, String target, int left) {
+        String asked = switch (api) {
+            case "DealDamage" -> "How much damage goes to " + target + "?";
+            case "PreventDamage" -> "How much damage do you prevent for " + target + "?";
+            case "PutCounter" -> "How many counters go on " + target + "?";
+            default -> "How much goes to " + target + "?";
+        };
+        return asked + " (" + PlainWords.capitalNumber(left) + " left to divide.)";
+    }
+
+    /** W1-193 -- "First of two mana from Manamorphose: which color?" ([source] null: no card). */
+    static String manaComboWords(String source, int n, int of, boolean different) {
+        String from = source == null || source.isBlank() ? "" : " from " + source;
+        if (of == 1) {
+            return "Which color" + (from.isEmpty() ? "" : " of mana" + from) + "?";
+        }
+        String nth = n >= 1 && n <= 10 ? ORDINALS[n - 1] : "Number " + n;
+        return nth + " of " + PlainWords.number(of) + " mana" + from
+                + (different ? ", each a different color" : "") + ": which color?";
+    }
+
+    private static final String[] ORDINALS = {"First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh",
+        "Eighth", "Ninth", "Tenth"};
+
+    /** W1-212, W1-260 -- Forge's "Kicker – {2}{R}" (OptionalCostValue's en dash) as "Kicker {2}{R}". */
+    static String optionalCostWords(String forge) {
+        return forge == null ? null : forge.replaceAll("\\s*[–—]\\s*", " ").replaceAll("\\s+-\\s+", " ").trim();
+    }
+
+    /** W1-198 -- "Fact or Fiction: choose a pile."; no card: "Choose a pile.", never "Choose: choose ...". */
+    static String asked(String card, String question) {
+        return card == null || card.isBlank() ? PlainWords.capital(question) : card + ": " + question;
+    }
+
+    static String anteWords(java.util.List<String> names) {
+        return "Ante isn't played, so every copy of " + PlainWords.and(names) + " was taken out of your deck.";
     }
 
     /** Forge's human wording, as a notice to this player only. */
@@ -6174,12 +6375,11 @@ public final class MatchController extends GeneratedControllerBase {
             return;
         }
         String whose = own ? "your" : (ownerName == null ? "a player's" : ownerName + "'s");
-        String where = whose + " " + zone.getTranslatedName().toLowerCase(java.util.Locale.ROOT);
         String text;
         {
-            String said = message == null || message.isBlank()
-                    ? "Looking at " + where
-                    : (addSuffix ? message + " " + where : message);
+            // Spec 0113 (W1-161, W1-328..W1-330, W1-366, W1-367) -- our own
+            // zone words, and Forge's reveal messages in ours.
+            String said = PlainWords.revealTitle(message, addSuffix, whose, ActionReports.zoneWords(zone));
             text = said + ": " + String.join(", ", names);
             // Spec 0057, item 7 -- a reveal paid as a cost (Wren's Run
             // Vanquisher's Elf): who, what and why, as a report.
@@ -6224,7 +6424,7 @@ public final class MatchController extends GeneratedControllerBase {
         if (spell == null) {
             return null;
         }
-        String where = zone == null ? "hand" : zone.getTranslatedName().toLowerCase(java.util.Locale.ROOT);
+        String where = zone == null ? "hand" : ActionReports.zoneWords(zone);
         String said = PlainWords.revealSaid(paid.payer().getName(), names, where);
         String paidPrice = null;
         String instead = null;
@@ -6382,17 +6582,96 @@ public final class MatchController extends GeneratedControllerBase {
         if (api == forge.game.ability.ApiType.ChooseColor && !said.isEmpty()) {
             String colours = said.toLowerCase(java.util.Locale.ROOT);
             boolean one = java.util.List.of("white", "blue", "black", "red", "green").contains(colours);
-            return new ActionReports.Value(who, name + " chose " + colours + ".", one ? "color" : null,
-                    one ? colours : null);
+            // Spec 0113 (W1-158) -- "Bob chose white and blue."
+            return new ActionReports.Value(who, name + " chose "
+                    + PlainWords.and(java.util.Arrays.stream(colours.split("\\s*,\\s*")).toList()) + ".",
+                    one ? "color" : null, one ? colours : null);
         }
         if (api == forge.game.ability.ApiType.NameCard && !said.isEmpty()) {
             return new ActionReports.Value(who, name + " named " + said + ".", null, null);
         }
+        // Spec 0113 (W1-159, W1-316..W1-320) -- the values Forge only has its
+        // own words for, in ours; never "X effect's value for Y is Z".
+        String card = sa.getHostCard() == null ? null
+                : sa.getHostCard().isFaceDown() ? "a face-down card" : sa.getHostCard().getName();
+        String ours = valueWords(name, card, said);
+        if (ours != null) {
+            return new ActionReports.Value(who, ours, null, null);
+        }
         String words = PlainWords.humanise(forgeWords == null ? "" : forgeWords.trim());
-        if (words.isEmpty()) {
-            words = name + ": " + said;
+        if (words.isEmpty() || words.contains(" effect's value for ")) {
+            words = name + " chose " + PlainWords.tidy(said.split("\\R", 2)[0]);
         }
         return new ActionReports.Value(who, words.endsWith(".") ? words : words + ".", null, null);
+    }
+
+    private static final java.util.regex.Pattern VALUE_REVEALS =
+            java.util.regex.Pattern.compile("^(.+?) reveals (.+)$");
+    private static final java.util.regex.Pattern VALUE_PILE =
+            java.util.regex.Pattern.compile("^(.+?) chooses Pile (\\d+)", java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final java.util.regex.Pattern VALUE_BID =
+            java.util.regex.Pattern.compile("^topped bid with (\\d+) life", java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final java.util.regex.Pattern VALUE_VOTES =
+            java.util.regex.Pattern.compile("Current Votes:\\s*\\{(.*)\\}", java.util.regex.Pattern.DOTALL);
+    private static final java.util.regex.Pattern ONE_TALLY =
+            java.util.regex.Pattern.compile("([^=,{}\\[\\]]+?)=\\[([^\\]]*)\\]");
+
+    /**
+     * Spec 0113 (W1-316..W1-320) -- a value Forge told in its own words
+     * ("win", "Alice reveals Bob", "Alice chooses Pile 2: ...", "topped bid
+     * with 3 life", a vote with its tally), as our sentence; null for any
+     * other value. [name] the player as the reader names them ("You", "Bob");
+     * [card] the card whose ability it was.
+     */
+    static String valueWords(String name, String card, String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String v = value.trim();
+        String low = v.toLowerCase(java.util.Locale.ROOT);
+        // A coin flipped as a cost (Karplusan Minotaur): Forge's "win" / "lose".
+        if (low.equals("win") || low.equals("won")) {
+            return name + " won the flip.";
+        }
+        if (low.equals("lose") || low.equals("lost")) {
+            return name + " lost the flip.";
+        }
+        java.util.regex.Matcher pile = VALUE_PILE.matcher(v);
+        if (pile.find()) {
+            int n = Integer.parseInt(pile.group(2));
+            return pile.group(1).trim() + " took " + (n == 1 ? "the first pile" : n == 2 ? "the second pile"
+                    : "pile " + n) + ".";
+        }
+        java.util.regex.Matcher bid = VALUE_BID.matcher(v);
+        if (bid.find()) {
+            return name + " raised the bid to " + bid.group(1) + " life.";
+        }
+        java.util.regex.Matcher votes = VALUE_VOTES.matcher(v);
+        if (votes.find()) {
+            String choice = PlainWords.tidy(v.substring(0, votes.start()).trim());
+            java.util.List<String> tallies = new java.util.ArrayList<>();
+            java.util.regex.Matcher each = ONE_TALLY.matcher(votes.group(1));
+            while (each.find()) {
+                java.util.List<String> voters = new java.util.ArrayList<>();
+                for (String voter : each.group(2).split("\\s*,\\s*")) {
+                    if (!voter.isBlank()) {
+                        voters.add(voter.trim());
+                    }
+                }
+                tallies.add(PlainWords.tidy(each.group(1).trim()) + ", " + PlainWords.number(voters.size())
+                        + " (" + PlainWords.and(voters) + ")");
+            }
+            return name + " voted for " + choice + "."
+                    + (tallies.isEmpty() ? "" : " Votes so far: " + String.join("; ", tallies) + ".");
+        }
+        java.util.regex.Matcher reveals = VALUE_REVEALS.matcher(v);
+        if (reveals.find() && !v.contains("\n")) {
+            String revealer = reveals.group(1).trim();
+            boolean you = "You".equals(name) && revealer.equals(name);
+            return revealer + " revealed the opponent " + (you ? "you" : "they") + " chose"
+                    + (card == null ? "" : " for " + card) + ": " + reveals.group(2).trim() + ".";
+        }
+        return null;
     }
 
     /** Forge's "Alice rolled 4, 5" (lblPlayerRolledResult): the final results. */

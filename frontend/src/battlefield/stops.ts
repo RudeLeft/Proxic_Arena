@@ -7,6 +7,8 @@
 
 import type { MatchOutcome } from "../lobby";
 import type { Snapshot } from "../match";
+import { capital, capitalNumber, numberWord, timesWord } from "../words";
+import { winWords } from "../matchText";
 
 type BoardCard = Snapshot["battlefield"][number];
 
@@ -45,16 +47,17 @@ export function unblockedPower(board: Snapshot): number | null {
   return totalPower(attackers);
 }
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-/** Spec 0034 — "Pat's Lightning Bolt → you": whose it is, and its first target. */
+/**
+ * Spec 0034 — "Pat's Lightning Bolt at you": whose it is, and its first
+ * target; spec 0113 (W1-034) "(and one more)" for the rest, never "+1".
+ */
 function stackLine(board: Snapshot, mySeat: number): string {
   const top = board.stack[0]!;
   const whose =
     top.controller === mySeat
       ? "Your "
       : top.controller
-        ? `${board.players.find((p) => p.seat === top.controller)?.name ?? "Their"}’s `
+        ? nameWhose(board.players.find((p) => p.seat === top.controller)?.name)
         : "";
   const targets = top.targets ?? [];
   const first = targets[0];
@@ -67,7 +70,7 @@ function stackLine(board: Snapshot, mySeat: number): string {
       : (board.battlefield.find((c) => c.id === first.object)?.name ??
         board.stack.find((s) => s.id === first.object)?.name ??
         "a card");
-  return `${whose}${top.name} → ${at}${targets.length > 1 ? ` +${targets.length - 1}` : ""}`;
+  return `${whose}${top.name} at ${at}${targets.length > 1 ? ` (and ${numberWord(targets.length - 1)} more)` : ""}`;
 }
 
 /** Spec 0034 — where the active player goes after this step, for "Pat goes on to …". */
@@ -76,10 +79,10 @@ const NEXT_STEP: Record<string, string> = {
   UPKEEP: "their draw",
   DRAW: "their main phase",
   MAIN1: "combat",
-  COMBAT_BEGIN: "attacks",
-  COMBAT_DECLARE_ATTACKERS: "damage",
-  COMBAT_DECLARE_BLOCKERS: "damage",
-  COMBAT_FIRST_STRIKE_DAMAGE: "damage",
+  COMBAT_BEGIN: "attack",
+  COMBAT_DECLARE_ATTACKERS: "combat damage",
+  COMBAT_DECLARE_BLOCKERS: "combat damage",
+  COMBAT_FIRST_STRIKE_DAMAGE: "combat damage",
   COMBAT_DAMAGE: "Main 2",
   COMBAT_END: "Main 2",
   MAIN2: "their end step",
@@ -104,7 +107,7 @@ export function passWords(board: Snapshot, mySeat: number): { word: string; sub:
     if (board.phase === "COMBAT_DECLARE_ATTACKERS" && attacking.length > 0) {
       return {
         word: "To blocks",
-        sub: `${plural(attacking.length, "attacker", "attackers")} · ${totalPower(attacking)} power coming`,
+        sub: `${capitalNumber(attacking.length)} ${attacking.length === 1 ? "attacker" : "attackers"} with ${totalPower(attacking)} power coming`,
       };
     }
     if (board.phase === "COMBAT_DECLARE_BLOCKERS" && attacking.length > 0) {
@@ -128,7 +131,7 @@ export function passWords(board: Snapshot, mySeat: number): { word: string; sub:
     case "MAIN1": {
       if (couldAttack(board, mySeat)) return { word: "Next", sub: "To attacks" };
       // Spec 0035: Main 2 is always a stop when you have something to do.
-      return { word: "Next", sub: "Nothing can attack · to Main 2" };
+      return { word: "Next", sub: "Nothing can attack. On to Main 2." };
     }
     case "COMBAT_BEGIN":
       return { word: "Next", sub: "To attacks" };
@@ -149,7 +152,7 @@ export function passWords(board: Snapshot, mySeat: number): { word: string; sub:
 }
 
 /** Spec 0105 -- the act line while the top of the stack rests (canvas feedback-1119 "Q2"). */
-export const RESTING_WORDS = "Resolving · nobody can answer";
+export const RESTING_WORDS = "Resolving. Nobody can respond.";
 
 /** The canvas's eight steps; Forge's phase names fold into them. */
 export const STEPS: { label: string; phases: string[] }[] = [
@@ -186,8 +189,8 @@ export const STEPS: { label: string; phases: string[] }[] = [
  * A spectator passes a seat nobody has (-1): every seat is "theirs".
  *
  * Spec 0105 -- `resting`: the top of the stack rests before it resolves,
- * nobody able to answer it, its card landed on this screen: "One moment ·
- * Resolving · nobody can answer" (the canvas's words), whoever's it is.
+ * nobody able to answer it, its card landed on this screen: "One moment /
+ * Resolving. Nobody can respond." (spec 0113, W1-037), whoever's it is.
  */
 export function waitingLine(
   board: Snapshot,
@@ -231,7 +234,7 @@ function movesLine(
   const pregame =
     board.turn === 0
       ? mulligans > 0
-        ? `Mulliganed ${mulligans === 1 ? "once" : mulligans === 2 ? "twice" : `${mulligans} times`}`
+        ? `Mulliganed ${timesWord(mulligans)}`
         : "Choosing their opening hand"
       : null;
   return {
@@ -264,14 +267,14 @@ function doingLine(board: Snapshot, mySeat: number, doing: string | null): strin
   return `Making a choice for ${mySeat < 0 && owner ? `${owner}’s` : "their"} ${top.name}`;
 }
 
-/** W-25 — the step, and whose turn it is: "Main 1 · their turn". */
+/** W-25 — the step, and whose turn it is: "Main 1, their turn" (spec 0113, W1-039). */
 function stepLine(board: Snapshot, mySeat: number): string {
   const step = STEPS.find((s) => s.phases.includes(board.phase))?.label;
   if (!step) return "";
-  if (board.activeSeat === mySeat) return `${step} · your turn`;
+  if (board.activeSeat === mySeat) return `${step}, your turn`;
   // Spec 0067 -- a spectator (mySeat -1) reads whose turn by name.
   const active = board.players.find((p) => p.seat === board.activeSeat)?.name;
-  return `${step} · ${mySeat < 0 && active ? `${active}’s` : "their"} turn`;
+  return `${step}, ${mySeat < 0 && active ? `${active}’s` : "their"} turn`;
 }
 
 /**
@@ -302,15 +305,30 @@ function whatTheyDo(board: Snapshot, mySeat: number, seat: number): string | nul
   return null;
 }
 
-/** Spec 0045 -- Forge's reasons for a loss, in a player's words. */
-const LOSS_WORDS: Record<string, string> = {
-  Milled: "had to draw from an empty library",
-  LifeReachedZero: "life reached 0",
-  Poisoned: "10 poison counters",
-  CommanderDamage: "21 damage from one commander",
-  SpellEffect: "a card's effect",
-  OpponentWon: "an opponent won by a card's effect",
+/** "Bob" / "you" as the loser, for {@link LOSS_WORDS}. */
+interface Loser {
+  you: boolean;
+  name: string;
+}
+
+/**
+ * Spec 0045 -- Forge's reasons for a loss, in a player's words; spec 0113
+ * (W1-125..W1-130) as whole sentences: "Bob's life reached zero".
+ */
+const LOSS_WORDS: Record<string, (who: Loser) => string> = {
+  Milled: (w) => `${w.you ? "You" : w.name} had to draw from an empty library`,
+  LifeReachedZero: (w) => `${w.you ? "Your" : `${w.name}’s`} life reached zero`,
+  Poisoned: (w) => `${w.you ? "You" : w.name} got ten poison counters`,
+  CommanderDamage: (w) => `${w.you ? "You" : w.name} took 21 damage from one commander`,
+  SpellEffect: (w) => `${w.you ? "You" : w.name} lost because of a card`,
+  OpponentWon: (w) =>
+    `${w.you ? "You" : w.name} lost because a card made ${w.you ? "your" : "their"} opponent win`,
 };
+
+/** "Pat’s " for a name, "Their " without one (spec 0113, W1-290: never "Their’s"). */
+function nameWhose(name: string | undefined): string {
+  return name ? `${name}’s ` : "Their ";
+}
 
 /**
  * Spec 0034, Phase 9 W-24 — game over, said once: who won (`word`), why
@@ -327,7 +345,7 @@ export function gameOverWords(
 ): { word: string; sub: string; turn: string } {
   const turn = outcome && outcome.endedOnTurn > 0 ? `Turn ${outcome.endedOnTurn}` : "";
   const nameOf = (seat: number) =>
-    seat === mySeat ? "Your" : `${board.players.find((p) => p.seat === seat)?.name ?? "Their"}’s`;
+    seat === mySeat ? "Your " : nameWhose(board.players.find((p) => p.seat === seat)?.name);
   if (stopped || outcome?.kind === "FAILED") {
     return { word: "Game over", sub: "The game stopped before it finished. Nobody won it.", turn };
   }
@@ -343,7 +361,7 @@ export function gameOverWords(
   const why = outcome.lossReason ? LOSS_WORDS[outcome.lossReason] : undefined;
   // Spec 0067, item 8 -- a life at 0 or below says where it fell to, from
   // the final board: "Bob's life fell to -3".
-  const fell = loser && loser.life <= 0 ? `${nameOf(loser.seat)} life fell to ${loser.life}` : null;
+  const fell = loser && loser.life <= 0 ? `${nameOf(loser.seat)}life fell to ${loser.life}` : null;
   const conceded =
     outcome.concededSeat === null
       ? null
@@ -354,8 +372,11 @@ export function gameOverWords(
     outcome.lossReason === "LifeReachedZero" && fell
       ? fell
       : why && loser
-        ? `${loser.seat === mySeat ? "You" : loser.name} lost: ${why}`
-        : (conceded ?? (outcome.reason ? `The winner ${outcome.reason}` : (fell ?? "")));
+        ? why({ you: loser.seat === mySeat, name: loser.name })
+        : (conceded ??
+          (outcome.reason
+            ? capital(winWords(won ? "You" : winner, outcome.reason))
+            : (fell ?? "")));
   return { word: won ? "You won" : `${winner} won`, sub, turn };
 }
 

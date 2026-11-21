@@ -105,8 +105,8 @@ describe("spec 0076 -- counters and the Ring-bearer as pictures", () => {
     expect(card.querySelector(".bf-counters")).toBeNull();
     expect(card.textContent).not.toMatch(/\+1\/\+1|Stun/);
     // The card's name for a screen reader still says them.
-    expect(card.getAttribute("aria-label")).toContain("2 +1/+1 counters");
-    expect(card.getAttribute("aria-label")).toContain("1 Stun counter");
+    expect(card.getAttribute("aria-label")).toContain("two +1/+1 counters");
+    expect(card.getAttribute("aria-label")).toContain("a stun counter");
   });
 
   it("F-0076-A: a kind not drawn yet is grey with its first letters", () => {
@@ -137,11 +137,11 @@ describe("spec 0076 -- counters and the Ring-bearer as pictures", () => {
     expect(more.querySelectorAll("svg circle")).toHaveLength(3);
     const title = card.querySelector(".bf-badges")!.getAttribute("title")!.split("\n");
     expect(title).toEqual([
-      "4 Charge counters",
-      "3 Stun counters",
-      "2 Oil counters",
-      "1 Shield counter",
-      "1 Time counter",
+      "four charge counters",
+      "three stun counters",
+      "two oil counters",
+      "a shield counter",
+      "a time counter",
     ]);
     // Three kinds exactly: no fold.
     const three = permanent({
@@ -190,7 +190,7 @@ describe("spec 0076 -- counters and the Ring-bearer as pictures", () => {
     expect(lead.querySelector(".bf-pile")!.textContent).toBe("×3");
     expect(lead.querySelector(".bf-badge-n")!.textContent).toBe("1");
     // Per card: the pile's badge says "on each".
-    expect(lead.querySelector(".bf-badges")!.getAttribute("title")).toBe("1 +1/+1 counter on each");
+    expect(lead.querySelector(".bf-badges")!.getAttribute("title")).toBe("a +1/+1 counter on each");
     const land = cardOf(c, saga.id);
     expect(land.querySelector(".bf-makes")).not.toBeNull();
     // Loyalty stays the planeswalker's number, never a badge.
@@ -284,7 +284,7 @@ describe("spec 0076 -- counters and the Ring-bearer as pictures", () => {
       ],
     });
     const attacking = cardOf(draw([corpse]), corpse.id);
-    expect(attacking.querySelector(".bf-state")!.textContent).toBe("ATTACKING");
+    expect(attacking.querySelector(".bf-state")!.textContent).toBe("Attacking");
     const placed = clear(attacking, [STATE_BAND], BADGE_FLOOR, BADGE_ROOF);
     expect(placed).toHaveLength(4);
     expect(placed.map((b) => b.column)).toEqual([0, 0, 1, 1]);
@@ -350,7 +350,7 @@ describe("spec 0076 -- counters and the Ring-bearer as pictures", () => {
       counterFrom: from,
     });
     const words =
-      "2 +1/+1 counters, the last from Ajani's Pridemate's trigger: Pat gained 1 life (Soul Warden)";
+      "two +1/+1 counters, the last from Ajani's Pridemate's trigger: Pat gained 1 life (Soul Warden)";
     const card = cardOf(draw([mate]), mate.id);
     expect(card.querySelector(".bf-badges")!.getAttribute("title")).toBe(words);
 

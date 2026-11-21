@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import type { Decision, DecisionAbout } from "./match";
 import type { MatchView } from "./lobby";
+import { article, capital, numberWord, orList } from "./words";
 
 /**
  * P6-AG — naming a card: search, then pick.
@@ -58,13 +59,13 @@ export function NameSearch({
         />
       </label>
       {asked && !results && <p className="hint">Searching…</p>}
-      {results && results.total === 0 && <p className="hint">No card is called that.</p>}
+      {results && results.total === 0 && <p className="hint">No card has that name.</p>}
       {results && results.options.length > 0 && (
         <ul className="actions-list" aria-label="Matching names">
           {results.options.map((option) => (
             <li key={option.actionId}>
               <button type="button" disabled={disabled} onClick={() => onChoose(option.actionId)}>
-                {option.label ?? option.actionId}
+                {option.label ?? "This name"}
               </button>
             </li>
           ))}
@@ -135,27 +136,45 @@ export function resultText(
   // Spec 0067 -- a spectator is nobody's "you": the players by name.
   const named = mySeat === null && nameOf ? nameOf : null;
   if (named && outcome.winningSeat !== null) {
-    const winner = named(outcome.winningSeat) ?? `Seat ${outcome.winningSeat}`;
+    // Spec 0113 (W1-132): never "Seat 2".
+    const winner = named(outcome.winningSeat) ?? "A player";
     if (outcome.concededSeat !== null) {
-      return `${named(outcome.concededSeat) ?? `Seat ${outcome.concededSeat}`} conceded${turn}. ${winner} won.`;
+      return `${named(outcome.concededSeat) ?? "A player"} conceded${turn}. ${winner} won.`;
     }
-    return `${winner} won${turn}.${outcome.reason ? ` The winner ${outcome.reason}.` : ""}`;
+    return outcome.reason ? `${winWords(winner, outcome.reason, turn)}.` : `${winner} won${turn}.`;
   }
   if (outcome.concededSeat !== null) {
     if (outcome.concededSeat === mySeat) return `You conceded${turn}. Your opponent won.`;
     if (outcome.winningSeat === mySeat) return `Your opponent conceded${turn}. You won.`;
   }
-  const why = outcome.reason ? ` The winner ${outcome.reason}.` : "";
-  if (outcome.winningSeat === mySeat) return `You won${turn}.${why}`;
+  // Spec 0113 (W1-131): "You won on turn 5 because of Laboratory Maniac.",
+  // never "The winner has won ...".
+  const won = (who: string) =>
+    outcome.reason ? `${winWords(who, outcome.reason, turn)}.` : `${who} won${turn}.`;
+  if (outcome.winningSeat === mySeat) return won("You");
 
   // The match participant list carries seats, not names (§5.47
   // keeps other people's decks out of it, and names were never
   // needed before). With two seats "your opponent" is exact; with
   // more it would not be, so the seat is named instead. FMT-005
   // keeps that case representable even though Open Format is two.
-  return match.participants.length === 2
-    ? `Your opponent won${turn}.${why}`
-    : `Seat ${outcome.winningSeat} won${turn}.${why}`;
+  return match.participants.length === 2 ? won("Your opponent") : won("Another player");
+}
+
+/**
+ * Spec 0113 (W1-131) -- who won, and Forge's reason why, as one sentence.
+ * Every PlayerOutcome reads "has won ..." ("has won due to effect of
+ * 'Laboratory Maniac'", "has won because all opponents have lost"), so its
+ * subject is the winner: "Bob won on turn 5 because of Laboratory Maniac".
+ * A reason in another shape follows a colon. No full stop.
+ */
+export function winWords(who: string, reason: string, turn = ""): string {
+  const why = reason.trim().replace(/\.$/, "");
+  const effect = /^has won due to (?:the )?effect of '(.+)'$/i.exec(why);
+  if (effect) return `${who} won${turn} because of ${effect[1]!}`;
+  const rest = /^has won\b\s*(.*)$/i.exec(why);
+  if (rest) return rest[1] ? `${who} won${turn} ${rest[1]}` : `${who} won${turn}`;
+  return `${who} won${turn}: ${why}`;
 }
 
 /**
@@ -176,7 +195,7 @@ export function headingFor(kind: string): string {
     case "chooseTargetsFor":
       return "Choose a target";
     case "chooseTarget":
-      return "Change which target?";
+      return "Choose a new target";
     case "getAbilityToPlay":
       return "Choose which ability";
     case "chooseManaAbility":
@@ -207,11 +226,11 @@ export function headingFor(kind: string): string {
     case "chooseKeywordForPump":
       return "Choose what it gains";
     case "chooseCardsForSplice":
-      return "Splice";
+      return "Splice a card onto it?";
     case "chooseSingleCardState":
       return "Choose a door";
     case "chooseCardsToDiscardUnlessType":
-      return "Discard";
+      return "Choose a card to discard";
     case "orderSimultaneousAbilities":
       return "Choose what resolves first";
     case "chooseSingleReplacementEffect":
@@ -227,9 +246,9 @@ export function headingFor(kind: string): string {
     case "chooseEntitiesForEffect":
       return "Choose from these";
     case "choosePermanentsToSacrifice":
-      return "Sacrifice";
+      return "Choose what to sacrifice";
     case "choosePermanentsToDestroy":
-      return "Destroy";
+      return "Choose what to destroy";
     case "orderMoveToZoneList":
       return "Put them in order";
     case "mulliganKeepHand":
@@ -244,9 +263,9 @@ export function headingFor(kind: string): string {
       return "Choose a type";
     case "chooseColor":
     case "chooseColors":
-      return "Choose a colour";
+      return "Choose a color";
     case "specifyManaCombo":
-      return "Choose the mana's colours";
+      return "Choose the mana's colors";
     case "chooseProtectionType":
       return "Choose protection";
     case "chooseCardName":
@@ -320,7 +339,7 @@ export function headingFor(kind: string): string {
     case "confirmBidAction":
       return "Bid life";
     case "chooseFlipResult":
-      return "Choose a flip";
+      return "Choose how the coin lands";
     case "chooseDiceToReroll":
       return "Reroll dice";
     case "chooseRollToModify":
@@ -356,7 +375,7 @@ export function headingFor(kind: string): string {
 
 export function hintFor(kind: string, options: number): string {
   if (options === 0) {
-    return "Nothing can be done right now; passing is the only answer.";
+    return "There is nothing you can do right now. Pass to go on.";
   }
   switch (kind) {
     case "chooseTargetsFor":
@@ -370,7 +389,7 @@ export function hintFor(kind: string, options: number): string {
     case "chooseManaAbility":
       // The card shows what is still due, so the hint says what the choice
       // IS (Phase 9 Amendment 13, item 9).
-      return "Tap a land or other source, or use mana you already made. Cancel (or Esc) takes back the whole spell.";
+      return "Tap a land or another mana source, or use mana you already made. Cancel (or Esc) takes back the whole spell.";
     case "chooseCardsToDiscardToMaximumHandSize":
       return "You are over your maximum hand size. This cannot be skipped.";
     case "declareAttackers":
@@ -378,7 +397,7 @@ export function hintFor(kind: string, options: number): string {
     case "declareBlockers":
       return "Choose blockers one at a time. Pass to take the damage.";
     case "assignCombatDamage":
-      return "One point at a time, so nothing is assigned for you.";
+      return "Assign the damage one point at a time. The game assigns none of it for you.";
     case "exertAttackers":
       return "Click each attacker to exert, one at a time. Pass when you are done.";
     case "enlistAttackers":
@@ -387,24 +406,24 @@ export function hintFor(kind: string, options: number): string {
       // The prompt above already names the card, because Forge
       // wrote it. What this adds is that the kind MATTERS: these
       // are not interchangeable, and nothing will pick for you.
-      return "Which counter this is changes what it does. This cannot be skipped.";
+      return "Each kind of counter does something different. You have to choose one.";
     case "chooseModeForAbility":
       // A modal card does ONE of these. Passing, where it is
       // allowed at all, means "no more modes" rather than
       // cancelling the spell -- which is worth saying, because
       // every other Pass in this panel cancels something.
-      return "The card does the mode you pick. Pass, if offered, takes no further mode.";
+      return "The card does the mode you pick. If you can pass, passing means no more modes.";
     case "chooseSingleEntityForEffect":
       // The generic chooser: sacrificing something, exiling
       // something, searching a library. Forge's own line above
       // says which, so this says where the list came from -- a
       // library search shows cards nobody else can see, and that
       // being deliberate rather than a leak is worth knowing.
-      return "Only these may be chosen here. The line above says what for.";
+      return "Only these can be chosen. The line above says why.";
     case "mulliganKeepHand":
       // Says what mulliganing COSTS, because the prompt gives the
       // hand size and not the consequence.
-      return "A mulligan draws seven again and puts one more back each time.";
+      return "A mulligan draws a new hand of seven. Each time, you put one more card back.";
     case "tuckCardsViaMulligan":
       return "These go to the bottom of your library. This cannot be skipped.";
     case "chooseStartingPlayer":
@@ -421,7 +440,7 @@ export function hintFor(kind: string, options: number): string {
       // Says where the list came from, because this is the one
       // family of choices that is NOT about anything on the
       // board: the list is Forge's, not the page's (P6-AH).
-      return "These are the values allowed. Nothing here is a card on the board.";
+      return "Choose one of these. None of them is a card on the board.";
     case "chooseBinary":
       // The call is yours; the flip is not. Worth saying, because
       // a player who calls heads and loses should know the game
@@ -432,7 +451,7 @@ export function hintFor(kind: string, options: number): string {
       // the top", "closest to the bottom" — because that is the
       // entire decision, and a list of cards with no end named
       // reads as a choice of ONE rather than a sort.
-      return "Each pick is the next one in order. This cannot be skipped.";
+      return "Pick them one by one, in order. You have to put them all in order.";
     case "chooseEntitiesForEffect":
       // Several, one click at a time. The prompt carries the
       // count -- how many more are needed, or how many more are
@@ -450,7 +469,7 @@ export function hintFor(kind: string, options: number): string {
       // list of numbers does not show. Not "the list stops at
       // what you can pay" -- it does not, deliberately, and a
       // hint that describes the page wrongly is worse than none.
-      return "You pay for what you choose. The list grows as the board can pay for more.";
+      return "You pay for the number you choose. Bigger numbers appear when you have the mana for them.";
     case "CostPutCounter":
     case "CostRemoveCounter":
     case "CostTapType":
@@ -480,11 +499,11 @@ export function hintFor(kind: string, options: number): string {
       // alone, as Forge shows them (spec 0001: as pictures).
       return "Only you can see these cards. The line above says what to do with them.";
     case "divideAsYouChoose":
-      return "Each target gets at least 1. What is left goes to the targets after this one.";
+      return "Each target gets at least one. What is left goes to the targets after this one.";
     case "chooseNumber":
-      return "These are the numbers allowed. This cannot be skipped.";
+      return "Choose one of these numbers. You have to choose.";
     case "chooseNumberForKeywordCost":
-      return "Each time costs that much more, and does that much more. None is an answer.";
+      return "Each extra time costs more and does more. You can also choose None.";
     case "chooseCardsForCost":
       // An "unless you pay" while something resolves: passing is a real
       // answer -- the line above says what happens then.
@@ -551,7 +570,8 @@ export function matchUrl(matchId: string): string {
 /**
  * What Cancel says (owner 2026-10-22: "cancel all, by name"): backing out
  * undoes the whole thing -- Forge returns the card where it came from and
- * refunds any mana paid -- so nothing is spent.
+ * refunds any mana paid -- so nothing is spent. Spec 0113 (W1-046..W1-048):
+ * whole sentences, no " · ".
  */
 export function cancelWords(about: DecisionAbout | null): { word: string; sub: string } {
   if (!about) return { word: "Cancel", sub: "Back out. Nothing is spent." };
@@ -559,15 +579,15 @@ export function cancelWords(about: DecisionAbout | null): { word: string; sub: s
     case "spell":
       return {
         word: `Cancel ${about.name}`,
-        sub: `Back to your ${about.from ?? "hand"} · nothing is spent`,
+        sub: `It goes back to your ${about.from ?? "hand"}. Nothing is spent.`,
       };
     case "ability":
       return {
         word: `Cancel ${about.name}`,
-        sub: "Its ability is not activated · nothing is spent",
+        sub: "The ability is not used. Nothing is spent.",
       };
     case "trigger":
-      return { word: `Cancel ${about.name}`, sub: "Its trigger does nothing" };
+      return { word: `Cancel ${about.name}`, sub: "The trigger does nothing" };
     default:
       return { word: "Cancel", sub: `Nothing is done with ${about.name}` };
   }
@@ -615,18 +635,6 @@ const OR_LIST = new RegExp(
   "i",
 );
 
-/** "a" or "an" before [word]. */
-function articleFor(word: string): string {
-  return /^[aeiou]/i.test(word) ? "an" : "a";
-}
-
-/** "A", "A or B", "A, B or C". */
-function orWords(words: readonly string[]): string {
-  return words.length < 2
-    ? (words[0] ?? "")
-    : `${words.slice(0, -1).join(", ")} or ${words[words.length - 1]!}`;
-}
-
 /**
  * Spec 0109, item 5 -- the kind of thing a target names, whole: the words
  * after "target" up to where the phrase ends, a comma list kept when it is
@@ -644,15 +652,11 @@ export function readNoun(after: string, one: boolean): string | null {
     const kinds = [...non[1]!.matchAll(new RegExp(String.raw`non-(${WORD})`, "gi"))].map(
       (m) => m[1]!,
     );
-    return `${non[2]!} that isn't ${articleFor(kinds[0] ?? "")} ${orWords(kinds)}`;
+    return `${non[2]!} that isn't ${article(kinds[0] ?? "")} ${orList(kinds)}`;
   }
   const phrase = run.includes(",") && !OR_LIST.test(run) ? run.slice(0, run.indexOf(",")) : run;
   if (phrase.split(/[\s,]+/).every((w) => /^non-/i.test(w) || /^or$/i.test(w))) return null;
   return phrase;
-}
-
-function capital(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /** "target creature" -> "a creature", "two target creatures" -> "two creatures". */
@@ -662,6 +666,18 @@ export function plainTargets(text: string): string {
     .replace(/\btarget (?=[aeiou])/gi, (m) => (m[0] === "T" ? "An " : "an "))
     .replace(/\btarget (?=\w)/gi, (m) => (m[0] === "T" ? "A " : "a "));
 }
+
+/** Spec 0113 (W1-023) -- a target count as words: "2" "two", "up to 2" "up to two". */
+function countWord(count: string): string {
+  return count.toLowerCase().replace(/\d+/, (n) => numberWord(Number(n)));
+}
+
+/**
+ * The verbs a target sentence turns into an instruction ("deals" "deal");
+ * spec 0113 (W1-357) adds "copies" "copy" and the other common ones.
+ */
+const VERBS =
+  /^(deal|destroy|return|exile|gain|get|lose|tap|untap|sacrifice|counter|draw|put|create|fight|attach|copy|choose|reveal|discard|mill|shuffle|regenerate|prevent|transform|goad|double|cast|block|attack)$/i;
 
 export function targetWords(prompt: string | null, name: string | null): TargetWords | null {
   if (!prompt) return null;
@@ -683,7 +699,7 @@ export function targetWords(prompt: string | null, name: string | null): TargetW
       noun === null
         ? "Click a highlighted card."
         : noun
-          ? `Click ${count ? count.toLowerCase() : articleFor(noun)} ${noun}.`
+          ? `Click ${count ? countWord(count) : article(noun)} ${noun}.`
           : "Click a highlighted card or player.";
   }
 
@@ -699,13 +715,12 @@ export function targetWords(prompt: string | null, name: string | null): TargetW
       optional = true;
       action = action.slice(4);
     }
-    action = action.replace(/^(\w+?)(e?s)\b/, (whole, stem: string, end: string) =>
-      /^(deal|destroy|return|exile|gain|get|lose|tap|untap|sacrifice|counter|draw|put|create|fight|attach)$/i.test(
-        stem + (end === "es" ? "e" : ""),
-      )
+    action = action.replace(/^(\w+?)(ies|e?s)\b/, (whole, stem: string, end: string) => {
+      if (end === "ies") return VERBS.test(`${stem}y`) ? `${stem}y` : whole;
+      return VERBS.test(stem + (end === "es" ? "e" : ""))
         ? stem + (end === "es" && !/^(gain|get|deal|draw|put)/i.test(stem) ? "e" : "")
-        : whole,
-    );
+        : whole;
+    });
   }
   optional ||= /\bmay\b/i.test(said);
   action = action.replace(/\.$/, "");

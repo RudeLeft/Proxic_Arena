@@ -29,6 +29,6 @@ describe("the opening hand (W-15)", () => {
   });
 
   it("says how many times in words", () => {
-    expect([1, 2, 3].map(times)).toEqual(["once", "twice", "3 times"]);
+    expect([1, 2, 3].map(times)).toEqual(["once", "twice", "three times"]);
   });
 });

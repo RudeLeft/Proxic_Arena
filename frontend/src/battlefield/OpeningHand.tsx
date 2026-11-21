@@ -8,6 +8,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import cardBack from "../assets/card-back.webp";
 import type { Decision, Snapshot, SnapshotCard } from "../match";
 import { headingFor } from "../matchText";
+import { capital, capitalNumber, countWords, numberWord, timesWord } from "../words";
 import { PeekButton, usePeek, WindowFactLines } from "./GameWindow";
 import {
   DEAL_FROM,
@@ -50,9 +51,9 @@ export function toGo(decision: Decision): number {
   return match ? Number(match[1]) : 1;
 }
 
-/** "once", "twice", "3 times". */
+/** "once", "twice", "three times" (spec 0113, W1-086: `timesWord`). */
 export function times(n: number): string {
-  return n === 1 ? "once" : n === 2 ? "twice" : `${n} times`;
+  return timesWord(n);
 }
 
 /** Spec 0089 (Q2 A) -- what the viewer's own hand did this update, before the first turn. */
@@ -144,7 +145,7 @@ export function OpeningHand({
   // How many times the other player mulliganed: public (owner 2026-11-03).
   const them = board.players.find((p) => p.seat !== board.seat);
   const theirs =
-    them && (them.mulligans ?? 0) > 0 ? `${them.name} mulliganed ${times(them.mulligans!)}` : "";
+    them && (them.mulligans ?? 0) > 0 ? `${them.name} mulliganed ${times(them.mulligans!)}.` : "";
   const lands = hand.filter((c) => c.kind === "land").length;
   const option = (key: string) => decision.options.find((o) => o.actionId === key);
   const kind = decision.kind;
@@ -183,26 +184,39 @@ export function OpeningHand({
     }));
   } else if (kind === "mulliganKeepHand") {
     title = "Your opening hand";
+    // Spec 0113 (W1-087): "Seven cards, three lands", then the other player's line.
     line = [
-      `${hand.length} card${hand.length === 1 ? "" : "s"}`,
-      `${lands} land${lands === 1 ? "" : "s"}`,
-      mulligans > 0 ? `mulliganed ${times(mulligans)}` : "",
+      capital(
+        [
+          countWords(hand.length, "card"),
+          countWords(lands, "land"),
+          mulligans > 0 ? `mulliganed ${times(mulligans)}` : "",
+        ]
+          .filter(Boolean)
+          .join(", "),
+      ),
       theirs,
     ]
       .filter(Boolean)
-      .join(" · ");
+      .join(". ");
     const keep = option("mulligan:keep");
     const again = option("mulligan:again");
     buttons = [
       ...(keep
-        ? [{ key: keep.actionId, word: `Keep ${hand.length}`, act: () => onAnswer(keep.actionId) }]
+        ? [
+            {
+              key: keep.actionId,
+              word: `Keep these ${numberWord(hand.length)}`,
+              act: () => onAnswer(keep.actionId),
+            },
+          ]
         : []),
       ...(again
         ? [
             {
               key: again.actionId,
               word: "Mulligan",
-              sub: `Draw seven again, put ${mulligans + 1} back`,
+              sub: `Draw seven again and put ${numberWord(mulligans + 1)} back`,
               quiet: true,
               act: () => onAnswer(again.actionId),
             },
@@ -212,10 +226,10 @@ export function OpeningHand({
   } else if (kind === "tuckCardsViaMulligan") {
     most = toGo(decision);
     const left = most - picked.length;
-    title = `Put ${most} card${most === 1 ? "" : "s"} back`;
+    title = `Put ${countWords(most, "card")} back`;
     line =
       left > 0
-        ? `Click the cards that go to the bottom of your library · ${left} to go`
+        ? `Click the cards that go to the bottom of your library. ${capitalNumber(left)} more to go.`
         : `${most === 1 ? "This one goes" : "These go"} to the bottom of your library.`;
     pickable = (card) => !!optionFor(decision, card);
     pickWord = "Goes back";
@@ -225,8 +239,8 @@ export function OpeningHand({
         : [
             {
               key: "put-back",
-              word: `Keep these ${hand.length - most}`,
-              sub: `${most === 1 ? "The one" : `The ${most}`} you picked go${most === 1 ? "es" : ""} to the bottom`,
+              word: `Keep these ${numberWord(hand.length - most)}`,
+              sub: `${most === 1 ? "The one" : `The ${numberWord(most)}`} you picked go${most === 1 ? "es" : ""} to the bottom`,
               act: () => onPutBack(picked),
             },
           ];
@@ -240,7 +254,10 @@ export function OpeningHand({
     buttons = [
       {
         key: "begin",
-        word: picked.length > 0 ? `Begin with ${picked.length} in play` : "Begin with none in play",
+        word:
+          picked.length > 0
+            ? `Begin with ${numberWord(picked.length)} in play`
+            : "Begin with none in play",
         act: () => onBegin(picked),
       },
     ];

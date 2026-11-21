@@ -148,9 +148,11 @@ test("under Mindslaver the controller answers for the other player and sees thei
     expect(sawHandBefore, "the host saw the guest's hand before controlling them").toBe(false);
     await expect(theirHand).toBeVisible();
     await theirHand.click();
-    await expect(
-      host.getByRole("dialog", { name: `${secondUser}'s hand, as far as you may see it` }),
-    ).toBeVisible();
+    // Found by its role, its words read (PROTO-006, spec 0113).
+    await expect(host.getByRole("dialog")).toBeVisible();
+    await expect(host.getByRole("dialog")).toHaveAccessibleName(
+      `${secondUser}'s hand: the cards you can see`,
+    );
     await host.getByRole("dialog").getByRole("button", { name: "Close" }).click();
 
     // Spec 0102, item 2 -- never a seat number in a heading.

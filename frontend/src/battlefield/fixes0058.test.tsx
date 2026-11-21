@@ -109,7 +109,7 @@ describe("a cheaper card shows its real cost, and why, with no ring (F-0058-B)",
       />,
     ).container;
     const cost = c.querySelector(".gs-inspect-name .bf-cost")!;
-    expect(cost.getAttribute("aria-label")).toBe("Costs {R}, less than printed");
+    expect(cost.getAttribute("aria-label")).toBe("Costs one red, less than printed");
     expect(c.querySelector(".bf-cost-down")).toBeNull();
     expect(c.querySelector(".gs-inspect-costwhy")!.textContent).toContain(
       "Costs {1} less: Goblin Warchief",

@@ -6,6 +6,7 @@
 // `roll` number tumbles it again; reduced motion turns the tumble off.
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { numberWord } from "../words";
 
 /** Where each face's pips sit, in percent of the face. */
 const PIPS: Record<number, [number, number][]> = {
@@ -99,7 +100,8 @@ export function Die3D({
     return undefined;
   }, [value, roll]);
 
-  const label = `a ${sides}-sided die showing ${value}`;
+  // Spec 0113 (W1-306): "a six-sided die showing 4" (the roll stays a digit).
+  const label = `a ${numberWord(sides)}-sided die showing ${value}`;
   if (sides !== 6) {
     return (
       <span

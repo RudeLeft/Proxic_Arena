@@ -287,7 +287,7 @@ SCENARIOS = {
     "griptide": dict(at_alices_bears("Griptide", "Island", [("Island", 30), ("Griptide", 30)], 4),
                      to="library", said={1: r"^Bob put your Grizzly Bears on top of your library\.$"}),
     "untargeted": dict(at_alices_bears("Evacuation", "Island", [("Island", 30), ("Evacuation", 30)], 5),
-                       to="hand", said={1: r"^Bob returned your Grizzly Bears( \u00d7\d+)? to your hand\.$"}),
+                       to="hand", said={1: r"^Bob returned your (\w+ )?Grizzly Bears to your hand\.$"}),
     "mixed": dict(at_alices_spell("Psychic Strike", [("Island", 1), ("Swamp", 1)]), to="graveyard",
                   said={1: r"^Bob countered your Grizzly Bears\b"}),
     "fizzle": dict(fizzle(), fizzle=True,

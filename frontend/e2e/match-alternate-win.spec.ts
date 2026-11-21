@@ -170,15 +170,15 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
     }
 
     // The result, as each player sees it: Forge's winner, and Forge's
-    // reason, word for word.
-    const why = "The winner has won due to effect of 'Laboratory Maniac'.";
+    // reason (spec 0113, W1-131: "won because of Laboratory Maniac").
+    const why = "won because of Laboratory Maniac.";
     // What the page said, so a failure names how the game DID end.
     const said = async () =>
       (await matchPanel(host).locator(".gs-seat, .gs-status").allTextContents())
         .filter((text) => /won|draw|stopped|life/.test(text))
         .join(" | ");
     await expect(
-      matchPanel(host).getByText(/You won on turn \d+\./),
+      matchPanel(host).getByText(/You won on turn \d+ because of Laboratory Maniac\./),
       `after ${answered} decisions; the page said: ${await said()}`,
     ).toBeVisible({ timeout: 120_000 });
     // Phase 9 W-24: the banner says it once -- who won, Forge's sentence
@@ -186,9 +186,11 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
     const banner = host.locator(".gs-over");
     await expect(banner.getByRole("heading", { name: "You won" })).toBeVisible();
     await expect(banner.locator(".gs-over-why")).toHaveText(
-      /^The winner has won due to effect of 'Laboratory Maniac' · Turn \d+$/,
+      /^You won because of Laboratory Maniac · Turn \d+$/,
     );
-    await expect(matchPanel(guest).getByText(/Your opponent won on turn \d+\./)).toBeVisible({
+    await expect(
+      matchPanel(guest).getByText(/Your opponent won on turn \d+ because of Laboratory Maniac\./),
+    ).toBeVisible({
       timeout: 30_000,
     });
     await expect(guest.locator(".gs-over .gs-over-why")).toContainText(why.slice(0, -1));
@@ -201,8 +203,8 @@ test("Laboratory Maniac wins the game, and both players are told why", async ({ 
     }
     await expect(
       matchPanel(host)
-        .locator(".gs-seat-viewer")
-        .filter({ hasText: /\s0 in library/ }),
+        // The plate's library count, not its words (PROTO-006, spec 0113).
+        .locator('.gs-seat-viewer[data-library="0"]'),
     ).toHaveCount(1);
     // P6-BC — a whole real game later, the deck storage it was played
     // from is unchanged, rows and artwork alike.

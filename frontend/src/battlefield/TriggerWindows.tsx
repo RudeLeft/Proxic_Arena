@@ -10,6 +10,7 @@ import { Bubble, Tray } from "./GameWindow";
 import type { Box, Geometry } from "./layout";
 import { ManaText } from "./ManaCost";
 import { targetWords } from "../matchText";
+import { capitalNumber, countWords, numberWord } from "../words";
 import {
   abilityWords,
   confirmTitle,
@@ -52,7 +53,8 @@ function Picture({
 function targetName(board: Snapshot, ref: TargetRef): string {
   if ("player" in ref) {
     const player = board.players.find((p) => p.seat === ref.player);
-    return ref.player === board.seat ? "you" : (player?.name ?? `seat ${ref.player}`);
+    // Spec 0113 (W1-057): never "seat 2".
+    return ref.player === board.seat ? "you" : (player?.name ?? "the other player");
   }
   return (
     [...board.battlefield, ...board.graveyard, ...board.exile].find((c) => c.id === ref.object)
@@ -124,7 +126,7 @@ export function ConfirmWindow({
       anchor={anchor}
       geometry={geometry}
       label={title}
-      from={copies > 1 ? `${name} · ${copies} on the stack` : name || "Confirm"}
+      from={copies > 1 ? `${name}: ${countWords(copies, "copy")} on the stack` : name || "Confirm"}
       title={title}
       picture={
         source ? <Picture card={source.card} name={name} art={source.art} artUrl={artUrl} /> : null
@@ -166,7 +168,7 @@ export function ConfirmWindow({
                 disabled={busy}
                 onClick={() => onSkipAll(copies, pair.no.actionId)}
               >
-                Skip all {copies}
+                Skip all {numberWord(copies)}
               </button>
             )}
             <button
@@ -204,7 +206,7 @@ export function ConfirmWindow({
                   disabled={busy}
                   onClick={() => onYesToAll(copies, pair.yes.actionId)}
                 >
-                  Yes to all {copies}
+                  Yes to all {numberWord(copies)}
                 </button>
               </>
             ) : (
@@ -278,7 +280,7 @@ export function CopyTargetWindow({
       anchor={anchor}
       geometry={geometry}
       label={`${about.name}: ${words?.title ? `${words.title}, ` : ""}choose a target`}
-      from={`${about.name} · trigger ${about.copy} of ${about.copies}`}
+      from={`${about.name}: trigger ${numberWord(about.copy ?? 1)} of ${numberWord(about.copies ?? 1)}`}
       title={words?.title ?? "Choose a target"}
       picture={<Picture card={source.card} name={about.name} art={source.art} artUrl={artUrl} />}
       actions={
@@ -318,9 +320,12 @@ export function CopyTargetWindow({
             >
               <ManaText
                 text={
+                  // Spec 0113 (W1-358, W1-301): "You", never "You (you)"; never an id.
                   o.objectId === `player:${board.seat}`
-                    ? `${o.label ?? "You"} (you)`
-                    : (o.label ?? o.actionId)
+                    ? o.label
+                      ? `${o.label} (you)`
+                      : "You"
+                    : (o.label ?? "This choice")
                 }
               />
             </button>
@@ -329,7 +334,7 @@ export function CopyTargetWindow({
       {first && (
         <label className="gs-win-check">
           <input type="checkbox" checked={same} onChange={(e) => onSame(e.target.checked)} />
-          Same target for all {about.copies}
+          Same target for all {numberWord(about.copies ?? 1)}
         </label>
       )}
     </Bubble>
@@ -369,11 +374,11 @@ export function OrderTray({
     <Tray
       geometry={geometry}
       label="Choose the order your triggers resolve in"
-      from={`${options.length} triggers at once`}
+      from={`${capitalNumber(options.length)} triggers at once`}
       title="Which resolves first?"
       prompt={
         picked === null
-          ? "Numbered in a sensible order: damage first, payments last. Done, or click them in your own order (the first you click resolves first)."
+          ? "They are numbered in a sensible order: damage first, payments last. Click Done, or click them in your own order. The first one you click resolves first."
           : "Click them in the order they should resolve: the first one you click resolves first."
       }
       actions={

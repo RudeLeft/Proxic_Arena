@@ -23,6 +23,7 @@
 import { logLine, summarise } from "./reportLog";
 import { onPageBack, pageIsLeaving } from "./pageLife";
 import { asOutcome, type MatchOutcome } from "./lobby";
+import { countWords } from "./words";
 
 export interface DecisionOption {
   actionId: string;
@@ -1526,7 +1527,7 @@ export function awayEndText(
     case "SENT":
       return `Ending the game: ${name} concedes.`;
     case "NOT_AWAY":
-      return `${name} is back, or hasn't been gone ${awayMinutes} ${awayMinutes === 1 ? "minute" : "minutes"} yet.`;
+      return `${name} is back, or hasn't been gone ${countWords(awayMinutes, "minute")} yet.`;
     case "UNREACHABLE":
       return "The game did not receive that. It may have stopped.";
     default:

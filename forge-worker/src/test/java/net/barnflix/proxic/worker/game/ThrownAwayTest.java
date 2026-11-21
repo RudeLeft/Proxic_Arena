@@ -24,14 +24,14 @@ class ThrownAwayTest {
     // land in hand"), so the worker sends only the why.
     @Test
     void theOwnersGameOneLandNoLandInHand() {
-        assertEquals("1 land, no land in hand", PriorityStops.nothingToPlay(1, 0, false));
+        assertEquals("One land; no land in hand", PriorityStops.nothingToPlay(1, 0, false));
     }
 
     @Test
     void thePassedTurnSaysWhyNoLandComesFromTheHand() {
-        assertEquals("3 lands, you've already played a land this turn", PriorityStops.nothingToPlay(3, 2, true));
-        assertEquals("No lands, no land in hand", PriorityStops.nothingToPlay(0, 0, false));
-        assertEquals("2 lands, no land you can play", PriorityStops.nothingToPlay(2, 1, false));
+        assertEquals("Three lands; a land already played this turn", PriorityStops.nothingToPlay(3, 2, true));
+        assertEquals("No lands; no land in hand", PriorityStops.nothingToPlay(0, 0, false));
+        assertEquals("Two lands; no land you can play", PriorityStops.nothingToPlay(2, 1, false));
     }
 
     @Test

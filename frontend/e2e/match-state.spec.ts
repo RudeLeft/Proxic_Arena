@@ -69,8 +69,9 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
     const seen = async (pattern: RegExp) =>
       (await totals(host).filter({ hasText: pattern }).count()) > 0 ||
       (await totals(guest).filter({ hasText: pattern }).count()) > 0;
+    // Spec 0113: counts in words ("three poison counters"), "the monarch".
     const everything = async () =>
-      (await seen(/\d+ poison/)) && (await seen(/\d+ energy/)) && (await seen(/· monarch/));
+      (await seen(/\w+ poison/)) && (await seen(/\w+ energy/)) && (await seen(/\bmonarch\b/));
     const asking = async (page: Page) =>
       (await isAsked(page)) ||
       (await matchPanel(page).getByRole("button", { name: "Pass" }).count()) > 0;
@@ -98,8 +99,8 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
       const options = await choices(live);
       const labels = await options.allTextContents();
       const find = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
-      const poisoned = await seen(/\d+ poison/);
-      const monarch = await seen(/· monarch/);
+      const poisoned = await seen(/\w+ poison/);
+      const monarch = await seen(/\bmonarch\b/);
 
       let pick = -1;
       const prompt = (await panel.locator(".decision-prompt").allTextContents()).join(" ");
@@ -156,9 +157,9 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
     }
 
     const why = (await ended()) ? ` (the game ended: ${await ended()})` : "";
-    expect(await seen(/\d+ poison/), `nobody was ever poisoned${why}`).toBe(true);
-    expect(await seen(/\d+ energy/), `nobody ever had energy${why}`).toBe(true);
-    expect(await seen(/· monarch/), `nobody ever became the monarch${why}`).toBe(true);
+    expect(await seen(/\w+ poison/), `nobody was ever poisoned${why}`).toBe(true);
+    expect(await seen(/\w+ energy/), `nobody ever had energy${why}`).toBe(true);
+    expect(await seen(/\bmonarch\b/), `nobody ever became the monarch${why}`).toBe(true);
     // Forge's internal effect pieces are not "the command zone": a
     // regeneration shield and the monarch's own bookkeeping object
     // once showed there.

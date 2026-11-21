@@ -55,11 +55,13 @@ test("an away player: Away on their plate, then a window beside it with Keep wai
     await expect(theirPlate.locator(".gs-seat-away")).toHaveText(/^Away · \d+ min$/, {
       timeout: 60_000,
     });
-    const away = panel.getByRole("alertdialog", { name: /has been gone 1 minute$/ });
+    // Found by its role, its words read (PROTO-006, spec 0113).
+    const away = panel.getByRole("alertdialog");
     await expect(away).toBeVisible({ timeout: 150_000 });
+    await expect(away).toHaveAccessibleName(/has been gone one minute$/);
     await expect(away).toContainText("Ending the game counts as");
     await expect(away.getByRole("button", { name: "Keep waiting" })).toBeVisible();
-    await expect(away.getByRole("button", { name: "End the game · you win" })).toBeVisible();
+    await expect(away.getByRole("button", { name: "End the game. You win." })).toBeVisible();
 
     // Beside their plate, pointing at it: left of the column, level with it.
     const box = (await away.boundingBox())!;

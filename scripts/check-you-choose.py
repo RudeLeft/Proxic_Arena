@@ -707,9 +707,11 @@ def elspeth():
     def policy(g, f):
         k, seat = f.get("kind"), f["authorisedSeat"]
         if k == "chooseCounterType":
-            st["asked"].append((seat, [o.get("label") for o in f["options"]]))
+            # Spec 0113 (W1-186): the kind by its id ("counter:Flying"); the label is words ("flying counter").
+            st["asked"].append((seat, [o["actionId"].split(":", 1)[1] for o in f["options"]]))
             st["prompt"] = f.get("prompt")
-            st["picked"] = f["options"][-1].get("label")
+            st["labels"] = [o.get("label") for o in f["options"]]
+            st["picked"] = f["options"][-1]["actionId"].split(":", 1)[1]
             return f["options"][-1]["actionId"]
         if k == "chooseTargetsFor" and seat == 1 and st["used"]:
             o = next((o for o in f["options"] if card_of(o["actionId"]) == st["lions"]), None)
@@ -782,8 +784,8 @@ def converge():
         k, seat = f.get("kind"), f["authorisedSeat"]
         if seat != 1:
             return DEFAULT
-        # The page asks it as chooseColor, with "Colourless" among the answers.
-        if k == "chooseColor" and "Colourless" in [o.get("label") for o in f["options"]]:
+        # The page asks it as chooseColor, with "Colorless" among the answers.
+        if k == "chooseColor" and "Colorless" in [o.get("label") for o in f["options"]]:
             st["asked"].append((seat, k, [o.get("label") for o in f["options"]]))
             o = next((o for o in f["options"] if o.get("label") == "blue"), None)
             st["picked"] = o and "blue"
@@ -827,10 +829,10 @@ def converge():
     if not st["picked"]:
         return "inconclusive", "Reflecting Pool never asked colour or colourless while paying", found
     problems = []
-    seat, kind, labels = next(a for a in st["asked"] if "Colourless" in a[2])
+    seat, kind, labels = next(a for a in st["asked"] if "Colorless" in a[2])
     if seat != 1:
         problems.append("the opponent was asked about seat 1's mana")
-    if labels[0] != "Colourless" or "blue" not in labels:
+    if labels[0] != "Colorless" or "blue" not in labels:
         problems.append(f"expected colourless or a colour, blue among them: {labels}")
     before, after = st["before"], st["after"] or {}
     # The Truths left the hand (-1) and drew X = 2 (+2).
@@ -1003,7 +1005,9 @@ def spellskite():
         if k == "chooseTargetsFor" and st["skite"]:
             # The spell on the stack, not the card: changing a card's targets does nothing.
             return next((o["actionId"] for o in f["options"]
-                         if (o.get("label") or "").startswith("on the stack: Arc Lightning")), DEFAULT)
+                         # Spec 0113 (W1-003): the spell's button by its id, its card's name in the label.
+                         if o["actionId"].startswith("target:stack:") and "Arc Lightning" in (o.get("label") or "")),
+                        DEFAULT)
         return DEFAULT
 
     def until(g):
@@ -1087,7 +1091,8 @@ def vote():
         if len(offered) < 2:
             problems.append(f"seat {seat} had no real vote: {offered}")
     for seat, _, prompt in st["votes"]:
-        if prompt != "Council's Judgment: vote for one":
+        # Spec 0113 (W1-195): a full stop.
+        if prompt != "Council's Judgment: vote for one.":
             problems.append(f"seat {seat}'s question should name the card and say vote, nothing more: {prompt!r}")
     if st["picked"] not in st["after"]["exile"] or st["picked"] in st["after"]["bears"]:
         problems.append(f"both voted for {st['picked']}: it should be exiled: {st['after']}")
@@ -1482,7 +1487,8 @@ def thirst(artifact):
     problems = []
     if any(seat != 1 for seat, _, _ in st["asked"]):
         problems.append("the opponent was asked what seat 1 discards")
-    if st["asked"][0][2] != "Discard 2 cards, or one artifact card.":
+    # Spec 0113 (W1-200): counts in words.
+    if st["asked"][0][2] != "Discard two cards, or one artifact card.":
         problems.append(f"the question should say both ways out: {st['asked'][0][2]!r}")
     discarded = sorted(c for c in st["after"] if c not in (st["grave"] or []))
     want = 1 if artifact else 2
@@ -1687,7 +1693,8 @@ def contest():
     seats = [seat for seat, _ in st["asked"]]
     if seats[:4] != [1, 2, 1, 2] or set(seats) != {1, 2}:
         problems.append(f"the players are asked in turn, the caster first: {seats}")
-    if not st["asked"][0][1].startswith("Yes: Mages' Contest: top the bid? The highest bid is 1 life, by "):
+    # Spec 0113 (W1-202): "Top the bid? Bob's bid is 1 life." (the yes answer is made from it).
+    if not (st["asked"][0][1].startswith("Yes: Top the bid? ") and st["asked"][0][1].endswith(" bid is 1 life.")):
         problems.append(f"the question names the highest bid and bidder: {st['asked'][0][1]!r}")
     (me0, them0), (me1, them1) = st["life"], st["after"]["life"]
     if (me0 - me1, them0 - them1) != (4, 0) or not st["after"]["countered"]:
@@ -1831,7 +1838,8 @@ def shield():
         return "inconclusive", "Harm's Way never had to divide its shield against Pyroclasm", found
     problems = []
     seat, labels, prompt = st["asked"][0]
-    if seat != 1 or labels != ["0", "1", "2"] or not prompt.startswith("Harm's Way: how much of the 2 prevented goes"):
+    # Spec 0113 (W1-206): "Harm's Way prevents 2 damage. How much goes to ...?"
+    if seat != 1 or labels != ["0", "1", "2"] or not prompt.startswith("Harm's Way prevents 2 damage. How much goes"):
         problems.append(f"seat 1 divides the 2, 0 to 2 for the first Lions, worded plainly: {st['asked'][0]}")
     if "(" in prompt.split("goes to ")[1].split("?")[0]:
         problems.append(f"the creature is named without internal numbers: {prompt!r}")

@@ -188,8 +188,8 @@ test("a colour tapped for is no window for anyone; no priority dot on either pla
       await expect(page.locator(".gs-seat")).toHaveCount(2);
       await expect(page.locator(".gs-priority-dot")).toHaveCount(0);
       // The screen reader is told who has it instead (one plate or none, never both).
-      const summaries = await page.locator(".gs-seat > .pa-visually-hidden").allTextContents();
-      expect(summaries.filter((s) => s.includes("has priority")).length).toBeLessThanOrEqual(1);
+      // Read from the plates' data-priority, not their words (PROTO-006, spec 0113).
+      expect(await page.locator('.gs-seat[data-priority="true"]').count()).toBeLessThanOrEqual(1);
     }
     await host.screenshot({ path: "test-results/0092/host-end.png" });
     await guest.screenshot({ path: "test-results/0092/guest-end.png" });
