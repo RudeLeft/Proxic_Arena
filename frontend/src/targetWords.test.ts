@@ -60,6 +60,23 @@ describe("target window words", () => {
     ).toBe("Return a creature");
   });
 
+  it("a target used as a noun keeps it: Spellskite (owner walk-through 2026-11-21)", () => {
+    const w = targetWords(
+      "Spellskite: Change a target of target spell or ability to Spellskite.",
+      "Spellskite",
+    )!;
+    // It read "Change a an of a spell or ability".
+    expect(w.said).toBe("Change a target of a spell or ability to Spellskite.");
+    expect(w.title).not.toMatch(/\ba an\b|\ban of\b/);
+    // The usual case is unchanged: "target creature" is "a creature".
+    expect(
+      targetWords(
+        "Act of Treason: Gain control of target creature until end of turn.",
+        "Act of Treason",
+      )!.said,
+    ).toBe("Gain control of a creature until end of turn.");
+  });
+
   it("no words, or no target in them: nothing to add", () => {
     expect(targetWords(null, "X")).toBeNull();
     expect(targetWords("Draw a card.", "Opt")).toBeNull();

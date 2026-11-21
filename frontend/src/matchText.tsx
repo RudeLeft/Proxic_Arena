@@ -659,12 +659,24 @@ export function readNoun(after: string, one: boolean): string | null {
   return phrase;
 }
 
-/** "target creature" -> "a creature", "two target creatures" -> "two creatures". */
+/**
+ * "target creature" -> "a creature", "two target creatures" -> "two creatures".
+ * Only "target" used before a thing: "a target of target spell" keeps its
+ * noun, "Change a target of a spell or ability" (Spellskite; it read
+ * "Change a an of a spell or ability", found at the owner's walk-through
+ * 2026-11-21).
+ */
+const TARGET_WORD =
+  /(?<!\b(?:a|an|the|new|another|each|its|their|one|that|this|same) )\btarget (?!(?:of|to|for|with|and|or)\b)/gi;
+
 export function plainTargets(text: string): string {
   return text
     .replace(/\b(one|two|three|four|five|X|\d+|up to \w+) target /gi, "$1 ")
-    .replace(/\btarget (?=[aeiou])/gi, (m) => (m[0] === "T" ? "An " : "an "))
-    .replace(/\btarget (?=\w)/gi, (m) => (m[0] === "T" ? "A " : "a "));
+    .replace(TARGET_WORD, (m, at: number, all: string) => {
+      const vowel = /^[aeiou]/i.test(all.slice(at + m.length));
+      const word = vowel ? "an " : "a ";
+      return m[0] === "T" ? word[0]!.toUpperCase() + word.slice(1) : word;
+    });
 }
 
 /** Spec 0113 (W1-023) -- a target count as words: "2" "two", "up to 2" "up to two". */

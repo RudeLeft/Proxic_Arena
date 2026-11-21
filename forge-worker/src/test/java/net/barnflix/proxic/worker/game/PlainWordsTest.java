@@ -110,6 +110,9 @@ class PlainWordsTest {
                 PlainWords.countedX(said, 1, true));
         assertEquals("deal 3 damage to a creature (3 Goblins)",
                 PlainWords.thenWords(PlainWords.countedX(said, 3, true), "Gempalm Incinerator"));
+        // A target used as a noun keeps it (owner walk-through 2026-11-21, Spellskite).
+        assertEquals("Change a target of a spell or ability to Spellskite",
+                PlainWords.thenWords("Change a target of target spell or ability to Spellskite.", null));
         // Nothing says what X counts: unchanged. A mana {X} is never touched.
         assertEquals("Deal X damage.", PlainWords.countedX("Deal X damage.", 3, false));
         assertEquals("Pay {X}: it gets +2/+2 (2 Elves you control).",

@@ -413,7 +413,12 @@ public final class PlainWords {
             t = t.replaceFirst("^" + Pattern.quote(cardName) + "\\s+(may\\s+)?", "");
         }
         t = t.replaceFirst("^(you may have it|you may|it)\\s+", "");
-        t = t.replaceAll("(?<!any )\\btarget (?=[aeiouAEIOU])", "an ").replaceAll("(?<!any )\\btarget ", "a ");
+        // Only "target" before a thing: "a target of target spell" keeps its
+        // noun (owner walk-through 2026-11-21, Spellskite).
+        String noun = "(?<!\\b(?:any|a|an|the|new|another|each|its|their|one|that|this|same) )";
+        String notNoun = "(?!(?:of|to|for|with|and|or)\\b)";
+        t = t.replaceAll(noun + "\\btarget " + notNoun + "(?=[aeiouAEIOU])", "an ")
+                .replaceAll(noun + "\\btarget " + notNoun, "a ");
         if (t.endsWith(".")) {
             t = t.substring(0, t.length() - 1);
         }
