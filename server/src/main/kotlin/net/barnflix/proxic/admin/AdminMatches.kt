@@ -32,7 +32,12 @@ data class AdminMatchView(
     val players: String,
     /** The record's size in bytes; null when none is kept (too old, or never written). */
     val recordBytes: Long?,
-    /** How it ended, in a line: Forge's result, or why it stopped. Admin only. */
+    /**
+     * How it ended, in a line: Forge's result, or the stored code of why
+     * it stopped ("Stopped: WORKER_STOPPED"), which the page words. Admin
+     * only. Never the worker's own detail (spec 0115, W3-022): that is in
+     * the server log, written when the match stopped, and in the record.
+     */
     val ending: String? = null,
 )
 
@@ -49,7 +54,7 @@ class AdminMatches(
             connection.prepareStatement(
                 """
                 SELECT m.match_id, m.status, m.created_at, m.ended_at,
-                       m.result_summary, m.failure_code, m.failure_detail,
+                       m.result_summary, m.failure_code,
                        string_agg(p.display_name_snapshot, ' vs ' ORDER BY p.seat_number) AS players,
                        string_agg(p.seat_number || '=' || p.display_name_snapshot, '|') AS seats
                   FROM match m
@@ -78,7 +83,6 @@ class AdminMatches(
                                             rows.getString("status"),
                                             rows.getString("result_summary"),
                                             rows.getString("failure_code"),
-                                            rows.getString("failure_detail"),
                                             seatNames(rows.getString("seats")),
                                         ),
                                 ),
@@ -120,18 +124,22 @@ class AdminMatches(
         /**
          * How a match ended, for the Admin list (owner 2026-10-22): a game
          * that stopped at Eldrazi Monument's trigger said only "Stopped".
+         *
+         * Spec 0115 (W3-022): the stored code only, which the page turns
+         * into words (`admin.ts` `REASON_WORDS`). The worker's detail (a
+         * class name and a Forge method) went to the server log when the
+         * match stopped (`MatchEndings.finish`) and is never sent here.
          */
         fun endingOf(
             status: String,
             summary: String?,
             failureCode: String?,
-            failureDetail: String?,
             names: Map<Int, String> = emptyMap(),
         ): String? =
             when (status) {
                 "ENDED" -> finishedWords(summary, names)
-                "FAILED_RUNTIME" -> "Stopped: " + (failureDetail ?: failureCode ?: "no reason recorded")
-                "FAILED_STARTUP" -> "Did not start: " + (failureCode ?: "no reason recorded")
+                "FAILED_RUNTIME" -> failureCode?.let { "Stopped: $it" }
+                "FAILED_STARTUP" -> failureCode?.let { "Did not start: $it" }
                 else -> null
             }
 
@@ -157,12 +165,13 @@ class AdminMatches(
         ): String? {
             val (winner, turn, conceded) = HallGame.result(summary) ?: return null
             if (winner == null) return "Draw on turn $turn"
-            val name = names[winner] ?: "Seat $winner"
+            // Spec 0115 (W3-023): never "Seat 2", a code word, when a name is missing.
+            val name = names[winner] ?: "Someone"
             val reason =
                 REASON.findAll(summary!!).map { it.groupValues[1] }.firstOrNull { !it.endsWith("conceded") }
             return buildString {
                 append("$name won on turn $turn")
-                conceded?.let { append(" · ${names[it] ?: "Seat $it"} conceded") }
+                conceded?.let { append(" · ${names[it] ?: "Someone"} conceded") }
                 reason?.let { append(" · ${QUOTED.find(it)?.groupValues?.get(1) ?: it}") }
             }
         }

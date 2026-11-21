@@ -17,6 +17,7 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import {
+  closesText,
   fetchAccounts,
   fetchAdminMatches,
   fetchAdminRooms,
@@ -24,6 +25,7 @@ import {
   fetchServerState,
   fetchSignIns,
   forceClose,
+  forceClosedText,
   idleText,
   outcomeText,
   overview,
@@ -540,7 +542,8 @@ function AccountRow({
                 onClick={() =>
                   act(
                     () => sendPasswordReset(account.userId),
-                    (detail) => `${detail} ${name} chooses their own password from the link.`,
+                    () =>
+                      `A reset link was sent to ${name}. ${name} chooses a new password from the link.`,
                   )
                 }
               >
@@ -589,7 +592,7 @@ function AccountRow({
               <button
                 type="button"
                 role="menuitem"
-                aria-label={`Revoke every session for ${name}`}
+                aria-label={`Sign ${name} out everywhere`}
                 disabled={account.sessions === 0}
                 onClick={() =>
                   act(
@@ -604,13 +607,8 @@ function AccountRow({
                   is not offered Make player or Disable; the server refuses
                   either way. */}
               {admin && account.lastAdmin ? (
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled
-                  aria-label="Cannot remove the last administrator"
-                >
-                  Last Administrator: Cannot Remove
+                <button type="button" role="menuitem" disabled>
+                  The last administrator can't be made a player or switched off
                 </button>
               ) : (
                 <>
@@ -848,8 +846,7 @@ function RoomsPanel({ rooms, now, run }: { rooms: AdminRoom[]; now: number; run:
               <span className="pa-admin-account-meta">
                 {idleText(lastActivityAt, now)}
                 {/* Spec 0054 — when an idle room closes on its own. */}
-                {room.clearsAt &&
-                  ` · closes in ${idleText(new Date(now).toISOString(), Date.parse(room.clearsAt))}`}
+                {room.clearsAt && ` · ${closesText(now, room.clearsAt)}`}
               </span>
               {confirming === room.roomId ? (
                 <span className="pa-admin-confirm" role="alert">
@@ -863,8 +860,7 @@ function RoomsPanel({ rooms, now, run }: { rooms: AdminRoom[]; now: number; run:
                       setConfirming(null);
                       void run(
                         () => forceClose(room.roomId),
-                        (detail) =>
-                          `${room.name}: ${detail}. Both players were told an administrator closed it.`,
+                        () => forceClosedText(room.name, playing),
                       );
                     }}
                   >
@@ -939,7 +935,7 @@ function RecordsPanel({ matches }: { matches: AdminMatches | null }) {
                   hour12: false,
                 })}
               </span>
-              <span className="pa-admin-record-who">{m.players || "none"}</span>
+              <span className="pa-admin-record-who">{m.players || "Nobody"}</span>
               <span
                 className={`pa-admin-outcome pa-admin-outcome-${outcome.tone}`}
                 title={outcome.code ?? undefined}
@@ -973,7 +969,7 @@ function RecordsPanel({ matches }: { matches: AdminMatches | null }) {
 const KIND_WORDS: Record<SignInEvent["kind"], string> = {
   SIGNED_IN: "Signed in",
   FAILED: "Failed",
-  THROTTLED: "Throttled",
+  THROTTLED: "Made to wait",
 };
 
 const clock = (at: string) =>
@@ -1013,7 +1009,7 @@ function SignInsPanel({ events }: { events: SignInEvent[] }) {
           ].filter(Boolean);
           const bad = [
             person.failed ? `${person.failed} failed` : null,
-            person.throttled ? `${person.throttled} throttled` : null,
+            person.throttled ? `${person.throttled} made to wait (too many tries)` : null,
           ].filter(Boolean);
           const expanded = open === person.username;
           return (

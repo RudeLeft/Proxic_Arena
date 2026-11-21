@@ -170,12 +170,12 @@ class MailSettings(
 
     private fun problem(input: MailSettingsInput): String? =
         when {
-            input.host.isBlank() -> "Enter the email server's address, e.g. smtp.gmail.com."
+            input.host.isBlank() -> "Enter the email server's address, for example smtp.gmail.com."
             input.port !in 1..MAX_PORT -> "The port is a number from 1 to 65535 (usually 587)."
             input.security !in setOf("starttls", "ssl") -> "Choose STARTTLS (port 587) or SSL (port 465)."
-            input.from.isBlank() -> "Enter who the email comes from, e.g. Proxic Arena <you@gmail.com>."
+            input.from.isBlank() -> "Enter who the email comes from, for example Proxic Arena <you@gmail.com>."
             runCatching { jakarta.mail.internet.InternetAddress(input.from.trim(), true) }.isFailure ->
-                "\"From\" must be an email address, e.g. Proxic Arena <you@gmail.com>."
+                "\"From\" must be an email address, for example Proxic Arena <you@gmail.com>."
             else -> null
         }
 
@@ -211,6 +211,8 @@ class MailSettings(
 
     private companion object {
         const val MAX_PORT = 65535
-        const val NO_SECRET = "This server has no PROXIC_SESSION_SECRET, so it cannot store a password safely."
+        const val NO_SECRET =
+            "This server isn't set up to keep passwords safely yet, so the email password can't be saved. " +
+                "(Set PROXIC_SESSION_SECRET.)"
     }
 }

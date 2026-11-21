@@ -171,7 +171,7 @@ function PurgeBox({ accounts, onChanged }: { accounts: AdminAccount[]; onChanged
           : null
         : { scope: "everything" };
   const key = JSON.stringify(scope);
-  const who = accounts.find((a) => a.userId === userId)?.username ?? "They";
+  const who = accounts.find((a) => a.userId === userId)?.username ?? "This player";
   const counts = read && read.key === key && read.round === round ? read.counts : null;
 
   // What it would delete, read again whenever the choice changes.

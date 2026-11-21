@@ -207,7 +207,11 @@ class AdminToolTest {
     fun `disabling a player is never blocked`() {
         tool.run(listOf("create", "RudeLeft", "--admin"))
         tool.run(listOf("create", "Player"))
-        assertEquals(0, tool.run(listOf("disable", "Player")).exitCode)
+        val disabled = tool.run(listOf("disable", "Player"))
+        assertEquals(0, disabled.exitCode)
+        // Spec 0115 (W3-031): never "is now DISABLED and their sessions were revoked".
+        assertEquals("Player is now disabled and signed out everywhere.", disabled.message)
+        assertEquals("Player is now active.", tool.run(listOf("enable", "Player")).message)
     }
 
     // --- sessions ---------------------------------------------------
@@ -231,7 +235,8 @@ class AdminToolTest {
         val changed = toolWith(ScriptedPrompt("a different long passphrase", "a different long passphrase"))
         val result = changed.run(listOf("set-password", "Player"))
         assertEquals(0, result.exitCode, result.message)
-        assertTrue(result.message.contains("sessions revoked"), result.message)
+        // Spec 0115 (W3-032).
+        assertEquals("Password changed for Player, and they are signed out everywhere.", result.message)
 
         assertNull(sessions.authenticate(token))
         assertTrue(accounts.login("Player", "a different long passphrase") is LoginResult.Success)
@@ -249,7 +254,8 @@ class AdminToolTest {
 
         val result = tool.run(listOf("revoke-sessions", "Player"))
         assertEquals(0, result.exitCode)
-        assertTrue(result.message.contains("3"), result.message)
+        // Spec 0115 (W3-032): words, never "Revoked 3 session(s)".
+        assertEquals("Signed Player out of three devices.", result.message)
         assertTrue(tokens.all { sessions.authenticate(it) == null })
     }
 

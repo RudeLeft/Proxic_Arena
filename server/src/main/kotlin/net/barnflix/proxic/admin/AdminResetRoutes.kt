@@ -35,7 +35,7 @@ fun Route.adminResetRoutes(admin: AdminServices) {
             admin.resetDesk
                 ?: return@post call.respond(
                     HttpStatusCode.ServiceUnavailable,
-                    ErrorResponse("EMAIL_NOT_SET_UP", "Password resets need the database.", null),
+                    ErrorResponse("NO_DATABASE", "Password resets aren't available on this server.", null),
                 )
         when (val sent = withContext(Dispatchers.IO) { desk.send(userId, by.user.userId) }) {
             ResetSend.NotFound -> call.respond(HttpStatusCode.NotFound, NOT_FOUND)
@@ -63,7 +63,7 @@ fun Route.adminResetRoutes(admin: AdminServices) {
             admin.resetDesk
                 ?: return@put call.respond(
                     HttpStatusCode.ServiceUnavailable,
-                    ErrorResponse("NO_DATABASE", "Email addresses need the database.", null),
+                    ErrorResponse("NO_DATABASE", "Email addresses aren't available on this server.", null),
                 )
         val addresses = desk.addresses
         val user = addresses.user(userId) ?: return@put call.respond(HttpStatusCode.NotFound, NOT_FOUND)

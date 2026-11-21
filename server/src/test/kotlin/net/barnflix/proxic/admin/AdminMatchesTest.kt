@@ -11,17 +11,12 @@ import kotlin.test.assertNull
  */
 class AdminMatchesTest {
     @Test
-    fun `a stopped match says why, from the worker's own words`() {
-        val why =
-            "UnsupportedOperationException: Forge asked for choosePermanentsToSacrifice, which this " +
-                "adapter does not implement -- turn 10, RudeLeft's UPKEEP, while resolving " +
-                "Eldrazi Monument's trigger (RudeLeft)"
-        assertEquals("Stopped: $why", AdminMatches.endingOf("FAILED_RUNTIME", null, "WORKER_STOPPED", why))
-        // An older row, from before the reason was kept: the code at least.
-        assertEquals(
-            "Stopped: WORKER_STOPPED",
-            AdminMatches.endingOf("FAILED_RUNTIME", null, "WORKER_STOPPED", null),
-        )
+    fun `a stopped match sends its code, never the worker's own words (spec 0115, W3-022)`() {
+        // The worker's detail (a class name) is in the server log and the
+        // record; the page words the code (admin.ts REASON_WORDS).
+        assertEquals("Stopped: WORKER_STOPPED", AdminMatches.endingOf("FAILED_RUNTIME", null, "WORKER_STOPPED"))
+        assertEquals("Stopped: SERVER_RESTARTED", AdminMatches.endingOf("FAILED_RUNTIME", null, "SERVER_RESTARTED"))
+        assertNull(AdminMatches.endingOf("FAILED_RUNTIME", null, null), "no code: the page says Stopped by a fault")
     }
 
     @Test
@@ -29,7 +24,7 @@ class AdminMatchesTest {
         // Spec 0019 (11) — names, not seats; never the raw record.
         val names = AdminMatches.seatNames("1=RudeLeft|2=Pat")
 
-        fun ended(summary: String) = AdminMatches.endingOf("ENDED", summary, null, null, names)
+        fun ended(summary: String) = AdminMatches.endingOf("ENDED", summary, null, names)
         assertEquals("RudeLeft won on turn 19", ended("winner:seat 1 on turn 19"))
         assertEquals("RudeLeft won on turn 4 · Pat conceded", ended("winner:seat 1 on turn 4 (seat 2 conceded)"))
         assertEquals(
@@ -40,8 +35,15 @@ class AdminMatchesTest {
         assertNull(ended("seat 2 won"), "a record it cannot read: the page says Finished alone")
         assertEquals(
             "Did not start: DECK_UNAVAILABLE",
-            AdminMatches.endingOf("FAILED_STARTUP", null, "DECK_UNAVAILABLE", null),
+            AdminMatches.endingOf("FAILED_STARTUP", null, "DECK_UNAVAILABLE"),
         )
-        assertNull(AdminMatches.endingOf("RUNNING", null, null, null))
+        assertNull(AdminMatches.endingOf("RUNNING", null, null))
+    }
+
+    @Test
+    fun `W3-023 a winner with no name is Someone, never Seat 2`() {
+        fun ended(summary: String) = AdminMatches.endingOf("ENDED", summary, null, emptyMap())
+        assertEquals("Someone won on turn 9", ended("winner:seat 2 on turn 9"))
+        assertEquals("Someone won on turn 4 · Someone conceded", ended("winner:seat 1 on turn 4 (seat 2 conceded)"))
     }
 }

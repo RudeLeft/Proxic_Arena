@@ -156,10 +156,11 @@ describe("the overview (spec 0010)", () => {
     expect(
       outcomeText(match({ status: "FAILED_RUNTIME", ending: "Stopped: SERVER_RESTARTED" })).text,
     ).toBe("Stopped · the server restarted");
-    // A reason it has no words for is shown as it came.
+    // Spec 0115 (W3-004): a reason it has no words for is never shown raw;
+    // the code is in the tooltip only.
     expect(
-      outcomeText(match({ status: "FAILED_RUNTIME", ending: "Stopped: something new" })).text,
-    ).toBe("Stopped · something new");
+      outcomeText(match({ status: "FAILED_RUNTIME", ending: "Stopped: SOMETHING_NEW" })),
+    ).toEqual({ text: "Stopped (reason not known)", tone: "bad", code: "Problem (SOMETHING_NEW)" });
     expect(outcomeText(match({ status: "TERMINATED" })).text).toBe("Abandoned");
   });
 

@@ -157,7 +157,7 @@ class AdminPurge(
     /** "A game is being played", or null: a fresh start waits for none to be. */
     private fun refusedNow(connection: Connection): String? {
         val live = count(connection, "SELECT count(*) FROM match WHERE status IN ('LAUNCHING', 'RUNNING')")
-        return if (runningCount() > 0 || live > 0) "A game is being played: wait for it to end." else null
+        return if (runningCount() > 0 || live > 0) GAME_RUNNING else null
     }
 
     private fun deleteMatches(
@@ -200,6 +200,9 @@ class AdminPurge(
         }
 
     companion object {
+        /** Spec 0115 (W3-030) -- why a purge waits, and what to do; the route says the same. */
+        const val GAME_RUNNING = "A game is being played. Wait for it to end."
+
         /** A game that is over, whatever its ending (never LAUNCHING or RUNNING). */
         private const val FINISHED = "m.status NOT IN ('LAUNCHING', 'RUNNING')"
 

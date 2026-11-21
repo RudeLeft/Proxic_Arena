@@ -22,6 +22,7 @@ import net.barnflix.proxic.auth.SignInLog
 import net.barnflix.proxic.auth.SignInView
 import net.barnflix.proxic.auth.csrfOk
 import net.barnflix.proxic.auth.requireAdmin
+import net.barnflix.proxic.auth.signedOutWords
 import net.barnflix.proxic.report.adminReportRoutes
 import java.util.UUID
 
@@ -181,13 +182,20 @@ internal suspend fun ApplicationCall.userIdParam(): UUID? =
 /** Spec 0011 — the changes that alter who is listed in the lobby (creating one says so itself). */
 private val LIST_CHANGES = setOf(AdminAction.DISABLE_ACCOUNT, AdminAction.ENABLE_ACCOUNT)
 
-/** Turn an account change into an answer, recording it when it happened. */
+/**
+ * Turn an account change into an answer, recording it when it happened.
+ *
+ * [detail] is the audit log's text ("sessions=3"); the reply's `detail`
+ * is [said]'s sentence for the account's username (spec 0115, W3-018),
+ * never the audit text or the action's enum name.
+ */
 internal suspend fun ApplicationCall.answer(
     admin: AdminServices,
     by: Principal,
     change: AdminChange,
     action: AdminAction,
     detail: String? = null,
+    said: (String) -> String,
 ) {
     when (change) {
         AdminChange.NotFound ->
@@ -201,7 +209,7 @@ internal suspend fun ApplicationCall.answer(
 
         is AdminChange.Done -> {
             admin.records.actions.record(by.user.userId, by.user.username, action, change.username, detail)
-            respond(DoneResponse(change.username, detail ?: action.name))
+            respond(DoneResponse(change.username, said(change.username)))
             if (action in LIST_CHANGES) admin.accountsChanged()
         }
     }
@@ -246,7 +254,7 @@ private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>
         created.username,
         "role=$role",
     )
-    call.respond(HttpStatusCode.Created, DoneResponse(created.username, "created"))
+    call.respond(HttpStatusCode.Created, DoneResponse(created.username, "Account created."))
     admin.accountsChanged()
 }
 
@@ -258,10 +266,12 @@ private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>
             ?.let { s -> AccountStatus.entries.firstOrNull { it.name == s } }
             ?: return call.respond(
                 HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_REQUEST", "Expected ACTIVE or DISABLED.", null),
+                ErrorResponse("INVALID_REQUEST", "Choose Active or Disabled.", null),
             )
     val action = if (status == AccountStatus.DISABLED) AdminAction.DISABLE_ACCOUNT else AdminAction.ENABLE_ACCOUNT
-    call.answer(admin, by, admin.adminAccounts.setStatus(userId, status), action)
+    call.answer(admin, by, admin.adminAccounts.setStatus(userId, status), action) { name ->
+        if (status == AccountStatus.DISABLED) "$name is now disabled." else "$name is now active."
+    }
 }
 
 private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>.changeRole(admin: AdminServices) {
@@ -272,17 +282,21 @@ private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>
             ?.let { r -> Role.entries.firstOrNull { it.name == r } }
             ?: return call.respond(
                 HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_REQUEST", "Expected ADMIN or PLAYER.", null),
+                ErrorResponse("INVALID_REQUEST", "Choose Admin or Player.", null),
             )
     val action = if (role == Role.ADMIN) AdminAction.MAKE_ADMIN else AdminAction.MAKE_PLAYER
-    call.answer(admin, by, admin.adminAccounts.setRole(userId, role), action)
+    call.answer(admin, by, admin.adminAccounts.setRole(userId, role), action) { name ->
+        if (role == Role.ADMIN) "$name is now an administrator." else "$name is now a player."
+    }
 }
 
 private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>.signOut(admin: AdminServices) {
     val by = call.asAdmin(admin) ?: return
     val userId = call.userIdParam() ?: return
     val (change, revoked) = admin.adminAccounts.signOutEverywhere(userId)
-    call.answer(admin, by, change, AdminAction.SIGN_OUT_EVERYWHERE, "sessions=$revoked")
+    call.answer(admin, by, change, AdminAction.SIGN_OUT_EVERYWHERE, "sessions=$revoked") { name ->
+        signedOutWords(name, revoked)
+    }
 }
 
 private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>.forceClose(admin: AdminServices) {
@@ -300,6 +314,6 @@ private suspend fun io.ktor.util.pipeline.PipelineContext<Unit, ApplicationCall>
         roomId.toString(),
         "name=${closed.name}; matchEnded=${closed.matchEnded}",
     )
-    val detail = if (closed.matchEnded) "closed; the match ended with no winner" else "closed"
+    val detail = if (closed.matchEnded) "Closed. The game in it ended with no winner." else "Closed."
     call.respond(DoneResponse(closed.name, detail))
 }

@@ -1,6 +1,7 @@
 package net.barnflix.proxic.auth
 
 import net.barnflix.proxic.Database
+import net.barnflix.proxic.PlayerWords
 import net.barnflix.proxic.ServerConfig
 import javax.sql.DataSource
 import kotlin.system.exitProcess
@@ -77,7 +78,9 @@ class AdminTool(
         try {
             run(args)
         } catch (e: java.sql.SQLException) {
-            AdminResult.failure("The database could not be reached: ${e.message?.lineSequence()?.first()}")
+            // Spec 0115 (W3-033): the driver's own words go to the log, not the line.
+            log.warn("arena-admin: database unreachable: {}", e.message?.lineSequence()?.first())
+            AdminResult.failure("The database could not be reached. Check that it is running.")
         }
 
     fun run(args: List<String>): AdminResult {
@@ -193,8 +196,14 @@ class AdminTool(
         }
 
         accounts.setStatus(user.userId, status)
-        val note = if (status == AccountStatus.DISABLED) " and their sessions were revoked" else ""
-        return AdminResult.ok("${user.username} is now $status$note.")
+        // Spec 0115 (W3-031): words, not the enum; disabling signs them out everywhere.
+        return AdminResult.ok(
+            if (status == AccountStatus.DISABLED) {
+                "${user.username} is now disabled and signed out everywhere."
+            } else {
+                "${user.username} is now active."
+            },
+        )
     }
 
     private fun setPassword(args: List<String>): AdminResult {
@@ -228,7 +237,7 @@ class AdminTool(
         // §3.36 — changePassword revokes every session, and the
         // operator should be told rather than discover it when
         // someone is signed out.
-        return AdminResult.ok("Password changed for ${user.username}; all sessions revoked.")
+        return AdminResult.ok("Password changed for ${user.username}, and they are signed out everywhere.")
     }
 
     private fun revokeSessions(args: List<String>): AdminResult {
@@ -246,7 +255,7 @@ class AdminTool(
             userId = user.userId,
             detail = "sessionsRevoked=$revoked",
         )
-        return AdminResult.ok("Revoked $revoked session(s) for ${user.username}.")
+        return AdminResult.ok(signedOutWords(user.username, revoked))
     }
 
     /**
@@ -320,6 +329,20 @@ class AdminTool(
             """.trimIndent()
     }
 }
+
+/**
+ * Spec 0115 (W3-018, W3-032) -- "Signed Pat out of three devices.", on
+ * the Admin page and from `arena-admin` alike.
+ */
+internal fun signedOutWords(
+    username: String,
+    sessions: Int,
+): String =
+    if (sessions == 0) {
+        "$username was not signed in anywhere."
+    } else {
+        "Signed $username out of ${PlayerWords.count(sessions, "device")}."
+    }
 
 /** Entry point for the `arena-admin` script in the image. */
 fun main(args: Array<String>) {

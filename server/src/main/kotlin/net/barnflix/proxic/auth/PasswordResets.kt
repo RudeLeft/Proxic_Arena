@@ -1,5 +1,6 @@
 package net.barnflix.proxic.auth
 
+import net.barnflix.proxic.PlayerWords
 import java.sql.Timestamp
 import java.time.Duration
 import java.time.Instant
@@ -176,6 +177,10 @@ class PasswordResets(
     }
 }
 
+/** Spec 0115 (W3-025, W3-026) -- "five minutes", "five resets": small counts in words. */
+private val SPACING_WORDS = PlayerWords.count(PasswordResets.SPACING.toMinutes().toInt(), "minute")
+private val PER_DAY_WORDS = PlayerWords.count(PasswordResets.PER_DAY, "reset")
+
 /**
  * The emails half of spec 0026: sends the reset link and the notices.
  * Like [InviteDesk], it is what the routes call; [PasswordResets] is the
@@ -214,14 +219,14 @@ class ResetDesk(
         if (resets.sentSince(userId, now.minus(PasswordResets.SPACING)) > 0) {
             return ResetSend.Refused(
                 "TOO_SOON",
-                "A reset was sent to ${user.username} in the last 5 minutes. " +
+                "A reset was sent to ${user.username} in the last $SPACING_WORDS. " +
                     "Wait a few minutes before sending another.",
             )
         }
         if (resets.sentSince(userId, now.minus(Duration.ofDays(1))) >= PasswordResets.PER_DAY) {
             return ResetSend.Refused(
                 "TOO_MANY",
-                "${user.username} has been sent ${PasswordResets.PER_DAY} resets today. Try again tomorrow.",
+                "${user.username} has been sent $PER_DAY_WORDS today. Try again tomorrow.",
             )
         }
         val (token, expiresAt) = resets.create(userId, by)

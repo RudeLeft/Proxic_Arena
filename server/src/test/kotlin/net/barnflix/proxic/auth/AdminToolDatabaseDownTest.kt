@@ -48,7 +48,8 @@ class AdminToolDatabaseDownTest {
 
         assertEquals(1, result.exitCode)
         assertEquals(
-            "The database could not be reached: Connection is not available, request timed out after 10000ms.",
+            // Spec 0115 (W3-033): the driver's text goes to the log, not the line.
+            "The database could not be reached. Check that it is running.",
             result.message,
         )
         assertTrue('\n' !in result.message)

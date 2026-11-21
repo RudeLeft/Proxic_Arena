@@ -385,6 +385,27 @@ export function idleText(lastActivityAt: string, now: number): string {
   return hours >= 1 ? `${hours}h` : `${Math.floor(ms / 60_000)}m`;
 }
 
+/**
+ * Spec 0054, 0115 (W3-035) — when an idle room closes on its own: "closes
+ * in 2h", "closes in 15m", and "closes now", never "closes in now".
+ */
+export function closesText(now: number, clearsAt: string): string {
+  const left = idleText(new Date(now).toISOString(), Date.parse(clearsAt));
+  return left === "now" ? "closes now" : `closes in ${left}`;
+}
+
+/**
+ * Spec 0115 (W3-009, W3-017) — after Force close, the page's own sentence;
+ * the server's `detail` is never pasted in. A room in a game says so.
+ */
+export function forceClosedText(roomName: string, inGame: boolean): string {
+  return (
+    `${roomName} is closed.` +
+    (inGame ? " The game in it ended with no winner." : "") +
+    " Both players were told an administrator closed it."
+  );
+}
+
 /** The worker's state, in words. */
 export function workerText(state: ServerState): string {
   const running = state.gamesRunning;
@@ -398,8 +419,15 @@ export function workerText(state: ServerState): string {
       return "Missing";
     case "unprobed":
       return `Not checked${games}`;
+    // Spec 0115 (W3-002): the /status page's words (App.tsx DETAIL_LABEL), never the raw state.
+    case "unreachable":
+      return `Unreachable${games}`;
+    case "incompatible":
+      return `Version mismatch${games}`;
+    case "resources-missing":
+      return `Data files missing${games}`;
     default:
-      return `${state.forgeWorker}${games}`;
+      return `Problem${games}`;
   }
 }
 
@@ -421,8 +449,14 @@ export function versionParts(version: string): {
   };
 }
 
-/** Why a game stopped or never started, in words; the code itself stays in the tooltip. */
-const REASON_WORDS: Record<string, string> = {
+/**
+ * Why a game stopped or never started, in words; the code itself stays in
+ * the tooltip. Spec 0115 (W3-022): every code the server can store in a
+ * match's `failure_code` -- its own (`MatchWorker`, `MatchRuntime`,
+ * `MatchRecords`, `MatchRecovery`) and the worker's start errors
+ * (`WorkerMain`'s `error(...)` codes), so no code reaches the page raw.
+ */
+export const REASON_WORDS: Record<string, string> = {
   WORKER_UNREACHABLE: "couldn't reach the rules engine",
   WORKER_STOPPED: "the rules engine stopped",
   WORKER_INCOMPATIBLE: "the rules engine is the wrong version",
@@ -432,12 +466,25 @@ const REASON_WORDS: Record<string, string> = {
   GAME_START_TIMEOUT: "the game took too long to start",
   DECK_UNAVAILABLE: "a deck was no longer available",
   SERVER_RESTARTED: "the server restarted",
+  // The worker's own start errors.
+  DECK_UNRESOLVED: "a deck's cards could not be found",
+  BUILD_FAILED: "a deck could not be built",
+  RESOLVE_FAILED: "the cards could not be checked",
+  CARD_POOL_FAILED: "the rules engine's cards could not be loaded",
+  LAB_DEAL_REFUSED: "the test deal was refused",
+  MALFORMED_MESSAGE: "the rules engine couldn't read the server's message",
+  UNKNOWN_TYPE: "the rules engine couldn't read the server's message",
+  NO_GAME: "the rules engine had no game running",
+  SEARCH_REFUSED: "the rules engine refused a search",
+  GAME_RESULT_FAILED: "the game's result could not be read",
 };
 
 /**
  * How a game ended, in a few words: "Finished · RudeLeft won", "Didn't
  * start · couldn't reach the rules engine", "Stopped · the server
- * restarted", "Abandoned". [code] is the raw reason, when there was one.
+ * restarted", "Abandoned". [code] is the tooltip: the raw reason, when
+ * there was one, and "Problem (CODE)" for a code with no words yet
+ * (spec 0115, W3-004: the text then says "reason not known").
  */
 export function outcomeText(match: AdminMatch): {
   text: string;
@@ -446,7 +493,12 @@ export function outcomeText(match: AdminMatch): {
 } {
   const reason = (prefix: string) => {
     const raw = match.ending?.startsWith(prefix) ? match.ending.slice(prefix.length).trim() : null;
-    return { raw, words: raw ? (REASON_WORDS[raw] ?? raw) : null };
+    const words = raw ? REASON_WORDS[raw] : undefined;
+    return {
+      words,
+      code: raw ? (words ? raw : `Problem (${raw})`) : null,
+      unknown: !!raw && !words,
+    };
   };
   switch (match.status) {
     case "ENDED":
@@ -456,12 +508,22 @@ export function outcomeText(match: AdminMatch): {
         code: null,
       };
     case "FAILED_STARTUP": {
-      const { raw, words } = reason("Did not start:");
-      return { text: words ? `Didn't start · ${words}` : "Didn't start", tone: "warn", code: raw };
+      const { words, code, unknown } = reason("Did not start:");
+      const text = words
+        ? `Didn't start · ${words}`
+        : unknown
+          ? "Didn't start (reason not known)"
+          : "Didn't start";
+      return { text, tone: "warn", code };
     }
     case "FAILED_RUNTIME": {
-      const { raw, words } = reason("Stopped:");
-      return { text: words ? `Stopped · ${words}` : "Stopped by a fault", tone: "bad", code: raw };
+      const { words, code, unknown } = reason("Stopped:");
+      const text = words
+        ? `Stopped · ${words}`
+        : unknown
+          ? "Stopped (reason not known)"
+          : "Stopped by a fault";
+      return { text, tone: "bad", code };
     }
     case "TERMINATED":
       return { text: "Abandoned", tone: "plain", code: null };
@@ -470,7 +532,8 @@ export function outcomeText(match: AdminMatch): {
     case "LAUNCHING":
       return { text: "Starting", tone: "plain", code: null };
     default:
-      return { text: match.status, tone: "plain", code: null };
+      // Spec 0115 (W3-003): never the raw status; it stays in the tooltip.
+      return { text: "Unknown state", tone: "plain", code: match.status };
   }
 }
 
@@ -741,7 +804,7 @@ export const dayText = (date: string) =>
   });
 
 /** Spec 0048 — what a purge will delete, in one sentence. */
-export function purgeText(scope: PurgeScope, counts: PurgeCounts, who = "They"): string {
+export function purgeText(scope: PurgeScope, counts: PurgeCounts, who = "This player"): string {
   switch (scope.scope) {
     case "player": {
       if (counts.games === 0) return `${who} has no finished games to delete.`;

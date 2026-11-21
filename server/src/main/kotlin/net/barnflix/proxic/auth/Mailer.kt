@@ -178,7 +178,7 @@ class SmtpMailer(
         }
 
         /** The cause in words, from the kind of failure; the server's own text can echo a username. */
-        private fun reasonFor(e: jakarta.mail.MessagingException): String {
+        internal fun reasonFor(e: jakarta.mail.MessagingException): String {
             val causes = generateSequence<Throwable>(e) { it.cause }.toList()
             return when {
                 e is jakarta.mail.AuthenticationFailedException ->
@@ -190,7 +190,8 @@ class SmtpMailer(
                 causes.any { it is javax.net.ssl.SSLException } ->
                     "The secure connection failed. Port 587 goes with STARTTLS, port 465 with SSL."
                 e is jakarta.mail.SendFailedException -> "The email server refused that address."
-                else -> "The email server refused the message (${e.javaClass.simpleName})."
+                // The class name is in the log line above, never in the sentence (spec 0115, W3-024).
+                else -> "The email server refused the message. Check the settings and try again."
             }
         }
     }

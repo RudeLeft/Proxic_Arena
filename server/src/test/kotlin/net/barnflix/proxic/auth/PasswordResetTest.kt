@@ -209,13 +209,22 @@ class PasswordResetTest {
 
             val sent = desk.send(pat(accounts), null)
             assertEquals(ResetSend.Sent("p•••@example.com"), sent)
-            assertEquals("TOO_SOON", (desk.send(pat(accounts), null) as ResetSend.Refused).code)
+            val soon = desk.send(pat(accounts), null) as ResetSend.Refused
+            assertEquals("TOO_SOON", soon.code)
+            // Spec 0115 (W3-025): "five minutes", not "5 minutes".
+            assertEquals(
+                "A reset was sent to Pat in the last five minutes. Wait a few minutes before sending another.",
+                soon.detail,
+            )
             repeat(4) {
                 now = now.plus(Duration.ofMinutes(6))
                 assertIs<ResetSend.Sent>(desk.send(pat(accounts), null))
             }
             now = now.plus(Duration.ofMinutes(6))
-            assertEquals("TOO_MANY", (desk.send(pat(accounts), null) as ResetSend.Refused).code)
+            val many = desk.send(pat(accounts), null) as ResetSend.Refused
+            assertEquals("TOO_MANY", many.code)
+            // Spec 0115 (W3-026).
+            assertEquals("Pat has been sent five resets today. Try again tomorrow.", many.detail)
 
             accounts.setStatus(pat(accounts), AccountStatus.DISABLED)
             now = now.plus(Duration.ofDays(2))

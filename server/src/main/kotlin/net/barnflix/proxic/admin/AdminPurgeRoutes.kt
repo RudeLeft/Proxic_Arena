@@ -80,7 +80,7 @@ fun Route.adminPurgeRoutes(admin: AdminServices) {
             // Told, like any room an admin closes; then their rows go.
             admin.rooms.list().forEach { room -> admin.rooms.forceClose(UUID.fromString(room.room.roomId)) }
         }
-        val done = desk.purge.purge(scope) ?: return@post call.refuse("GAME_RUNNING", "A game is being played.")
+        val done = desk.purge.purge(scope) ?: return@post call.refuse("GAME_RUNNING", AdminPurge.GAME_RUNNING)
         admin.records.actions.record(
             by.user.userId,
             by.user.username,

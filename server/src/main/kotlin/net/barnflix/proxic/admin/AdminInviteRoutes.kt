@@ -56,7 +56,7 @@ fun Route.adminInviteRoutes(admin: AdminServices) {
         if (body == null || role == null) {
             return@post call.respond(
                 HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_REQUEST", "Expected an email address and PLAYER or ADMIN.", null),
+                ErrorResponse("INVALID_REQUEST", "Enter an email address and choose Player or Admin.", null),
             )
         }
         val invite =

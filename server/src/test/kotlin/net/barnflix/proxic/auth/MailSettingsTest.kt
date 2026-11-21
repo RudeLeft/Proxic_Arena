@@ -103,14 +103,30 @@ class MailSettingsTest {
         settings().save(gmail, admin())
         assertNull(settings(key = "a-different-secret-entirely-0123456789").current().password())
         val refused = assertIs<MailSave.Refused>(settings(key = null).save(gmail, admin()))
-        assertTrue(refused.detail.contains("PROXIC_SESSION_SECRET"))
+        // Spec 0115 (W3-028): a sentence first, the variable's name only as the fix.
+        assertEquals(
+            "This server isn't set up to keep passwords safely yet, so the email password can't be saved. " +
+                "(Set PROXIC_SESSION_SECRET.)",
+            refused.detail,
+        )
     }
 
     @Test
     fun `nonsense is refused, and removing falls back to the settings file`() {
-        assertIs<MailSave.Refused>(settings().save(gmail.copy(host = " "), admin()))
+        // Spec 0115 (W3-027): "for example", never "e.g.".
+        assertEquals(
+            "Enter the email server's address, for example smtp.gmail.com.",
+            assertIs<MailSave.Refused>(settings().save(gmail.copy(host = " "), admin())).detail,
+        )
         assertIs<MailSave.Refused>(settings().save(gmail.copy(port = 0), admin()))
-        assertIs<MailSave.Refused>(settings().save(gmail.copy(from = "not an address"), admin()))
+        assertEquals(
+            "Enter who the email comes from, for example Proxic Arena <you@gmail.com>.",
+            assertIs<MailSave.Refused>(settings().save(gmail.copy(from = " "), admin())).detail,
+        )
+        assertEquals(
+            "\"From\" must be an email address, for example Proxic Arena <you@gmail.com>.",
+            assertIs<MailSave.Refused>(settings().save(gmail.copy(from = "not an address"), admin())).detail,
+        )
 
         val file =
             MailConfig.fromEnvironment(

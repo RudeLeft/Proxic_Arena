@@ -27,7 +27,7 @@ internal fun Route.adminUpdateRoutes(admin: AdminServices) {
             runCatching { call.receive<UpdateWaitingRequest>() }.getOrNull()?.on
                 ?: return@post call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse("INVALID_REQUEST", "Expected on: true or false.", null),
+                    ErrorResponse("INVALID_REQUEST", "Choose on or off.", null),
                 )
         if (admin.updateWaiting.set(on)) {
             admin.records.actions.record(

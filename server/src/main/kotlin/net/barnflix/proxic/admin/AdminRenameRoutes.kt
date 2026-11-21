@@ -32,7 +32,7 @@ fun Route.adminRenameRoutes(admin: AdminServices) {
             admin.renames
                 ?: return@put call.respond(
                     HttpStatusCode.ServiceUnavailable,
-                    ErrorResponse("NO_DATABASE", "Renaming needs the database.", null),
+                    ErrorResponse("NO_DATABASE", "Renaming isn't available on this server.", null),
                 )
         val name =
             runCatching { call.receive<DisplayNameRequest>() }.getOrNull()?.displayName?.trim()

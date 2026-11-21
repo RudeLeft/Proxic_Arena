@@ -5,7 +5,8 @@ play log, the act button, the close-ups, the status tray and the
 screen-reader text. Owner decisions 2026-11-19b (item 3) and 2026-11-20
 ("Keep as printed"); built by spec 0113 (the game screen) and spec 0114
 (the player pages, the server's sentences a player reads, and the emails).
-Admin pages follow in 0115.
+Spec 0115 applies them to the admin pages, the Admin API's sentences and
+`arena-admin` with a lighter touch (below).
 
 ## The rules
 
@@ -82,6 +83,16 @@ Admin pages follow in 0115.
   (`server/.../proxic/PlayerWords.kt`). A worker's deck-check reason is
   never passed on: `CardResolution.wordsFor` gives fixed words by its
   status ("Arena doesn't know this card yet.").
+- **Admin pages and owner-only text (spec 0115, the lighter touch).** The
+  same rules, except that the word "Forge" is allowed (admin and logs are
+  exempt) and the compact short forms in admin tables and chips are kept
+  (owner 2026-11-20, "Keep short forms"): "3h ago", "2d 5h", "in 2 h",
+  "Pat vs Sam". No enum or exception class names, no "(s)", no server
+  `detail` glued into the page's own sentence. A stored failure code is
+  sent as the code and worded by the page (`admin.ts` `REASON_WORDS`,
+  "Problem (CODE)" in the tooltip as the last resort); the worker's own
+  failure detail stays in the server log. The admin pages stay outside the
+  CI source sweep (`check_source`).
 - **PROTO-006.** No page behaviour and no test locator hangs on these
   words: tests read the words from a window's role and assert them; they
   find things by role or data attribute.

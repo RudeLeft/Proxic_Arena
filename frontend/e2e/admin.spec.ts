@@ -22,6 +22,7 @@ import {
   openRoom,
   sharedDeck,
   startAMatch,
+  whoseTurn,
 } from "./match-helpers";
 
 async function asAdmin(browser: Browser): Promise<Page> {
@@ -252,7 +253,10 @@ test("the last administrator is not offered Disable or Make player", async ({ br
     const row = accountRow(admin, testUser);
     await manage(row);
     await expect(
-      row.getByRole("menuitem", { name: "Cannot remove the last administrator" }),
+      // Spec 0115 (W3-011).
+      row.getByRole("menuitem", {
+        name: "The last administrator can't be made a player or switched off",
+      }),
     ).toBeDisabled();
     await expect(row.getByRole("menuitem", { name: /^Disable/ })).toHaveCount(0);
     await expect(row.getByRole("menuitem", { name: /a player$/ })).toHaveCount(0);
@@ -434,9 +438,12 @@ test("force close asks first, and the player in the room is told", async ({ brow
     await rooms.getByRole("button", { name: "Keep" }).click();
     await rooms.getByRole("button", { name: "Force close Admin Closes This" }).click();
     await rooms.getByRole("button", { name: "Close it" }).click();
-    await expect(
-      admin.getByRole("status").filter({ hasText: "an administrator closed it" }),
-    ).toBeVisible();
+    // Spec 0115 (F-0115-C, W3-009): the page's own sentence, really clicked.
+    await expect(admin.getByRole("status").and(admin.locator(".pa-admin-message"))).toContainText(
+      "Admin Closes This is closed. Both players were told an administrator closed it.",
+    );
+    await expect(admin.locator(".pa-admin-message")).not.toContainText("Done.");
+    await admin.screenshot({ path: "test-results/seen/0115-force-closed.png" });
 
     await expect(noticeCard(player, "An administrator closed this room")).toBeVisible();
     await expect(player.getByRole("button", { name: "Open a room" })).toBeVisible();
@@ -486,9 +493,10 @@ test("force closing a room mid-game ends the match with no winner, for both play
     await row.getByRole("button", { name: /^Force close/ }).click();
     await expect(row.getByRole("alert")).toContainText("The match ends with no winner.");
     await row.getByRole("button", { name: "Close it" }).click();
-    await expect(
-      admin.getByRole("status").filter({ hasText: "the match ended with no winner" }),
-    ).toBeVisible();
+    // Spec 0115 (W3-009, W3-017): the page's sentence, the game said.
+    await expect(admin.getByRole("status").and(admin.locator(".pa-admin-message"))).toContainText(
+      "is closed. The game in it ended with no winner. Both players were told an administrator closed it.",
+    );
 
     for (const page of [host, guest]) {
       await expect(noticeCard(page, "An administrator closed this room")).toBeVisible();
@@ -506,6 +514,66 @@ test("force closing a room mid-game ends the match with no winner, for both play
       expect(ended.match.status).toBe("TERMINATED");
       expect(ended.match.outcome?.winningSeat ?? null).toBeNull();
     }
+  } finally {
+    await clearEverything(host);
+    await clearEverything(guest);
+    await hostContext.close();
+    await guestContext.close();
+    await admin.context().close();
+  }
+});
+
+/**
+ * Spec 0115 (F-0115-C, TEST-012) -- a real game, really conceded, then the
+ * Games tab really opened: the result reads "won on turn" by name, and the
+ * line holds no code word ("Seat 2", an enum).
+ */
+test("spec 0115: a finished game reads who won on which turn on the Games tab", async ({
+  browser,
+}) => {
+  test.setTimeout(900_000);
+  const pkg = existsSync(realExport) ? realExport : existsSync(ciFixture) ? ciFixture : null;
+  test.skip(!pkg, "no deck package available");
+
+  const hostContext = await browser.newContext();
+  const host = await hostContext.newPage();
+  await signIn(host);
+  await clearEverything(host);
+  const guestContext = await browser.newContext();
+  const guest = await guestContext.newPage();
+  await signInAs(guest, secondUser, secondPassword);
+  await clearEverything(guest);
+  const admin = await asAdmin(browser);
+  try {
+    const deckName = await sharedDeck(host, guest, pkg!);
+    await startAMatch(host, guest, deckName);
+    await whoseTurn(host, guest);
+    const matchId = (
+      (await (await host.request.get("/api/matches/current")).json()) as {
+        match: { matchId: string };
+      }
+    ).match.matchId;
+
+    // The host concedes: a real finish, by Forge.
+    const menu = matchPanel(host);
+    await menu.getByRole("button", { name: "Game menu" }).click();
+    await menu.getByRole("button", { name: "Concede" }).click();
+    await menu.getByRole("button", { name: "Yes, concede" }).click();
+    await expect(matchPanel(guest).getByText(/You won\.$/)).toBeVisible({ timeout: 60_000 });
+
+    await admin.reload();
+    await openTab(admin, "Games");
+    const records = admin.getByRole("region", { name: "Game records" });
+    // Newest first: this game's row, found by its record's address.
+    const line = records
+      .locator(".pa-admin-record")
+      .filter({ has: admin.locator(`a[href*="${matchId}"]`) });
+    await expect(line.locator(".pa-admin-outcome")).toHaveText(
+      new RegExp(`^Finished · ${secondUser} won on turn \\d+ · ${testUser} conceded$`),
+      { timeout: 30_000 },
+    );
+    await expect(line).not.toContainText(/Seat \d|[A-Z]{3,}_[A-Z]+/);
+    await admin.screenshot({ path: "test-results/seen/0115-game-records.png" });
   } finally {
     await clearEverything(host);
     await clearEverything(guest);
@@ -538,11 +606,13 @@ test("the Email account tab saves the account, never shows the password, and a t
 
     await tab.getByLabel("Send a test email to").fill("me@example.com");
     await tab.getByRole("button", { name: "Send test" }).click();
-    await expect(
-      tab.getByRole("alert").filter({ hasText: "Couldn't reach the email server" }),
-    ).toBeVisible({
+    const refused = tab.getByRole("alert").filter({ hasText: "Couldn't reach the email server" });
+    await expect(refused).toBeVisible({
       timeout: 30_000,
     });
+    // Spec 0115 (F-0115-C, W3-024): words only, never an exception's class name.
+    await expect(refused).not.toContainText(/Exception|\(\w+\)/);
+    await admin.screenshot({ path: "test-results/seen/0115-email-refused.png" });
 
     await tab.getByRole("button", { name: "Remove these settings" }).click();
     await expect(tab).toContainText("Not set up");

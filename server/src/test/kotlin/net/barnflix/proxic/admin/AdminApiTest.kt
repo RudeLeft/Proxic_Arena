@@ -408,7 +408,9 @@ class AdminApiTest {
             val admin = session("RudeLeft")
             val done = call(admin, "POST", "/api/admin/accounts/${userId("Pat")}/sign-out")
             assertEquals(HttpStatusCode.OK, done.status)
-            assertTrue(done.bodyAsText().contains("sessions=1"), done.bodyAsText())
+            // Spec 0115 (W3-018): a sentence, never the audit text "sessions=1".
+            assertTrue(done.bodyAsText().contains("\"detail\":\"Signed Pat out of one device.\""), done.bodyAsText())
+            assertFalse(done.bodyAsText().contains("sessions="), done.bodyAsText())
             assertEquals(HttpStatusCode.Unauthorized, call(pat, "GET", "/api/rooms/current").status)
         }
 

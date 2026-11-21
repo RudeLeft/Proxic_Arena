@@ -13,12 +13,19 @@ import kotlinx.serialization.json.jsonPrimitive
  * what and where the moment of the report is.
  */
 internal object ReportReadme {
+    /** Spec 0115 (W3-034) -- "Status: new.", never the stored NEW or WONT_FIX. */
+    fun statusWords(status: String): String =
+        when (status) {
+            "WONT_FIX" -> "won't fix"
+            else -> status.lowercase().replace('_', ' ')
+        }
+
     fun of(report: ReportDetail): String =
         buildString {
             val problem = report.kind == "PROBLEM"
             appendLine("# Proxic report #${report.number}: ${if (problem) "a problem" else "an idea"}")
             appendLine()
-            appendLine("From **${report.username}**, sent ${report.createdAt}. Status: ${report.status}.")
+            appendLine("From **${report.username}**, sent ${report.createdAt}. Status: ${statusWords(report.status)}.")
             appendLine()
             if (problem) problem(report.answers) else idea(report.answers)
             appendLine()
