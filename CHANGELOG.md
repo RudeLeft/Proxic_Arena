@@ -3,6 +3,46 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.75.0 — 2026-11-21
+
+From the owner's 2026-11-19 feedback: small fixes on the table, windows that say less, a cast that waits at its spot on the stack, soulbond pairs you can see, a clearer Barter in Blood, and plain English on every screen, page and email.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual.
+- The /status page is now for the administrator only. Players who open it see "This page is for administrators."
+
+**Small fixes on the table**
+- A flyer carrying equipment rises and tilts as one piece; its equipment tab never leaves the card's edge.
+- A spell with nothing to target isn't lit. Click Rebuke with nothing attacking and it says "Not now. There's no attacking creature to target."
+- The stack no longer shows raw engine text like "(Targeting: [[Butcher Ghoul]])".
+- When a draw lands in the middle of a mill, the library count still steps down one number at a time.
+
+**Windows that say less**
+- Casting your own spell, the window beside the big card says only what to choose ("Choose a creature that isn't a Vampire, Werewolf or Zombie.").
+- No report window for something the animation already showed you; the play log has a line instead.
+- A report dims the table only when you click it.
+
+**The cast waits at its spot**
+- The card you cast glides straight to its place on the stack and waits there while you choose targets and pay, so the middle of the table stays clear.
+
+**Soulbond pairs**
+- Paired creatures each carry a small gold link mark. Point at one and its partner lights up. The close-up says "Paired with Elder Cathar".
+
+**Barter in Blood and spells like it**
+- While the other player chooses, your line says "Choosing what to sacrifice · you choose next".
+- Your window opens with what they sacrificed, with pictures, then asks you.
+
+**Plain English everywhere**
+- The game screen: counts in words ("two cards", "three Goblin tokens"), game values in digits ("deals 3 damage", "20 life"), "an Island", and full sentences in every window, the play log and screen-reader text.
+- Card tags stay in capitals ("ATTACKING", "TAPPED").
+- Deck import: "Line 12, Foo: Arena doesn't know this card yet." and "The picture for Foo is not a PNG or JPEG file." No codes, file paths or engine names.
+- The lobby: one plain sentence for a deck problem ("Open Format allows at most four copies of "Lightning Bolt". This deck has five."). Away players read "Away for seven minutes · in the lobby"; a row with an Invite button keeps the short "Away 7 min".
+- Signing in too often: "Try again in about 15 minutes."
+- "color" and "Favorite" on every page; dates like "Sat, Nov 8".
+- The Hall: "Won · Lost · Drawn" has room on big screens, and the trophies fill their boxes with a belt holder.
+- Admin pages: plain sentences after every action ("Pat's room is closed. Both players were told an administrator closed it."), "Someone won on turn 9", and no engine error text on the page (it stays in the server log).
+- Fixed: Spellskite's window title read "Change a an of a spell or ability"; it now reads "Change a target of a spell or ability". And "May respond to The Monarch" instead of "your The Monarch".
+
 ## 1.74.0 — 2026-11-20
 
 From the owner's play-through: the game never chooses for you, every spell nobody can answer rests on the stack long enough to read, the table moves a little slower, cards you can play from your graveyard sit in a row beside it, and trample damage is split for you.

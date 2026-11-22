@@ -1,6 +1,7 @@
 # 0113 — Plain-English wording, step 1: the game screen (every window, the play log and screen-reader text), plus the two safety nets
 
 **Status:** Approved 2026-11-20 (owner, by prompt, feedback batch 2026-11-19b). Not part of a phase.
+**Built:** 2026-11-21 (commit 47c89bba). **Released:** in 1.75.0, 2026-11-21.
 **Owner decisions** (owner feedback batch 2026-11-19b, `Owner feedback 2026-11-19b decisions.md`; canvas `frontend/zz-canvas/feedback-1119b.html` section "3" and its "Ten more, before and after" table):
 
 - Item 3: **"Yes, all of it."** Follow-up after the second sweep: **"Scope: all pages, in three steps: 1. The game screen: both lists, including screen-reader text. 2. Player pages, error messages and emails, deck import first. 3. Admin pages, with a lighter touch."** This spec is step 1; 0114 is step 2, 0115 step 3.

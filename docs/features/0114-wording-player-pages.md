@@ -1,6 +1,7 @@
 # 0114 — Plain-English wording, step 2: player pages, error messages and emails (deck import first); the two "Forge" leaks; /status admin-only
 
 **Status:** Approved 2026-11-20 (owner, by prompt, feedback batch 2026-11-19b). Not part of a phase.
+**Built:** 2026-11-21 (commit bc685f23). **Released:** in 1.75.0, 2026-11-21.
 **Owner decisions** (owner feedback batch 2026-11-19b, `Owner feedback 2026-11-19b decisions.md`; canvas `frontend/zz-canvas/feedback-1119b.html` section "3"):
 
 - Item 3 follow-up, scope step **"2. Player pages, error messages and emails, deck import first."**

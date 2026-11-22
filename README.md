@@ -6,7 +6,7 @@ exported by Proxic Deck Builder, and play a real game of Magic
 adjudicated by Forge — not by a hand-written approximation of the
 rules.
 
-**Version 1.74.0 (2026-11-20).** The main build was completed in 1.1.0,
+**Version 1.75.0 (2026-11-21).** The main build was completed in 1.1.0,
 with every question Forge can ask answered (Phase 8); 1.2.0 added the
 redesigned lobby with avatars, a friendlier chat and card close-ups in
 the Deck Depot; 1.3.0 added online/away badges, the Hall of Champions,
@@ -93,7 +93,8 @@ it pays and adds a play log and a floating window to the game chat;
 1.71.0 keeps lands still when you tap them and puts them next to your hand, shows the whole card when you hover over your hand, makes busy boards lighter, and cleans up the pop-ups;
 1.72.0 fixes the last cards that jumped: a card cast out of your library rises from it, and graveyard and exile numbers wait for their cards;
 1.73.0 shows what every spell chose and aims at, how creatures survive, Karn's restart, Mindslaver and skipped turns, and makes report windows point at the table, replay, and remember your library top -- and finishes Phase 10;
-1.74.0 always lets you make your own choices, rests every spell nobody can answer on the stack with a countdown ring, paces the table a little slower, fans your playable graveyard cards beside the pile, and splits a trampler's damage for you.
+1.74.0 always lets you make your own choices, rests every spell nobody can answer on the stack with a countdown ring, paces the table a little slower, fans your playable graveyard cards beside the pile, and splits a trampler's damage for you;
+1.75.0 keeps a flyer and its equipment together, holds your cast at its spot on the stack, shows soulbond pairs, says who is choosing in Barter in Blood, and puts every screen, page and email in plain English.
 Two players
 play a real game of Magic, run by Forge, on a graphical battlefield in
 the style of MTG Arena — cards clicked to play, target, attack and

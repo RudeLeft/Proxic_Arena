@@ -1,6 +1,7 @@
 # 0115 — Plain-English wording, step 3: admin pages and owner-only text, with a lighter touch
 
 **Status:** Approved 2026-11-20 (owner, by prompt, feedback batch 2026-11-19b). Not part of a phase.
+**Built:** 2026-11-21 (commit 3e804248). **Released:** in 1.75.0, 2026-11-21.
 **Owner decisions** (owner feedback batch 2026-11-19b, `Owner feedback 2026-11-19b decisions.md`):
 
 - Item 3 follow-up, scope step **"3. Admin pages, with a lighter touch."**

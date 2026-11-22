@@ -1,6 +1,7 @@
 # 0112 — Barter in Blood: the waiting line says what is being chosen and that you choose next; your window opens with what the first player sacrificed
 
 **Status:** Approved 2026-11-20 (owner, by prompt, feedback batch 2026-11-19b). Not part of a phase.
+**Built:** 2026-11-20 (commit 5d9d48e1). **Released:** in 1.75.0, 2026-11-21.
 **Owner decisions** (owner feedback batch 2026-11-19b, `Owner feedback 2026-11-19b decisions.md`; canvas `frontend/zz-canvas/feedback-1119b.html`):
 
 - Item 10, canvas section "10", option **A** ("Say what they are doing, and what they sacrificed"): **"the line reads "Choosing what to sacrifice · you choose next", and the waiting player's window opens with what the caster sacrificed."** Option B (their picks light up as they choose) was not taken.

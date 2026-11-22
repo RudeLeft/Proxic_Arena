@@ -1,6 +1,7 @@
 # 0108 — Small fixes: a flyer floats as one piece, a spell with nothing to target isn't lit, no "(Targeting: [[...]])" on the stack; the combat caption and the mill re-checked
 
 **Status:** Approved 2026-11-20 (owner, by prompt, feedback batch 2026-11-19b). Not part of a phase. Phase 11 starts after 0108-0115 ship as 1.75.0.
+**Built:** 2026-11-20 (commit 9b90d5b3). **Released:** in 1.75.0, 2026-11-21.
 **Owner decisions** (owner feedback batch 2026-11-19b, `Owner feedback 2026-11-19b decisions.md`; canvas `frontend/zz-canvas/feedback-1119b.html`):
 
 - Items 8/9, canvas section "8 + 9" ("A fix, no choice"): **"Fix: the card, its tabs and its glow float as one."**

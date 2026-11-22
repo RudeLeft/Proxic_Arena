@@ -1,6 +1,7 @@
 # 0109 — Windows that say less: the short target window beside your own big card, no report window for what the animation showed, the report dim only on a click
 
 **Status:** Approved 2026-11-20 (owner, by prompt, feedback batch 2026-11-19b). Not part of a phase.
+**Built:** 2026-11-20 (commit 9a19fc89). **Released:** in 1.75.0, 2026-11-21.
 **Owner decisions** (owner feedback batch 2026-11-19b, `Owner feedback 2026-11-19b decisions.md`; canvas `frontend/zz-canvas/feedback-1119b.html`):
 
 - Item 5, canvas section "5", option **A**: **"Short window.** While your own spell's big card shows, the window only says what to do. The "Click a" hint gets fixed so it is no longer cut at the first comma. Triggers, abilities, copies and the other player's view keep the card's text." The owner asked whether the window adds value at all; it was answered in chat (several targets, "up to" Done/Skip, targets off the table), so the window stays.

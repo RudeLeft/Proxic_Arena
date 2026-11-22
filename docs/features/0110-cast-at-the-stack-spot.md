@@ -1,6 +1,7 @@
 # 0110 — Cast at the stack spot: the big card waits at its place on the stack while you choose targets and pay
 
 **Status:** Approved 2026-11-20 (owner, by prompt, feedback batch 2026-11-19b). Not part of a phase.
+**Built:** 2026-11-20 (commit ab75a81f). **Released:** in 1.75.0, 2026-11-21.
 **Owner decisions** (owner feedback batch 2026-11-19b, `Owner feedback 2026-11-19b decisions.md`; canvas `frontend/zz-canvas/feedback-1119b.html`):
 
 - Item 6, canvas section "6", option **A** ("At its stack place through targeting and paying"): **"the card sits at its stack spot, big, through targeting and paying. The rules order stays: targets, then payment."** Option B (stack place for targets, middle for paying) and today's middle were not taken.

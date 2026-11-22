@@ -1,6 +1,7 @@
 # 0111 — Soulbond pair marks: a link mark on both paired cards, the partner lights when you point, "Paired with X" in the close-up
 
 **Status:** Approved 2026-11-20 (owner, by prompt, feedback batch 2026-11-19b). Not part of a phase. **Starts a Phase 12 item early, by owner decision** (below): soulbond pairs are on the Phase 12 card-statuses list; this spec builds that one status now and leaves the rest of Phase 12 where it is.
+**Built:** 2026-11-20 (commit 4c5b0786). **Released:** in 1.75.0, 2026-11-21.
 **Owner decisions** (owner feedback batch 2026-11-19b, `Owner feedback 2026-11-19b decisions.md`; canvas `frontend/zz-canvas/feedback-1119b.html`):
 
 - Item 1, canvas section "1", option **A** ("A matching link mark on both cards; pointing lights the partner"): **"a chain-link mark on both cards; pointing at one lights its partner; the close-up says "Paired with X". This starts it now, ahead of Phase 12."** B (a gold tether while pointing) and C (numbered link badges) were not taken.
