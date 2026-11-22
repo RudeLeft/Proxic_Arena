@@ -483,6 +483,8 @@ step in "Recommended order".
 | P11-A5 | **Audit of leftover word pills and top notices** (owner, 2026-11-12). 0075 and 0097 moved many; one list of what's left, each with a canvas into the report window or kept with a reason. | M | yes | 16 |
 | P11-A6 | **0101's leftovers:** menace's pop on a refused single blocker (the refusal never reaches the combat result); a "prevent the next N" badge on a player (sent, never drawn). | S | yes | 17 |
 | P11-A7 | **A countered copy of a trigger vanishes in one frame** (owner, 2026-11-21, from the 1.75.0 jump check: `no-target-slayer`, board 47, both seats). Bob's Stifle counters the copy of Slayer of the Wicked's trigger that Strionic Resonator made; the copy's stack card is gone the next frame while a countered spell leaves with its animation. Give it the same leave. Contact sheet: the 1.75.0 release run's `slayer-sheet.jpg`. | S | clip | 17 (with A6) |
+| P11-A8 | **A spell cast from the graveyard or exile with nothing to target gives no reason** (straggler 32, found building 0108). It is no longer offered, but there's no "Not now" line for it; reasons exist only for hand cards and abilities of permanents. | S | yes (small) | 17 |
+| P11-A9 | **A counterspell with nothing to counter is still offered and rolls back silently** (straggler 33): Forge's hasCandidates says yes for stack targets. Check it against spec 0116 (a stack spell offered once) before building. | S | yes (small) | 17 |
 
 ### Group B — reliability (from the first draft; B1 is now C6)
 
@@ -494,6 +496,8 @@ step in "Recommended order".
 | P11-B5 | **Browser-test type errors not gated:** `tsc -p tsconfig.e2e.json` gives 7 errors today (RUN at 3370c75): `admin.spec.ts` 3, `device-link.spec.ts` 2, and two page files lacking Vite's types. Fix them and add the check to CI. | S | first |
 | P11-B6 | **Moments never seen live.** Partly covered already (fetch lands, crew, energy, becoming monarch, suspend, Banishing Light, Uro). Nothing deals a Class or a Treasure token, or passes the monarch. Own casts from a graveyard or exile have never been clicked. Count the traces, add Lab games, one real-click game. | M | last, before the play-through |
 | P11-B7 | **Browser tests robust by default:** `hitPoint` is copied in two specs, `settle` lives only in `match-speed`, and 10 specs click by raw position; 6 fix commits for CI-only timing since 2026-11-15. One shared `hitPoint`/clamp and `settle` in `e2e/match-helpers.ts`, and a CI-speed local run (CPU slowed, in shard order) before a new spec is committed. D6's throttled-link tests build on it. | M | second |
+| P11-B8 | **0109's reveal guard has no failing Lab scenario** (straggler 34): `ActionReports.quiet` (test 3, `Causes.revealedNow`) is unproven by any game, since no corpus card bounces, returns or counters while revealing. Name a card and add a Lab game (HID-004). | S | with B4 |
+| P11-B9 | **Documentation tidy-up** (stragglers 27, 29): stale code comments (TestDeals.kt, WorkerMain `--lab-deal`, the Dockerfile/pom "two checks", Application.kt `/ws/system`, stepAside "is casting", the notifyOfValue Javadoc, QuestionWindows "seat 2", PackageInspector `isUnsafePath`, DeckRoutes); troubleshooting: DECK_IMPORT lacks five refusal codes, MATCH_RUNTIME's "No game yet" entry is dead, FOUNDATION's database health log shows only the error's class name. Then, as the phase's last item, the **documentation audit** (paused after pass 10) runs again until a pass finds nothing (owner 2026-11-21). | S | last |
 
 ### Recommended order
 
@@ -532,6 +536,7 @@ keep their relative order.)
 
 ## How work runs
 
+- **Design canvases** live outside the code folder since 2026-11-21 (owner): `Claude Working Folder/Proxic canvases/`. Older specs that name `frontend/zz-canvas/<file>` mean the same file there.
 - **The lean build brief** (owner, 2026-11-15; TEST-012/013). Per item:
   - the touched Lab scripts three times, and the hidden checks over their
     traces;
