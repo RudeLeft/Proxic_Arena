@@ -20,6 +20,7 @@ import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   answerCardTray,
   clearEverything,
+  clickAt,
   clickNow,
   clickUnlessCombat,
   discardIfAsked,
@@ -256,7 +257,10 @@ test("sliding the mouse along a 7-card hand shows each whole card clear of the f
             await page.mouse.move(p.x, p.y, { steps: 8 });
             await page.waitForTimeout(300);
             mark("forest", page);
-            await page.mouse.click(p.x, p.y);
+            // Only if the Forest is still what the mouse hits there: the
+            // fan can close up between the read and the click (P11-B7). The
+            // loop reads the hand again if it did not take.
+            await clickAt(page, p, page.locator(`.bf-cards button[data-object-id="${p.id}"]`));
             await page.waitForTimeout(1_200);
             continue;
           }
@@ -306,7 +310,12 @@ test("sliding the mouse along a 7-card hand shows each whole card clear of the f
           });
           return out;
         });
-        await page.mouse.click(p.x, p.y);
+        // At the point the reading card was measured from (the subject),
+        // only if the card is still what the mouse hits there (P11-B7).
+        expect(
+          await clickAt(page, p, page.locator(`.bf-cards button[data-object-id="${p.id}"]`)),
+          `${p.name} takes the click`,
+        ).toBe(true);
         const seen = await frames;
         expect(seen.length, "the casting card appeared").toBeGreaterThan(5);
         const first = seen[0]!;

@@ -35,9 +35,9 @@ import {
   clearEverything,
   clickNow,
   discardIfAsked,
-  hitPoint,
   matchPanel,
   passCombat,
+  pointAt,
   realClick,
   sharedDeck,
   startAMatch,
@@ -278,8 +278,7 @@ test("your spell's short target window; no window for Mist Raven's bounce, a pla
               tray.locator("li.gs-reveal-card"),
               tray.locator(".gs-reveal-head"),
             ]) {
-              const at = await hitPoint(part);
-              if (at) await page.mouse.move(at.x, at.y, { steps: 8 });
+              await pointAt(page, part, 8);
               await page.waitForTimeout(300);
             }
             await page.screenshot({ path: join(SHOTS, "0109-report-pointed-guest.png") });
@@ -305,6 +304,8 @@ test("your spell's short target window; no window for Mist Raven's bounce, a pla
               );
             const spot = await emptyTable(page);
             if (spot) {
+              // A raw click on purpose (P11-B7): the subject is an empty spot
+              // on the table, which no element stands for.
               await page.mouse.move(spot.x, spot.y, { steps: 6 });
               await page.mouse.click(spot.x, spot.y);
             }

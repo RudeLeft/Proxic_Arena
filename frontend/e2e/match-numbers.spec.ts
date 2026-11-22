@@ -29,6 +29,7 @@ import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   cardCount,
+  chosenTargets,
   clearEverything,
   clickNow,
   clickUnlessCombat,
@@ -209,7 +210,7 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
           // What the page shows as chosen, never this bot's own count of its
           // clicks: CI run 44920299488 counted two clicks that never took,
           // then waited for a "Chosen so far" line with nothing chosen.
-          const chosenNow = await page.locator('[data-chosen-target="true"]').count();
+          const chosenNow = await chosenTargets(page);
           if (isTarget && divided && chosenNow >= 2) {
             // Amendment 17: what is chosen is shown, and the act button
             // really cancels -- the first time; then Done goes on.

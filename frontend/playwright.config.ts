@@ -9,6 +9,8 @@
 // https://proxic.barnflix.net (PHASE 1 AMENDMENT 1).
 
 import { defineConfig, devices } from "@playwright/test";
+// P11-B7: PROXIC_E2E_CPU=4 slows every page's CPU (ci/ci-speed.mjs); off by default.
+import "./e2e/cpu-slowdown";
 
 // The game specs (frontend/e2e/match*.spec.ts) play real games and take
 // ~90% of the suite's time; CI deals them over several machines by

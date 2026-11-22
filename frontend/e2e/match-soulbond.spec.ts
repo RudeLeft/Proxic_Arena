@@ -31,10 +31,10 @@ import {
   clearEverything,
   clickNow,
   discardIfAsked,
-  hitPoint,
   matchPanel,
   passButton,
   passCombat,
+  pointAt,
   realClick,
   sharedDeck,
   startAMatch,
@@ -134,12 +134,9 @@ function contexts(browser: import("@playwright/test").Browser) {
 }
 
 /** Point at [name]'s board card with the real mouse; then [partner] lights (polled). */
-async function pointAt(page: Page, side: "viewer" | "opponent", name: RegExp) {
-  const card = onBoard(page, side, name).first();
-  const at = await hitPoint(card);
+async function pointAtCard(page: Page, side: "viewer" | "opponent", name: RegExp) {
+  const at = await pointAt(page, onBoard(page, side, name).first());
   expect(at, `a point of ${name} the mouse can reach`).not.toBeNull();
-  await page.mouse.move(at!.x, at!.y, { steps: 6 });
-  return at!;
 }
 
 test("soulbond: the link mark on both cards on both pages; pointing lights the partner; the close-up says it", async ({
@@ -308,7 +305,7 @@ test("soulbond: the link mark on both cards on both pages; pointing lights the p
     expect(guestSees.ids).toEqual(hostSees.ids);
 
     // 3. The host points at Tandem Lookout: Elder Cathar lights, Lookout does not.
-    await pointAt(host, "viewer", /^Tandem Lookout/);
+    await pointAtCard(host, "viewer", /^Tandem Lookout/);
     await expect
       .poll(async () => (await seenOn(host)).lifted, { timeout: 10_000 })
       .toEqual({ "Tandem Lookout": false, "Elder Cathar": true });
@@ -320,7 +317,7 @@ test("soulbond: the link mark on both cards on both pages; pointing lights the p
       .poll(async () => (await seenOn(host)).lifted["Elder Cathar"], { timeout: 10_000 })
       .toBe(false);
     // The guest points at the host's Tandem Lookout: the same light on its page.
-    await pointAt(guest, "opponent", /^Tandem Lookout/);
+    await pointAtCard(guest, "opponent", /^Tandem Lookout/);
     await expect
       .poll(async () => (await seenOn(guest)).lifted, { timeout: 10_000 })
       .toEqual({ "Tandem Lookout": false, "Elder Cathar": true });
@@ -329,8 +326,12 @@ test("soulbond: the link mark on both cards on both pages; pointing lights the p
     await guest.mouse.move(960, 60, { steps: 4 });
 
     // 4. The host right-clicks Tandem Lookout: "Paired with Elder Cathar".
-    const at = await pointAt(host, "viewer", /^Tandem Lookout/);
-    await host.mouse.click(at.x, at.y, { button: "right" });
+    expect(
+      await realClick(host, onBoard(host, "viewer", /^Tandem Lookout/).first(), {
+        button: "right",
+      }),
+      "Tandem Lookout takes a real right-click",
+    ).toBe(true);
     const facts = host.locator(".gs-inspect .gs-inspect-facts");
     await expect
       .poll(

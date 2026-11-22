@@ -38,6 +38,7 @@ import {
   matchPanel,
   passButton,
   passCombat,
+  realClick,
   sharedDeck,
   startAMatch,
   watchGame,
@@ -219,20 +220,9 @@ const flashSeen = (page: Page) =>
     return `${w.__flashId ?? "-"}/${w.__flashes.length}/${w.__flashes.filter((f) => f.ghost > 0.15).length}`;
   });
 
-/** A real mouse click on the middle of an element (through a see-through casting card). */
-async function realClick(page: Page, target: Locator) {
-  const box = await target
-    .first()
-    .boundingBox({ timeout: 2_000 })
-    .catch(() => null);
-  if (!box) return false;
-  const x = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
-  await page.mouse.move(x, y);
-  await page.waitForTimeout(150);
-  await page.mouse.click(x, y);
-  return true;
-}
+// realClick: match-helpers.ts (P11-B7). Its point is confirmed with
+// elementFromPoint; the casting card is pointer-events: none, so a card under
+// it is still hit through it.
 
 /** The last frame `key` was drawn (-1: never). */
 function lastDrawn<T extends { ghost: number }>(

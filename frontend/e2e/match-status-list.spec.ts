@@ -276,6 +276,8 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
     await myTray.locator(".gs-chip-more").click();
     await expect(list).toBeVisible();
     const table = await box(panel.locator(".bf-rail"));
+    // A raw click on purpose (P11-B7): an empty spot of the table, left of
+    // the rail, which no element stands for.
     await guest.mouse.click(table.x / 2, table.y + table.height / 2);
     await expect(list).toHaveCount(0);
 

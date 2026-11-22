@@ -19,34 +19,64 @@ import { importPackage, noticeCard, secondUser, shareOpenDeckWith, testUser } fr
 import { geometry } from "../src/battlefield/layout";
 import { castingStackBox } from "../src/battlefield/stepAside";
 
+// --- the real mouse (P11-B7: one copy, for every spec) ---------------------
+//
+// A spec that clicks an element uses realClick (or pointAt to point without
+// clicking); a raw `page.mouse.click(x, y)` is only for a test that means a
+// screen point (an empty spot on the table, the same spot clicked again),
+// with a comment saying so. A point read once and clicked later is the
+// CI-only failure: on a slow runner the board has moved in between.
+
+/** A point in the window, in CSS pixels. */
+export type Point = { x: number; y: number };
+
 /**
  * A point on the element that the mouse would really hit: inside the
- * window and not under another card. A hand card stands partly below the
- * window's edge and under its right-hand neighbour -- CI run 44314547756:
- * with the host on the draw its first Mountain's middle was at y 1080.3 in
- * a 1080 window, and 120 s of clicks there hit nothing. Each point tried is
- * clipped to the window and confirmed with elementFromPoint. Moved here from
- * match-spell-choices (spec 0104) for the specs that click in hands and trays.
+ * window, inside every ancestor that clips it (a scrolled list, a tray),
+ * and not under another card. A hand card stands partly below the window's
+ * edge and under its right-hand neighbour -- CI run 44314547756: with the
+ * host on the draw its first Mountain's middle was at y 1080.3 in a 1080
+ * window, and 120 s of clicks there hit nothing. Each point tried is inside
+ * the visible part and confirmed with elementFromPoint; if the clipped part
+ * has none (an ancestor that clips in style but not in fact: a positioned
+ * child escapes it), the window-clipped box is tried as before. Null when no
+ * point hits it. Moved here from match-spell-choices (spec 0104); clipping
+ * to ancestors added in P11-B7.
  */
-export const hitPoint = (l: Locator) =>
+export const hitPoint = (l: Locator): Promise<Point | null> =>
   l
     .first()
     .evaluate(
       (el) => {
         const r = el.getBoundingClientRect();
-        const top = Math.max(r.top, 0);
-        const bottom = Math.min(r.bottom, window.innerHeight - 2);
-        const left = Math.max(r.left, 0);
-        const right = Math.min(r.right, window.innerWidth - 2);
-        if (bottom <= top || right <= left) return null;
-        for (const fy of [0.5, 0.3, 0.7, 0.15, 0.85])
-          for (const fx of [0.5, 0.3, 0.15, 0.7, 0.85]) {
-            const x = left + (right - left) * fx;
-            const y = top + (bottom - top) * fy;
-            const hit = document.elementFromPoint(x, y);
-            if (hit && (hit === el || el.contains(hit))) return { x, y };
-          }
-        return null;
+        const inWindow = {
+          top: Math.max(r.top, 0),
+          bottom: Math.min(r.bottom, window.innerHeight - 2),
+          left: Math.max(r.left, 0),
+          right: Math.min(r.right, window.innerWidth - 2),
+        };
+        const visible = { ...inWindow };
+        for (let p = el.parentElement; p; p = p.parentElement) {
+          const s = getComputedStyle(p);
+          if (s.overflowX === "visible" && s.overflowY === "visible") continue;
+          const c = p.getBoundingClientRect();
+          visible.top = Math.max(visible.top, c.top);
+          visible.bottom = Math.min(visible.bottom, c.bottom);
+          visible.left = Math.max(visible.left, c.left);
+          visible.right = Math.min(visible.right, c.right);
+        }
+        const tryIn = (b: typeof visible) => {
+          if (b.bottom <= b.top || b.right <= b.left) return null;
+          for (const fy of [0.5, 0.3, 0.7, 0.15, 0.85])
+            for (const fx of [0.5, 0.3, 0.15, 0.7, 0.85]) {
+              const x = b.left + (b.right - b.left) * fx;
+              const y = b.top + (b.bottom - b.top) * fy;
+              const hit = document.elementFromPoint(x, y);
+              if (hit && (hit === el || el.contains(hit))) return { x, y };
+            }
+          return null;
+        };
+        return tryIn(visible) ?? tryIn(inWindow);
       },
       null,
       { timeout: 2_000 },
@@ -54,20 +84,178 @@ export const hitPoint = (l: Locator) =>
     .catch(() => null);
 
 /**
+ * The real mouse onto an element, without a click: pointing (a hover, a
+ * reading card, a partner's light). Returns where it pointed; null (and the
+ * mouse not moved) when no point of it could be hit.
+ */
+export async function pointAt(page: Page, target: Locator, steps = 6): Promise<Point | null> {
+  const at = await hitPoint(target);
+  if (!at) return null;
+  await page.mouse.move(at.x, at.y, { steps });
+  return at;
+}
+
+/**
  * A real mouse click on an element, at [hitPoint]. Aimed again after the
  * mouse arrives: a hand that fans anew (a card drawn) slides its cards under
- * the pointer. False when no point of it could be hit.
+ * the pointer. False when no point of it could be hit. `button: "right"`
+ * for the close-up.
  */
-export async function realClick(page: Page, target: Locator): Promise<boolean> {
+export async function realClick(
+  page: Page,
+  target: Locator,
+  { button = "left", steps = 6 }: { button?: "left" | "right"; steps?: number } = {},
+): Promise<boolean> {
   const first = await hitPoint(target);
   if (!first) return false;
-  await page.mouse.move(first.x, first.y, { steps: 6 });
+  await page.mouse.move(first.x, first.y, { steps });
   await page.waitForTimeout(150);
   const at = await hitPoint(target);
   if (!at) return false;
+  await page.mouse.click(at.x, at.y, { button });
+  return true;
+}
+
+/**
+ * A real click at a chosen point, for a test whose subject IS the point
+ * (under the see-through casting card, where the reading card was measured):
+ * the mouse goes there, and the click is made only if [target] is still what
+ * the mouse hits there -- the point was read a moment ago, and on a slow
+ * runner the board can move in between. False (no click) when it is not.
+ */
+export async function clickAt(
+  page: Page,
+  at: Point,
+  target: Locator,
+  { steps = 1 }: { steps?: number } = {},
+): Promise<boolean> {
+  await page.mouse.move(at.x, at.y, { steps });
+  const hits = await target
+    .first()
+    .evaluate(
+      (el, p) => {
+        const hit = document.elementFromPoint(p.x, p.y);
+        return !!hit && (hit === el || el.contains(hit));
+      },
+      at,
+      { timeout: 2_000 },
+    )
+    .catch(() => false);
+  if (!hits) return false;
   await page.mouse.click(at.x, at.y);
   return true;
 }
+
+/**
+ * Waits (at most [timeout]) until every page has settled: nothing on its
+ * stack, no look playing to an end (a looping one may go on: a flyer's sway
+ * never ends), and nothing changed for [quietMs] -- longer than any board
+ * the game screen holds (HOLD_MS, SWING_HOLD_MS: 1.5 s), so a held board is
+ * never read mid-moment. True when they settled, false when time ran out
+ * (the caller says what that means; nothing throws).
+ *
+ * "Changed" is, by default, any change to the page's DOM (a MutationObserver
+ * for the length of the wait, then taken away). `clock: "commits"` reads
+ * React's commits instead, from a probe that records them in
+ * `window.__speed.lastCommit` (match-speed's init script): its idle row must
+ * not be measured with an observer running. Moved here from match-speed
+ * (CI 9d9b399, run 44489458035: the waiting player's page draws the other
+ * player's spell later than the caster's own page does).
+ */
+export async function settle(
+  pages: Page[],
+  {
+    quietMs = 2_000,
+    timeout = 15_000,
+    clock = "dom",
+  }: { quietMs?: number; timeout?: number; clock?: "dom" | "commits" } = {},
+): Promise<boolean> {
+  const quiet = (page: Page) =>
+    page
+      .evaluate(
+        ({ quietMs, clock }) => {
+          type Watch = { last: number; observer: MutationObserver };
+          const w = window as unknown as {
+            __e2eSettle?: Watch;
+            __speed?: { lastCommit?: number };
+          };
+          let last: number;
+          if (clock === "commits") {
+            last = w.__speed?.lastCommit ?? 0;
+          } else {
+            if (!w.__e2eSettle) {
+              const watch: Watch = {
+                last: performance.now(),
+                observer: new MutationObserver(() => {
+                  watch.last = performance.now();
+                }),
+              };
+              watch.observer.observe(document.documentElement, {
+                subtree: true,
+                childList: true,
+                attributes: true,
+                characterData: true,
+              });
+              w.__e2eSettle = watch;
+            }
+            last = w.__e2eSettle.last;
+          }
+          const stack = document.querySelectorAll('button[data-zone="stack"]').length;
+          const playing = document.getAnimations().some((a) => {
+            const timing = a.effect?.getComputedTiming();
+            return a.playState === "running" && timing?.iterations !== Infinity;
+          });
+          return performance.now() - last >= quietMs && stack === 0 && !playing;
+        },
+        { quietMs, clock },
+      )
+      .catch(() => false);
+  const end = Date.now() + timeout;
+  try {
+    while (Date.now() < end) {
+      let all = true;
+      for (const page of pages) if (!(await quiet(page))) all = false;
+      if (all) return true;
+      await pages[0]!.waitForTimeout(250);
+    }
+    return false;
+  } finally {
+    for (const page of pages)
+      await page
+        .evaluate(() => {
+          const w = window as unknown as { __e2eSettle?: { observer: MutationObserver } };
+          w.__e2eSettle?.observer.disconnect();
+          delete w.__e2eSettle;
+        })
+        .catch(() => undefined);
+  }
+}
+
+// --- reading what the page shows (P11-B7: the lessons of 2026-11-20) -------
+//
+// A bot asserts on what the page shows, never on its own count of its clicks
+// (CI run 44920299488: two target clicks never took, and the bot waited for
+// a "Chosen so far" line with nothing chosen).
+
+/** How many targets the page marks as chosen now (spec 0109's TARGET tags). */
+export const chosenTargets = (page: Page) => page.locator('[data-chosen-target="true"]').count();
+
+/**
+ * The whole text of each element, as a screen reader reads it: its
+ * visually-hidden sentence included. A `hasText` filter did not match that
+ * sentence (CI run 44913657691: 2,378 asks while the monarch was on the
+ * board, 0 every time); match these with [said].
+ */
+export const shownTexts = (l: Locator) =>
+  l.evaluateAll((els) => els.map((el) => el.textContent ?? ""));
+
+/**
+ * A word as it can appear in [shownTexts]: a count can follow a hidden
+ * sentence with no space ("..., the monarch1", CI run 44920299488), so the
+ * word may not be followed by a letter but may be followed by a digit.
+ */
+export const said = (word: string) =>
+  new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z])`, "i");
 
 export async function csrfOf(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
@@ -357,18 +545,34 @@ export async function clickNow(target: Locator): Promise<void> {
  * page, so nothing can arrive between them.
  */
 export async function clickUnlessCombat(target: Locator): Promise<void> {
-  if ((await target.count()) === 0) return;
-  await target
+  await clickUnless(target, ".gs-combat");
+}
+
+/**
+ * A catch-all's click that skips what it does not plan for: clicks [target]
+ * only if nothing matching [unplanned] is on screen at that very moment, the
+ * check and the click one step in the page. A bot's catch-all runs after it
+ * looked and saw nothing it handles, but a question can arrive between that
+ * look and the click (CI 44884351426 and 44905040418: a pass that cancelled
+ * the Raven's bounce; 44900484054: Fabricate's cost window answered unread).
+ * Name the windows the bot reads and answers itself, e.g.
+ * `clickUnless(listed, '.gs-win:has(button.gs-cost-act), [data-kind="chooseTargetsFor"]')`.
+ * True when it clicked.
+ */
+export async function clickUnless(target: Locator, unplanned: string): Promise<boolean> {
+  if ((await target.count()) === 0) return false;
+  return target
     .first()
     .evaluate(
-      (e) => {
-        if (document.querySelector(".gs-combat")) return;
+      (e, unplanned) => {
+        if (document.querySelector(unplanned)) return false;
         (e as HTMLElement).click();
+        return true;
       },
-      undefined,
+      unplanned,
       { timeout: 5_000 },
     )
-    .catch(() => undefined);
+    .catch(() => false);
 }
 
 /**

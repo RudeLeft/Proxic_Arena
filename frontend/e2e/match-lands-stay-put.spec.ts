@@ -180,6 +180,9 @@ test("tapping Swamps by clicking the same spot: each click taps an untapped one,
           expect(hit!.label, `click ${clicks + 1}: a Swamp under the pointer`).toContain("Swamp");
           expect(hit!.tapped, `click ${clicks + 1}: untapped`).toBe(false);
           expect(hit!.choosable, `click ${clicks + 1}: it can pay`).toBe(true);
+          // A raw click on purpose (P11-B7): the subject is the SPOT -- the
+          // same point clicked each time, the pile must still be there --
+          // and what is under it was asserted just above.
           await page.mouse.move(paying.x, paying.y, { steps: 4 });
           await page.mouse.click(paying.x, paying.y);
           clicks += 1;

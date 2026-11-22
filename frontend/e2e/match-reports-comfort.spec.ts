@@ -40,6 +40,8 @@ import {
   clickUnlessCombat,
   discardIfAsked,
   matchPanel,
+  pointAt,
+  realClick,
   passButton,
   passCombat,
   sharedDeck,
@@ -52,55 +54,7 @@ test.describe.configure({ timeout: 1_200_000 });
 const pkg = join(process.cwd(), "..", "Test Deck", "reports-comfort-deck.zip");
 const SHOTS = process.env.PROXIC_SHOTS ?? "test-results/seen";
 
-/**
- * A point on the element that the mouse would really hit: inside the window
- * and not under another card (match-spell-choices' hitPoint: a hand card
- * stands partly below the window's edge and under its neighbour).
- */
-const hitPoint = (l: Locator) =>
-  l
-    .first()
-    .evaluate(
-      (el) => {
-        const r = el.getBoundingClientRect();
-        const top = Math.max(r.top, 0);
-        const bottom = Math.min(r.bottom, window.innerHeight - 2);
-        const left = Math.max(r.left, 0);
-        const right = Math.min(r.right, window.innerWidth - 2);
-        if (bottom <= top || right <= left) return null;
-        for (const fy of [0.5, 0.3, 0.7, 0.15, 0.85])
-          for (const fx of [0.5, 0.3, 0.15, 0.7, 0.85]) {
-            const x = left + (right - left) * fx;
-            const y = top + (bottom - top) * fy;
-            const hit = document.elementFromPoint(x, y);
-            if (hit && (hit === el || el.contains(hit))) return { x, y };
-          }
-        return null;
-      },
-      null,
-      { timeout: 2_000 },
-    )
-    .catch(() => null);
-
-/** A real mouse click, aimed again once the mouse has arrived (a hand may fan anew). */
-async function realClick(page: Page, target: Locator) {
-  const first = await hitPoint(target);
-  if (!first) return false;
-  await page.mouse.move(first.x, first.y, { steps: 6 });
-  await page.waitForTimeout(150);
-  const at = await hitPoint(target);
-  if (!at) return false;
-  await page.mouse.click(at.x, at.y);
-  return true;
-}
-
-/** The real mouse onto an element (no click): pointing. */
-async function pointAt(page: Page, target: Locator) {
-  const at = await hitPoint(target);
-  if (!at) return false;
-  await page.mouse.move(at.x, at.y, { steps: 8 });
-  return true;
-}
+// hitPoint, realClick and pointAt: match-helpers.ts (P11-B7: one copy).
 
 /** The live table (not the replay's layer): every object drawn, and where. */
 const liveTable = (page: Page) =>
@@ -382,7 +336,7 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
             page.locator(".gs-reveal-head").first(),
             page.locator("li.gs-reveal-card").first(),
           ]) {
-            await pointAt(page, part);
+            await pointAt(page, part, 8);
             await page.waitForTimeout(400);
           }
           await page.screenshot({ path: join(SHOTS, "reports-comfort-pointing-no-dim.png") });
@@ -453,7 +407,7 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
           if (stackEmpty && !asked) {
             await page.waitForTimeout(800);
             moment(`host points at its Library (known top, item 4)`);
-            await pointAt(page, page.locator('[data-zone-tile="viewer:library"]'));
+            await pointAt(page, page.locator('[data-zone-tile="viewer:library"]'), 8);
             console.log(`host's last knownTop on the wire: [${wire.hostKnown}]`);
             await page.screenshot({ path: join(SHOTS, "reports-comfort-known-pointing.png") });
             await expect(page.locator(".gs-known-card")).toHaveCount(2, { timeout: 5_000 });
@@ -468,7 +422,7 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
             const gone = await page.locator(".gs-known").count();
             // The guest's page: nothing, at rest or pointing at the host's Library.
             const guestRest = await knownInDom(guest);
-            await pointAt(guest, guest.locator('[data-zone-tile="opponent:library"]'));
+            await pointAt(guest, guest.locator('[data-zone-tile="opponent:library"]'), 8);
             await guest.waitForTimeout(500);
             const guestPointing = await knownInDom(guest);
             await guest.screenshot({ path: join(SHOTS, "reports-comfort-guest-library.png") });
@@ -478,7 +432,7 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
               .first()
               .evaluate((el) => ({ ...(el as HTMLElement).dataset }))
               .catch(() => null);
-            await pointAt(page, page.locator(".gs-seat-viewer .gs-thisturn"));
+            await pointAt(page, page.locator(".gs-seat-viewer .gs-thisturn"), 8);
             await page.waitForTimeout(400);
             const plateList = (await page.locator(".gs-thisturn-list").textContent()) ?? "";
             await page.screenshot({ path: join(SHOTS, "reports-comfort-plate-counts.png") });

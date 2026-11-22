@@ -482,6 +482,7 @@ step in "Recommended order".
 | P11-A4 | **"Nothing to play" can stay after it stops being true.** The worker decides it once, at your first main phase (`PriorityStops.java` `passedTurn`), and keeps it all turn (`passingFor`; page `passingOf`). Find the clip first. | S | yes if words change | 16 (with A5) |
 | P11-A5 | **Audit of leftover word pills and top notices** (owner, 2026-11-12). 0075 and 0097 moved many; one list of what's left, each with a canvas into the report window or kept with a reason. | M | yes | 16 |
 | P11-A6 | **0101's leftovers:** menace's pop on a refused single blocker (the refusal never reaches the combat result); a "prevent the next N" badge on a player (sent, never drawn). | S | yes | 17 |
+| P11-A7 | **A countered copy of a trigger vanishes in one frame** (owner, 2026-11-21, from the 1.75.0 jump check: `no-target-slayer`, board 47, both seats). Bob's Stifle counters the copy of Slayer of the Wicked's trigger that Strionic Resonator made; the copy's stack card is gone the next frame while a countered spell leaves with its animation. Give it the same leave. Contact sheet: the 1.75.0 release run's `slayer-sheet.jpg`. | S | clip | 17 (with A6) |
 
 ### Group B — reliability (from the first draft; B1 is now C6)
 
@@ -542,6 +543,9 @@ keep their relative order.)
   Full suites run on CI on every push, and locally once per release. Use
   fresh agents per build and per verify. Don't push while a main CI run
   is going.
+- **A new or changed browser spec runs at CI speed before it is
+  committed** (P11-B7): `node ci/ci-speed.mjs <spec>` -- CPU slowed 4x,
+  after its CI machine neighbour (docs/operations/UPDATING.md).
 - **One item at a time.** Visible items become feature specs (from 0104;
   fetch first, the checkout is shared). Goal items that change no look are
   maintenance under "Current work" with a dated As built amendment here.
@@ -847,3 +851,28 @@ INFERENCE = reasoned.
 ## As built: P11-B5 (2026-11-21)
 
 `tsc -p tsconfig.e2e.json` had 11 errors (not 7; `match-small-fixes` had gained four since the count): `admin.spec.ts` (the evaluate tuple, an unchecked first title), `device-link.spec.ts` (baseURL possibly undefined; the config always sets it), `match-small-fixes.spec.ts` (two `Row` types under `exactOptionalPropertyTypes`, one missing `mine`; the counts typed as pairs), and two page files lacking Vite's types (`tsconfig.e2e.json` now has `vite/client`). All fixed; `ci.yml`'s checks job runs `npx tsc -p tsconfig.e2e.json --noEmit` after the page check. tsc, eslint, prettier clean.
+
+## As built: P11-B7 (2026-11-21)
+
+Gated: tsc -b, tsc e2e, eslint, prettier and vitest (1822/1822) pass. The code is in bc719a2e on `phase-11`, which is not pushed.
+
+**Runs (RUN, 2026-11-21, local stack at app build f20bc2b2, bundled Chromium, bc719a2e):**
+- **Touched specs, one run:** 11 of 12 passed (19.1 min). They are cast-aside, cast-step-aside, casting-dock, last-jumps, numbers, quiet-windows, reading-card, reports-comfort, soulbond, state, and match-speed at 1x.
+- **The one failure was match-speed's 4x test:** "4x combat: JavaScript 99 ms/s > 88". This budget is checked off CI only. P11-B7 did not cause it:
+  - P11-B7 adds no page work during combat. Idle still waits by React commits, and no observer runs then.
+  - An A/B on the same stack: the pre-B7 spec (de564326's `match-speed.spec.ts` and `match-helpers.ts`) passed both tests, with 4x combat at 56.9 ms/s.
+  - Both combats had 163 updates. The failing one played in about 540 frames, the passing one in about 820. So the total JavaScript was close (~0.9 s against ~0.8 s), and the per-second number swings with how long the combat lasts.
+  - It is recorded in ROADMAP's flake list. It belongs to the open 80/70 budget work (C6). CI does not check this budget: on 64ea8373, CI's 4x combat was 177 ms/s.
+- **CI-speed run:** `node ci/ci-speed.mjs match-soulbond match-casting-dock match-reading-card`. It ran three Playwright runs at CPU 4x, each pairing the spec with the spec before it on its CI machine:
+  - match-passing + match-soulbond: 2 passed (1.4 min).
+  - match-card-trays + match-casting-dock: 2 passed (4.8 min).
+  - match-modes-doing + match-reading-card: 2 passed (49.6 s).
+- **The slowdown reaches the pages:** each run printed `[ci-speed] CPU slowed 4x on every page`. casting-dock took 2.5 min slowed against 39.3 s normally, which is an inference from the timings; nothing read the rate from a page.
+
+- **One copy of the real mouse, in `e2e/match-helpers.ts`.** `hitPoint` now clamps to the window AND to every ancestor that clips (scrolled lists, trays), falling back to the window-clipped box when an ancestor clips in style only; `pointAt` (point, no click), `realClick` (now with `button: "right"` and `steps`), and `clickAt` (a click at a chosen point, made only if the element is still what the mouse hits there). The copies in `match-reports-comfort` (`hitPoint`, `realClick`, `pointAt`) and `match-last-jumps` (`realClick`, which clicked a box's middle unchecked) are gone.
+- **`settle` moved from `match-speed` to `match-helpers`:** stack empty, no finite animation running, nothing changed for 2 s (default: DOM mutations, observed only while waiting; `clock: "commits"` reads match-speed's React commit probe, so its idle row is unchanged). Returns whether it settled.
+- **Raw clicks replaced:** `cast-aside`, `cast-step-aside`, `casting-dock`, `reading-card` (2) now `clickAt` the measured point (the point is their subject; the click is refused if the board moved); `soulbond`'s right-click is `realClick(..., { button: "right" })`, its pointing and `quiet-windows`' pointing use `pointAt`.
+- **Still raw, on purpose (commented):** `match-lands-stay-put` (the subject is the same spot clicked each time; what is under it is asserted just before), `match-quiet-windows` and `match-status-list` (an empty spot on the table, which no element stands for). The two raw clicks inside `realClick`/`clickAt` are the helpers themselves.
+- **Today's lessons as helpers:** `clickUnless(target, unplanned)` -- a catch-all's click that skips windows it does not plan for, the check and the click one page step (`clickUnlessCombat` is now `clickUnless(target, ".gs-combat")`); `chosenTargets(page)` -- what the page marks as chosen, not a bot's count (now used by `match-numbers`); `shownTexts(locator)` and `said(word)` -- whole text including the hidden sentence, and a word that may be glued to a count ("the monarch1") (now used by `match-state`). Other specs' bot logic is unchanged.
+- **CI-speed local run:** `node ci/ci-speed.mjs <spec> ...`. `PROXIC_E2E_CPU=N` (set by the script, default 4) makes `e2e/cpu-slowdown.ts`, imported by `playwright.config.ts`, wrap `chromium.launch` in each worker so every page of every context gets `Emulation.setCPUThrottlingRate`. The script runs each spec after its CI machine neighbour (deal from `ci/browser-shard.mjs`, name order as Playwright runs them), one Playwright run per machine; `--whole`, `--alone`, `--cpu N`, `--dry`. When to use it: in "How work runs" above and in `docs/operations/UPDATING.md`.
+- **Touched specs (run above, except the two with a comment only, which CI runs):** match-cast-aside, match-cast-step-aside, match-casting-dock, match-lands-stay-put (comment only), match-last-jumps, match-numbers, match-quiet-windows, match-reading-card, match-reports-comfort, match-soulbond, match-speed, match-state, match-status-list (comment only); every spec using `clickUnlessCombat` or `hitPoint` goes through the changed helpers.

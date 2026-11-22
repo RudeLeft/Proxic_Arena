@@ -31,6 +31,7 @@ import {
   castCentre,
   castRisen,
   clearEverything,
+  clickAt,
   clickNow,
   clickUnlessCombat,
   discardIfAsked,
@@ -217,7 +218,16 @@ test("paying with an Elf under the casting card: it steps aside, the Elf taps in
             // A real click on the Elf, through the card (it is see-through there).
             await page.mouse.move(elf.x, elf.y);
             await expect.poll(async () => (await castCentre(page))?.seeThrough).toBe(true);
-            await page.mouse.click(elf.x, elf.y);
+            // At that covered point (the subject), only if the Elf is still
+            // what the mouse hits there (P11-B7).
+            expect(
+              await clickAt(
+                page,
+                elf,
+                page.locator(`.bf-cards button[data-object-id="${elf.id ?? ""}"]`),
+              ),
+              "the Elf under the card takes the click",
+            ).toBe(true);
             await page.waitForTimeout(4200);
             const mine = await recorded(page);
             const theirs = await recorded(other);

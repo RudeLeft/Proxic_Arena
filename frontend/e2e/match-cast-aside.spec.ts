@@ -23,6 +23,7 @@ import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   answerCardTray,
   clearEverything,
+  clickAt,
   clickNow,
   clickUnlessCombat,
   passCombat,
@@ -34,6 +35,7 @@ import {
   discardIfAsked,
   castCentre,
   castRisen,
+  realClick,
   shootWithPointer,
 } from "./match-helpers";
 
@@ -193,8 +195,12 @@ test("paying for a spell, the card being cast stays at its stack spot and every 
                 shot = true;
                 continue;
               }
-              // A real click on the Elf, through the card when it is under it.
-              await page.mouse.click(...point);
+              // A real click on the Elf, through the card when it is under it:
+              // at that covered point (the subject of the test), made only if
+              // the Elf is still what the mouse hits there (P11-B7).
+              const elfButton = page.locator(`.bf-cards button[data-object-id="${elf.id ?? ""}"]`);
+              if (elf.under?.hit) await clickAt(page, { x: point[0], y: point[1] }, elfButton);
+              else await realClick(page, elfButton);
               await page.waitForTimeout(300);
               continue;
             }

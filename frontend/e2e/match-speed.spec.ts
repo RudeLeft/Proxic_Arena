@@ -41,6 +41,7 @@ import {
   clickNow,
   clickUnlessCombat,
   handCards,
+  settle,
   sharedDeck,
   startAMatch,
   watchGame,
@@ -513,38 +514,14 @@ const over = (page: Page) =>
     .catch(() => false);
 
 /**
- * Waits (at most 15 s) until every page has settled: nothing on its stack,
- * no look playing to an end (a looping one may go on: the idle count is
- * what judges those), and no React commit for 2 s -- longer than any board
- * the game screen holds (HOLD_MS, SWING_HOLD_MS: 1.5 s), so a held board
- * cannot be drawn mid-moment. The waiting player's page draws the other
- * player's spell later than the caster's own page does; idle measured from
- * a fixed 1.5 s after the host's move could catch its last frames (CI
- * 9d9b399, run 44489458035: the host had cast a spell that turn). Not
- * settled in time: idle is measured anyway, and its row says what played.
+ * Idle is a settled table: match-helpers' settle, by React's commits (the
+ * probe's `__speed.lastCommit`), not a DOM observer, which would run during
+ * the idle row. Not settled in 15 s: idle is measured anyway, and its row
+ * says what played.
  */
-async function settle(pages: Page[]) {
-  const quiet = (page: Page) =>
-    page
-      .evaluate(() => {
-        const P = (window as unknown as { __speed: { lastCommit?: number } }).__speed;
-        const sinceCommit = performance.now() - (P.lastCommit ?? 0);
-        const stack = document.querySelectorAll('button[data-zone="stack"]').length;
-        const playing = document.getAnimations().some((a) => {
-          const timing = a.effect?.getComputedTiming();
-          return a.playState === "running" && timing?.iterations !== Infinity;
-        });
-        return sinceCommit >= 2000 && stack === 0 && !playing;
-      })
-      .catch(() => false);
-  const end = Date.now() + 15_000;
-  while (Date.now() < end) {
-    let all = true;
-    for (const page of pages) if (!(await quiet(page))) all = false;
-    if (all) return;
-    await pages[0]!.waitForTimeout(250);
-  }
-  console.log("[speed] idle: the pages had not settled in 15 s; measured anyway");
+async function settled(pages: Page[]) {
+  if (!(await settle(pages, { clock: "commits" })))
+    console.log("[speed] idle: the pages had not settled in 15 s; measured anyway");
 }
 
 /** The host's own move, with nothing in combat. */
@@ -783,7 +760,7 @@ async function playAndTime(
           // Idle is a settled table: both pages done drawing what came last
           // (CI 9d9b399: 1.5 repaints a second on the waiting page, after a
           // spell the host had just cast -- see settle()).
-          await settle([host, guest]);
+          await settled([host, guest]);
           rows.push(
             await measure("idle", cpu, hostProbe, () => host.waitForTimeout(6000), guestProbe),
           );

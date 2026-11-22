@@ -22,6 +22,7 @@ import {
   boardCards,
   answerCardTray,
   clearEverything,
+  clickAt,
   clickNow,
   matchPanel,
   passButton,
@@ -173,7 +174,11 @@ test("the card being cast stays at its stack spot, hides from the opponent, then
                 timeout: 60_000,
               },
             );
-            await page.mouse.click(x, y);
+            // At the point measured above (under the card, see-through), only
+            // if the creature is still what the mouse hits there (P11-B7).
+            expect(await clickAt(page, { x, y }, target), "the creature takes the click").toBe(
+              true,
+            );
             // F-0068-C: the other player's card turns over at its place (spec
             // 0110: the stack's next slot) and is held there (read while it
             // is held, as this player pays, as soon as it has turned).

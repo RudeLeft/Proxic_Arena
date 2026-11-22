@@ -62,6 +62,15 @@ their measured time (`ci/browser-shard.mjs`, times in
 `ci/browser-durations.json`). A green run takes about 18-20 minutes
 (the runs on main of 2026-11-17 and 2026-11-18).
 
+**Before committing a new or changed browser spec**, run it at CI speed
+on the local stack: `node ci/ci-speed.mjs <spec> ...` (from the project
+folder; P11-B7). It slows every page's CPU 4x and runs each spec after
+the one that runs before it on its CI machine, the way CI does; `--whole`
+runs that machine's whole list, `--dry` prints the plan. A runner is
+several times slower than this machine, and the CI-only failures of
+2026-11-15..20 were all timing. One run at a time: it uses the shared
+test accounts.
+
 - **A push to main never cancels the run in progress.** It waits; a
   burst of pushes becomes one follow-up run of the newest commit.
 - **A push that changes only documentation** (`.md` files and `docs/`,

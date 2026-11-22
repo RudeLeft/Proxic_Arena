@@ -21,7 +21,9 @@ import {
   clearEverything,
   isAsked,
   matchPanel,
+  said,
   sharedDeck,
+  shownTexts,
   startAMatch,
   watchGame,
 } from "./match-helpers";
@@ -72,9 +74,7 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
     // while the monarch was on the board and got 0 every time.
     const seen = async (pattern: RegExp) => {
       for (const page of [host, guest]) {
-        const texts = await totals(page).evaluateAll((els) =>
-          els.map((el) => el.textContent ?? ""),
-        );
+        const texts = await shownTexts(totals(page));
         if (texts.some((text) => pattern.test(text))) return true;
       }
       return false;
@@ -89,7 +89,7 @@ test("poison, energy and the monarch show on the board as Forge's state", async 
       shown.energy ||= await seen(/\w+ energy/);
       // Not \b: the tray's count follows the hidden sentence with no space
       // ("..., the monarch1"), and CI run 44920299488 missed it all game.
-      shown.monarch ||= await seen(/\bmonarch(?![a-z])/i);
+      shown.monarch ||= await seen(said("monarch"));
       return shown.poison && shown.energy && shown.monarch;
     };
     const asking = async (page: Page) =>
