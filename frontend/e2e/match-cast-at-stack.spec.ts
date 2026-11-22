@@ -38,13 +38,17 @@ import {
   cardCount,
   clearEverything,
   clickNow,
+  clickUnlessCombat,
   discardIfAsked,
   matchPanel,
   passButton,
   passCombat,
+  PAYING,
   realClick,
+  realClickIf,
   sharedDeck,
   startAMatch,
+  TARGETING,
   watchGame,
 } from "./match-helpers";
 
@@ -259,7 +263,11 @@ test("the card being cast waits big at its stack spot through target and payment
 
         // --- the targets: measured once each, then a real click.
         const targeting = panel.locator('.gs-win[data-kind="chooseTargetsFor"]');
-        if (isHost && (await targeting.count()) > 0) {
+        const targetShown = isHost && (await targeting.count()) > 0;
+        // The host's target question opening after this look is the next
+        // pass's to aim, never a catch-all's below.
+        const unread = isHost && !targetShown ? TARGETING : undefined;
+        if (targetShown) {
           const from = (await targeting.allTextContents()).join(" ");
           if (/Victim of Night/.test(from) && !st.gryffAimed) {
             if (!st.first && (await onBoard(host, "opponent", /^Gryff Vanguard/).count()) > 0) {
@@ -314,7 +322,7 @@ test("the card being cast waits big at its stack spot through target and payment
                 await guest.screenshot({ path: join(SHOTS, "0110-1-victim-paying-guest.png") });
               }
             }
-            if (await realClick(host, swamp.first())) st.swampsClicked += 1;
+            if (await realClickIf(host, swamp.first(), PAYING)) st.swampsClicked += 1;
             continue;
           }
         }
@@ -324,7 +332,7 @@ test("the card being cast waits big at its stack spot through target and payment
             '.bf-cards button[data-choosable="true"][data-controller="viewer"]:not([data-zone$=":hand"])',
           );
           if ((await plains.count()) > 0) {
-            await realClick(guest, plains.first());
+            await realClickIf(guest, plains.first(), PAYING);
             continue;
           }
         }
@@ -366,8 +374,8 @@ test("the card being cast waits big at its stack spot through target and payment
         if (!(await priorityHere(page))) {
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, unread);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main, unread);
           else if ((await passButton(page).count()) > 0) await clickNow(passButton(page));
           continue;
         }

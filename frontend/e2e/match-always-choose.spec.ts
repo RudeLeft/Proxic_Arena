@@ -32,14 +32,18 @@ import {
   boardCards,
   choices,
   clearEverything,
+  clickIf,
   clickNow,
+  clickUnlessCombat,
   discardIfAsked,
   matchPanel,
   passButton,
   passCombat,
+  PAYING,
   realClick,
   sharedDeck,
   startAMatch,
+  TARGETING,
   watchGame,
 } from "./match-helpers";
 
@@ -307,12 +311,28 @@ test("Appetite for Brains with one card that fits: the host clicks it; the guest
           continue;
         }
 
+        // Step 4's offer and its first "Choose which ability" (both name Giant
+        // Killer) are step 4's to answer until it has chosen the half: never a
+        // catch-all's below, even one that opened after step 4 looked. (Asked
+        // again after that, it is the catch-all's, as before.)
+        const offerWait =
+          isHost && agentCast && !killerDown && !half
+            ? {
+                css: ':is(.gs-win, .gs-question):not([data-kind="applyManaToCost"])',
+                words: "Giant Killer",
+              }
+            : undefined;
         // Casting Appetite: its target is the guest's life shield; paying taps a Swamp.
         const targeting = panel.locator('.gs-win[data-kind="chooseTargetsFor"]');
         const cast = page.locator(".gs-cast:not(.gs-cast-leaving)");
         if (isHost && ((await targeting.count()) > 0 || (await cast.count()) > 0)) {
           const theirLife = panel.locator(".gs-seat-opponent .gs-life.gs-choosable");
-          if ((await targeting.count()) > 0 && (await theirLife.count()) > 0) {
+          // A target question shown here and not aimed (its theirLife not lit yet)
+          // may still be answered below, as before; one that opened since is
+          // the next pass's to aim.
+          const aimShown = (await targeting.count()) > 0;
+          const unaimed = aimShown ? undefined : TARGETING;
+          if (aimShown && (await theirLife.count()) > 0) {
             await realClick(page, theirLife);
             continue;
           }
@@ -320,9 +340,14 @@ test("Appetite for Brains with one card that fits: the host clicks it; the guest
             '.bf-cards button[data-choosable="true"][data-controller="viewer"]:not([data-zone="viewer:hand"])',
           );
           const listed = panel.locator(".gs-win li button, .gs-question li button");
-          if ((await tap.count()) > 0) await clickNow(tap);
-          else if ((await listed.count()) > 0) await clickNow(listed);
-          else await clickNow(panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"));
+          if ((await tap.count()) > 0) await clickIf(tap, PAYING);
+          else if ((await listed.count()) > 0) await clickUnlessCombat(listed, unaimed, offerWait);
+          else
+            await clickUnlessCombat(
+              panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"),
+              unaimed,
+              offerWait,
+            );
           continue;
         }
 
@@ -333,8 +358,8 @@ test("Appetite for Brains with one card that fits: the host clicks it; the guest
         if (!priority) {
           const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
           const listed = panel.locator(".gs-question li button, .gs-win li button");
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, undefined, offerWait);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main, undefined, offerWait);
           else await clickNow(passButton(page));
           continue;
         }

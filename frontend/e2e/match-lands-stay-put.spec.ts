@@ -21,12 +21,14 @@ import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   answerCardTray,
   clearEverything,
+  clickIf,
   clickNow,
   clickUnlessCombat,
   discardIfAsked,
   matchPanel,
   passButton,
   passCombat,
+  PAYING,
   sharedDeck,
   startAMatch,
   watchGame,
@@ -224,8 +226,8 @@ test("tapping Swamps by clicking the same spot: each click taps an untapped one,
           const any = page.locator(
             '.bf-cards button[data-choosable="true"]:not([data-zone="viewer:hand"])',
           );
-          if ((await any.count()) > 0) await clickNow(any);
-          else await clickNow(panel.locator(".gs-win li button, .gs-question li button"));
+          if ((await any.count()) > 0) await clickIf(any, PAYING);
+          else await clickIf(panel.locator(".gs-win li button, .gs-question li button"), PAYING);
           continue;
         }
         const priority =
@@ -235,7 +237,7 @@ test("tapping Swamps by clicking the same spot: each click taps an untapped one,
         if (!priority) {
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const board = page.locator('.bf-cards button[data-choosable="true"]');
-          if ((await listed.count()) > 0) await clickNow(listed);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed);
           else if ((await board.count()) > 0) await clickUnlessCombat(board);
           else await clickNow(passButton(page));
           continue;

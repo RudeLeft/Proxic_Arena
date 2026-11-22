@@ -29,15 +29,17 @@ import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   answerCardTray,
   clearEverything,
+  clickIf,
   clickNow,
   clickUnlessCombat,
-  passCombat,
+  discardIfAsked,
   matchPanel,
   passButton,
+  passCombat,
+  PAYING,
   sharedDeck,
   startAMatch,
   watchGame,
-  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "landing-deck.zip");
@@ -154,7 +156,7 @@ test("a creature nobody can answer goes by the stack, drawn once", async ({ brow
           );
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           if ((await mana.count()) > 0) await clickUnlessCombat(mana);
-          else if ((await listed.count()) > 0) await clickNow(listed);
+          else if ((await listed.count()) > 0) await clickUnlessCombat(listed);
           else await clickNow(passButton(page));
           continue;
         }
@@ -209,7 +211,10 @@ test("a creature nobody can answer goes by the stack, drawn once", async ({ brow
           // Spec 0105: the card flies to the stack and rests there (5.9 s
           // from the board that says so) before the creature comes out.
           const watching = watch(page, 15_000, 2_600);
-          await clickNow(owing);
+          // Only while "Pay the mana" is asked: the payment can end between
+          // the look above and this click, and an Elf clicked on your move
+          // makes mana instead of paying.
+          await clickIf(owing, PAYING);
           frames = await watching;
           if (frames.some((f) => f.flight)) break;
         }

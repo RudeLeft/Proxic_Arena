@@ -29,15 +29,19 @@ import {
   answerCardTray,
   boardCards,
   clearEverything,
+  clickIf,
   clickNow,
+  clickUnlessCombat,
   discardIfAsked,
   isAsked,
   matchPanel,
   passButton,
   passCombat,
+  PAYING,
   realClick,
   sharedDeck,
   startAMatch,
+  TARGETING,
   watchGame,
 } from "./match-helpers";
 
@@ -175,7 +179,12 @@ test("past seven places the fan shows six and a +N; a real click opens the pile,
         const cast = page.locator(".gs-cast:not(.gs-cast-leaving)");
         if ((await targeting.count()) > 0 || (await cast.count()) > 0) {
           const myLife = panel.locator(".gs-seat-viewer .gs-life.gs-choosable");
-          if ((await targeting.count()) > 0 && (await myLife.count()) > 0) {
+          // A target question shown here and not aimed (its myLife not lit yet)
+          // may still be answered below, as before; one that opened since is
+          // the next pass's to aim.
+          const aimShown = (await targeting.count()) > 0;
+          const unaimed = aimShown ? undefined : TARGETING;
+          if (aimShown && (await myLife.count()) > 0) {
             await realClick(page, myLife);
             continue;
           }
@@ -183,9 +192,13 @@ test("past seven places the fan shows six and a +N; a real click opens the pile,
             '.bf-cards button[data-choosable="true"][data-controller="viewer"]:not([data-zone="viewer:hand"]):not([data-zone$=":graveyard"])',
           );
           const listed = panel.locator(".gs-win li button, .gs-question li button");
-          if ((await tap.count()) > 0) await clickNow(tap);
-          else if ((await listed.count()) > 0) await clickNow(listed);
-          else await clickNow(panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"));
+          if ((await tap.count()) > 0) await clickIf(tap, PAYING);
+          else if ((await listed.count()) > 0) await clickUnlessCombat(listed, unaimed);
+          else
+            await clickUnlessCombat(
+              panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"),
+              unaimed,
+            );
           continue;
         }
         if (!(await isAsked(page))) continue;
@@ -196,8 +209,8 @@ test("past seven places the fan shows six and a +N; a real click opens the pile,
         if (!priority) {
           const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
           const listed = panel.locator(".gs-question li button, .gs-win li button");
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main);
           else await clickNow(passButton(page));
           continue;
         }

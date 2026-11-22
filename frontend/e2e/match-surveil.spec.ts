@@ -25,12 +25,13 @@ import {
   clearEverything,
   clickNow,
   clickUnlessCombat,
-  passCombat,
+  discardIfAsked,
   matchPanel,
+  passCombat,
+  passOrAct,
   sharedDeck,
   startAMatch,
   watchGame,
-  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "surveil-deck.zip");
@@ -142,9 +143,10 @@ test("surveil and scry show their cards to the player looking, and are answered 
           const board = panel.locator(
             '.bf-cards button[data-choosable="true"], .gs-life.gs-choosable',
           );
-          if ((await listed.count()) > 0) await click(listed);
-          else if ((await board.count()) > 0) await clickUnlessCombat(board);
-          else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
+          // Never the rows (read above): they can open between that look and these.
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, ROWS);
+          else if ((await board.count()) > 0) await clickUnlessCombat(board, ROWS);
+          else await click(passOrAct(page));
           continue;
         }
 

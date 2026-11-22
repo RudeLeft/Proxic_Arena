@@ -19,12 +19,13 @@ import {
   clearEverything,
   clickNow,
   clickUnlessCombat,
-  passCombat,
+  discardIfAsked,
   matchPanel,
+  passCombat,
+  passOrAct,
   sharedDeck,
   startAMatch,
   watchGame,
-  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "swarm-deck.zip");
@@ -195,9 +196,9 @@ test("a stack blocks a stack: select from the pile, point at theirs, and blocker
         // Anything else: its first choice, a board choice, or pass.
         const listed = panel.locator(".gs-question li button, .gs-win li button");
         const board = panel.locator('.bf-cards button[data-choosable="true"]');
-        if ((await listed.count()) > 0) await clickNow(listed);
+        if ((await listed.count()) > 0) await clickUnlessCombat(listed);
         else if ((await board.count()) > 0) await clickUnlessCombat(board);
-        else await clickNow(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
+        else await clickNow(passOrAct(page));
       }
       await host.waitForTimeout(100);
     }

@@ -19,20 +19,23 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
-  boardCards,
   answerCardTray,
-  clearEverything,
-  clickAt,
-  clickNow,
-  matchPanel,
-  passButton,
-  sharedDeck,
-  startAMatch,
-  watchGame,
-  discardIfAsked,
+  boardCards,
   castCentre,
   castRisen,
+  clearEverything,
+  clickAt,
+  clickIf,
+  clickNow,
+  clickUnlessCombat,
+  discardIfAsked,
+  matchPanel,
+  passButton,
+  PAYING,
+  sharedDeck,
   shootWithPointer,
+  startAMatch,
+  watchGame,
 } from "./match-helpers";
 
 const castingPackage = join(process.cwd(), "..", "Test Deck", "casting-deck.zip");
@@ -193,8 +196,9 @@ test("the card being cast stays at its stack spot, hides from the opponent, then
             })();
             for (let i = 0; i < 6 && (await kind(page)) !== "chooseSpellAbilityToPlay"; i++) {
               if ((await kind(page)) === "applyManaToCost") {
-                await clickNow(
+                await clickIf(
                   page.locator('.bf-cards button[data-choosable="true"]', { hasText: "Plains" }),
+                  PAYING,
                 );
               }
               await page.waitForTimeout(300);
@@ -254,12 +258,12 @@ test("the card being cast stays at its stack spot, hides from the opponent, then
           const plains = page.locator('.bf-cards button[data-choosable="true"]', {
             hasText: "Plains",
           });
-          if ((await plains.count()) > 0) await clickNow(plains.first());
+          if ((await plains.count()) > 0) await clickIf(plains.first(), PAYING);
           else await clickNow(passButton(page));
         } else {
           if (await answerCardTray(page)) continue;
           const list = matchPanel(page).locator(".gs-question li button, .gs-win li button");
-          if ((await list.count()) > 0) await clickNow(list.first());
+          if ((await list.count()) > 0) await clickUnlessCombat(list.first());
           else await clickNow(passButton(page));
         }
         await page.waitForTimeout(150);

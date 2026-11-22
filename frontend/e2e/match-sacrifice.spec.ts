@@ -37,16 +37,19 @@ import {
   boardCards,
   clearEverything,
   clickNow,
+  clickUnlessCombat,
+  discardIfAsked,
+  matchPanel,
   passButton,
   passCombat,
-  clickUnlessCombat,
-  matchPanel,
+  passOrAct,
+  PAYING,
   question,
   realClick,
+  realClickIf,
   sharedDeck,
   startAMatch,
   watchGame,
-  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "sacrifice-deck.zip");
@@ -144,9 +147,9 @@ test("a sacrifice is answered by clicking your own creature, and cannot be cance
             '.bf-cards button[data-choosable="true"], .gs-life.gs-choosable',
           );
           // Never a creature under "Declare attackers" arriving meanwhile.
-          if ((await listed.count()) > 0) await click(listed);
-          else if ((await board.count()) > 0) await clickUnlessCombat(board);
-          else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, SACRIFICE);
+          else if ((await board.count()) > 0) await clickUnlessCombat(board, SACRIFICE);
+          else await click(passOrAct(page));
           continue;
         }
 
@@ -379,12 +382,12 @@ test("Barter in Blood: the waiting player is told they choose next, then what wa
             '.bf-cards button[data-choosable="true"][data-controller="viewer"]:not([data-zone$=":hand"])',
           );
           if ((await land.count()) > 0) {
-            if (await realClick(page, land.first())) st.landsClicked += 1;
+            if (await realClickIf(page, land.first(), PAYING)) st.landsClicked += 1;
             continue;
           }
         }
 
-        if (await answerCardTray(page)) continue;
+        if (await answerCardTray(page, { except: SACRIFICE })) continue;
         // Nobody attacks.
         if ((await panel.locator("button.gs-act-combat").count()) > 0) {
           await passCombat(page);
@@ -397,8 +400,8 @@ test("Barter in Blood: the waiting player is told they choose next, then what wa
         if (!priority) {
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, SACRIFICE);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main, SACRIFICE);
           else if ((await passButton(page).count()) > 0) await clickNow(passButton(page));
           continue;
         }

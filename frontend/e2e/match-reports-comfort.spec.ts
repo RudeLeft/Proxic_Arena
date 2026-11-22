@@ -40,10 +40,11 @@ import {
   clickUnlessCombat,
   discardIfAsked,
   matchPanel,
-  pointAt,
-  realClick,
   passButton,
   passCombat,
+  pointAt,
+  realClick,
+  realClickUnless,
   sharedDeck,
   startAMatch,
   watchGame,
@@ -51,6 +52,8 @@ import {
 
 test.describe.configure({ timeout: 1_200_000 });
 
+/** Brainstorm's put back (cards from the hand to the top) and its order: the host's steps. */
+const BRAINSTORM = '[data-kind="chooseEntitiesForEffect"], [data-kind="orderMoveToZoneList"]';
 const pkg = join(process.cwd(), "..", "Test Deck", "reports-comfort-deck.zip");
 const SHOTS = process.env.PROXIC_SHOTS ?? "test-results/seen";
 
@@ -515,7 +518,12 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
                 : (await inHand.count()) > 0
                   ? inHand
                   : null;
-          if (target && (await realClick(page, target))) {
+          // ...and that check is made again, in the page, when the real click
+          // arrives: priority can come back in the ~150 ms the mouse takes.
+          if (
+            target &&
+            (await realClickUnless(page, target, '[data-kind="chooseSpellAbilityToPlay"]'))
+          ) {
             putBack.push(putBack.includes("Consider") ? "Swamp" : "Consider");
             moment(`host clicked ${putBack.at(-1)} to put back`);
             await page.screenshot({
@@ -535,7 +543,11 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
           }
         }
 
-        if (await answerCardTray(page)) continue;
+        // Never Brainstorm's put back or its order while the host's steps above
+        // wait for them: either can open between those looks and the
+        // catch-alls below, whose generic answer is not the host's choice.
+        const brainstormWait = isHost && brainstormCast && !ordered ? BRAINSTORM : undefined;
+        if (await answerCardTray(page, brainstormWait ? { except: brainstormWait } : {})) continue;
         const combat = panel.locator("button.gs-act-combat");
         if ((await combat.count()) > 0) {
           await passCombat(page);
@@ -550,9 +562,14 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
             '.bf-cards button[data-choosable="true"]:not([data-zone="viewer:hand"])',
           );
           const listedNow = panel.locator(".gs-win li button, .gs-question li button");
-          if ((await tap.count()) > 0) await clickNow(tap);
-          else if ((await listedNow.count()) > 0) await clickNow(listedNow);
-          else await clickNow(panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"));
+          if ((await tap.count()) > 0) await clickUnlessCombat(tap, brainstormWait);
+          else if ((await listedNow.count()) > 0)
+            await clickUnlessCombat(listedNow, brainstormWait);
+          else
+            await clickUnlessCombat(
+              panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"),
+              brainstormWait,
+            );
           continue;
         }
 
@@ -564,9 +581,9 @@ test("a report replays by R and by its medallion, the table unchanged after; Bra
           const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const board = page.locator('.bf-cards button[data-choosable="true"]');
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
-          else if ((await board.count()) > 0) await clickUnlessCombat(board);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, brainstormWait);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main, brainstormWait);
+          else if ((await board.count()) > 0) await clickUnlessCombat(board, brainstormWait);
           else await clickNow(passButton(page));
           continue;
         }

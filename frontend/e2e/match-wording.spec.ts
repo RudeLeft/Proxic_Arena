@@ -36,10 +36,13 @@ import {
   boardCards,
   clearEverything,
   clickNow,
+  clickUnlessCombat,
   discardIfAsked,
   matchPanel,
   passCombat,
+  PAYING,
   realClick,
+  realClickIf,
   sharedDeck,
   startAMatch,
   watchGame,
@@ -420,7 +423,7 @@ test("the game screen's words: the act button, a look-at-the-top report, a count
             '.bf-cards button[data-choosable="true"][data-controller="viewer"]:not([data-zone$=":hand"])',
           );
           if ((await land.count()) > 0) {
-            if (await realClick(page, land.first())) st.landsTapped += 1;
+            if (await realClickIf(page, land.first(), PAYING)) st.landsTapped += 1;
             continue;
           }
         }
@@ -444,8 +447,8 @@ test("the game screen's words: the act button, a look-at-the-top report, a count
           const asked = `.gs-win:not(:has(button.gs-cost-act))${notDig}`;
           const listed = panel.locator(`.gs-question li button, ${asked} li button`);
           const main = panel.locator(`${asked} button.gs-win-btn-main:not(:disabled)`);
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main);
           else await clickNow(pass(page));
           continue;
         }

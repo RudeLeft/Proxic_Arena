@@ -26,12 +26,15 @@ import { secondPassword, secondUser, signIn, signInAs, testUser } from "./helper
 import {
   boardCards,
   clearEverything,
+  clickIf,
   clickNow,
+  clickUnlessCombat,
   discardIfAsked,
   isAsked,
   lifeSettled,
   matchPanel,
   passButton,
+  PAYING,
   realClick,
   sharedDeck,
   startAMatch,
@@ -39,6 +42,9 @@ import {
 } from "./match-helpers";
 
 test.describe.configure({ timeout: 1_200_000 });
+
+/** The damage window: a step reads and answers it; no catch-all may. */
+const DAMAGE_KIND = '.gs-win.gs-tray[data-kind="assignCombatDamage"]';
 
 const pkg = join(process.cwd(), "..", "Test Deck", "trample-deck.zip");
 const SHOTS = process.env.PROXIC_SHOTS ?? "test-results/seen";
@@ -297,10 +303,12 @@ test("trample: Change split keeps it all on the blocker and the defender is told
           );
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
-          if ((await listed.count()) > 0) await clickNow(listed);
+          // Never the damage window (read above): it can open between that
+          // look and these clicks, and its main button is its Done.
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, DAMAGE_KIND);
           else if ((await tap.filter({ hasText: /^Forest/ }).count()) > 0)
-            await clickNow(tap.filter({ hasText: /^Forest/ }));
-          else if ((await main.count()) > 0) await clickNow(main);
+            await clickIf(tap.filter({ hasText: /^Forest/ }), PAYING);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main, DAMAGE_KIND);
           else await clickNow(passButton(page));
           continue;
         }

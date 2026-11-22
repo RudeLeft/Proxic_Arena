@@ -29,14 +29,17 @@ import {
   boardCards,
   cardCount,
   clearEverything,
+  clickIf,
   clickNow,
   clickUnlessCombat,
   discardIfAsked,
   matchPanel,
   passButton,
+  PAYING,
   realClick,
   sharedDeck,
   startAMatch,
+  TARGETING,
   watchGame,
 } from "./match-helpers";
 
@@ -339,9 +342,13 @@ test("printed combat squares in combat; a Stifled ping crumbles with a window to
               )
               .filter({ hasText: /Swamp|Mountain|Island|Plains/ });
             const listedNow = panel.locator(".gs-win li button, .gs-question li button");
-            if ((await tap.count()) > 0) await clickNow(tap);
-            else if ((await listedNow.count()) > 0) await clickNow(listedNow);
-            else await clickNow(panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"));
+            if ((await tap.count()) > 0) await clickIf(tap, PAYING);
+            else if ((await listedNow.count()) > 0) await clickUnlessCombat(listedNow, TARGETING);
+            else
+              await clickUnlessCombat(
+                panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"),
+                TARGETING,
+              );
             continue;
           }
           const onStack = page.locator('button[data-zone="stack"][data-choosable="true"]');
@@ -351,9 +358,10 @@ test("printed combat squares in combat; a Stifled ping crumbles with a window to
           }
           const listed = panel.locator(".gs-win li button, .gs-question li button");
           const done = panel.locator("button.gs-targets-done");
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await done.count()) > 0) await clickNow(done);
-          else await clickNow(panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"));
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed);
+          else if ((await done.count()) > 0) await clickUnlessCombat(done);
+          else
+            await clickUnlessCombat(panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"));
           continue;
         }
 
@@ -367,8 +375,8 @@ test("printed combat squares in combat; a Stifled ping crumbles with a window to
           const board = page
             .locator('.bf-cards button[data-choosable="true"]')
             .filter({ hasNotText: /^Prodigal Pyromancer/ });
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main);
           else if ((await board.count()) > 0) await clickUnlessCombat(board);
           else await clickNow(passButton(page));
           continue;

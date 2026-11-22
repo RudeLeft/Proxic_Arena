@@ -14,12 +14,15 @@ import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   clearEverything,
   clickNow,
+  clickUnless,
+  discardIfAsked,
+  lifeSettled,
   matchPanel,
+  passOrAct,
+  PRIORITY,
   sharedDeck,
   startAMatch,
   watchGame,
-  discardIfAsked,
-  lifeSettled,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "interaction-deck.zip");
@@ -156,9 +159,9 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
         );
         const board = panel.locator('.bf-cards button[data-choosable="true"]');
         if ((await face.count()) > 0) await click(face);
-        else if ((await listed.count()) > 0) await click(listed);
-        else if ((await board.count()) > 0) await click(board);
-        else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
+        else if ((await listed.count()) > 0) await clickUnless(listed, PRIORITY);
+        else if ((await board.count()) > 0) await clickUnless(board, PRIORITY);
+        else await click(passOrAct(page));
         continue;
       }
       const land = hand.filter({ hasText: "Mountain" });

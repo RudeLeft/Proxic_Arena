@@ -151,7 +151,7 @@ test("flyers hover, tapped ones rest; a creature that just came in shows its z's
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           if ((await birds.count()) > 0) await clickUnlessCombat(birds);
           else if ((await mana.count()) > 0) await clickUnlessCombat(mana);
-          else if ((await listed.count()) > 0) await clickNow(listed);
+          else if ((await listed.count()) > 0) await clickUnlessCombat(listed);
           else await clickNow(passButton(page));
           continue;
         }

@@ -17,13 +17,16 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
-  boardCards,
   answerCardTray,
+  boardCards,
   clearEverything,
+  clickIf,
   clickNow,
+  clickUnlessCombat,
   discardIfAsked,
   matchPanel,
   passButton,
+  PAYING,
   sharedDeck,
   startAMatch,
   watchGame,
@@ -263,7 +266,7 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
           const land = page.locator('.bf-cards button[data-choosable="true"]', {
             hasText: /Plains|Mountain/,
           });
-          if ((await land.count()) > 0) await clickNow(land.first());
+          if ((await land.count()) > 0) await clickIf(land.first(), PAYING);
           else await clickNow(passButton(page));
         } else {
           // Whatever else is asked (discarding down to seven, ...): the
@@ -276,9 +279,11 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
           );
           const card = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
           const done = matchPanel(page).locator(".gs-win button.gs-win-btn-main:not(:disabled)");
-          if ((await list.count()) > 0) await clickNow(list.first());
-          else if ((await card.count()) > 0) await clickNow(card.first());
-          else if ((await done.count()) > 0) await clickNow(done.first());
+          // Never on this player's move: it can come back between the look
+          // above and these clicks, and a hand card clicked then is a cast.
+          if ((await list.count()) > 0) await clickUnlessCombat(list.first());
+          else if ((await card.count()) > 0) await clickUnlessCombat(card.first());
+          else if ((await done.count()) > 0) await clickUnlessCombat(done.first());
           else await clickNow(passButton(page));
         }
         await page.waitForTimeout(120);

@@ -30,12 +30,15 @@ import {
   boardCards,
   clearEverything,
   clickNow,
+  clickUnlessCombat,
   discardIfAsked,
   matchPanel,
   passButton,
   passCombat,
+  PAYING,
   pointAt,
   realClick,
+  realClickIf,
   sharedDeck,
   startAMatch,
   watchGame,
@@ -231,12 +234,19 @@ test("soulbond: the link mark on both cards on both pages; pointing lights the p
             '.bf-cards button[data-choosable="true"][data-controller="viewer"]:not([data-zone$=":hand"])',
           );
           if ((await land.count()) > 0) {
-            if (await realClick(page, land.first())) st.landsClicked += 1;
+            if (await realClickIf(page, land.first(), PAYING)) st.landsClicked += 1;
             continue;
           }
         }
 
-        if (await answerCardTray(page)) continue;
+        // Never the soulbond question while the step above waits for it: it
+        // can open between that look and these catch-alls, whose generic
+        // answer is not the real click on Elder Cathar.
+        const pairWait =
+          isHost && st.lookoutClicked && !st.pairClicked
+            ? { css: ".gs-win, .gs-question", words: "pair" }
+            : undefined;
+        if (await answerCardTray(page, pairWait ? { saying: pairWait } : {})) continue;
         const combat = panel.locator("button.gs-act-combat");
         if ((await combat.count()) > 0) {
           await passCombat(page);
@@ -245,8 +255,8 @@ test("soulbond: the link mark on both cards on both pages; pointing lights the p
         if (!(await priorityHere(page))) {
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, undefined, pairWait);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main, undefined, pairWait);
           else if ((await passButton(page).count()) > 0) await clickNow(passButton(page));
           continue;
         }

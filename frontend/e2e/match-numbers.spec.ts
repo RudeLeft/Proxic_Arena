@@ -33,12 +33,14 @@ import {
   clearEverything,
   clickNow,
   clickUnlessCombat,
-  passCombat,
+  discardIfAsked,
   matchPanel,
+  passCombat,
+  passOrAct,
   sharedDeck,
   startAMatch,
+  TARGETING,
   watchGame,
-  discardIfAsked,
 } from "./match-helpers";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "numbers-deck.zip");
@@ -48,6 +50,11 @@ const DIALS = ["announceRequirements", "chooseNumberForKeywordCost", "chooseNumb
 const KINDS = [...DIALS, "divideAsYouChoose", "chooseTargetsFor"];
 /** The spells whose split can be asked: more damage than targets. */
 const DIVIDED = /^(Arc Lightning|Rolling Thunder)$/;
+/** The windows the loop below reads first (the split's tray, the dials). */
+const ASKED_ABOVE = [
+  '.gs-win[data-kind="divideAsYouChoose"]',
+  ...DIALS.map((k) => `.gs-win[data-kind="${k}"]:has(.gs-dial)`),
+].join(", ");
 const click = clickNow;
 
 test("number questions: the dial for X, a kicker and energy; one tray for a split", async ({
@@ -268,9 +275,13 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
           if ((await them.count()) > 0) await click(them);
           else if (isTarget && divided && (await theirs.count()) > 0) await click(theirs);
           else if (isTarget && divided && (await creature.count()) > 0) await click(creature);
-          else if ((await board.count()) > 0) await clickUnlessCombat(board);
-          else if ((await listed.count()) > 0) await click(listed);
-          else await click(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
+          // Never a window read above (the split, a dial), nor a target
+          // question that opened after the look above: each can open between
+          // those looks and these clicks, and is read on the next pass.
+          const unread = isTarget ? ASKED_ABOVE : `${ASKED_ABOVE}, ${TARGETING}`;
+          if ((await board.count()) > 0) await clickUnlessCombat(board, unread);
+          else if ((await listed.count()) > 0) await clickUnlessCombat(listed, unread);
+          else await click(passOrAct(page));
           if (isTarget) targeted.set(page, (targeted.get(page) ?? 0) + 1);
           continue;
         }

@@ -30,15 +30,18 @@ import {
   boardCards,
   cardCount,
   clearEverything,
+  clickIf,
   clickNow,
   clickUnlessCombat,
   discardIfAsked,
   matchPanel,
   passButton,
   passCombat,
+  PAYING,
   realClick,
   sharedDeck,
   startAMatch,
+  TARGETING,
   watchGame,
 } from "./match-helpers";
 
@@ -46,6 +49,12 @@ test.describe.configure({ timeout: 1_200_000 });
 
 const pkg = join(process.cwd(), "..", "Test Deck", "spell-choices-deck.zip");
 const SHOTS = process.env.PROXIC_SHOTS ?? "test-results/seen";
+/**
+ * Step 1's split tray: read and answered at the top of the loop, never by a
+ * catch-all below (it can open between that look and theirs, and its main
+ * button is its Done).
+ */
+const SPLIT = '.gs-win[data-kind="divideAsYouChoose"]:has(.gs-win-stepper)';
 
 /**
  * On every frame from now: each beam that swings (its line's target as it
@@ -388,9 +397,14 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
               .locator('.bf-cards button[data-choosable="true"]:not([data-zone="viewer:hand"])')
               .filter({ hasNotText: /^Spellskite/ });
             const listedNow = panel.locator(".gs-win li button, .gs-question li button");
-            if ((await tap.count()) > 0) await clickNow(tap);
-            else if ((await listedNow.count()) > 0) await clickNow(listedNow);
-            else await clickNow(panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"));
+            if ((await tap.count()) > 0) await clickIf(tap, PAYING);
+            else if ((await listedNow.count()) > 0)
+              await clickUnlessCombat(listedNow, `${TARGETING}, ${SPLIT}`);
+            else
+              await clickUnlessCombat(
+                panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"),
+                `${TARGETING}, ${SPLIT}`,
+              );
             continue;
           }
           if (/Arc Lightning/.test(label)) {
@@ -398,8 +412,12 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
             if (chosen === 0 && (await theirOgre.count()) > 0) await realClick(page, theirOgre);
             else if (chosen === 1 && (await theirLife.count()) > 0)
               await realClick(page, theirLife);
-            else if ((await done.count()) > 0) await clickNow(done);
-            else await clickNow(panel.locator(".gs-win li button, .gs-question li button"));
+            else if ((await done.count()) > 0) await clickUnlessCombat(done, SPLIT);
+            else
+              await clickUnlessCombat(
+                panel.locator(".gs-win li button, .gs-question li button"),
+                SPLIT,
+              );
             continue;
           }
           if (/Lightning Bolt/.test(label) && (await theirOgre.count()) > 0) {
@@ -419,10 +437,14 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
           const choosable = page
             .locator('.bf-cards button[data-choosable="true"]:not([data-zone="viewer:hand"])')
             .filter({ hasNotText: /^Spellskite/ });
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await done.count()) > 0) await clickNow(done);
-          else if ((await choosable.count()) > 0) await clickNow(choosable);
-          else await clickNow(panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"));
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, SPLIT);
+          else if ((await done.count()) > 0) await clickUnlessCombat(done, SPLIT);
+          else if ((await choosable.count()) > 0) await clickUnlessCombat(choosable, SPLIT);
+          else
+            await clickUnlessCombat(
+              panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"),
+              SPLIT,
+            );
           continue;
         }
 
@@ -437,9 +459,9 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
           const board = page
             .locator('.bf-cards button[data-choosable="true"]')
             .filter({ hasNotText: /^Spellskite/ });
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
-          else if ((await board.count()) > 0) await clickUnlessCombat(board);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, SPLIT);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main, SPLIT);
+          else if ((await board.count()) > 0) await clickUnlessCombat(board, SPLIT);
           else await clickNow(passButton(page));
           continue;
         }

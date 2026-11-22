@@ -34,16 +34,20 @@ import {
   answerCardTray,
   boardCards,
   clearEverything,
+  clickIf,
   clickNow,
+  clickUnlessCombat,
   discardIfAsked,
   isAsked,
   lifeSettled,
   matchPanel,
   passButton,
   passCombat,
+  PAYING,
   realClick,
   sharedDeck,
   startAMatch,
+  TARGETING,
   watchGame,
 } from "./match-helpers";
 
@@ -200,7 +204,12 @@ test("a creature nobody can answer rests on the stack with its ring on both page
         const cast = page.locator(".gs-cast:not(.gs-cast-leaving)");
         if ((await targeting.count()) > 0 || (await cast.count()) > 0) {
           const theirLife = panel.locator(".gs-seat-opponent .gs-life.gs-choosable");
-          if ((await targeting.count()) > 0 && (await theirLife.count()) > 0) {
+          // A target question shown here and not aimed (its theirLife not lit yet)
+          // may still be answered below, as before; one that opened since is
+          // the next pass's to aim.
+          const aimShown = (await targeting.count()) > 0;
+          const unaimed = aimShown ? undefined : TARGETING;
+          if (aimShown && (await theirLife.count()) > 0) {
             await realClick(page, theirLife);
             continue;
           }
@@ -208,9 +217,13 @@ test("a creature nobody can answer rests on the stack with its ring on both page
             '.bf-cards button[data-choosable="true"][data-controller="viewer"]:not([data-zone="viewer:hand"])',
           );
           const listed = panel.locator(".gs-win li button, .gs-question li button");
-          if ((await tap.count()) > 0) await clickNow(tap);
-          else if ((await listed.count()) > 0) await clickNow(listed);
-          else await clickNow(panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"));
+          if ((await tap.count()) > 0) await clickIf(tap, PAYING);
+          else if ((await listed.count()) > 0) await clickUnlessCombat(listed, unaimed);
+          else
+            await clickUnlessCombat(
+              panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)"),
+              unaimed,
+            );
           continue;
         }
         if (!(await isAsked(page))) continue;
@@ -221,8 +234,8 @@ test("a creature nobody can answer rests on the stack with its ring on both page
         if (!priority) {
           const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
           const listed = panel.locator(".gs-question li button, .gs-win li button");
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main);
           else await clickNow(passButton(page));
           continue;
         }

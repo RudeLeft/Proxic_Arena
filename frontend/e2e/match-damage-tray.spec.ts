@@ -30,6 +30,8 @@ import {
   discardIfAsked,
 } from "./match-helpers";
 
+/** The damage window: a step reads and answers it; no catch-all may. */
+const DAMAGE_KIND = '.gs-win.gs-tray[data-kind="assignCombatDamage"]';
 const pkg = join(process.cwd(), "..", "Test Deck", "landing-deck.zip");
 const CREATURES =
   /^(Birds of Paradise|Grizzly Bears|Llanowar Elves|Elvish Mystic|Centaur Courser|Giant Spider|Craw Wurm|Kalonian Tusker|Leatherback Baloth)/;
@@ -134,8 +136,10 @@ test("two blockers: the damage is one tray, filled in, one click", async ({ brow
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           // "Discard a card" at the end of a turn with eight in hand is
           // answered above (pick, then Discard: spec 0061).
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await mana.count()) > 0) await clickUnlessCombat(mana);
+          // Never the damage tray (read above): it can open between that look
+          // and these clicks.
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, DAMAGE_KIND);
+          else if ((await mana.count()) > 0) await clickUnlessCombat(mana, DAMAGE_KIND);
           else await clickNow(passButton(page));
           continue;
         }

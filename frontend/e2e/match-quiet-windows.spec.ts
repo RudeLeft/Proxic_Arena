@@ -34,6 +34,7 @@ import {
   cardCount,
   clearEverything,
   clickNow,
+  clickUnlessCombat,
   discardIfAsked,
   matchPanel,
   passCombat,
@@ -41,6 +42,7 @@ import {
   realClick,
   sharedDeck,
   startAMatch,
+  TARGETING,
   watchGame,
 } from "./match-helpers";
 
@@ -135,9 +137,11 @@ async function payOrAnswer(page: Page): Promise<boolean> {
     ".gs-win li button:not(:disabled), .gs-question li button:not(:disabled)",
   );
   const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
-  if ((await tap.count()) > 0) await clickNow(tap);
-  else if ((await listed.count()) > 0) await clickNow(listed);
-  else if ((await main.count()) > 0) await clickNow(main);
+  // Never a target question: every one is read above (aimed, or backed out
+  // of), and one can open between that look and these clicks.
+  if ((await tap.count()) > 0) await clickUnlessCombat(tap, TARGETING);
+  else if ((await listed.count()) > 0) await clickUnlessCombat(listed, TARGETING);
+  else if ((await main.count()) > 0) await clickUnlessCombat(main, TARGETING);
   else return false;
   return true;
 }
@@ -416,8 +420,8 @@ test("your spell's short target window; no window for Mist Raven's bounce, a pla
           const asked = '.gs-win:not([data-kind="chooseTargetsFor"])';
           const listed = panel.locator(`.gs-question li button, ${asked} li button`);
           const main = panel.locator(`${asked} button.gs-win-btn-main:not(:disabled)`);
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main);
           else await clickNow(pass(page));
           continue;
         }

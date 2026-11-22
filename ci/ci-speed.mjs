@@ -14,6 +14,8 @@
 //   node ci/ci-speed.mjs --whole <spec>        the spec's whole CI machine
 //   node ci/ci-speed.mjs --alone <spec>        just the spec, slowed
 //   node ci/ci-speed.mjs --dry <spec>          print the plan, run nothing
+//   node ci/ci-speed.mjs --output <dir> <spec> Playwright's results under <dir>
+//                                              (one folder per run), not the repo's
 //
 // A spec is named with or without ".spec.ts" ("match-soulbond"). Game specs
 // run as CI's "match" project, one Playwright run per CI machine; any other
@@ -22,7 +24,7 @@
 // PROXIC_E2E_CHANNEL says otherwise.
 import { spawnSync } from "node:child_process";
 import { readdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -34,6 +36,7 @@ const args = process.argv.slice(2);
 let cpu = 4;
 let mode = "neighbour";
 let dry = false;
+let output = null;
 const named = [];
 for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -41,6 +44,7 @@ for (let i = 0; i < args.length; i++) {
     else if (a === "--whole") mode = "whole";
     else if (a === "--alone") mode = "alone";
     else if (a === "--dry") dry = true;
+    else if (a === "--output") output = resolve(args[++i]);
     else
         named.push(
             a.replace(/^.*[\\/]/, "").replace(/(\.spec\.ts)?$/, ".spec.ts"),
@@ -48,7 +52,7 @@ for (let i = 0; i < args.length; i++) {
 }
 if (named.length === 0 || !(cpu >= 1)) {
     console.error(
-        "usage: node ci/ci-speed.mjs [--cpu N] [--whole|--alone] [--dry] <spec> ...",
+        "usage: node ci/ci-speed.mjs [--cpu N] [--whole|--alone] [--dry] [--output DIR] <spec> ...",
     );
     process.exit(2);
 }
@@ -140,7 +144,16 @@ for (const [key, run] of runs) {
     );
     const result = spawnSync(
         process.execPath,
-        [cli, "test", `--project=${run.project}`, "--workers=1", ...filters],
+        [
+            cli,
+            "test",
+            `--project=${run.project}`,
+            "--workers=1",
+            ...(output
+                ? [`--output=${join(output, key.replace(/[^a-z0-9]+/gi, "-"))}`]
+                : []),
+            ...filters,
+        ],
         { cwd: frontend, env, stdio: "inherit" },
     );
     if (result.status !== 0) failed++;

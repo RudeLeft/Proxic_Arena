@@ -27,6 +27,13 @@ import {
   lifeSettled,
 } from "./match-helpers";
 
+/** The windows the loop reads first, by name; its catch-all never answers one. */
+const READ_ABOVE = [
+  '[role="dialog"][aria-label="Choose the order your triggers resolve in"]',
+  '[role="dialog"][aria-label$="choose a target"]',
+  '.gs-win[data-kind="chooseTargetsFor"]:has(button.gs-win-decline)',
+  ".gs-bubble:has(button.gs-win-btn-main)",
+].join(", ");
 const pkg = join(process.cwd(), "..", "Test Deck", "triggers-deck.zip");
 // The Goblin makers and what each costs, played only when affordable
 // (Mountains counted, as for WIPES below).
@@ -249,7 +256,11 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
           await clickNow(all);
           continue;
         }
-        const yes = page.locator(".gs-bubble button.gs-win-btn-main");
+        // Never a "Yes to all" (also the main button): its window can open
+        // between W-04's look above and this one, and W-04 records it.
+        const yes = page
+          .locator(".gs-bubble button.gs-win-btn-main")
+          .filter({ hasNotText: /^Yes to all/ });
         if ((await yes.count()) > 0) {
           const card = await bubbleCard(page);
           if (yesFor.has(card)) throw new Error(`asked yes again after Yes to all (${card})`);
@@ -336,8 +347,11 @@ test("seven Goblins die: no order question for copies, one target, one yes to al
         // Anything else: its first choice, a board choice, or pass.
         const listed = panel.locator(".gs-question li button, .gs-win li button");
         const board = panel.locator('.bf-cards button[data-choosable="true"]');
-        if ((await listed.count()) > 0) await clickNow(listed);
-        else if ((await board.count()) > 0) await clickUnlessCombat(board);
+        // Never a window read above (W-04/05/06, the lone target): each can
+        // open between those looks and these clicks, and a board click then
+        // aims a copy at a creature unrecorded.
+        if ((await listed.count()) > 0) await clickUnlessCombat(listed, READ_ABOVE);
+        else if ((await board.count()) > 0) await clickUnlessCombat(board, READ_ABOVE);
         else {
           // Never the Cancel act button: a question that opened after the
           // checks above (a copy's target window) shows it, and clicking it

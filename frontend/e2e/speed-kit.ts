@@ -7,7 +7,7 @@
 // rendered and whether the game screen and each plate were among them.
 
 import { expect, type CDPSession, type Page } from "@playwright/test";
-import { clickNow, clickUnlessCombat, handCards } from "./match-helpers";
+import { clickNow, clickUnlessCombat, handCards, passOrAct } from "./match-helpers";
 
 /** The table is "big" from this many permanents (both sides). */
 export const BIG = 28;
@@ -194,10 +194,10 @@ export async function step(page: Page, cast = true): Promise<void> {
     return clickNow(act);
   }
   const listed = panel.locator(".gs-question li button, .gs-win li button");
-  if ((await listed.count()) > 0) return clickNow(listed);
+  if ((await listed.count()) > 0) return clickUnlessCombat(listed);
   const board = panel.locator('.bf-cards button[data-choosable="true"]');
   if ((await board.count()) > 0) return clickUnlessCombat(board);
-  await clickNow(panel.locator("button.gs-pass, button.gs-act:not(.gs-act-discard)"));
+  await clickNow(passOrAct(page));
 }
 
 export const castable = (page: Page) =>

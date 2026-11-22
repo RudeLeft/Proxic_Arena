@@ -512,8 +512,8 @@ test("a card cast out of your library rises from your Library tile; a sacrificed
             await realClick(page, agent);
             continue;
           }
-          if ((await choosable.count()) > 0) await clickNow(choosable);
-          else await clickNow(panel.locator(".gs-win li button, .gs-question li button"));
+          if ((await choosable.count()) > 0) await clickUnlessCombat(choosable);
+          else await clickUnlessCombat(panel.locator(".gs-win li button, .gs-question li button"));
           continue;
         }
         const priority =
@@ -524,9 +524,13 @@ test("a card cast out of your library rises from your Library tile; a sacrificed
           const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const board = page.locator('.bf-cards button[data-choosable="true"]');
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
-          else if ((await board.count()) > 0) await clickUnlessCombat(board);
+          // Never the Wurm's offer while Q1 waits for it: it can open between
+          // Q1's look above and these clicks, and a generic Yes here is not
+          // Q1's real click (nor is a No).
+          const offered = isHost && !wurmCast ? { css: ".gs-win", words: WURM } : undefined;
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, undefined, offered);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main, undefined, offered);
+          else if ((await board.count()) > 0) await clickUnlessCombat(board, undefined, offered);
           else await clickNow(passButton(page));
           continue;
         }

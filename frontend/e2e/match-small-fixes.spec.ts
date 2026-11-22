@@ -46,13 +46,17 @@ import {
   cardCount,
   clearEverything,
   clickNow,
+  clickUnlessCombat,
   discardIfAsked,
   matchPanel,
   passButton,
   passCombat,
+  PRIORITY,
   realClick,
+  realClickUnless,
   sharedDeck,
   startAMatch,
+  TARGETING,
   watchGame,
 } from "./match-helpers";
 
@@ -200,8 +204,12 @@ async function attackWith(page: Page, creature: Locator): Promise<boolean> {
   return realClick(page, go);
 }
 
-/** Pay for the spell being cast, or answer its window, by clicking what the page lights. */
-async function payOrAnswer(page: Page): Promise<boolean> {
+/**
+ * Pay for the spell being cast, or answer its window, by clicking what the page lights.
+ * [unread]: windows a step reads itself (a target question that opened after
+ * the step looked), never answered here.
+ */
+async function payOrAnswer(page: Page, unread?: string): Promise<boolean> {
   const panel = matchPanel(page);
   const tap = page.locator(
     '.bf-cards button[data-choosable="true"][data-controller="viewer"][data-zone$=":lands"], .bf-cards button[data-choosable="true"][data-controller="viewer"][data-zone*="land"]',
@@ -210,9 +218,9 @@ async function payOrAnswer(page: Page): Promise<boolean> {
     ".gs-win li button:not(:disabled), .gs-question li button:not(:disabled)",
   );
   const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
-  if ((await tap.count()) > 0) await clickNow(tap);
-  else if ((await listed.count()) > 0) await clickNow(listed);
-  else if ((await main.count()) > 0) await clickNow(main);
+  if ((await tap.count()) > 0) await clickUnlessCombat(tap, unread);
+  else if ((await listed.count()) > 0) await clickUnlessCombat(listed, unread);
+  else if ((await main.count()) > 0) await clickUnlessCombat(main, unread);
   else return false;
   return true;
 }
@@ -407,7 +415,15 @@ test("Rebuke is lit only with an attacker and says why; Slayer's stack plate has
         // Targets for the guest: the Raven's trigger (anything but the Raven
         // itself, the host's first), then the Pitchfork's equip (the Raven).
         const targeting = panel.locator('.gs-win[data-kind="chooseTargetsFor"]');
-        if ((await targeting.count()) > 0) {
+        // A target question that opens after this look is the next pass's,
+        // never a catch-all's below (a generic answer aimed the Raven's
+        // bounce at the Raven, CI 44884351426); one seen here and not aimed
+        // ("found nothing to click") still falls through to them.
+        const targetShown = (await targeting.count()) > 0;
+        const unread = targetShown ? undefined : TARGETING;
+        // Rebuke's target, opened since step 2 looked: step 2's, next pass.
+        if (targetShown && isHost && st.bearsAttacked && !st.bearsDead) continue;
+        if (targetShown) {
           const choosable = (side: "viewer" | "opponent") =>
             boardCards(page, side).and(page.locator('[data-choosable="true"]'));
           let pick: Locator | null = null;
@@ -441,7 +457,7 @@ test("Rebuke is lit only with an attacker and says why; Slayer's stack plate has
           (await page.locator(".gs-cast:not(.gs-cast-leaving)").count()) > 0 ||
           // an ability being paid for has no card being cast, only its Cancel button
           (await panel.locator("button.gs-act-cancel").count()) > 0;
-        if (paying && (await payOrAnswer(page))) continue;
+        if (paying && (await payOrAnswer(page, unread))) continue;
         // Combat: the guest attacks (Bears for step 2, the Raven for step 5); the host never does.
         const combat = panel.locator("button.gs-act-combat");
         if ((await combat.count()) > 0) {
@@ -480,13 +496,17 @@ test("Rebuke is lit only with an attacker and says why; Slayer's stack plate has
             '.bf-cards button[data-object-id][data-choosable="true"]:not([data-zone$=":hand"])',
           );
           if ((await question.count()) > 0 && (await onTable.count()) > 0) {
-            await realClick(page, onTable.first());
+            await realClickUnless(
+              page,
+              onTable.first(),
+              `${PRIORITY}${unread ? `, ${unread}` : ""}`,
+            );
             continue;
           }
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, unread);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main, unread);
           else await clickNow(passButton(page));
           continue;
         }
@@ -795,12 +815,16 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
     const read = (page: Page) =>
       page.evaluate(() => (window as unknown as { __mill: Row[] }).__mill);
     const clock = (page: Page) => page.evaluate(() => performance.now());
+    const turnNow = async (page: Page) =>
+      Number((await page.locator(".gs-turn-value").allTextContents())[0] ?? 0) || 0;
 
     const st = {
       skaab: false,
       scour: false,
       skaabDone: false,
       scourDone: false,
+      /** The turn Screeching Skaab was cast on (Thought Scour waits for a later one). */
+      skaabTurn: 0,
       before: {} as Record<string, number>,
       // Page clock (ms): each cast, and three seconds after each mill was seen through.
       at: {} as Record<string, number>,
@@ -838,7 +862,10 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
         }
         // Thought Scour's target: the guest (their life shield).
         const targeting = panel.locator('.gs-win[data-kind="chooseTargetsFor"]');
-        if (isHost && (await targeting.count()) > 0) {
+        // The host's target question opening after this look is the next pass's.
+        const scourShown = (await targeting.count()) > 0;
+        const unread = isHost && !scourShown ? TARGETING : undefined;
+        if (isHost && scourShown) {
           const theirLife = panel.locator(".gs-seat-opponent .gs-life.gs-choosable");
           if ((await theirLife.count()) > 0) {
             await realClick(page, theirLife);
@@ -853,14 +880,14 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
         }
         if (
           (await page.locator(".gs-cast:not(.gs-cast-leaving)").count()) > 0 &&
-          (await payOrAnswer(page))
+          (await payOrAnswer(page, unread))
         )
           continue;
         if (!(await priorityHere(page))) {
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
-          if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await main.count()) > 0) await clickNow(main);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed, unread);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main, unread);
           else await clickNow(passButton(page));
           continue;
         }
@@ -872,6 +899,7 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
             st.before["skaabLib"] = await tileN(host, "viewer:library");
             st.before["skaabGrave"] = await tileN(host, "viewer:graveyard");
             st.at["skaab"] = await clock(host);
+            st.skaabTurn = await turnNow(host);
             st.cast.push(
               (await lit(page, /^Screeching Skaab/)
                 .first()
@@ -880,9 +908,18 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
             if (await realClick(page, lit(page, /^Screeching Skaab/))) st.skaab = true;
             continue;
           }
+          // On a later turn than the Skaab, as every run of this test cast it
+          // until 2026-11-22: the bot's payment clicks used to tap a spare
+          // Island on its own move (the look-then-act race), which left no
+          // Island for Thought Scour that turn. With that fixed, Thought
+          // Scour came the same turn -- before the guest's first draw -- and
+          // the guest's page showed its mill as a jump, 69 -> 67 with no
+          // card streaming (3 of 3 runs; reported for its own look, not
+          // hidden here: this test checks the mill as it always ran).
           if (
             st.skaabDone &&
             !st.scour &&
+            (await turnNow(host)) > st.skaabTurn &&
             lands >= 1 &&
             (await lit(page, /^Thought Scour/).count()) > 0
           ) {

@@ -117,6 +117,85 @@ export async function realClick(
 }
 
 /**
+ * [realClick], made only while something matching [planned] is on screen
+ * when the click itself arrives: a real mouse click cannot be one step with
+ * a look, so a one-off listener on the window, ahead of the page's own,
+ * looks at that moment and stops the click if [planned] is gone. The real
+ * click (TEST-003) stays; what it may mean does not change under it. For a
+ * bot's planned board click -- a land tapped while "Pay the mana" is asked
+ * ([PAYING]): the mouse takes ~150 ms to get there, and a payment that ended
+ * meanwhile makes the same click tap the land on your move, or activate a
+ * creature (CI 45050944578). True only when the page received the click.
+ */
+export async function realClickIf(
+  page: Page,
+  target: Locator,
+  planned: string,
+  options: { button?: "left" | "right"; steps?: number } = {},
+): Promise<boolean> {
+  return guardedRealClick(page, target, { planned }, options);
+}
+
+/**
+ * [realClickIf]'s other half: the real click is stopped if something
+ * matching [unplanned] is on screen when it arrives (a hand card clicked to
+ * put back is a CAST once it is your move again: CI 12872d7).
+ */
+export async function realClickUnless(
+  page: Page,
+  target: Locator,
+  unplanned: string,
+  options: { button?: "left" | "right"; steps?: number } = {},
+): Promise<boolean> {
+  return guardedRealClick(page, target, { unplanned }, options);
+}
+
+type ClickGuard = { off: () => void; seen: boolean; stopped: boolean };
+
+async function guardedRealClick(
+  page: Page,
+  target: Locator,
+  rule: { planned?: string; unplanned?: string },
+  options: { button?: "left" | "right"; steps?: number },
+): Promise<boolean> {
+  const arm = ({ planned, unplanned }: { planned?: string; unplanned?: string }) => {
+    const w = window as unknown as { __clickGuard?: ClickGuard };
+    w.__clickGuard?.off();
+    const guard: ClickGuard = { seen: false, stopped: false, off: () => undefined };
+    const listener = (e: Event) => {
+      guard.seen = true;
+      const wrong =
+        (planned !== undefined && !document.querySelector(planned)) ||
+        (unplanned !== undefined && !!document.querySelector(unplanned));
+      if (wrong) {
+        guard.stopped = true;
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }
+      guard.off();
+    };
+    guard.off = () => window.removeEventListener("click", listener, true);
+    window.addEventListener("click", listener, true);
+    w.__clickGuard = guard;
+  };
+  const disarm = () => {
+    const w = window as unknown as { __clickGuard?: ClickGuard };
+    const guard = w.__clickGuard;
+    guard?.off();
+    delete w.__clickGuard;
+    return { seen: guard?.seen ?? false, stopped: guard?.stopped ?? false };
+  };
+  const armed = await page.evaluate(arm, rule).then(
+    () => true,
+    () => false,
+  );
+  if (!armed) return false;
+  const clicked = await realClick(page, target, options).catch(() => false);
+  const got = await page.evaluate(disarm).catch(() => ({ seen: false, stopped: true }));
+  return clicked && got.seen && !got.stopped;
+}
+
+/**
  * A real click at a chosen point, for a test whose subject IS the point
  * (under the see-through casting card, where the reading card was measured):
  * the mouse goes there, and the click is made only if [target] is still what
@@ -464,15 +543,21 @@ export async function choices(page: Page): Promise<Locator> {
  * [except]: a selector for the trays the caller reads and answers itself
  * (e.g. `[data-kind="chooseSingleEntityForEffect"]`). It is part of the
  * tray's own locator, so a tray of that kind opening after the caller
- * looked is never found here. A separate look before the call is not
+ * looked is never found here ([saying]: the same for a window known only by
+ * its words). A separate look before the call is not
  * enough (CI 45044248294: the tray opened between that look and this
  * one, 40 ms apart, and the generic click took Hill Giant).
  */
 export async function answerCardTray(
   page: Page,
-  { except }: { except?: string } = {},
+  { except, saying }: { except?: string; saying?: Saying } = {},
 ): Promise<boolean> {
   const not = except ? `:not(${except})` : "";
+  // [saying]: a window known by its words -- the click is refused, in the
+  // page, while one says them (a step answers it itself).
+  const clickNow = saying
+    ? async (t: Locator) => void (await clickUnless(t, ":not(*)", saying))
+    : clickNowOf;
   const tray = matchPanel(page)
     .locator(
       `.gs-win.gs-tray${not}:has(button.gs-win-tile[data-object-id]), .gs-win.gs-tray${not}:has(.gs-win-piles)`,
@@ -545,19 +630,72 @@ export async function clickNow(target: Locator): Promise<void> {
 }
 
 /**
- * A "board choice" click for a bot's catch-all branch: clicks only if no
- * combat question is on screen at that very moment. The branch runs when
- * the page showed no combat button, but the next question can arrive
- * between that look and the click; a click on a creature during "Declare
- * attackers" then SELECTS it (Phase 9 W-14), the combat button locks
- * until it is pointed somewhere, and a bot that only passes combat waits
- * forever (match-sacrifice, 2026-11-08: "Declare attackers" stuck for
- * 120 s with "1 selected"). The check and the click are one step in the
- * page, so nothing can arrive between them.
+ * On screen while it is this player's move (priority): the act button that
+ * passes, resolves or leaves -- not combat's, a payment's Cancel or a
+ * discard's. The same test the scripted loops make before their "not my
+ * move" branches; [clickUnlessCombat] and the payment clicks make it again
+ * in the page, at the click.
  */
-export async function clickUnlessCombat(target: Locator): Promise<void> {
-  await clickUnless(target, ".gs-combat");
+export const PRIORITY =
+  "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)";
+
+/**
+ * "Pay the mana" on screen: the one question a board card is clicked for
+ * as mana. A bot's payment click goes through `clickIf(card, PAYING)`, so a
+ * payment that ended between its look and its click is not followed by a
+ * click on the board meaning something else (CI 45050944578: Mogg Fanatic
+ * activated, its sacrifice question unanswered for 120 s).
+ */
+export const PAYING = ':is(.gs-question, .gs-your-move, .gs-win)[data-kind="applyManaToCost"]';
+
+/** A target question (a spell's or a trigger's): a step a bot usually aims itself. */
+export const TARGETING = '[data-kind="chooseTargetsFor"]';
+
+/**
+ * A "board choice" click for a bot's catch-all branch -- one that runs only
+ * when it is not this player's move: clicks only if neither a combat
+ * question nor this player's move ([PRIORITY]) is on screen at that very
+ * moment. The branch runs when the page showed neither, but the next one
+ * can arrive between that look and the click:
+ * - a click on a creature during "Declare attackers" SELECTS it (Phase 9
+ *   W-14), the combat button locks until it is pointed somewhere, and a bot
+ *   that only passes combat waits forever (match-sacrifice, 2026-11-08:
+ *   "Declare attackers" stuck for 120 s with "1 selected");
+ * - a click on a board card on your move ACTIVATES it (CI 45050944578:
+ *   Mogg Fanatic, whose "Sacrifice Mogg Fanatic?" no branch answered).
+ * The check and the click are one step in the page, so nothing can arrive
+ * between them. [except]: windows a step of the caller reads and answers
+ * itself (a target question it aims, `[data-kind="chooseTargetsFor"]`) --
+ * never answered here either, even one that opened after the caller looked.
+ */
+export async function clickUnlessCombat(
+  target: Locator,
+  except?: string,
+  saying?: Saying,
+): Promise<void> {
+  await clickUnless(target, `.gs-combat, ${PRIORITY}${except ? `, ${except}` : ""}`, saying);
 }
+
+/**
+ * A window known by its words, not its kind: [clickUnless] and
+ * [clickUnlessCombat] also refuse while an element matching [css] says
+ * [words], in any case (the Wurm's "cast it from your library?" offer, which a step
+ * answers itself).
+ */
+export type Saying = { css: string; words: string };
+
+/**
+ * "No" for a bot's catch-all, scoped to the game screen: the question's
+ * Pass, or the act button -- never a discard's (picked first) and never a
+ * payment's or a target's Cancel. A question can come in between the bot's
+ * look and this click, and a Cancel then backs out of it (CI 44884351426
+ * and 44905040418, the Raven's bounce). [passButton]'s rule, for the loops
+ * that wrote their own `button.gs-act:not(.gs-act-discard)`.
+ */
+export const passOrAct = (page: Page) =>
+  matchPanel(page).locator(
+    "button.gs-pass, button.gs-act:not(.gs-act-discard):not(.gs-act-cancel)",
+  );
 
 /**
  * A catch-all's click that skips what it does not plan for: clicks [target]
@@ -567,20 +705,32 @@ export async function clickUnlessCombat(target: Locator): Promise<void> {
  * look and the click (CI 44884351426 and 44905040418: a pass that cancelled
  * the Raven's bounce; 44900484054: Fabricate's cost window answered unread).
  * Name the windows the bot reads and answers itself, e.g.
- * `clickUnless(listed, '.gs-win:has(button.gs-cost-act), [data-kind="chooseTargetsFor"]')`.
+ * `clickUnless(listed, '.gs-win:has(button.gs-cost-act), [data-kind="chooseTargetsFor"]')`;
+ * [saying] names one by its words instead.
  * True when it clicked.
  */
-export async function clickUnless(target: Locator, unplanned: string): Promise<boolean> {
+export async function clickUnless(
+  target: Locator,
+  unplanned: string,
+  saying?: Saying,
+): Promise<boolean> {
   if ((await target.count()) === 0) return false;
   return target
     .first()
     .evaluate(
-      (e, unplanned) => {
+      (e, [unplanned, saying]) => {
         if (document.querySelector(unplanned)) return false;
+        if (
+          saying &&
+          [...document.querySelectorAll(saying.css)].some((w) =>
+            (w.textContent ?? "").toLowerCase().includes(saying.words.toLowerCase()),
+          )
+        )
+          return false;
         (e as HTMLElement).click();
         return true;
       },
-      unplanned,
+      [unplanned, saying ?? null] as const,
       { timeout: 5_000 },
     )
     .catch(() => false);
@@ -1122,3 +1272,6 @@ export async function castCentre(page: Page, selector = ".gs-cast:not(.gs-cast-l
     moving: seen.moving,
   };
 }
+
+/** [clickNow] by another name, for [answerCardTray]'s own `clickNow`. */
+const clickNowOf = (target: Locator) => clickNow(target);

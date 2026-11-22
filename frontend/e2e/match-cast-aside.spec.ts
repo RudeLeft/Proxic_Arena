@@ -207,7 +207,7 @@ test("paying for a spell, the card being cast stays at its stack spot and every 
             const any = page.locator(
               '.bf-cards button[data-choosable="true"]:not([data-zone="viewer:hand"])',
             );
-            await clickNow(any);
+            await clickUnlessCombat(any);
             continue;
           }
         }
@@ -218,7 +218,7 @@ test("paying for a spell, the card being cast stays at its stack spot and every 
         if (!priority) {
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const board = page.locator('.bf-cards button[data-choosable="true"]');
-          if ((await listed.count()) > 0) await clickNow(listed);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed);
           else if ((await board.count()) > 0) await clickUnlessCombat(board);
           else await clickNow(passButton(page));
           continue;

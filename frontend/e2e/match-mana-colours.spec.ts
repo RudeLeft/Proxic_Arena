@@ -135,7 +135,7 @@ test("a colour tapped for is no window for anyone; no priority dot on either pla
             const land = LANDS.test(await mana.first().innerText());
             await clickUnlessCombat(mana);
             if (land) taps.set(page, taps.get(page)! + 1);
-          } else if ((await listed.count()) > 0) await clickNow(listed);
+          } else if ((await listed.count()) > 0) await clickUnlessCombat(listed);
           else await clickNow(passButton(page));
           continue;
         }

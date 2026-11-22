@@ -284,8 +284,8 @@ test("paying with an Elf under the casting card: it steps aside, the Elf taps in
           );
           // Nothing on the board to tap: answer the window's own option
           // ("Use {G} you already made", CI a03a3db stalled 120 s here).
-          if ((await any.count()) > 0) await clickNow(any);
-          else await clickNow(panel.locator(".gs-win li button, .gs-question li button"));
+          if ((await any.count()) > 0) await clickUnlessCombat(any);
+          else await clickUnlessCombat(panel.locator(".gs-win li button, .gs-question li button"));
           continue;
         }
         const priority =
@@ -295,7 +295,7 @@ test("paying with an Elf under the casting card: it steps aside, the Elf taps in
         if (!priority) {
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           const board = page.locator('.bf-cards button[data-choosable="true"]');
-          if ((await listed.count()) > 0) await clickNow(listed);
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed);
           else if ((await board.count()) > 0) await clickUnlessCombat(board);
           else await clickNow(passButton(page));
           continue;
