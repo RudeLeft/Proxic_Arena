@@ -54,7 +54,7 @@ import { EmailPanel } from "./AdminEmail";
 import { BeltRecordsPanel } from "./AdminRecords";
 import { Invitations } from "./AdminInvites";
 import { UpdateWaitingPanel } from "./AdminUpdate";
-import { ICON, presenceOf, roomStatus, statusOf } from "./lobbyView";
+import { ICON, avatarOf, presenceOf, roomStatus, statusOf } from "./lobbyView";
 import { Avatar } from "./avatars";
 import { CheckRule, CheckedInput, MAX_DISPLAY_NAME, displayNameOk } from "./fieldChecks";
 import { useLobbyConnection } from "./shell/LobbyConnection";
@@ -449,7 +449,7 @@ function AccountRow({
           : since === "now"
             ? "Signed in just now"
             : `Signed in ${since} ago`;
-  const avatar = lobby.players.find((p) => p.userId === account.userId)?.avatar ?? null;
+  const avatar = avatarOf(lobby, account.userId);
 
   useEffect(() => {
     if (!menuOpen) return;

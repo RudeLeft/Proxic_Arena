@@ -321,6 +321,15 @@ class Accounts(
         }
     }
 
+    /** P11-E2 — the avatar [userId] wears ("avatar-07"), or null for the default. */
+    fun avatarOf(userId: UUID): String? =
+        dataSource.connection.use { connection ->
+            connection.prepareStatement("SELECT avatar FROM app_user WHERE user_id = ?").use {
+                it.setObject(1, userId)
+                it.executeQuery().use { rows -> if (rows.next()) rows.getString(1) else null }
+            }
+        }
+
     /** Spec 0006 — one of the owner's 132 avatars ("avatar-07"), or null for the default. */
     fun updateAvatar(
         userId: UUID,

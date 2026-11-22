@@ -400,6 +400,57 @@ class AdminApiTest {
             assertFalse(body.contains("wrong password") || body.contains("whatever it is"))
         }
 
+    /**
+     * P11-E2 — the admin list and the Hall's lookup carry an active account's
+     * avatar, so their faces don't wait for the lobby connection; never a
+     * disabled one's, which the lobby's Players list (and so the page) has
+     * always shown as the default face.
+     */
+    @Test
+    fun `an active account's avatar comes with the accounts list and the Hall's lookup, a disabled one's never`() =
+        testApplication {
+            application { module(config()) }
+            database().use { db ->
+                db.dataSource().connection.use { c ->
+                    c.createStatement().use {
+                        it.executeUpdate("UPDATE app_user SET avatar = 'avatar-07' WHERE username = 'Pat'")
+                        it.executeUpdate("UPDATE app_user SET avatar = 'avatar-01' WHERE username = 'RudeLeft'")
+                    }
+                }
+                Accounts(db.dataSource()).createUser("Gone", password, Role.PLAYER)
+                db.dataSource().connection.use { c ->
+                    c.createStatement().use {
+                        it.executeUpdate(
+                            "UPDATE app_user SET avatar = 'avatar-05', status = 'DISABLED' WHERE username = 'Gone'",
+                        )
+                    }
+                }
+            }
+            val admin = session("RudeLeft")
+            val body = call(admin, "GET", "/api/admin/accounts").bodyAsText()
+            val accounts =
+                kotlinx.serialization.json.Json.parseToJsonElement(body)
+                    .let { it as kotlinx.serialization.json.JsonObject }["accounts"]
+                    .let { it as kotlinx.serialization.json.JsonArray }
+                    .associate {
+                        val o = it as kotlinx.serialization.json.JsonObject
+                        o["username"].toString().trim('"') to o["avatar"].toString().trim('"')
+                    }
+            assertEquals("avatar-07", accounts["Pat"], body)
+            assertEquals("avatar-01", accounts["RudeLeft"], body)
+            assertEquals("null", accounts["Gone"], body)
+
+            val ids = listOf(userId("Pat"), userId("Gone"), userId("RudeLeft"), UUID.randomUUID())
+            val looked =
+                database().use { net.barnflix.proxic.lobby.AccountNames(it.dataSource()).avatarsOf(ids) }
+            assertEquals(mapOf(userId("Pat") to "avatar-07", userId("RudeLeft") to "avatar-01"), looked)
+
+            // And "who am I" names your own.
+            val me = call(admin, "GET", "/api/auth/me").bodyAsText()
+            assertTrue(me.contains("\"avatar\":\"avatar-01\""), me)
+            assertTrue(signIn("Pat").bodyAsText().contains("\"avatar\":\"avatar-07\""))
+        }
+
     @Test
     fun `sign out everywhere ends that account's sessions`() =
         testApplication {

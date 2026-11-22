@@ -19,6 +19,7 @@ import {
   type AuthUser,
   type LoginFailure,
 } from "./auth";
+import { forgetAvatars } from "./knownAvatars";
 
 interface AuthContextValue {
   state: AuthState;
@@ -61,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await logoutRequest();
+    forgetAvatars();
     setState({ status: "anonymous" });
   }, []);
 
@@ -73,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sessionExpired = useCallback(() => {
+    forgetAvatars();
     setState({ status: "anonymous", reason: "expired" });
   }, []);
 

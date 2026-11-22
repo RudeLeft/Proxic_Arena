@@ -21,6 +21,7 @@ import {
 import { EMPTY_LOBBY, catchUp, connectLobby, type LobbySocket, type LobbyState } from "../lobby";
 import { watchActivity } from "../activity";
 import { PAGE_RECONNECTED } from "../avatars";
+import { learnAvatars } from "../knownAvatars";
 
 interface LobbyConnectionValue {
   lobby: LobbyState;
@@ -43,6 +44,12 @@ export function LobbyConnectionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     latest.current = lobby;
   }, [lobby]);
+  // P11-E2 — the socket's list is the truth about avatars; kept for the tab,
+  // so the next page (or a reload) draws the right faces before it lands.
+  const players = lobby.players;
+  useEffect(() => {
+    if (players.length > 0) learnAvatars(players.map((p) => [p.userId, p.avatar] as const));
+  }, [players]);
 
   useEffect(() => {
     // Spec 0009 — away or back, said only when it changes; said again

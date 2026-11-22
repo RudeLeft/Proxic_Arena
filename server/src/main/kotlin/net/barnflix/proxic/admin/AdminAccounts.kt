@@ -40,6 +40,12 @@ data class AdminAccountView(
     val email: String? = null,
     /** Spec 0027 — computers linked to the Deck Builder. */
     val computers: Int = 0,
+    /**
+     * P11-E2 — the avatar's name, so the list's faces don't wait for the lobby
+     * connection; an active account's only, as the lobby's Players list has it
+     * (a disabled one shows the default there and here).
+     */
+    val avatar: String? = null,
 )
 
 /** What an account change came to. */
@@ -73,7 +79,8 @@ class AdminAccounts(
                          WHERE e.user_id = u.user_id AND e.kind = 'SIGNED_IN'),
                        u.email,
                        (SELECT count(*) FROM device_link d
-                         WHERE d.user_id = u.user_id AND d.revoked_at IS NULL)
+                         WHERE d.user_id = u.user_id AND d.revoked_at IS NULL),
+                       CASE WHEN u.status = 'ACTIVE' THEN u.avatar END
                   FROM app_user u
                  ORDER BY u.status = 'ACTIVE' DESC, u.role = 'ADMIN' DESC, lower(u.display_name)
                 """.trimIndent(),
@@ -94,6 +101,7 @@ class AdminAccounts(
                                     lastAdmin = admins == listOf(userId),
                                     email = rows.getString(8),
                                     computers = rows.getInt(9),
+                                    avatar = rows.getString(10),
                                 ),
                             )
                         }

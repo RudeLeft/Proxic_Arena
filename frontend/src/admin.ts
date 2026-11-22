@@ -5,6 +5,7 @@
 // each answer into words a person can act on.
 
 import { apiFetch } from "./auth";
+import { learnAvatars } from "./knownAvatars";
 import type { DirectoryRoom } from "./lobby";
 
 export interface AdminAccount {
@@ -21,6 +22,8 @@ export interface AdminAccount {
   email: string | null;
   /** Spec 0027 — computers linked to the Deck Builder. */
   computers?: number;
+  /** P11-E2 — an active account's avatar name; absent for the default (and for a disabled one). */
+  avatar?: string | null;
 }
 
 export interface AdminRoom {
@@ -83,7 +86,18 @@ async function read<T>(
 }
 
 export const fetchAccounts = (fetchFn: typeof fetch = fetch) =>
-  read("/api/admin/accounts", (b) => (b["accounts"] as AdminAccount[]) ?? [], fetchFn);
+  read(
+    "/api/admin/accounts",
+    (b) => {
+      const accounts = (b["accounts"] as AdminAccount[]) ?? [];
+      // P11-E2 — their faces before the lobby's list; only the accounts it lists.
+      learnAvatars(
+        accounts.filter((a) => a.status === "ACTIVE").map((a) => [a.userId, a.avatar] as const),
+      );
+      return accounts;
+    },
+    fetchFn,
+  );
 
 export const fetchAdminRooms = (fetchFn: typeof fetch = fetch) =>
   read("/api/admin/rooms", (b) => (b["rooms"] as AdminRoom[]) ?? [], fetchFn);

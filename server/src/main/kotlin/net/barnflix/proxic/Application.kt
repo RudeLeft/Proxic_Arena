@@ -665,7 +665,10 @@ private fun Route.databaseRoutes(
         // exist; a browser holding a stale list is
         // corrected rather than believed.
         matchPresetRoutes()
-        hallRoutes(HallGameSource(database.dataSource())) // spec 0018
+        hallRoutes(
+            HallGameSource(database.dataSource()), // spec 0018
+            net.barnflix.proxic.lobby.AccountNames(database.dataSource())::avatarsOf, // P11-E2
+        )
         reportRoutes(Reports(database.dataSource(), config.dataRoot, config.gameRecords())) // spec 0039
 
         val importer =

@@ -1,7 +1,9 @@
 // The Hall of Champions' data — spec 0018. GET /api/hall, read as-is;
-// names and pictures come from the lobby's PLAYERS list, as the
-// STANDINGS rings do, so the server sends players by id only.
+// names come from the lobby's PLAYERS list, as the STANDINGS rings do, so
+// the server sends players by id only -- and, since P11-E2, each one's
+// avatar name beside them (`avatars`), so the faces don't wait for that list.
 
+import { learnAvatars } from "./knownAvatars";
 import { capital, countWords, numberWord } from "./words";
 
 export interface HallDeck {
@@ -85,6 +87,12 @@ export interface Hall {
   rival: HallRivalry | null;
   latest: HallLatest[];
   past: HallSeason[];
+  /**
+   * P11-E2 — the avatar of each player the Hall names who is still an active
+   * account (null: the default picture), so their faces are right before the
+   * lobby's list arrives. Names still come from that list.
+   */
+  avatars?: Record<string, string | null>;
 }
 
 /** The Hall, or null when it could not be read. */
@@ -92,7 +100,9 @@ export async function fetchHall(fetchFn: typeof fetch = fetch): Promise<Hall | n
   try {
     const response = await fetchFn("/api/hall", { credentials: "same-origin" });
     if (!response.ok) return null;
-    return (await response.json()) as Hall;
+    const hall = (await response.json()) as Hall;
+    learnAvatars(Object.entries(hall.avatars ?? {}));
+    return hall;
   } catch {
     return null;
   }

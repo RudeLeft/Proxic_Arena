@@ -37,6 +37,12 @@ data class UserView(
     val username: String,
     val displayName: String,
     val role: String,
+    /**
+     * P11-E2 — your avatar's name ("avatar-07"), or null for the default, on
+     * "who am I" and signing in, so your own face is right before the lobby
+     * connection's list arrives. Null elsewhere (nothing else reads it).
+     */
+    val avatar: String? = null,
 )
 
 @Serializable
@@ -130,7 +136,11 @@ fun Route.authRoutes(
                     )
                     signIns?.record(SignInKind.SIGNED_IN, result.principal.user.username, source)
                     call.issueSession(config, result)
-                    call.respond(HttpStatusCode.OK, MeResponse(true, result.principal.user.view()))
+                    val user = result.principal.user
+                    call.respond(
+                        HttpStatusCode.OK,
+                        MeResponse(true, user.view().copy(avatar = accounts.avatarOf(user.userId))),
+                    )
                 }
 
                 else -> {
@@ -224,7 +234,8 @@ fun Route.authRoutes(
             if (principal == null) {
                 call.respond(io.ktor.http.HttpStatusCode.NoContent)
             } else {
-                call.respond(MeResponse(true, principal.user.view()))
+                val user = principal.user
+                call.respond(MeResponse(true, user.view().copy(avatar = accounts.avatarOf(user.userId))))
             }
         }
 

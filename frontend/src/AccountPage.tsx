@@ -21,6 +21,8 @@ import {
   passwordRule,
 } from "./fieldChecks";
 import { AVATARS, Avatar } from "./avatars";
+import { learnAvatars } from "./knownAvatars";
+import { avatarOf } from "./lobbyView";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 import { playChime, setSoundsOn, soundsOn } from "./sounds";
 import { countWords } from "./words";
@@ -351,10 +353,14 @@ function AvatarPicker() {
   const { state } = useAuth();
   const { lobby } = useLobbyConnection();
   const me = state.status === "authenticated" ? state.user.userId : null;
-  const saved = lobby.players.find((p) => p.userId === me)?.avatar ?? null;
+  // P11-E2: known from /api/auth/me before the lobby's list arrives.
+  const saved = me ? avatarOf(lobby, me) : null;
   const [chosen, setChosen] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [open, setOpen] = useState(false);
+  // P11-E2 — the 132 pictures are fetched once the set is first opened, not
+  // with the page (WebKit fetched all of them, folded, on every visit).
+  const [opened, setOpened] = useState(false);
   const current = chosen ?? saved;
 
   const choose = async (avatar: string) => {
@@ -367,6 +373,7 @@ function AvatarPicker() {
       body: JSON.stringify({ avatar }),
     });
     if (response.ok) {
+      if (me) learnAvatars([[me, avatar]]);
       setOpen(false);
       setMessage({ ok: true, text: "Avatar saved." });
     } else {
@@ -391,7 +398,10 @@ function AvatarPicker() {
             className="pa-button pa-button-quiet pa-avatar-toggle"
             aria-expanded={open}
             aria-controls="avatar-choices"
-            onClick={() => setOpen((was) => !was)}
+            onClick={() => {
+              setOpened(true);
+              setOpen((was) => !was);
+            }}
           >
             {open ? "Close" : "Choose an avatar"}
             <span aria-hidden="true" className="pa-avatar-toggle-mark">
@@ -407,18 +417,19 @@ function AvatarPicker() {
         aria-label="Choose your avatar"
         hidden={!open}
       >
-        {AVATARS.map((avatar, index) => (
-          <button
-            key={avatar}
-            type="button"
-            className={`pa-avatar-choice${avatar === current ? " pa-avatar-chosen" : ""}`}
-            aria-pressed={avatar === current}
-            aria-label={`Avatar ${index + 1}`}
-            onClick={() => void choose(avatar)}
-          >
-            <Avatar avatar={avatar} size={64} />
-          </button>
-        ))}
+        {opened &&
+          AVATARS.map((avatar, index) => (
+            <button
+              key={avatar}
+              type="button"
+              className={`pa-avatar-choice${avatar === current ? " pa-avatar-chosen" : ""}`}
+              aria-pressed={avatar === current}
+              aria-label={`Avatar ${index + 1}`}
+              onClick={() => void choose(avatar)}
+            >
+              <Avatar avatar={avatar} size={64} />
+            </button>
+          ))}
       </div>
       {message && <Message {...message} />}
     </section>

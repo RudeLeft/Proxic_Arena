@@ -10,11 +10,15 @@
 // state the app holds is "who the server says I am", refetched from
 // the server rather than remembered.
 
+import { learnAvatars } from "./knownAvatars";
+
 export interface AuthUser {
   userId: string;
   username: string;
   displayName: string;
   role: string;
+  /** P11-E2 — your avatar's name ("avatar-07"); absent for the default picture. */
+  avatar?: string | null;
 }
 
 /** §3.73 — loading is a real state, not "unauthenticated yet". */
@@ -65,9 +69,9 @@ export async function fetchAuthState(fetchFn: typeof fetch = fetch): Promise<Aut
     // (owner 2026-10-24).
     if (!response.ok || response.status === 204) return { status: "anonymous" };
     const body = (await response.json()) as { authenticated: boolean; user?: AuthUser };
-    return body.authenticated && body.user
-      ? { status: "authenticated", user: body.user }
-      : { status: "anonymous" };
+    if (!body.authenticated || !body.user) return { status: "anonymous" };
+    learnAvatars([[body.user.userId, body.user.avatar]]);
+    return { status: "authenticated", user: body.user };
   } catch {
     // The server being unreachable is not the same as being signed
     // out, but the page can do nothing either way, and claiming to
@@ -98,6 +102,7 @@ export async function login(
 
   if (response.ok) {
     const body = (await response.json()) as { user: AuthUser };
+    learnAvatars([[body.user.userId, body.user.avatar]]);
     return { ok: true, user: body.user };
   }
 

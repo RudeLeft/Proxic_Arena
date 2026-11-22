@@ -4,6 +4,7 @@
 // from a linked Proxic Deck Builder, so there is no upload here.
 
 import { apiFetch } from "./auth";
+import { learnAvatars } from "./knownAvatars";
 
 export interface DeckSummary {
   deckId: string;
@@ -151,6 +152,13 @@ export interface ShareRecipient {
   username: string;
   displayName: string;
   sharedAt: string;
+  /** P11-E2 — their avatar name, while their account is active; absent for the default. */
+  avatar?: string | null;
+}
+
+/** P11-E2 — a recipient's face is known before the lobby's list (not a disabled one's). */
+function learnRecipients(shares: ShareRecipient[]): void {
+  learnAvatars(shares.filter((r) => "avatar" in r).map((r) => [r.userId, r.avatar] as const));
 }
 
 /** Somebody the owner could share with — PHASE_07 Amendment 10. */
@@ -181,6 +189,7 @@ export async function listShares(
     const response = await fetchFn(`/api/decks/${deckId}/shares`, { credentials: "same-origin" });
     if (!response.ok) return null;
     const body = (await response.json()) as Partial<ShareList>;
+    learnRecipients(body.shares ?? []);
     return { shares: body.shares ?? [], candidates: body.candidates ?? [] };
   } catch {
     return null;
@@ -280,6 +289,7 @@ export async function shareDeck(
 
   if (response.ok) {
     const recipient = (await response.json()) as ShareRecipient;
+    learnRecipients([recipient]);
     // 201 created it; 200 means it was already shared (§4.33).
     return { ok: true, created: response.status === 201, recipient };
   }

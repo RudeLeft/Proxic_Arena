@@ -48,6 +48,25 @@ class HallTest {
 
     private fun HallView.boardNames() = board.map { name(it.userId) }
 
+    /** P11-E2 — the Hall's avatars are looked up for every player it names, wherever. */
+    @Test
+    fun `every player the Hall names is named once, in any part of it`() {
+        val games =
+            (1..5).flatMap { listOf(game("A", "D", "A"), game("B", "D", "B"), game("C", "D", "C")) } +
+                (1..4).map { game("New", "A", "New") }
+        val view = hall(games).view(clock, id("A"))
+        val everyId =
+            buildSet {
+                view.season.places.forEach { add(it.userId) }
+                view.board.forEach { add(it.userId) }
+                view.qualifying.forEach { add(it.userId) }
+                view.latest.forEach { addAll(it.players) }
+                view.rival?.let { addAll(listOf(it.a, it.b)) }
+            }
+        assertEquals(everyId, view.named())
+        assertEquals(setOf("A", "B", "C", "D", "New"), view.named().map { name(it) }.toSet())
+    }
+
     @Test
     fun `a win is worth more against a stronger player, and a draw changes nothing`() {
         assertEquals(16, Elo.change(1000, 1000))

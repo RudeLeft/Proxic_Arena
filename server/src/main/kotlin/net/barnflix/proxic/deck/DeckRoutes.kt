@@ -86,6 +86,8 @@ data class ShareRecipientView(
     val username: String,
     val displayName: String,
     val sharedAt: String,
+    /** P11-E2 — see [ShareRecipient.avatar]. */
+    val avatar: String? = null,
 )
 
 /** §4.99, §4.100 — the owner's view of who holds this deck. */
@@ -388,6 +390,7 @@ internal fun ShareRecipient.view(): ShareRecipientView =
         username = username,
         displayName = displayName,
         sharedAt = sharedAt,
+        avatar = avatar,
     )
 
 /**

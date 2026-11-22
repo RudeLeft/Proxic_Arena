@@ -47,4 +47,26 @@ class AccountNames(private val dataSource: DataSource) {
                 }
             }
         }
+
+    /**
+     * P11-E2 — the avatar of each of [ids] whose account is active, as
+     * [active] lists them ("avatar-07", or null for the default); a disabled
+     * or unknown account is left out, so the page shows the default face
+     * for it, as the Players list (which does not list it) always has.
+     */
+    fun avatarsOf(ids: Collection<UUID>): Map<UUID, String?> {
+        if (ids.isEmpty()) return emptyMap()
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                "SELECT user_id, avatar FROM app_user WHERE status = 'ACTIVE' AND user_id = ANY(?)",
+            ).use { statement ->
+                statement.setArray(1, connection.createArrayOf("uuid", ids.distinct().toTypedArray()))
+                statement.executeQuery().use { rows ->
+                    buildMap {
+                        while (rows.next()) put(rows.getObject(1, UUID::class.java), rows.getString(2))
+                    }
+                }
+            }
+        }
+    }
 }

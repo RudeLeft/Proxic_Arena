@@ -313,7 +313,9 @@ POST /api/deck-builder/decks            device token: send a deck package
 `/api/auth/me` answers an anonymous caller with 204 and nothing else,
 rather than 401: "nobody is signed in" is a normal answer to that
 question, the page needs it on every load, and an empty answer tells a
-stranger nothing (200 with a null user until 2026-10-24).
+stranger nothing (200 with a null user until 2026-10-24). Signed in, it
+(and signing in) names your avatar too (`UserView.avatar`, P11-E2), so
+your own face is right before the lobby connection's list arrives.
 
 A **password change revokes every session, including the one making
 the request** (§3.36). That is the point: a password is changed

@@ -119,4 +119,27 @@ data class HallView(
     val rival: RivalryView? = null,
     val latest: List<LatestView>,
     val past: List<SeasonView>,
-)
+    /**
+     * P11-E2 — each named player's avatar ("avatar-07", or null for the
+     * default), for those whose account is active (as the lobby's Players
+     * list has them; anybody else shows the default, as before), so the
+     * Hall's faces don't wait for the lobby connection. Names still come
+     * from that list.
+     */
+    val avatars: Map<String, String?> = emptyMap(),
+) {
+    /** Every player this Hall names, by id. */
+    fun named(): Set<String> =
+        buildSet {
+            (listOf(season) + past).forEach { s -> s.places.forEach { add(it.userId) } }
+            belt.holder?.let(::add)
+            (board + allTime).forEach { add(it.userId) }
+            qualifying.forEach { add(it.userId) }
+            records.forEach { add(it.userId) }
+            (rivalries + listOfNotNull(rival)).forEach {
+                add(it.a)
+                add(it.b)
+            }
+            latest.forEach { addAll(it.players) }
+        }
+}

@@ -27,6 +27,8 @@ data class ShareRecipient(
     val username: String,
     val displayName: String,
     val sharedAt: String,
+    /** P11-E2 — an active account's avatar name, as the lobby's Players list has it; else null. */
+    val avatar: String? = null,
 )
 
 /** What a share attempt did, or why it did nothing (§4.101). */
@@ -152,7 +154,8 @@ class DeckSharing(
         dataSource.connection.use { connection ->
             connection.prepareStatement(
                 """
-                SELECT u.user_id, u.username, u.display_name, s.created_at
+                SELECT u.user_id, u.username, u.display_name, s.created_at,
+                       CASE WHEN u.status = 'ACTIVE' THEN u.avatar END
                   FROM deck_share s
                   JOIN app_user u ON u.user_id = s.shared_with_user_id
                  WHERE s.deck_id = ?
@@ -169,6 +172,7 @@ class DeckSharing(
                                     username = rows.getString(2),
                                     displayName = rows.getString(3),
                                     sharedAt = rows.getTimestamp(4).toInstant().toString(),
+                                    avatar = rows.getString(5),
                                 ),
                             )
                         }

@@ -9,7 +9,7 @@ import { useState } from "react";
 import { lastUsedText, removeComputer, type AdminComputer, type AdminOutcome } from "./admin";
 import { Avatar } from "./avatars";
 import { shortDate } from "./devices";
-import { ICON, presenceOf } from "./lobbyView";
+import { ICON, avatarOf, presenceOf } from "./lobbyView";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 
 type Run = (
@@ -67,7 +67,7 @@ export function ComputersPanel({
           </li>
           {shown.map((computer) => {
             const used = lastUsedText(computer.lastUsedAt, now, (iso) => shortDate(iso));
-            const avatar = lobby.players.find((p) => p.userId === computer.userId)?.avatar ?? null;
+            const avatar = avatarOf(lobby, computer.userId);
             const asking = confirming === computer.deviceId;
             return (
               <li key={computer.deviceId} className="pa-admin-computer">

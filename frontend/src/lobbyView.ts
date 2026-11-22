@@ -9,6 +9,7 @@
 // would not honour whatever the button looked like; these make the
 // button say so before anybody presses it.
 
+import { knownAvatar } from "./knownAvatars";
 import type { ChatLine, DirectoryRoom, LobbyState, PresenceUser } from "./lobby";
 import { capital, countWords } from "./words";
 
@@ -303,13 +304,21 @@ export function holdsBelt(lobby: LobbyState, userId: string | null | undefined):
   return !!userId && lobby.standings?.belt === userId;
 }
 
-/** Spec 0006 — a player's avatar, from the account list; null is the default. */
+/**
+ * Spec 0006 — a player's avatar, from the account list; null is the default.
+ *
+ * P11-E2 — until the lobby connection has said who [userId] is, the name
+ * the page's own data carried (knownAvatars.ts), so the face is right the
+ * moment the row is drawn. Once the socket's lists name them, they win.
+ */
 export function avatarOf(lobby: LobbyState, userId: string): string | null {
-  return (
-    lobby.players.find((p) => p.userId === userId)?.avatar ??
-    lobby.presence.find((p) => p.userId === userId)?.avatar ??
-    null
-  );
+  const player = lobby.players.find((p) => p.userId === userId);
+  const present = lobby.presence.find((p) => p.userId === userId);
+  if (player || present) return player?.avatar ?? present?.avatar ?? null;
+  // Once the list has come, somebody not on it (a disabled account) is the
+  // default face, as before: the list is the truth.
+  if (lobby.players.length > 0) return null;
+  return knownAvatar(userId) ?? null;
 }
 
 /**
