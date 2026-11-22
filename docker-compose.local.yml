@@ -38,6 +38,11 @@ services:
       args:
         PROXIC_BUILD_ID: ${PROXIC_BUILD_ID:-dev}
         PROXIC_REVISION: ${PROXIC_BUILD_ID:-unknown}
+    # Each local stack its own image name (2026-11-22): both used the
+    # published name, so building one stack could leave the other running
+    # the wrong build (an A/B once ran the same image on both). Local only;
+    # docker-compose.yml keeps the published name for Unraid.
+    image: proxic-arena-local:${PROXIC_LOCAL_PORT:-8080}
     pull_policy: build
     ports:
       # A second local stack (owner 2026-11-21: two agents test at once):
