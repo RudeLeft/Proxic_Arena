@@ -71,6 +71,17 @@ several times slower than this machine, and the CI-only failures of
 2026-11-15..20 were all timing. One run at a time: it uses the shared
 test accounts.
 
+**A second local stack** (owner 2026-11-21) lets two test runs go at
+once: one run per stack, each with its own database and test accounts.
+
+    bash ci/local-stack-b.sh
+
+(builds it, waits for it, and creates the same test accounts CI does).
+
+Point a run at it with `PROXIC_E2E_URL=http://127.0.0.1:8081` and, for
+the specs that reach into the server, `PROXIC_E2E_CONTAINER=proxic-arena-b-arena-server-1`.
+The first stack keeps 8080 and the project name `proxic-arena`.
+
 - **A push to main never cancels the run in progress.** It waits; a
   burst of pushes becomes one follow-up run of the newest commit.
 - **A push that changes only documentation** (`.md` files and `docs/`,

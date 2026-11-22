@@ -759,11 +759,14 @@ public final class MatchController extends GeneratedControllerBase {
                 host.publishSnapshots();
             }
             if (host.stops().pausing(actedForSeat, player, player.getGame())) {
+                long paused = Timing.now();
                 try {
                     Thread.sleep(PriorityStops.STEP_PAUSE_MS);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
+                // P11-D0 (test only): a deliberate wait (spec 0061), not Forge deciding.
+                Timing.markAt("paced", paused, "why", "step", "dur", Timing.now() - paused);
             }
             // Spec 0105 -- the stack always shows: when this pass lets the
             // top resolve and nobody was asked about it, it rests there first

@@ -92,11 +92,14 @@ class MatchHub : DecisionAnnouncer {
         matchId: UUID,
         message: JsonObject,
     ) {
+        val start = MatchTiming.now()
         val text = message.toString()
-        spectators.all(matchId).forEach { connection ->
+        val connections = spectators.all(matchId)
+        connections.forEach { connection ->
             runCatching { connection.outgoing.send(Frame.Text(text)) }
                 .onFailure { log.debug("match $matchId: a spectator connection would not take a frame") }
         }
+        MatchTiming.out(matchId, null, message, start, connections.size)
     }
 
     /** Everything leaves the building through here. */
@@ -105,8 +108,11 @@ class MatchHub : DecisionAnnouncer {
         userId: UUID,
         message: JsonObject,
     ) {
+        // P11-D0 (test only): 0 while timing is off.
+        val start = MatchTiming.now()
         val text = message.toString()
-        watchers.of(matchId, userId).forEach { connection ->
+        val connections = watchers.of(matchId, userId)
+        connections.forEach { connection ->
             // A NEW Frame per connection. A Frame carries a
             // ByteBuffer whose position is consumed on write, so
             // one frame handed to several connections arrives
@@ -116,6 +122,7 @@ class MatchHub : DecisionAnnouncer {
             runCatching { connection.outgoing.send(Frame.Text(text)) }
                 .onFailure { log.debug("match $matchId: a connection would not take a frame") }
         }
+        MatchTiming.out(matchId, userId, message, start, connections.size)
     }
 
     override suspend fun ask(

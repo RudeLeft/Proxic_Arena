@@ -220,6 +220,8 @@ public final class DecisionGate {
             accepted.clear();
             pending = question;
         }
+        // P11-D0 (test only): the question is built and sent from here.
+        Timing.mark("ask", "decisionId", id, "seat", authorisedSeat);
         deliver.accept(question);
 
         String answer;
@@ -242,6 +244,8 @@ public final class DecisionGate {
             answered.add(id);  // already there: `submit` wrote it on acceptance
             pending = null;
         }
+        // P11-D0 (test only): Forge's thread has the answer; the engine decides from here.
+        Timing.mark("wake", "decisionId", id);
         return answer;
     }
 

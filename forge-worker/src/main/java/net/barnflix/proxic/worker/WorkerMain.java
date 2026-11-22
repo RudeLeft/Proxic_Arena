@@ -91,6 +91,8 @@ public final class WorkerMain {
      * @return false when the worker should stop.
      */
     private static boolean handle(String line, File resRoot) {
+        // P11-D0 (test only): when the line was read; 0 while timing is off.
+        long read = net.barnflix.proxic.worker.game.Timing.now();
         JsonObject request;
         try {
             request = JsonParser.parseString(line).getAsJsonObject();
@@ -617,8 +619,13 @@ public final class WorkerMain {
                                 request.has("actionId") && !request.get("actionId").isJsonNull()
                                         ? request.get("actionId").getAsString() : null);
 
+                net.barnflix.proxic.worker.game.Timing.markAt("rx", read,
+                        "decisionId", answer.decisionId(), "seat", answer.seat(),
+                        "parse", net.barnflix.proxic.worker.game.Timing.now() - read);
                 net.barnflix.proxic.worker.game.DecisionGate.Reject refused =
                         GAME.gate().submit(answer);
+                net.barnflix.proxic.worker.game.Timing.mark("gate",
+                        "decisionId", answer.decisionId(), "accepted", refused == null);
                 if (refused == null) {
                     JsonObject ok = frame("DECISION_ACCEPTED", messageId);
                     ok.addProperty("decisionId", answer.decisionId());
@@ -805,11 +812,50 @@ public final class WorkerMain {
      * it would look like a protocol bug on the server.
      */
     private static synchronized void send(JsonObject frame) {
-        protocol.print(GSON.toJson(frame));
+        long start = net.barnflix.proxic.worker.game.Timing.now();
+        String text = GSON.toJson(frame);
+        protocol.print(text);
         protocol.print('\n');
         // See (2) above. Without this the parent can wait forever for
         // a line that was written and never left the buffer.
         protocol.flush();
+        if (net.barnflix.proxic.worker.game.Timing.on()) {
+            try {
+                sentMark(frame, text.length(), start);
+            } catch (RuntimeException e) {
+                // A mark must never stop a frame or the game.
+                System.err.println("proxic: timing mark failed: " + e);
+            }
+        }
+    }
+
+    /** P11-D0 (test only) -- frames written so far, by type (the server counts its reads the same way). */
+    private static final java.util.Map<String, Integer> SENT = new java.util.HashMap<>();
+
+    /**
+     * P11-D0 (test only) -- one frame written: its type and ordinal among
+     * frames of that type, the seat and board revision or decision it
+     * carries, its length, and how long serialising and writing took.
+     * Called inside the synchronized send, so the ordinals follow the
+     * pipe's order.
+     */
+    private static void sentMark(JsonObject frame, int chars, long start) {
+        String type = frame.has("type") ? frame.get("type").getAsString() : "?";
+        int n = SENT.merge(type, 1, Integer::sum);
+        Object seat = number(frame, "seat");
+        Object revision = frame.has("state") && frame.get("state").isJsonObject()
+                ? number(frame.getAsJsonObject("state"), "stateRevision") : null;
+        Object decision = number(frame, "decisionId");
+        net.barnflix.proxic.worker.game.Timing.markAt("sent", start, "type", type, "n", n,
+                "seat", seat, "rev", revision, "decisionId", decision, "chars", chars,
+                "dur", net.barnflix.proxic.worker.game.Timing.now() - start);
+    }
+
+    /** A number field of [object], or null when it is absent or not a number. */
+    private static Long number(JsonObject object, String key) {
+        com.google.gson.JsonElement value = object.get(key);
+        return value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()
+                ? value.getAsLong() : null;
     }
 
     /**

@@ -12,11 +12,16 @@
 //   node ci/measure.mjs redraw  [--runs 3] [--out DIR] [--cpu 1,4] [--grep RE]
 //   node ci/measure.mjs loading [--runs 3] [--out DIR] [--engines chromium,webkit]
 //                               [--links local,slow4g,live,poor] [--grep RE]
+//   node ci/measure.mjs timeline [--runs 3] [--out DIR] [--cpu 1,4]
+//   node ci/measure.mjs timeline-chart DIR
 //   node ci/measure.mjs compare DIR [--against BEFORE_DIR]
 //
 // `redraw` is frontend/tools/measure/redraw.spec.ts (the replayed table and
 // the real game, which also writes the wire numbers); `loading` is
-// loading.spec.ts, once per engine. DIR defaults to
+// loading.spec.ts, once per engine; `timeline` is timeline.spec.ts (P11-D0:
+// four moments, click to both screens, every step timed; the stack must run
+// with PROXIC_TEST_TIMING=true), which also writes DIR/timeline-chart.html,
+// one page per moment (ci/timeline-chart.mjs). DIR defaults to
 // frontend/test-results/measure/<measure>-<time>; each run writes DIR/run-<k>/,
 // and `compare` writes DIR/summary.md and DIR/summary.json. With --against,
 // every median is shown beside the BEFORE folder's, with the change.
@@ -24,6 +29,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { timelineChart } from "./timeline-chart.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const frontend = join(root, "frontend");
@@ -37,7 +43,7 @@ const opt = (name, fallback) => {
 
 function usage() {
     console.error(
-        "usage: node ci/measure.mjs redraw|loading [--runs N] [--out DIR] ... | compare DIR [--against DIR]",
+        "usage: node ci/measure.mjs redraw|loading|timeline [--runs N] [--out DIR] ... | timeline-chart DIR | compare DIR [--against DIR]",
     );
     process.exit(2);
 }
@@ -166,13 +172,20 @@ if (what === "compare") {
     if (!dir || !existsSync(dir)) usage();
     const against = opt("against");
     compare(resolve(dir), against ? resolve(against) : undefined);
-} else if (what === "redraw" || what === "loading") {
+} else if (what === "timeline-chart") {
+    const dir = args[0];
+    if (!dir || !existsSync(dir)) usage();
+    timelineChart(resolve(dir));
+} else if (what === "redraw" || what === "loading" || what === "timeline") {
     const runs = Number(opt("runs", "3"));
     const out = resolve(opt("out", join(frontend, "test-results", "measure", `${what}-${stamp}`)));
     const grep = opt("grep");
     if (what === "redraw")
         run("redraw.spec.ts", runs, out, { PROXIC_MEASURE_CPU: opt("cpu", "1,4") }, ["chromium"], grep);
-    else
+    else if (what === "timeline") {
+        run("timeline.spec.ts", runs, out, { PROXIC_MEASURE_CPU: opt("cpu", "1,4") }, ["chromium"], grep);
+        timelineChart(out);
+    } else
         run(
             "loading.spec.ts",
             runs,

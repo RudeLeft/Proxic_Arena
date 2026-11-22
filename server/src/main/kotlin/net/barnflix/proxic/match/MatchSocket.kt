@@ -107,9 +107,14 @@ fun Route.matchSocket(
 
             for (frame in incoming) {
                 val text = (frame as? Frame.Text)?.readText() ?: continue
+                // P11-D0 (test only): when the player's message was read; 0 while off.
+                val read = MatchTiming.now()
                 handle(text, matchId, userId, runtime, presence)?.let { reply ->
+                    val start = MatchTiming.now()
                     send(Frame.Text(reply.toString()))
+                    MatchTiming.out(matchId, userId, reply, start, 1)
                 }
+                MatchTiming.answerRead(matchId, userId, text, read)
             }
         } finally {
             hub.watchers.close(matchId, userId, connectionId)

@@ -49,8 +49,19 @@ class MatchDecisions(
                     // reconnecting player gets the same references as
                     // the one who never left, and that sending IS what
                     // authorises the fetch (§6.129).
+                    val pictured = MatchTiming.now()
                     val state = live.art.annotate(event.state, event.seat)
                     live.snapshotTaken(event.seat, state)
+                    if (MatchTiming.on) {
+                        val dur = MatchTiming.now() - pictured
+                        MatchTiming.mark(
+                            "art",
+                            pictured,
+                            "match" to live.match.matchId,
+                            "seat" to event.seat,
+                            "dur" to dur,
+                        )
+                    }
                     live.match.participants
                         .firstOrNull { it.seatNumber == event.seat }
                         ?.let { seat ->

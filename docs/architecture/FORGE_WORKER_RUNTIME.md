@@ -65,7 +65,12 @@ seat's `labDeal`; a worker started without it refuses one with
 `ERROR LAB_DEAL_REFUSED` (`workerCommand` in `TestDeals.kt`).
 
 stdout is the protocol; stderr goes to
-`<dataRoot>/match-logs/<matchId>.log`. The worker opens **no network
+`<dataRoot>/match-logs/<matchId>.log`. With `PROXIC_TEST_TIMING=true` in
+the server's environment (the local stack only, when asked for; Phase 11
+P11-D0), the worker, which inherits it, also writes a `proxic-timing` line
+there for each answer read, each board round and seat's board, and each
+frame written (`game/Timing.java`); the server writes its own to its log
+(`match/MatchTiming.kt`). Nothing sent changes. The worker opens **no network
 socket** -- verified in its code and inside the production container
 (P6-BL, `docs/testing/evidence/p6-bl-worker-privacy.md`).
 

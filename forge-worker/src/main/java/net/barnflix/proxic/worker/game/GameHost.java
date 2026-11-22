@@ -681,7 +681,10 @@ public final class GameHost {
         rests.show(rest);
         try {
             publishSnapshots();
+            long rested = Timing.now();
             rests.sleep(rest.ms(), gate::interjectionsNow, () -> gate.closed() || current.isGameOver());
+            // P11-D0 (test only): a deliberate wait (spec 0105), not Forge deciding.
+            Timing.markAt("paced", rested, "why", "rest", "dur", Timing.now() - rested);
         } finally {
             rests.show(null);
         }
@@ -1710,6 +1713,9 @@ public final class GameHost {
             return;
         }
         long revision = gate.bumpStateVersion();
+        // P11-D0 (test only): this round's marks; 0 while timing is off.
+        long round0 = Timing.now();
+        long seatsFrom = 0L;
         // B13: this round's damage, sent once, to every seat (damage is
         // public). The key is the round's, so a board plays it once.
         com.google.gson.JsonObject damage = null;
@@ -1849,6 +1855,10 @@ public final class GameHost {
             if (seat == null) {
                 continue;
             }
+            long seat0 = Timing.now();
+            if (seatsFrom == 0L) {
+                seatsFrom = seat0;
+            }
             com.google.gson.JsonObject snapshot =
                     ViewerSnapshot.of(
                             current,
@@ -1859,6 +1869,7 @@ public final class GameHost {
                             epoch.get(),
                             causes,
                             seen);
+            long seatViewed = Timing.now();
             if (damage != null) {
                 snapshot.add("damage", damage.deepCopy());
             }
@@ -1917,15 +1928,18 @@ public final class GameHost {
             // Spec 0103, items 1-2 -- a report card's link to the table, only
             // to a card this board shows; then nothing hidden, under any key.
             // Spec 0113, safety net 2 -- every sentence on the board, tidied.
+            long seatAdded = Timing.now();
             tidyTexts(snapshot, namesToKeep());
             HiddenIds.keepTableLinks(snapshot);
             HiddenIds.strip(snapshot, HiddenIds.hiddenZones(hiddenZones, seat));
+            long seatHidden = Timing.now();
             try {
                 snapshotSink.accept(seat, snapshot);
             } catch (RuntimeException e) {
                 // A transport problem must not stop the game.
                 System.err.println("proxic: snapshot not delivered: " + e);
             }
+            seatMark(revision, seat, seat0, seatViewed, seatAdded, seatHidden);
         }
         // Spec 0067 -- the public play log (what every player may see, as
         // "Bob drew a card"): kept while nobody watches, so the first
@@ -1942,8 +1956,10 @@ public final class GameHost {
         // Spec 0047 -- the public view, for spectators, as seat 0: built
         // with no viewer, so it holds only what every player can see.
         if (watched) {
+            long public0 = Timing.now();
             com.google.gson.JsonObject everyone = ViewerSnapshot.of(
                     current, null, seatsByPlayer(current), revision, java.util.List.of(), epoch.get(), causes);
+            long publicViewed = Timing.now();
             if (damage != null) {
                 everyone.add("damage", damage.deepCopy());
             }
@@ -1984,15 +2000,38 @@ public final class GameHost {
                 PlayLog.keepShownIds(lines, PlayLog.cardIds(everyone));
                 everyone.add("playLog", lines);
             }
+            long publicAdded = Timing.now();
             tidyTexts(everyone, namesToKeep());
             HiddenIds.keepTableLinks(everyone);
             HiddenIds.strip(everyone, HiddenIds.hiddenZones(hiddenZones, null));
+            long publicHidden = Timing.now();
             try {
                 snapshotSink.accept(PUBLIC_SEAT, everyone);
             } catch (RuntimeException e) {
                 System.err.println("proxic: public snapshot not delivered: " + e);
             }
+            seatMark(revision, PUBLIC_SEAT, public0, publicViewed, publicAdded, publicHidden);
         }
+        if (Timing.on()) {
+            long end = Timing.now();
+            Timing.markAt("pub", round0, "rev", revision,
+                    "prep", (seatsFrom == 0L ? end : seatsFrom) - round0, "dur", end - round0);
+        }
+    }
+
+    /**
+     * P11-D0 (test only) -- one seat's board in a round, timed: Forge's
+     * view for that viewer, the history added to it, the hidden ids and
+     * texts removed (HID-001: on the worker, before it leaves), and the
+     * frame written to the server.
+     */
+    private static void seatMark(long revision, int seat, long start, long viewed, long added, long hidden) {
+        if (!Timing.on()) {
+            return;
+        }
+        Timing.markAt("seat", start, "rev", revision, "seat", seat,
+                "view", viewed - start, "extras", added - viewed, "hide", hidden - added,
+                "send", Timing.now() - hidden);
     }
 
     /**

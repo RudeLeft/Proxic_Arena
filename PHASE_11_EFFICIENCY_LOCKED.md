@@ -911,6 +911,7 @@ change (P11-R5, P11-R6). It changes nothing a player sees.
 | Wire, browser side | P11-D1 | `redraw.spec.ts`'s real game, `wire.ts`, `results.ts` `serverCpuMs` | Chromium |
 | Wire, Lab traces | P11-D1 | `scripts/measure-wire.py` (`FIXED`) | (the worker's output) |
 | Loading | P11-E1 | `frontend/tools/measure/loading.spec.ts`, `link.ts` | Chromium, Firefox, WebKit |
+| End to end, click to both screens | P11-D0 | `frontend/tools/measure/timeline.spec.ts`, `timeline.ts`, `timeline-probe.ts`; marks in the worker (`game/Timing.java`) and server (`match/MatchTiming.kt`); chart `ci/timeline-chart.mjs` | Chromium (CDP) |
 | Run three times, compare | all | `ci/measure.mjs` | - |
 
 **How to run it** (against the local stack on :8080, one Playwright run at a
@@ -923,6 +924,8 @@ node ci/measure.mjs redraw                     redraw + wire: 3 runs at 1x and 4
 node ci/measure.mjs loading                    every page, 4 links, Chromium + WebKit, 3 runs (~70 min)
 node ci/measure.mjs loading --engines firefox  Firefox (CI's Linux only, for now)
 node ci/measure.mjs loading --links local,slow4g --grep "every page"
+node ci/measure.mjs timeline                   P11-D0: 4 moments, 3 runs at 1x and 4x (~25 min); the stack must be
+                                               up with PROXIC_TEST_TIMING=true; writes timeline-chart.html
 node ci/measure.mjs compare <after dir> --against <before dir>
 python -I scripts/measure-wire.py <Lab traces folder> [--set fixed|all] [--out wire-lab.json]
 ```
@@ -1293,6 +1296,160 @@ WebKit local, 11-19 -> today: lobby 377/325 -> 413/309, Admin 966/249 -> 319/236
   engine allowance (6c) matters on slow links too until E8.
 - Not measured yet: Firefox (CI's `engines` job is its first run); "poor"
   with compression on (P11-R6), which waits for E4; the live site.
+
+## As built: P11-D0 (2026-11-21)
+
+The end-to-end measure is in the kit (above): `node ci/measure.mjs timeline`,
+`frontend/tools/measure/timeline.spec.ts`. It changes nothing a player sees
+or is sent: the worker and server marks go to their logs (never into a
+message), behind a test-only switch, `PROXIC_TEST_TIMING`, off unless the
+local stack is brought up with it (`docker-compose.local.yml`;
+`scripts/check-test-switch.py` keeps it out of production, as
+`PROXIC_TEST_DEALS`).
+
+**How it joins up.** Each page's probe (put in before the page's scripts)
+records the click, the answer sent, each match message's handler with its
+JSON.parse apart, each React commit and the next frame after it; Chrome's
+trace gives that frame's style, layout and paint, and CDP each message's
+arrival. The server marks an answer read and written to the worker, each
+worker frame read and done with, the pictures added, and every message put
+on a socket (with the envelope's `messageId`, which the page sees). The
+worker marks the answer read, the gate, Forge's thread waking, each board
+round and each seat's board in it (Forge's view, the history added, the
+hidden ids removed, written), each question built, each frame written, and
+(added after the first trial run) each deliberate wait. A step is one answer
+a player sends; its result on each page is the board or question it brought
+(else a step or "who is asked" line), followed back through the server's
+`out`, the frame it came from (type and ordinal: the pipe keeps the order),
+to the worker. The container's clock is joined to the PC's from the answer's
+round trip (offset -1.3 to +0.5 ms, round trip 1.0-3.7 ms over the run);
+each step's total is the page's own clock, click to paint, whatever the
+offset. Every step of every moment joined up in all 6 runs (0 missing), and
+every trace synced.
+
+**The moments.** One game of the mono-green deck, dealt (spec 0098) so the
+host has Giant Growth and creatures early: **tap one land** (the first Forest
+clicked paying for a creature: 1 round trip); **cast a spell with a target**
+(Giant Growth: the card, its target, a land, to the spell on the stack on both
+boards: 3 round trips); **a big combat** (at least 5 attackers that leave the
+guest alive, no blocks, to the damage on both boards: 5 round trips, 8 boards
+a seat). One game of the Karn deck, the host dealt Karn: **Karn's restart**
+(the -14 to game 2's first board on both screens: 1 round trip, the guest's
+board held under its report window, spec 0102). The bot waits for both pages
+to be quiet, with someone asked, before each click; the time between steps is
+in no slice.
+
+**Today's numbers (RUN, 2026-11-21: 3 runs at 1x and at 4x, both pages slowed
+at 4x; the owner's PC as C1, Playwright's bundled Chromium; local stack at
+1e180970 plus this measure's marks, built 2026-11-21 with
+PROXIC_TEST_TIMING=true).** Folder: `Phase 11 kit baseline
+2026-11-21/timeline/` (`summary.md`, `timeline-chart.html`, one page per
+moment; each run's `raw/` holds the records every step was joined from).
+Milliseconds, medians of 3, summed over the moment's round trips; "own" is
+the total less the deliberate waits; the parts add up to "own" (each is a
+median, so within a few per cent).
+
+```text
+moment          cpu page   total   own | waits  Forge  boards worker pipe server network browser | of browser: React  frame  | hide  bytes in
+tap one land    1x host     20.5  20.5 |     0    1.1    0.8    1.8   0.1   0.2     2.8    11.9   |   3.1   8.7 | 0.20   4.5 KB
+                1x guest    20.4  20.4 |     0    1.1    0.8    1.5   0.1   0.3     1.4    14.0   |   2.7  11.2 |        5.2 KB
+                4x host     55.2  55.2 |     0    1.3    0.8    1.6   0.0   0.2    18.9    34.2   |  20.2  13.4 | 0.15
+                4x guest    30.6  30.6 |     0    1.3    0.8    1.4   0.1   0.3     3.3    24.1   |  13.3  10.0 |
+cast w/ target  1x host     54.2! 54.2 |     0    7.0    2.1    4.9   0.2   0.9     9.0    32.1   |  10.3  21.3 | 0.38  16.5 KB
+  (3 trips)     1x guest    53.3! 53.3 |     0    6.6    2.5    5.2   0.2   0.8     8.2    30.7   |   7.5  22.6 |       19.4 KB
+                4x host    172!  172   |    0*    5.6    1.9    3.9   0.2   0.9    39.8   115.3   |  64.1  48.8 | 0.39
+                4x guest   113!  113   |    0*    5.2    2.3    4.2   0.2   0.9     9.1    85.3   |  39.6  42.8 |
+big combat      1x host   2494    93.5 |  2401   32.3    4.2    8.8   0.6   1.6    11.7    34.1   |  10.9  22.1 | 0.96  72.9 KB
+  (5 trips)     1x guest  2517   116!  |  2401   30.7    5.5   11.1   0.2   3.9    11.2    51.6   |  11.1  40.1 | 1.19  86.0 KB
+                4x host   2612   212   |  2401   32.2    3.9    7.5   0.3   1.7    40.4   121.7   |  61.0  56.3 | 0.94
+                4x guest  2585   185   |  2401   30.7    5.0    9.6   0.2   1.4    29.1   107.3   |  55.8  47.9 |
+Karn's restart  1x host   3268    68.8 |  3199   35.8    3.3    5.8   0.1   0.7    10.8    11.3   |   1.6   9.4 | 1.94  28.7 KB
+                1x guest  3264    64.4!|  3199   35.8    3.3    5.6   0.1   0.6     2.2    13.9   |   1.5  12.1 |       26.4 KB
+                4x host   3333   133   |  3199   34.9    3.5    5.8   0.1   0.5     5.1    82.6   |  14.5  67.5 | 2.01
+                4x guest  3268    68.3 |  3199   34.9    3.5    5.6   0.1   0.4     3.4    21.2   |   8.0  11.5 |
+"!" a total whose 3 runs are not all within 10% of the median. * one of the three 4x games (6,093 ms)
+rested the spell on the stack (5.9 s, spec 0105); the other two did not, so the median has no wait.
+waits: the stack's rest (spec 0105) and a passed step's pause (spec 0061, 400 ms each), on the worker's
+game thread. Forge: everything else that thread does between the answer and the frame. boards: each
+seat's view, history and hiding (HID-001). worker: reading the answer, the gate, a round's shared work,
+writing frames, building questions. browser: input, parse, handler, React, the frame (waiting for it,
+style, layout, paint). frame = waiting for the next frame + style + layout + paint + the rest of it.
+```
+
+- **The deliberate waits are nearly all of what a player waits for** where
+  they happen: 2.4 s of a 2.5-2.6 s combat (six passed-step pauses of 400 ms,
+  92-96%), 3.2 s of Karn's 3.3 s restart (the stack's rest, 96-98%), and 5.9 s
+  when a cast spell rests on the stack (one game in three here). They are
+  owner-approved pacing (specs 0061, 0105), not work, and P11-R1 covers any
+  change to them; no efficiency item touches them.
+- **Of the system's own time, the browser is the biggest part for the tap,
+  the cast and the combat**, on both pages at 1x and 4x: 58-69% of the tap
+  and the cast at 1x, 36-45% of the combat at 1x (Forge, 31-32 ms, is next),
+  57-79% of all three at 4x. Inside it, React's render and commit (3-64 ms a
+  moment) and the frame after it (9-67 ms: waiting for it, then paint, 1-17
+  ms) are the two biggest slices; parse and the handler are under 1 ms.
+  **Karn's restart is Forge's**: building game 2 is 35-36 ms, 52-56% of the
+  own time at 1x and of the guest's at 4x; only the host's 4x page (65
+  commits, the frame 67.5 ms) puts the browser ahead. The "network" column at
+  4x is mostly the page too: Chrome stamps a frame's arrival as the page's
+  main thread takes it (INFERENCE from RUN: arrival to handler is 0 ± 0.2 ms
+  in every step, and the slice grows up to 8x only when nothing but the
+  page's CPU is slowed, host tap 2.2 to 17.1 ms), so the page's own queue is
+  in it.
+- **The server, the pipe and the worker are a few milliseconds:** server
+  0.2-3.9 ms and pipe 0.0-0.6 ms per moment, worker (not Forge) 1.4-11 ms,
+  each seat's board 0.8-5.5 ms of which **hiding is 0.15-2.0 ms**. Hiding
+  stays on the server (HID-001); it is the smallest slice that matters.
+- **Forge itself:** 1.1-1.3 ms for a land tap, 5-7 ms for the cast's three
+  answers, 31-36 ms for the combat and for building game 2.
+- **Bytes, on a real link (INFERENCE: arithmetic on the RUN bytes, the
+  network not measured here, everything is on one PC):** a combat brings each
+  seat 73-86 KB over 8 boards. At slow 4G's 1.6 Mbit/s that is about 0.43 s of
+  transfer a seat, at live-like 10 Mbit/s about 69 ms: more than all the
+  system's own time measured here. Locally the network is the loopback.
+- Steady: the combat and Karn's totals and "own" time, and the 4x tap, are
+  within ±10% over 3 runs; the 1x tap (14-21 ms) and the cast (49-67 ms at 1x,
+  154-194 at 4x without the rest) are not: small numbers, and the cast's game
+  differs run to run. 174 of the file's numbers are outside ±10%, nearly all
+  sub-millisecond slices.
+
+**Does the plan's order (steps 2-9) still fit? Mostly; one change
+recommended.**
+
+1. **Step 2, D2 (compression), stays first.** Locally the wire is free, but
+   on the links players use, a combat's 73-86 KB a seat costs about 70-430 ms
+   (arithmetic above), more than everything else measured here except the
+   deliberate waits. D2 is the cheapest cut of that, and its server cost is
+   measured in D1 (1.9 ms CPU per board).
+2. **Pull C3 and C4 forward, to beside step 3 (recommended reorder).** React
+   and the frame are the largest slices of the system's own time in the tap,
+   the cast and the combat, at 1x and 4x, on both seats (Karn's restart is
+   Forge's). C3 (the glide pass only for cards that
+   moved) and C4 (GameScreen and plates only when their data changed) do not
+   need D4's shared unchanged cards; only C2 does. Doing them earlier turns
+   the biggest measured slice down before the delta work, and C6's budgets
+   follow them. C2 stays after D4, as the plan says.
+3. **D3 and D4 (steps 4-5) stay where they are,** for bytes (the real-link
+   cost above), not for local time: parse is under 1 ms a moment and the
+   server's part 0.2-3.9 ms, so deltas save little on the page except through
+   C2.
+4. **D7 can be closed as measured:** worker to server is 0.0-0.6 ms of pipe
+   and 0.2-3.9 ms of server a moment (pictures 0-0.1 ms); the plan said to
+   close it unless D1 showed server time mattered, and this shows it does
+   not.
+5. **D5 (bundles) stays at step 7:** each board is its own commit and frame
+   (a combat: 8 boards a seat, 33-41 commits), so it may cut frame waits, but
+   C3/C4 first make each commit cheaper.
+6. **For the owner, not this phase's efficiency work:** the waits are what a
+   player feels. Six 400 ms passed-step pauses make a no-block combat take 2.4 s
+   before the damage; Karn's restart rests 3.2 s; a resting spell 5.9 s. If
+   they feel long, that is a look decision (P11-R1), not an efficiency item.
+
+Not measured: Firefox and WebKit (the probes need Chrome's DevTools
+protocol), a real network link, spectators (no spectator in these games), and
+the time from the network to the page's main thread (inside "network", see
+above).
+
 
 ## As built: P11-F1, CI part (step 1, 2026-11-21)
 

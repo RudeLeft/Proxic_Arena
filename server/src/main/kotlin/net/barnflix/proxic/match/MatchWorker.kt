@@ -243,11 +243,15 @@ class MatchWorker(
         // this stream, so a line that is not a frame is skipped
         // rather than treated as a malformed one.
         if (!line.trimStart().startsWith("{")) return
+        // P11-D0 (test only): 0 while timing is off.
+        val read = MatchTiming.now()
         val frame =
             runCatching { json.parseToJsonElement(line) as JsonObject }.getOrNull() ?: return
+        val parsed = MatchTiming.now()
         record.fromWorker(line.trim())
 
         val type = frame["type"]?.jsonPrimitive?.content
+        framesRead.mark(matchId, frame, line.length, read, parsed)
         lastHeard = System.nanoTime()
         when (type) {
             "DECISION_REQUEST" -> waitingOnPlayer = true
@@ -276,7 +280,11 @@ class MatchWorker(
 
             else -> Unit
         }
+        MatchTiming.workerFrameDone(matchId)
     }
+
+    /** P11-D0 (test only) -- the worker's frames read so far, by type. */
+    private val framesRead = FrameCounts()
 
     private fun onError(frame: JsonObject) {
         val code = frame["errorCode"]?.jsonPrimitive?.content ?: "GAME_START_FAILED"
@@ -328,7 +336,9 @@ class MatchWorker(
         what: String,
     ): Boolean =
         runCatching {
+            val start = MatchTiming.now()
             send(frame)
+            MatchTiming.forwarded(matchId, what, start)
             true
         }.getOrElse {
             log.warn("match $matchId: could not send $what", it)

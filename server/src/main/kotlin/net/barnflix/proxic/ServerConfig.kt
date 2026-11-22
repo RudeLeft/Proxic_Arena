@@ -80,6 +80,14 @@ data class ServerConfig(
      * compose overrides; never in production (scripts/check-test-switch.py).
      */
     val testDeals: Boolean = false,
+    /**
+     * TEST ONLY -- Phase 11 P11-D0 (PROXIC_TEST_TIMING=true). Timing marks
+     * in the server's log and the worker's (match/MatchTiming.kt, the
+     * worker's game/Timing.java, which reads the same variable): nothing a
+     * player is sent changes. Set only by docker-compose.local.yml; never
+     * in production (scripts/check-test-switch.py).
+     */
+    val testTiming: Boolean = false,
 ) {
     /** Where match game records live (§7.56). */
     fun gameRecords(): net.barnflix.proxic.match.GameRecords =
@@ -156,6 +164,7 @@ data class ServerConfig(
                 databasePasswordValue = getenv("POSTGRES_PASSWORD"),
                 databaseUserValue = getenv("POSTGRES_USER"),
                 testDeals = getenv("PROXIC_TEST_DEALS")?.toBooleanStrictOrNull() ?: false,
+                testTiming = getenv("PROXIC_TEST_TIMING")?.toBooleanStrictOrNull() ?: false,
                 matchRecordDays =
                     getenv("PROXIC_MATCH_RECORD_DAYS")?.toLongOrNull()?.takeIf { it > 0 }
                         ?: net.barnflix.proxic.match.GameRecords.DEFAULT_DAYS,

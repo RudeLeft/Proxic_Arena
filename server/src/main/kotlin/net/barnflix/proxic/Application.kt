@@ -132,6 +132,9 @@ private val wireJson =
  * different reasons and read better apart.
  */
 fun Application.module(config: ServerConfig = ServerConfig.fromEnvironment()) {
+    // TEST ONLY -- Phase 11 P11-D0. Timing marks in the log, off unless
+    // PROXIC_TEST_TIMING=true (the local override only).
+    net.barnflix.proxic.match.MatchTiming.enable(config.testTiming)
     val dependencies = installPluginsAndDependencies(config)
     installRoutes(config, dependencies)
 }
