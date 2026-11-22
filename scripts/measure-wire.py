@@ -14,7 +14,11 @@ local run of the scripts/check-<scenario>.py named here into one folder).
 
 For each set: per seat (players and the spectator), the board's bytes as
 compact JSON (median, p95, largest), the same deflated (zlib level 6, one
-board at a time: permessage-deflate without a shared window), a simple
+board at a time: permessage-deflate without a shared window), deflated as
+the server sends since P11-D2 ("streamed": one window per seat's connection,
+kept between boards, each board sync-flushed and its 4-byte tail dropped,
+SocketCompression.kt; boards only, so INFERENCE for the real socket, whose
+stream also carries questions and steps), a simple
 delta from that seat's board before (changed keys, changed or added list
 members by id, removed ids), boards per game, boards per combat, and
 `payments` repeated unchanged from the board before. `--out` writes the
@@ -95,6 +99,7 @@ def pct(xs, p):
 def measure(files):
     raw = {"players": [], "spectator": []}
     deflated = []
+    streamed = []
     deltas = []
     per_game = []
     combat_runs = []
@@ -103,6 +108,7 @@ def measure(files):
     fields = Counter()
     for f in files:
         last = {}
+        streams = {}
         count = 0
         run = 0
         for line in f.read_text(encoding="utf-8").splitlines():
@@ -120,6 +126,8 @@ def measure(files):
             if seat in (1, 2):
                 raw["players"].append(len(b))
                 deflated.append(len(zlib.compress(b, 6)))
+                z = streams.setdefault(seat, zlib.compressobj(6, zlib.DEFLATED, -15))
+                streamed.append(len(z.compress(b) + z.flush(zlib.Z_SYNC_FLUSH)) - 4)
                 for k, v in st.items():
                     fields[k] += len(compact(v))
                 if seat in last:
@@ -148,6 +156,9 @@ def measure(files):
         "deflatedBytesMedian": pct(deflated, 0.5),
         "deflatedBytesP95": pct(deflated, 0.95),
         "deflatedShare": round(sum(deflated) / total, 3),
+        "streamedBytesMedian": pct(streamed, 0.5),
+        "streamedBytesP95": pct(streamed, 0.95),
+        "streamedShare": round(sum(streamed) / total, 3),
         "deltaBytesMedian": pct(deltas, 0.5),
         "deltaBytesP95": pct(deltas, 0.95),
         "deltaShare": round(sum(deltas) / total, 3),

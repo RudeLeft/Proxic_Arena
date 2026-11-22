@@ -59,7 +59,7 @@ import {
 } from "../../e2e/speed-kit";
 import { perUpdate, timer, type Timer } from "./probes";
 import { serverCpuMs, writeResult, type Row } from "./results";
-import { boardMakeup, countBytes, wireNumbers, type Counter } from "./wire";
+import { boardMakeup, countBytes, tap, wireBytesIn, wireNumbers, type Counter } from "./wire";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "green-deck.zip");
 const CPUS = (process.env.PROXIC_MEASURE_CPU ?? "1,4").split(",").map(Number);
@@ -68,9 +68,16 @@ test.skip(({ browserName }) => browserName !== "chromium", "Chrome's DevTools pr
 test.beforeEach(() => test.skip(!existsSync(pkg), "no green deck package"));
 
 /** Two players signed in, the deck shared, nothing left over. */
-async function twoPlayers(browser: Browser, init = true) {
-  const options = { viewport: { width: 1920, height: 1080 } };
-  const contexts = [await browser.newContext(options), await browser.newContext(options)];
+async function twoPlayers(browser: Browser, init = true, tapped = false) {
+  // P11-D2: the real game's pages go through a counting relay each, so the
+  // wire rows can say what crossed the wire as well as what the page read.
+  const target = new URL(process.env.PROXIC_E2E_URL ?? "http://127.0.0.1:8080");
+  const taps = tapped ? [await tap(target), await tap(target)] : [];
+  const options = (i: number) => ({
+    viewport: { width: 1920, height: 1080 },
+    ...(taps[i] ? { baseURL: taps[i].base } : {}),
+  });
+  const contexts = [await browser.newContext(options(0)), await browser.newContext(options(1))];
   if (init) await contexts[0]!.addInitScript(RECORDER);
   const [host, guest] = [await contexts[0]!.newPage(), await contexts[1]!.newPage()];
   await signIn(host);
@@ -82,8 +89,9 @@ async function twoPlayers(browser: Browser, init = true) {
     await clearEverything(host).catch(() => undefined);
     await clearEverything(guest).catch(() => undefined);
     for (const c of contexts) await c.close();
+    for (const t of taps) await t.close();
   };
-  return { host, guest, deck, done };
+  return { host, guest, deck, done, taps };
 }
 
 /** Wait until nothing that ends is still moving on [page] (looping glows don't count). */
@@ -285,8 +293,17 @@ type Scene = "idle" | "hover" | "cast" | "combat" | "end";
 test("game: match-speed's moments, per update, and the wire", async ({ browser }) => {
   test.setTimeout(50 * 60_000);
   for (const cpu of CPUS) {
-    const { host, guest, deck, done } = await twoPlayers(browser);
+    const { host, guest, deck, done, taps } = await twoPlayers(browser, true, true);
     const wires: Counter[] = [countBytes(host), countBytes(guest)];
+    /** What crossed the wire on each seat's match socket, beside what its page read. */
+    const onWire = (i: number, from: number, to: number) => {
+      const bytes = wireBytesIn(taps[i]!.chunks, from, to);
+      const read = wireNumbers(wires[i]!.between(from, to), 1)["matchBytesIn"]!;
+      return {
+        matchWireBytesIn: bytes,
+        wireShare: read ? Math.round((bytes / read) * 1000) / 1000 : null,
+      };
+    };
     // Every match-socket message the host page reads is a game update (as match-speed counts).
     const hostUpdates = () =>
       wires[0]!.frames.filter((f) => f.socket === "match" && f.dir === "in");
@@ -314,6 +331,7 @@ test("game: match-speed's moments, per update, and the wire", async ({ browser }
             wireRows.push({
               key: `${cpu}x ${scene} seat${i + 1}`,
               ...wireNumbers(w.between(from, to), (to - from) / 1000),
+              ...onWire(i, from, to),
             }),
           );
       };
@@ -387,7 +405,9 @@ test("game: match-speed's moments, per update, and the wire", async ({ browser }
       const cpu1 = serverCpuMs();
       const seconds = (end - start) / 1000;
       const seats = wires.map((w) => wireNumbers(w.between(start, end), seconds));
-      seats.forEach((s, i) => wireRows.push({ key: `${cpu}x whole game seat${i + 1}`, ...s }));
+      seats.forEach((s, i) =>
+        wireRows.push({ key: `${cpu}x whole game seat${i + 1}`, ...s, ...onWire(i, start, end) }),
+      );
       const boards = seats.reduce((a, s) => a + s["boards"]!, 0);
       wireRows.push({
         key: `${cpu}x whole game server`,

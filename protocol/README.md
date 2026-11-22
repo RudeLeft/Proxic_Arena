@@ -35,6 +35,11 @@ The infrastructure messages put the rest under `payload`. Lobby and
 match messages are flat: their fields sit beside `type`
 (`{"protocolVersion":1,"type":"WATCHING","messageId":"…","count":2,"names":["Carol","Dave"]}`).
 
+On the wire, every socket may be compressed (permessage-deflate, RFC
+7692, since Phase 11 P11-D2, `server/.../SocketCompression.kt`) when
+the browser offers it, which every browser does; one that doesn't gets
+the same messages uncompressed. The messages themselves don't change.
+
 `messageId` is present from the first infrastructure message on
 purpose. Phase 0A's decision gate rejects duplicate and stale
 responses **by identity**, and proved that removing those guards let

@@ -1453,6 +1453,148 @@ protocol), a real network link, spectators (no spectator in these games), and
 the time from the network to the page's main thread (inside "network", see
 above).
 
+## As built: P11-D2 (2026-11-22)
+
+**What changed.** The sockets compress (permessage-deflate, RFC 7692) when
+the browser offers it, which every browser does: `SocketCompression.kt`,
+installed in `Application.kt`'s `WebSockets` block (one line). Each
+connection keeps its own compressor's window between messages, so a board
+that is mostly the board before costs a few hundred bytes. Messages under
+64 bytes go as they are. Nothing a player sees changes; the messages are the
+same, only their bytes on the wire.
+
+- **Not Ktor's `WebSocketDeflateExtension`, for two reasons found while
+  building it** (RUN: the 2.3.13 jar's bytecode, and the wire tests):
+  - its inflate has **no output limit**: the 1 MB frame ceiling is checked
+    before inflating, so a client's 1 MB frame could become about a gigabyte
+    (what §1.100 forbids). Ours stops at 1 MB and ends the session
+    (`SocketCompressionTest`, `SocketCompressionWireTest`: a 2 MB bomb in a
+    2 KB frame is closed, not answered; with the limit mutated away both
+    tests fail);
+  - Ktor 2.3 writes a reply's parameters after a **comma**
+    (`permessage-deflate , client_no_context_takeover`), which a browser
+    reads as a second, unknown extension and fails the connection. Ours
+    writes the reply whole with semicolons.
+- **It is on every socket, not only the game's:** Ktor 2.3 negotiates
+  extensions for the whole `WebSockets` plugin, not per route. The lobby and
+  system sockets carry no secrets and gain the same way.
+- **HID-001 still holds:** one compressor per connection, fed only what that
+  connection is sent. A seat's stream is that seat's own view, with hidden
+  cards already removed by the worker (`HiddenIds`), and a spectator's is the
+  public view, so no stream holds another viewer's secret whose size could be
+  guessed at. Chat (the only text another player chooses) is on the lobby
+  socket, which carries nothing secret.
+- **It degrades safely** (RUN): a client that offers nothing, or an offer we
+  can't honour (a smaller server window), gets no reply header and plain
+  frames (wire test, a real Netty server read byte by byte; Ktor's test
+  engine can't negotiate extensions, so a test through it would pass with
+  compression off). In a real browser game, the measure's relay dropping the
+  browser's offer (`PROXIC_MEASURE_NO_DEFLATE=1`, as a proxy that strips the
+  header would) played every moment, 100.1% of the bytes on the wire (frame
+  headers).
+- **The measure:** `tools/measure/wire.ts` `tap`, a pass-through relay in
+  front of each player's page in the redraw measure's real game, counts the
+  match socket's bytes as they cross (`matchWireBytesIn`, and `wireShare`
+  against what the page read). `scripts/measure-wire.py` has a "streamed"
+  column: the Lab boards deflated as the server now does.
+
+**Numbers (RUN, 2026-11-22, the owner's PC as C1, bundled Chromium, local
+stack built from 5586c120 plus this change only; the redraw measure's real
+game at 1x, 3 runs on, 3 runs with the offer dropped, on the same build).**
+
+```text
+per seat                      bytes the page read       bytes on the wire, on       share   wire, offer dropped (share)
+1x combat (9 s)               535-716 KB                18.8-22.3 KB                3.1-3.5%   565-681 KB (100.1%)
+1x cast (6 s)                 241-343 KB                 8.1-11.4 KB                3.0-3.5%
+1x whole game                 2.9-4.8 MB                 116-173 KB                 3.6-4.0%   3.2-3.9 MB (100.1%)
+Arena Server CPU per board (whole game, both seats): on 2.15-2.27 ms (median 2.21), offer dropped 2.05-2.41 (2.14)
+
+Lab, scripts/measure-wire.py over the 1.75.0 run's traces (boards only)
+                 board median / p95     deflated alone (before: no shared window)   streamed (as sent now)
+fixed 16          5,674 / 10,166          868 / 1,239 (15.1%)                         85 / 195 (1.7%)
+all 432           3,384 / 7,560           717 / 1,081 (19.1%)                         64 / 184 (2.1%)
+```
+
+- **Target: bytes per board about a fifth. Met many times over:** about
+  1/27 on the wire in real games (3.1-4.0% of today's, all match messages and
+  frame headers counted), 1/50-1/60 in the Lab's boards alone. The row's
+  "a fifth" was deflate of one board alone; keeping the window between boards
+  is what does the rest.
+- **Server CPU per board: +0.07 ms (+3%) on the same build,** within the
+  runs' own spread (2.05-2.41 off). Against D1's 11-21 baseline (1.74-2.07,
+  median 1.86) today's build is higher with compression off too, so that gap
+  is the build and the day, not D2. zlib itself is about 10 microseconds per
+  Lab board at level 6 (RUN, Python's zlib, the same library; level 1 is
+  2.6 us but twice the bytes).
+- Messages per second and boards per game are unchanged (the game varies run
+  to run, as D1 found).
+- **On a real link (INFERENCE: arithmetic on the RUN bytes):** a combat's
+  73-86 KB a seat (D0) becomes about 3 KB; at slow 4G's 1.6 Mbit/s that is
+  about 15 ms of transfer instead of about 430 ms, at 10 Mbit/s about 2 ms
+  instead of 69.
+- Memory: zlib's own formula gives about 256 KB for the compressor and 32 KB
+  for the inflater per open socket (INFERENCE, not measured), freed with the
+  connection.
+- **Not measured:** 4x (nothing here runs on the page's main thread:
+  Chrome inflates in its network process, INFERENCE); D0's timeline (locally
+  the network is the loopback, so it can't show the saving; and the server's
+  `out` mark is taken before the socket compresses); Firefox and WebKit (both
+  offer the extension; untested here).
+- **Owed, for the owner: the Unraid check.** On the live site, open a game,
+  then the browser's DevTools, Network, the `/ws/matches/…` row, Headers: the
+  response should say `Sec-WebSocket-Extensions: permessage-deflate;
+  client_no_context_takeover`. If it is missing, Cloudflare's tunnel dropped
+  the offer and the game runs exactly as before, uncompressed (the case
+  proved above). The Size column of the Messages tab doesn't show the
+  compressed size; the header is the check.
+
+## As built: P11-E9 (2026-11-22)
+
+**The cause was ours, and it was not the password hash** (RUN, 2026-11-22,
+local stack). Timed directly, `/api/auth/login` took 1,117-1,324 ms for the
+first two sign-ins of each burst and 97-124 ms after; a wrong password and an
+unknown name took 93-129 ms every time. So not the hash's cost, not a CPU
+limit (the container has none), not a re-hash, not a cold JIT and not the
+timing dummy. Two thread dumps taken during a slow sign-in found the request
+thread (a Netty event-loop thread) in
+`Inet6AddressImpl.getHostByAddr` under `NettyConnectionPoint.getRemoteHost`
+under `clientSource` (`AuthRoutes.kt`): **a reverse DNS lookup of the peer's
+address**, which in Docker is the bridge's and takes about 1.1 s to fail
+(the resolver remembers the answer briefly, hence fast repeats).
+
+**The fix:** `clientSource` uses the peer's address as written
+(`request.local.remoteAddress`, no lookup). The throttle and the sign-in log
+see the same value as before in practice: the lookup never found a name in
+Docker, so it always gave back the address. Every route that calls
+`clientSource` (sign-in, the Account page's current password, device links,
+invitations, resets, Deck Builder sends) stops paying it. AUTHENTICATION.md
+says so.
+
+```text
+RUN, the loading measure, Chromium, local link, 3 runs (before: the 2026-11-21 kit baseline)
+                                   before                after
+sign-in click to a usable lobby    1,427-1,431 ms        277-293 ms        target <= 600 ms local: met
+/api/auth/login, server time       1,133-1,142 ms        108-124 ms
+direct, 8 sign-ins in a row        1,117-1,324 then 97-124    111-151 (271 the first after a restart: JIT)
+every other page, local            unchanged (lobby cold 107-108, one first-after-restart run 220)
+```
+
+- **Live, this was never paid** (INFERENCE from the code): behind Cloudflare
+  every request carries `CF-Connecting-IP`, which `clientSource` reads first,
+  so the lookup only ran for requests without it: the local stack, or anyone
+  reaching the Unraid box's LAN port directly.
+- **What's left is the hash itself:** Argon2id at 64 MB, 3 passes (OWASP's
+  floor), about 100-120 ms here. Unchanged, and not to be lowered without the
+  owner.
+- **Owed, for the owner: the Unraid figure.** The target is ≤ 300 ms server
+  time on the Unraid box. On the live site, DevTools, Network, the
+  `/api/auth/login` row, Timing, "Waiting for server response", less a normal
+  request's (about 150-250 ms round trip, Loading section above). If the
+  difference is well over 300 ms, the Unraid CPU makes the hash slower than
+  here, and the only lever left is the hash's strength: an owner choice, not
+  an efficiency fix.
+- Measured in Chromium only (the cause is on the server, the same for every
+  engine).
 
 ## As built: P11-F1, CI part (step 1, 2026-11-21)
 

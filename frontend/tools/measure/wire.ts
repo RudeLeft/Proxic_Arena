@@ -1,10 +1,103 @@
 // The wire measure's byte counter (PHASE_11 P11-D1): every message each
 // page's sockets bring or send, as the browser sees it (Playwright's
 // `websocket` events: the message after any permessage-deflate is undone,
-// so these are the bytes the page reads, not the bytes on the wire).
+// so these are the bytes the page reads, not the bytes on the wire). What
+// crosses the wire is `tap`'s count (P11-D2), beside it in the real game.
 
 import type { Page } from "@playwright/test";
+import { createServer, connect, type Socket } from "node:net";
 import { percentile } from "./probes";
+
+/** Bytes a socket's TCP connection brought the page, after its handshake (P11-D2). */
+export interface WireChunk {
+  t: number;
+  socket: "match" | "user" | "other";
+  bytes: number;
+}
+
+export interface Tap {
+  /** The address to give the page instead of the server's. */
+  base: string;
+  chunks: WireChunk[];
+  close(): Promise<void>;
+}
+
+/**
+ * A pass-through relay in front of the server that counts what really
+ * crosses the wire on each socket's connection (P11-D2): the frames as
+ * sent, compressed or not, with their headers. Playwright's events give
+ * the message after permessage-deflate is undone; this gives the bytes
+ * before. Nothing is delayed (link.ts makes slow links; this only counts).
+ */
+export async function tap(target: URL): Promise<Tap> {
+  const chunks: WireChunk[] = [];
+  const sockets = new Set<Socket>();
+  const server = createServer((client) => {
+    const upstream = connect(Number(target.port || 80), target.hostname);
+    sockets.add(client).add(upstream);
+    let socket: WireChunk["socket"] | null = null;
+    let handshake = Buffer.alloc(0);
+    let upgraded = false;
+    client.on("data", (chunk) => {
+      if (socket === null) {
+        const first = chunk.toString("latin1", 0, Math.min(chunk.length, 200));
+        socket = /^GET \/ws\/matches\//.test(first)
+          ? "match"
+          : /^GET \/ws\/(lobby|user)/.test(first)
+            ? "user"
+            : "other";
+        // PROXIC_MEASURE_NO_DEFLATE=1: drop the browser's offer, as a proxy that
+        // strips the header would (the same build, compression off, P11-D2's A/B).
+        if (socket !== "other" && process.env.PROXIC_MEASURE_NO_DEFLATE === "1") {
+          const head = chunk.toString("latin1");
+          const stripped = head.replace(/\r\nSec-WebSocket-Extensions:[^\r]*/gi, "");
+          if (stripped !== head) chunk = Buffer.from(stripped, "latin1");
+        }
+      }
+      upstream.write(chunk);
+    });
+    upstream.on("data", (chunk) => {
+      client.write(chunk);
+      if (socket === "other" || socket === null) return;
+      if (!upgraded) {
+        // The 101's headers are not the socket's traffic.
+        handshake = Buffer.concat([handshake, chunk]);
+        const end = handshake.indexOf("\r\n\r\n");
+        if (end < 0) return;
+        upgraded = true;
+        const rest = handshake.length - end - 4;
+        if (rest > 0) chunks.push({ t: Date.now(), socket, bytes: rest });
+        return;
+      }
+      chunks.push({ t: Date.now(), socket, bytes: chunk.length });
+    });
+    const kill = () => {
+      client.destroy();
+      upstream.destroy();
+    };
+    client.on("error", kill).on("close", kill);
+    upstream.on("error", kill).on("close", kill);
+  });
+  await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+  return {
+    base: `http://${target.hostname}:${port}`,
+    chunks,
+    close: () =>
+      new Promise<void>((ok) => {
+        for (const s of sockets) s.destroy();
+        server.close(() => ok());
+      }),
+  };
+}
+
+/** The match socket's bytes on the wire in [from, to], from [tap]. */
+export function wireBytesIn(chunks: WireChunk[], from: number, to = Infinity): number {
+  return chunks
+    .filter((c) => c.socket === "match" && c.t >= from && c.t <= to)
+    .reduce((a, c) => a + c.bytes, 0);
+}
 
 export interface Frame {
   t: number;
