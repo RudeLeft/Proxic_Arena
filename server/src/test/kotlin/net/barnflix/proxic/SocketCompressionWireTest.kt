@@ -185,10 +185,21 @@ class SocketCompressionWireTest {
             RawSocket(port, "/echo", "permessage-deflate").use { ws ->
                 // 2 MB of zeros is about 2 KB compressed: well under the 1 MB frame ceiling.
                 ws.send(helpers.clientDeflate(ByteArray(2 * 1024 * 1024)), compressed = true)
-                val (b0, payload) = ws.read()
                 // Closed, not answered: the extension refuses the message before
-                // it is inflated past 1 MB (Ktor then ends the session normally).
-                assertEquals(FIN_CLOSE, b0, "a close frame, not an echo (${payload.size} bytes)")
+                // it is inflated past 1 MB, and the session ends. Ktor may get its
+                // close frame out first or drop the connection first (CI run
+                // 45048612802 read end-of-stream): both are the bomb refused. An
+                // echo of any kind is the failure.
+                val frame =
+                    try {
+                        ws.read()
+                    } catch (_: java.io.EOFException) {
+                        null
+                    }
+                if (frame != null) {
+                    val (b0, payload) = frame
+                    assertEquals(FIN_CLOSE, b0, "a close frame, not an echo (${payload.size} bytes)")
+                }
             }
         }
 
