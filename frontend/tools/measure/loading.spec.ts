@@ -81,12 +81,26 @@ function recorder(page: Page) {
     );
   });
   const frames: { bytes: number }[] = [];
+  // P11-E2: when the lobby socket's list of players (the avatars' names until
+  // E2) arrived, so the avatar probe is read only after it.
+  let players: Promise<void> = Promise.resolve();
+  let heardPlayers: () => void = () => undefined;
+  const awaitPlayers = () => {
+    players = new Promise<void>((ok) => (heardPlayers = ok));
+  };
+  awaitPlayers();
   page.on("websocket", (ws) =>
-    ws.on("framereceived", (f) =>
+    ws.on("framereceived", (f) => {
       frames.push({
         bytes: typeof f.payload === "string" ? Buffer.byteLength(f.payload) : f.payload.length,
-      }),
-    ),
+      });
+      if (
+        ws.url().includes("/ws/user") &&
+        typeof f.payload === "string" &&
+        f.payload.includes('"PLAYERS"')
+      )
+        heardPlayers();
+    }),
   );
   return {
     reset() {
@@ -96,6 +110,13 @@ function recorder(page: Page) {
     take() {
       return { reqs: [...reqs.values()].filter((r) => !r.url.startsWith("data:")), frames };
     },
+    /** Resolves once a new lobby connection has said who the players are (or after 10 s). */
+    players: () =>
+      Promise.race([players, new Promise<void>((ok) => setTimeout(ok, 10_000))]).then(() =>
+        awaitPlayers(),
+      ),
+    /** For a page that keeps its connection (in the app): nothing new to wait for. */
+    noNewSocket: () => heardPlayers(),
   };
 }
 type Recorder = ReturnType<typeof recorder>;
@@ -122,12 +143,155 @@ const firstPaint = (page: Page) =>
 
 const kb = (xs: Req[]) => Math.round((xs.reduce((a, r) => a + r.bytes, 0) / 1024) * 10) / 10;
 
+/**
+ * P11-E2's avatar probe, put in every profile before the page's scripts.
+ * Every round portrait (`img.pa-avatar`) is followed from the moment it is
+ * drawn: a "swap" is one drawn with the default face whose picture then
+ * becomes a player's own (the same element, or the element React draws in
+ * its place in the same commit when a ring or status badge comes to wrap
+ * it); its lateness is from first drawn to its own picture loaded. Only
+ * portraits on screen when they load count (the Account picker's folded set
+ * does not). `reset()` starts a new count, for a visit in the app. Per load:
+ * `avatarSwaps`, `avatarsShown`, `avatarLateMs` (the latest), `avatarLastMs`
+ * (from the start or the click), `avatarAfterUsableMs` and `avatarFetches`
+ * (portrait pictures fetched, folded ones included).
+ */
+const AVATAR_PROBE = `(() => {
+  // The default face is the one SVG; every player's own picture is a .webp.
+  const own = (src) => /\\.webp(\\?|$)/.test(src || "");
+  const state = { from: 0, swaps: 0, shown: 0, late: 0, last: 0 };
+  const info = new WeakMap();
+  const settle = (img) => {
+    const i = info.get(img);
+    if (!i || i.done || !own(img.currentSrc || img.src)) return;
+    if (!(img.complete && img.naturalWidth > 0)) return;
+    i.done = true;
+    if (i.at < state.from || img.getClientRects().length === 0) return;
+    const t = performance.now();
+    state.shown += 1;
+    state.late = Math.max(state.late, t - i.at);
+    state.last = Math.max(state.last, t);
+  };
+  // [was]: the same portrait's earlier element, when React drew it again.
+  const track = (img, was) => {
+    if (info.has(img)) return;
+    const def = !own(img.getAttribute("src"));
+    if (was && was.def && !def && was.at >= state.from) state.swaps += 1;
+    info.set(img, { at: was ? was.at : performance.now(), def: was ? was.def && def : def, done: false });
+    img.addEventListener("load", () => settle(img));
+    settle(img);
+  };
+  // A portrait is the <img>, or the ring/badge wrapper around it.
+  const portrait = (node) =>
+    node.nodeType !== 1 ? null
+    : node.matches("img.pa-avatar") ? node
+    : node.matches(".pa-avatar-wrap") ? node.querySelector("img.pa-avatar") : null;
+  new MutationObserver((list) => {
+    // React re-mounts a portrait when a ring or a status badge comes to wrap
+    // it (the lobby's lists arriving): the default face removed and a new
+    // element added in the same place, in one commit. That is a swap too.
+    const gone = new Map();
+    for (const m of list) {
+      if (m.type !== "childList") continue;
+      m.removedNodes.forEach((n) => {
+        const img = portrait(n);
+        const i = img && info.get(img);
+        if (!i) return;
+        if (!gone.has(m.target)) gone.set(m.target, []);
+        gone.get(m.target).push(i);
+      });
+    }
+    for (const m of list) {
+      if (m.type === "childList") {
+        m.addedNodes.forEach((n) => {
+          if (n.nodeType !== 1) return;
+          const img = portrait(n);
+          if (img) track(img, gone.get(m.target)?.shift());
+          n.querySelectorAll("img.pa-avatar").forEach((x) => track(x));
+        });
+        continue;
+      }
+      const img = m.target;
+      if (!img.matches || !img.matches("img.pa-avatar")) continue;
+      const i = info.get(img);
+      if (!i) { track(img); continue; }
+      if (i.def && own(img.getAttribute("src"))) {
+        if (i.at >= state.from) state.swaps += 1;
+        i.def = false;
+        i.done = false;
+      }
+      settle(img);
+    }
+  }).observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] });
+  window.__avatars = {
+    state,
+    reset() { Object.assign(state, { from: performance.now(), swaps: 0, shown: 0, late: 0, last: 0 }); },
+  };
+})();`;
+
+/**
+ * The avatar numbers of a load that started at [start] (performance.now) and
+ * was usable [usable] ms later, read once the lobby connection has said who
+ * the players are (the swap, if any, has happened by then) and the pictures
+ * have had a moment to land.
+ */
+async function avatars(
+  page: Page,
+  rec: Recorder,
+  start: number,
+  usable: number,
+): Promise<Record<string, number | null>> {
+  await rec.players();
+  await page.waitForTimeout(500);
+  // Then every portrait on screen loaded (a slow link's pictures land late).
+  await page
+    .waitForFunction(
+      () =>
+        [...document.querySelectorAll<HTMLImageElement>("img.pa-avatar")]
+          .filter((img) => img.getClientRects().length > 0)
+          .every((img) => img.complete),
+      undefined,
+      { timeout: 10_000, polling: 100 },
+    )
+    .catch(() => undefined);
+  const s = await page
+    .evaluate(() => {
+      const probe = (
+        window as unknown as {
+          __avatars?: { state: { swaps: number; shown: number; late: number; last: number } };
+        }
+      ).__avatars;
+      if (!probe) return null;
+      // Every portrait's address, folded or not: what fetching one of them looks like.
+      const pictures = [...document.querySelectorAll<HTMLImageElement>("img.pa-avatar")].map(
+        (img) => new URL(img.src, location.href).pathname,
+      );
+      return { ...probe.state, pictures };
+    })
+    .catch(() => null);
+  if (!s) return {};
+  const pictures = new Set(s.pictures.filter((path) => path.endsWith(".webp")));
+  const last = s.shown ? s.last - start : null;
+  return {
+    // Players' own pictures fetched in this load (the Account picker's set among them).
+    avatarFetches: rec
+      .take()
+      .reqs.filter((r) => r.type === "image" && pictures.has(new URL(r.url).pathname)).length,
+    avatarSwaps: s.swaps,
+    avatarsShown: s.shown,
+    avatarLateMs: s.shown ? Math.round(s.late) : null,
+    avatarLastMs: last === null ? null : Math.round(last),
+    avatarAfterUsableMs: last === null ? null : Math.round(last - usable),
+  };
+}
+
 async function row(
   key: string,
   usable: number,
   fcp: number | null,
   images: number | null,
   rec: Recorder,
+  extra: Record<string, number | null> = {},
 ): Promise<Row> {
   // sizes() resolves after requestfinished: give the last ones a moment.
   await new Promise((ok) => setTimeout(ok, 300));
@@ -154,6 +318,8 @@ async function row(
     apiServerMsMax: Math.round(Math.max(0, ...api.map((r) => r.server ?? 0))),
     socketMessages: frames.length,
     socketKb: Math.round((frames.reduce((a, f) => a + f.bytes, 0) / 1024) * 10) / 10,
+    // P11-E2: avatar pictures fetched in this load (the Account picker's set).
+    ...extra,
     slowest,
   };
 }
@@ -249,6 +415,7 @@ async function fresh(browser: Browser, base: string, state?: string): Promise<Br
     ...(state ? { storageState: state } : {}),
   });
   await ctx.addInitScript(READY);
+  await ctx.addInitScript(AVATAR_PROBE);
   return ctx;
 }
 
@@ -322,6 +489,7 @@ test("every page: cold, reload, in the app, over each link", async ({ browser, b
             await firstPaint(page),
             await imagesDone(page),
             rec,
+            await avatars(page, rec, 0, usable),
           ),
         );
         await page.waitForTimeout(500);
@@ -335,6 +503,7 @@ test("every page: cold, reload, in the app, over each link", async ({ browser, b
             await firstPaint(page),
             await imagesDone(page),
             rec,
+            await avatars(page, rec, 0, usable),
           ),
         );
         await ctx.close();
@@ -354,13 +523,17 @@ test("every page: cold, reload, in the app, over each link", async ({ browser, b
             const def = PAGES.find((p) => p.name === which)!;
             await page.waitForTimeout(300);
             rec.reset();
-            const t0 = await now(page);
+            const t0 = await page.evaluate(() => {
+              (window as unknown as { __avatars?: { reset(): void } }).__avatars?.reset();
+              return performance.now();
+            });
             await page
               .getByRole("navigation", { name: "Pages" })
               .getByRole("link", { name: def.nav!, exact: true })
               .click();
             const t1 = await usableAt(page, def.check);
             const images = await imagesDone(page);
+            rec.noNewSocket();
             rows.push(
               await row(
                 `${name} ${which} in-app ${round}`,
@@ -368,6 +541,7 @@ test("every page: cold, reload, in the app, over each link", async ({ browser, b
                 null,
                 images === null ? null : Math.round(images - t0),
                 rec,
+                await avatars(page, rec, t0, t1 - t0),
               ),
             );
           }
@@ -464,6 +638,7 @@ test("room, game and spectate: cold and reload, over each link", async ({
               await firstPaint(page),
               await imagesDone(page),
               rec,
+              await avatars(page, rec, 0, usable),
             ),
           );
           await page.waitForTimeout(1_000);
@@ -477,6 +652,7 @@ test("room, game and spectate: cold and reload, over each link", async ({
               await firstPaint(page),
               await imagesDone(page),
               rec,
+              await avatars(page, rec, 0, usable),
             ),
           );
         } finally {

@@ -12,6 +12,7 @@
 //   node ci/measure.mjs redraw  [--runs 3] [--out DIR] [--cpu 1,4] [--grep RE]
 //   node ci/measure.mjs loading [--runs 3] [--out DIR] [--engines chromium,webkit]
 //                               [--links local,slow4g,live,poor] [--grep RE]
+//   (any of them) --pw-output DIR   Playwright's own results under DIR, not frontend/test-results
 //   node ci/measure.mjs timeline [--runs 3] [--out DIR] [--cpu 1,4]
 //   node ci/measure.mjs timeline-chart DIR
 //   node ci/measure.mjs compare DIR [--against BEFORE_DIR]
@@ -149,6 +150,8 @@ function run(spec, runs, out, env, projects, grep) {
                     `--project=${project}`,
                     spec,
                     ...(grep ? ["-g", grep] : []),
+                    // Playwright's own results (traces, attachments), kept out of the repo if asked.
+                    ...(pwOutput ? [`--output=${join(pwOutput, `run-${k}-${project}`)}`] : []),
                 ],
                 {
                     cwd: frontend,
@@ -166,6 +169,7 @@ function run(spec, runs, out, env, projects, grep) {
     compare(out);
 }
 
+const pwOutput = opt("pw-output") ? resolve(opt("pw-output")) : null;
 const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 if (what === "compare") {
     const dir = args[0];
