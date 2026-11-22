@@ -460,11 +460,22 @@ export async function choices(page: Page): Promise<Locator> {
  * be chosen, or its pass. True if there was one to answer. A numbered card
  * clicked again is taken back, so a loop clicking "the first card" would
  * never finish an order; this never clicks a numbered one.
+ *
+ * [except]: a selector for the trays the caller reads and answers itself
+ * (e.g. `[data-kind="chooseSingleEntityForEffect"]`). It is part of the
+ * tray's own locator, so a tray of that kind opening after the caller
+ * looked is never found here. A separate look before the call is not
+ * enough (CI 45044248294: the tray opened between that look and this
+ * one, 40 ms apart, and the generic click took Hill Giant).
  */
-export async function answerCardTray(page: Page): Promise<boolean> {
+export async function answerCardTray(
+  page: Page,
+  { except }: { except?: string } = {},
+): Promise<boolean> {
+  const not = except ? `:not(${except})` : "";
   const tray = matchPanel(page)
     .locator(
-      ".gs-win.gs-tray:has(button.gs-win-tile[data-object-id]), .gs-win.gs-tray:has(.gs-win-piles)",
+      `.gs-win.gs-tray${not}:has(button.gs-win-tile[data-object-id]), .gs-win.gs-tray${not}:has(.gs-win-piles)`,
     )
     .first();
   if ((await tray.count()) === 0) return false;

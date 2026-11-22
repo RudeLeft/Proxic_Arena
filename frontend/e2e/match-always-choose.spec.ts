@@ -51,9 +51,14 @@ const CLIPS = process.env.PROXIC_CLIPS;
 
 const turnOf = async (page: Page) =>
   Number((await page.locator(".gs-turn-value").allTextContents())[0] ?? 0) || 0;
-/** The tray for a card from another player's hand, on this page. */
+/** The tray for a card from another player's hand, on this page -- by its
+ * words, not only its kind: cascade's "Choose one" for Giant Killer's half
+ * (step 4) is a chooseSingleEntityForEffect tray too. */
+const HAND_KIND = '[data-kind="chooseSingleEntityForEffect"]';
 const handTray = (page: Page) =>
-  matchPanel(page).locator('.gs-win.gs-tray[data-kind="chooseSingleEntityForEffect"]');
+  matchPanel(page)
+    .locator(`.gs-win.gs-tray${HAND_KIND}`)
+    .filter({ hasText: /Look at .+’s hand/ });
 const windowSaying = (page: Page, words: RegExp) =>
   page.locator(".gs-reveal").filter({ hasText: words });
 const inHand = (page: Page, name: RegExp) =>
@@ -291,9 +296,11 @@ test("Appetite for Brains with one card that fits: the host clicks it; the guest
         }
         // The host's hand tray is step 1's to read, never the generic answer's:
         // it can open between step 1's look and here (the full local run of
-        // 2026-11-20 had the generic answer click Hill Giant first, twice).
-        if (isHost && !clicked && (await handTray(page).count()) > 0) continue;
-        if (await answerCardTray(page)) continue;
+        // 2026-11-20 had the generic answer click Hill Giant first, twice; CI
+        // 45044248294 once more, the tray opening between a look here and
+        // answerCardTray's own). So the generic answer cannot see that kind
+        // of tray at all until step 1 has clicked.
+        if (await answerCardTray(page, isHost && !clicked ? { except: HAND_KIND } : {})) continue;
         const combat = panel.locator("button.gs-act-combat");
         if ((await combat.count()) > 0) {
           await passCombat(page);
