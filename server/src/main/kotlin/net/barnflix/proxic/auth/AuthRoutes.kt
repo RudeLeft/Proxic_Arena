@@ -277,11 +277,16 @@ internal suspend fun ApplicationCall.respondThrottled(seconds: Long) {
  * Here that holds: the server is not reachable except through the
  * tunnel or the LAN port, and a LAN caller forging the header can
  * only throttle themselves differently.
+ *
+ * PHASE_11 P11-E9 -- the peer's address as written, never its name.
+ * `remoteHost` looks the address up in reverse DNS on the request's
+ * thread; in Docker that lookup of the bridge's address took about
+ * 1.1 s, and it was most of a local sign-in's 1.2 s.
  */
 internal fun ApplicationCall.clientSource(): String =
     request.header("CF-Connecting-IP")
         ?: request.header("X-Forwarded-For")?.substringBefore(',')?.trim()
-        ?: request.local.remoteHost
+        ?: request.local.remoteAddress
 
 internal fun ApplicationCall.issueSession(
     config: ServerConfig,

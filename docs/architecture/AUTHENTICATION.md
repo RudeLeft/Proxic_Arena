@@ -261,6 +261,12 @@ In-process, keyed on `source + normalized username`:
 10 failed attempts per 15 minutes
 ```
 
+The source is `CF-Connecting-IP`, else the first `X-Forwarded-For`
+address, else the TCP peer's address as written (`clientSource` in
+`AuthRoutes.kt`). Never the peer's name: a reverse DNS lookup of
+Docker's bridge address made every local sign-in take about 1.1 s
+until 2026-11-22 (Phase 11, P11-E9).
+
 A success clears the counter. Expired entries are evicted rather than
 accumulating. The Account page's "current password" on a password
 change counts under the same key (since 2026-11-18; below). The device
