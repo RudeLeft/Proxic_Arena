@@ -234,11 +234,11 @@ private fun Application.installPluginsAndDependencies(config: ServerConfig): Dep
         // handled by the ping/timeout pair above: a peer that stops
         // answering pings is closed rather than held open forever.
         maxFrameSize = Limits.MAX_WS_FRAME_BYTES
+        // PHASE_11 P11-D2 -- permessage-deflate, when the browser offers it.
+        extensions { install(SocketCompression) }
     }
 
     // §1.44: one error shape, everywhere. A thrown exception must not
-        // PHASE_11 P11-D2 -- permessage-deflate, when the browser offers it.
-        extensions { install(SocketCompression) }
     // leak a stack trace to a client (§1.26, §2.76).
     install(StatusPages) {
         exception<Throwable> { call, cause ->
