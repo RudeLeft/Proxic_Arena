@@ -270,9 +270,10 @@ test("a player idle for 5 minutes shows away to the other, on the list, the seat
       await expect(badge(row, /online/)).toBeVisible();
 
       await guest.mouse.move(5, 5);
-      // Twenty seconds at a time, each waiting for the server's PONG: one
-      // jump of 5 minutes is also 5 minutes without one, and the page would
-      // rightly reconnect as new.
+      // Twenty seconds at a time, each waiting for the server's PONG, as a
+      // tab in use beats. (One jump of 5 minutes is a tab waking from a
+      // freeze: since P11-E13 it asks again rather than reconnecting;
+      // hidden-tab.spec.ts covers that.)
       try {
         for (let step = 0; step < 17; step++) {
           const pong = socket!.waitForEvent("framereceived", {

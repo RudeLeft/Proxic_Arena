@@ -1003,6 +1003,32 @@ export const RECONNECT_DELAYS: readonly number[] = [500, 1000, 2000, 4000, 8000,
 export const PING_MS = 20_000;
 export const QUIET_MS = 45_000;
 
+/**
+ * P11-E13 — hidden tabs. A browser slows a hidden tab's timers (Chromium:
+ * at most once a minute after 5 minutes hidden) or freezes the tab
+ * outright (Edge's sleeping tabs, Chrome's savers, Safari), while the
+ * connection itself stays open and the browser keeps answering the
+ * server's own pings. "Nothing heard for 45 s" then only meant "this
+ * page's clock didn't look for a minute": the check dropped a healthy
+ * connection and reconnected, once a minute, all the while the tab was
+ * hidden. So silence is judged by what a hidden tab can still do: answer a
+ * PING it has just sent.
+ *
+ * - A beat on time (visible tab) judges as before: a PING unanswered for
+ *   [REPLY_MS], nothing heard for QUIET_MS -- the same moment as ever.
+ * - A beat later than [LATE_BEAT_MS] means this page was slowed or asleep,
+ *   and an answer may be waiting unread behind it: it judges nothing, sends
+ *   a fresh PING, and checks that one [WAKE_REPLY_MS] later. So a dead
+ *   connection is still found in a slowed tab (at its next wake-up) and on
+ *   waking from a freeze (5 s on).
+ * - That check fires late too in a frozen tab; one more than [ASLEEP_MS]
+ *   after its PING judges nothing (the next beat, late, asks again).
+ */
+export const REPLY_MS = QUIET_MS - PING_MS;
+export const LATE_BEAT_MS = 30_000;
+export const WAKE_REPLY_MS = 5_000;
+export const ASLEEP_MS = 90_000;
+
 /** The server's close for "not signed in" (§3.80): reconnecting cannot fix it. */
 const POLICY_CLOSE = 1008;
 
@@ -1042,7 +1068,19 @@ export function connectLobby(
     let dropped = false;
     let heard = Date.now();
     let beat: ReturnType<typeof setInterval> | null = null;
+    // P11-E13 — the first PING since anything was last heard, and the last beat.
+    let asked: number | null = null;
+    let beatAt = Date.now();
 
+    // Silence: lost, and the connection let go.
+    const silent = () => {
+      lost(1006);
+      try {
+        socket.close();
+      } catch {
+        /* already gone */
+      }
+    };
     // Lost: by the browser's "close", or by silence.
     const lost = (code: number) => {
       if (dropped || closedByUs) return;
@@ -1069,6 +1107,7 @@ export function connectLobby(
       const again = everOpened;
       everOpened = true;
       heard = Date.now();
+      beatAt = heard;
       onState((previous) => ({ ...previous, connection: "open" }));
       if (again) options.onReopen?.();
       beat = setInterval(() => {
@@ -1076,25 +1115,34 @@ export function connectLobby(
           if (beat !== null) clearInterval(beat);
           return;
         }
-        if (Date.now() - heard > QUIET_MS) {
-          lost(1006);
-          try {
-            socket.close();
-          } catch {
-            /* already gone */
-          }
+        const now = Date.now();
+        const late = now - beatAt > LATE_BEAT_MS;
+        beatAt = now;
+        // Asleep: an answer may be waiting unread; ask afresh instead.
+        if (late) asked = null;
+        else if (asked !== null && now - asked >= REPLY_MS && now - heard > QUIET_MS) {
+          silent();
           return;
         }
         try {
           socket.send(JSON.stringify({ type: "PING" }));
         } catch {
-          // The silence check above catches a socket that cannot send.
+          // The silence check catches a socket that cannot send.
+        }
+        asked ??= now;
+        if (late) {
+          const woke = asked;
+          setTimeout(() => {
+            if (dropped || closedByUs || asked !== woke) return; // answered, or gone
+            if (Date.now() - woke <= ASLEEP_MS) silent();
+          }, WAKE_REPLY_MS);
         }
       }, PING_MS);
     });
 
     socket.addEventListener("message", (event: MessageEvent) => {
       heard = Date.now();
+      asked = null;
       let parsed: unknown;
       try {
         parsed = JSON.parse(String(event.data));

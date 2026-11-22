@@ -30,6 +30,22 @@ const chromium = {
     : { channel: process.env.PROXIC_E2E_CHANNEL ?? "msedge" }),
 };
 
+// The specs every engine runs (P11-E13's hidden tab; F1's smoke set to
+// come), as projects named for the engines in PROXIC_E2E_ENGINES
+// ("firefox,webkit": CI's engines job), Playwright's bundled ones. Without
+// it, none: a plain run here never starts Firefox (it doesn't start on the
+// owner's PC, PHASE_11 decision 11). Chromium runs them in "other".
+const ENGINE_SPEC = /(^|[\\/])hidden-tab\.spec\.ts$/;
+const ENGINES: Record<string, string> = { firefox: "Desktop Firefox", webkit: "Desktop Safari" };
+const engines = (process.env.PROXIC_E2E_ENGINES ?? "")
+  .split(",")
+  .filter((name) => name in ENGINES)
+  .map((name) => ({
+    name,
+    testMatch: ENGINE_SPEC,
+    use: { ...devices[ENGINES[name]!], viewport: { width: 1920, height: 1080 } },
+  }));
+
 export default defineConfig({
   testDir: "./e2e",
   // The stack is slow to settle on a cold start: Postgres health,
@@ -62,5 +78,6 @@ export default defineConfig({
   projects: [
     { name: "match", testMatch: MATCH_SPEC, use: chromium },
     { name: "other", testIgnore: MATCH_SPEC, use: chromium },
+    ...engines,
   ],
 });

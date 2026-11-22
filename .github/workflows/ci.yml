@@ -949,6 +949,13 @@ jobs:
           PROXIC_LOAD_LINKS: local,slow4g
           PROXIC_MEASURE_OUT: test-results/measure
         run: npx playwright test -c playwright.measure.config.ts --project=${{ matrix.engine }} loading.spec.ts
+      # P11-E13: a hidden tab's slowed and frozen timers keep its lobby connection.
+      - name: A hidden tab keeps its connection in ${{ matrix.engine }}
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        env:
+          PROXIC_E2E_ENGINES: ${{ matrix.engine }}
+        run: npx playwright test --project=${{ matrix.engine }} hidden-tab.spec.ts
       - name: Server log, if anything failed
         if: failure() || cancelled()
         run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --tail 200 arena-server

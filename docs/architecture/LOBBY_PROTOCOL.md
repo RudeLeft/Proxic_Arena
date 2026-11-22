@@ -170,7 +170,7 @@ caught by the version notice instead (spec 0050).
 
 | Type | Body | Notes |
 | --- | --- | --- |
-| `PING` | — | answered `PONG` |
+| `PING` | — | answered `PONG`; the page sends one every 20 s and counts the connection lost only when one goes unanswered while its own timers run on time (`lobby.ts` `connectLobby`, P11-E13: a hidden or frozen tab keeps its connection) |
 | `INVITE` | `userId` | host only, into your own room |
 | `INVITE_ACCEPT` | `roomId` | spends the invitation |
 | `INVITE_DECLINE` | — | the host is told (`INVITATION_ENDED`) |

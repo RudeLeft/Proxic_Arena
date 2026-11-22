@@ -11,6 +11,7 @@ import {
   EMPTY_LOBBY,
   PING_MS,
   QUIET_MS,
+  WAKE_REPLY_MS,
   adoptCurrentRoom,
   connectLobby,
   reduceLobby,
@@ -18,6 +19,8 @@ import {
   type RoomView,
 } from "./lobby";
 import { EMPTY_MATCH, connectMatch, type MatchState } from "./match";
+
+const PING = JSON.stringify({ type: "PING" });
 
 class FakeSocket extends EventTarget {
   static made: FakeSocket[] = [];
@@ -142,6 +145,94 @@ describe("the lobby connection", () => {
     FakeSocket.made[1]!.opened();
     expect(now().connection).toBe("open");
     expect(onReopen).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * P11-E13: a hidden tab's timers run late -- Chromium's once a minute
+   * after 5 minutes hidden -- while its connection is fine and every PING
+   * is answered at once. Here the clock jumps 40 s before each of the page's
+   * timers fires (each runs once, a minute apart), as in such a tab. The old
+   * check saw "nothing heard for 60 s" and dropped the connection at the
+   * first such beat; ten minutes of them must keep the one socket.
+   */
+  it("keeps a hidden tab's connection while its slowed beats are answered", () => {
+    const onReopen = vi.fn();
+    const { now } = lobby(onReopen);
+    const first = FakeSocket.made[0]!;
+    first.opened();
+    for (let minute = 0; minute < 10; minute++) {
+      vi.setSystemTime(Date.now() + 40_000);
+      vi.advanceTimersToNextTimer(); // the beat, a minute late: asks afresh
+      expect(first.sent.at(-1)).toBe(PING);
+      first.says({ type: "PONG" });
+      vi.advanceTimersToNextTimer(); // its check: answered
+      expect(now().connection).toBe("open");
+    }
+    expect(FakeSocket.made).toHaveLength(1);
+    expect(onReopen).not.toHaveBeenCalled();
+  });
+
+  /**
+   * P11-E13: a frozen tab (Edge's sleeping tabs, Chrome's savers) runs no
+   * code at all for minutes; its connection stays open. On waking, the
+   * first beat is ten minutes late: that is the page asleep, not the
+   * connection silent, so it asks again rather than dropping it -- and a
+   * check that itself wakes far too late judges nothing either.
+   */
+  it("asks again, rather than dropping, when a frozen tab wakes", () => {
+    const { now } = lobby(vi.fn());
+    const first = FakeSocket.made[0]!;
+    first.opened();
+    vi.advanceTimersByTime(PING_MS);
+    first.says({ type: "PONG" });
+
+    vi.setSystemTime(Date.now() + 10 * 60_000);
+    vi.advanceTimersToNextTimer(); // the late beat
+    expect(now().connection).toBe("open");
+    expect(first.sent.at(-1)).toBe(PING);
+    // Frozen again before the answer was read: its check fires ten minutes on.
+    vi.setSystemTime(Date.now() + 10 * 60_000);
+    vi.advanceTimersToNextTimer();
+    expect(now().connection).toBe("open");
+    first.says({ type: "PONG" }); // the answer, read on waking
+    // Then beats on time again, each PING answered as soon as it is sent.
+    for (let timer = 0, sent = first.sent.length; timer < 8; timer++) {
+      vi.advanceTimersToNextTimer();
+      if (first.sent.length > sent) first.says({ type: "PONG" });
+      sent = first.sent.length;
+    }
+    expect(now().connection).toBe("open");
+    expect(FakeSocket.made).toHaveLength(1);
+  });
+
+  /**
+   * P11-E13: and a connection that really died is still found -- in a
+   * slowed hidden tab (its fresh PING unanswered at the next wake-up), and
+   * in a tab that woke from a freeze onto a dead network (WAKE_REPLY_MS on).
+   */
+  it("still drops a dead connection in a slowed tab, and after a freeze", () => {
+    const slowed = lobby(vi.fn());
+    const a = FakeSocket.made[0]!;
+    a.opened();
+    vi.setSystemTime(Date.now() + 40_000);
+    vi.advanceTimersToNextTimer(); // a late beat: PING, never answered
+    expect(slowed.now().connection).toBe("open");
+    vi.setSystemTime(Date.now() + 55_000);
+    vi.advanceTimersToNextTimer(); // its check, at the next wake-up a minute on
+    expect(slowed.now().connection).toBe("reconnecting");
+    slowed.socket.close();
+
+    FakeSocket.made = [];
+    const woken = lobby(vi.fn());
+    const b = FakeSocket.made[0]!;
+    b.opened();
+    vi.setSystemTime(Date.now() + 10 * 60_000);
+    vi.advanceTimersToNextTimer(); // late: asks, does not judge
+    expect(woken.now().connection).toBe("open");
+    vi.advanceTimersByTime(WAKE_REPLY_MS - 1);
+    expect(woken.now().connection).toBe("open");
+    vi.advanceTimersByTime(1); // that fresh PING unanswered: found at once, not a minute on
+    expect(woken.now().connection).toBe("reconnecting");
   });
 
   /**
