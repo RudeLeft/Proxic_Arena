@@ -551,6 +551,10 @@ keep their relative order.)
 - **A new or changed browser spec runs at CI speed before it is
   committed** (P11-B7): `node ci/ci-speed.mjs <spec>` -- CPU slowed 4x,
   after its CI machine neighbour (docs/operations/UPDATING.md).
+- **Before and after are measured with the kit** (step 1): `node ci/measure.mjs
+  redraw|loading` (three runs, compared) and `scripts/measure-wire.py` over the
+  fixed Lab traces; `node ci/measure.mjs compare <after> --against <before>`
+  puts the two side by side. See "The measuring kit" below.
 - **One item at a time.** Visible items become feature specs (from 0104;
   fetch first, the checkout is shared). Goal items that change no look are
   maintenance under "Current work" with a dated As built amendment here.
@@ -759,6 +763,16 @@ answers are recorded at the end of this paper.)
 
     Recommended: (a). An agent doesn't install system components itself.
 
+    **Corrected 2026-11-21 (owner):** it isn't the Visual C++ runtime.
+    The owner installed it: both the x64 and x86 runtimes, v14.51, are
+    on the PC. A forced re-download of `firefox-1555` still fails the
+    same way ("spawn UNKNOWN"). Windows's event log says side-by-side
+    activation failed because the dependent assembly "mozglue" could not
+    be found, although `mozglue.dll` is there. So Firefox is **CI-only**
+    for now (CI's Linux runner, option (b)): the kit and CI carry the
+    Firefox path (As built: P11-F1, CI part), and no local Firefox run
+    is attempted. Chromium and WebKit run here.
+
 ## Not in Phase 11
 
 - **Card statuses** and the gold-square key: **Phase 12**.
@@ -881,3 +895,455 @@ Gated: tsc -b, tsc e2e, eslint, prettier and vitest (1822/1822) pass. The code i
 - **Today's lessons as helpers:** `clickUnless(target, unplanned)` -- a catch-all's click that skips windows it does not plan for, the check and the click one page step (`clickUnlessCombat` is now `clickUnless(target, ".gs-combat")`); `chosenTargets(page)` -- what the page marks as chosen, not a bot's count (now used by `match-numbers`); `shownTexts(locator)` and `said(word)` -- whole text including the hidden sentence, and a word that may be glued to a count ("the monarch1") (now used by `match-state`). Other specs' bot logic is unchanged.
 - **CI-speed local run:** `node ci/ci-speed.mjs <spec> ...`. `PROXIC_E2E_CPU=N` (set by the script, default 4) makes `e2e/cpu-slowdown.ts`, imported by `playwright.config.ts`, wrap `chromium.launch` in each worker so every page of every context gets `Emulation.setCPUThrottlingRate`. The script runs each spec after its CI machine neighbour (deal from `ci/browser-shard.mjs`, name order as Playwright runs them), one Playwright run per machine; `--whole`, `--alone`, `--cpu N`, `--dry`. When to use it: in "How work runs" above and in `docs/operations/UPDATING.md`.
 - **Touched specs (run above, except the two with a comment only, which CI runs):** match-cast-aside, match-cast-step-aside, match-casting-dock, match-lands-stay-put (comment only), match-last-jumps, match-numbers, match-quiet-windows, match-reading-card, match-reports-comfort, match-soulbond, match-speed, match-state, match-status-list (comment only); every spec using `clickUnlessCombat` or `hitPoint` goes through the changed helpers.
+
+## The measuring kit (step 1, 2026-11-21)
+
+One kit measures all three goals, the same way before and after every
+change (P11-R5, P11-R6). It changes nothing a player sees.
+
+| Measure | Item | Where | Engines |
+|---|---|---|---|
+| Redraw | P11-C1 | `frontend/tools/measure/redraw.spec.ts`, `probes.ts` | Chromium (CDP) |
+| Wire, browser side | P11-D1 | `redraw.spec.ts`'s real game, `wire.ts`, `results.ts` `serverCpuMs` | Chromium |
+| Wire, Lab traces | P11-D1 | `scripts/measure-wire.py` (`FIXED`) | (the worker's output) |
+| Loading | P11-E1 | `frontend/tools/measure/loading.spec.ts`, `link.ts` | Chromium, Firefox, WebKit |
+| Run three times, compare | all | `ci/measure.mjs` | - |
+
+**How to run it** (against the local stack on :8080, one Playwright run at a
+time, nothing else using the shared test accounts: the measures play real
+games with RudeLeft, Pat and the first of `match-accounts.json`; and with other
+programs closed, since every number is the PC's):
+
+```text
+node ci/measure.mjs redraw                     redraw + wire: 3 runs at 1x and 4x  (~30 min)
+node ci/measure.mjs loading                    every page, 4 links, Chromium + WebKit, 3 runs (~70 min)
+node ci/measure.mjs loading --engines firefox  Firefox (CI's Linux only, for now)
+node ci/measure.mjs loading --links local,slow4g --grep "every page"
+node ci/measure.mjs compare <after dir> --against <before dir>
+python -I scripts/measure-wire.py <Lab traces folder> [--set fixed|all] [--out wire-lab.json]
+```
+
+- Each run writes `run-<k>/*.json` into the folder (default
+  `frontend/test-results/measure/<measure>-<time>`): one file per measure,
+  `{ kind, when, machine, engine, commit, rows }`, a row per moment or page
+  (`"4x combat"`, `"slow4g Admin cold"`), every other field a number.
+- `compare` writes `summary.md` and `summary.json` beside them: each number's
+  three values, their median, and "steady" when every run is within 10% of the
+  median, or within a small absolute step (half a render or millisecond, 256
+  bytes) where 10% of a small number is less than one step. With `--against`,
+  each median sits beside the before folder's, with the change in per cent.
+- `playwright.measure.config.ts` is the kit's own config (as the jumps
+  check's), so the browser suite never runs it: projects `chromium`,
+  `firefox`, `webkit`, Playwright's bundled engines, headless (P11-R6).
+- Timings print and are compared; nothing in the kit enforces a budget yet.
+  The targets are enforced by the items that meet them (C6's budgets stay in
+  `match-speed.spec.ts`).
+
+**What it records, and how.**
+
+- **Redraw** (`probes.ts` `timer`, per measured page). Everything per game
+  update, not per second (B7: the per-second figure swings with how long a
+  combat lasts): React components rendered, GameScreen and plate renders,
+  commits (the speed kit's `RECORDER`, moved with the speed test's bot into
+  `e2e/speed-kit.ts`, which `match-speed.spec.ts` now imports); the page's
+  own JavaScript from a CPU profile sampled every 200 us, split by stack: a
+  stack with a frame of the app's bundle (`/assets/*.js`) is the page's
+  ("app"), garbage collection is its own line, any other JavaScript is the
+  test's ("test": Playwright's locators, `evaluate`) (`attribute`); the
+  whole ScriptDuration beside it, as match-speed read it; style and layout
+  time from Chrome's trace for the page's frame, with the part forced by the
+  test's JavaScript apart; paints, their time, and the area of their clips
+  inside the window; frames p95 and worst.
+  - Chrome's `Paint` clip is the paint layer's, not the damaged rectangle
+    (a composited layer's is unbounded and counts as the whole window), so
+    `paintKpx` is coarse: comparable before and after on the same scene,
+    not "the area that changed". C5 adds the trace's invalidation tracking
+    for that.
+  - Two parts. **"bench"**: a real game page whose match socket is taken over
+    once the game runs (the jumps check's method), so no polling and no
+    clicks fall in a measured stretch and the same boards come in the same
+    rhythm every run: a table of 40 permanents a side (16 Forests, 24 Grizzly
+    Bears each, made from the deck's own cards); `bench-idle` (4 s, nothing
+    sent), `tap-one-land` (20 boards, each tapping or untapping one Forest,
+    0.7 s apart), `bench-40` (20 boards of a busy table: a land taps, a
+    creature enters, one attacks, life drops, one dies; 1 s apart).
+    **"game"**: match-speed's real game and fixed moments (idle, hover,
+    cast, combat, end) with the speed kit's bot, timed on the host's page.
+  - At 1x and with the measured page's CPU slowed 4x (`PROXIC_MEASURE_CPU`).
+- **Wire, browser side** (`wire.ts` `countBytes`, on both players' pages in
+  the real game): every socket message each page reads or sends, as text
+  after decompression (so the bytes the page handles; on-the-wire bytes once
+  D2 compresses come from the same counter plus the frame sizes D2 adds).
+  Per seat: boards and their bytes (median, p95, largest), all match
+  messages by type, messages a second in the cast and in the combat, the
+  whole game's bytes. Server time per board: the Arena Server's own CPU
+  (its container's process 1, `/proc/1/stat`; the Forge workers are
+  processes of their own and not in it) over the game, divided by the
+  boards sent to both seats. CPU, not wall time: the browser can't see the
+  server's wall time, and CPU is what a busier box would feel.
+- **Wire, Lab traces** (`scripts/measure-wire.py`): the 2026-11-19 baseline's
+  method (`netbase.py`) made a script, over a fixed set of 16 traces (big
+  boards, combat, payments, wipes, tokens, a spectator, copies, long games:
+  `FIXED`), or every trace (`--set all`). The worker's side, before the
+  server adds pictures.
+- **Loading** (`loading.spec.ts`): the deep dive's scratch kit made one spec,
+  with one method in every engine: Playwright's request events and
+  `request.sizes()` (bodies plus headers; no CDP anywhere), and the links
+  made by a relay in front of the server (`link.ts` `relay`: a new
+  connection waits one round trip; every chunk takes half a round trip each
+  way after its turn on a shared link at the link's speed; plain HTTP, so
+  no TLS round trips). The relay replaces Chrome's network emulation so a
+  number in WebKit or Firefox means what it means in Chromium. Per load:
+  usable (to the page's heading and list, and "Connected"; the deep dive's
+  definition, checked in the page on every frame: `READY`, `usableAt`), first paint, every picture done, requests, KB, script, style
+  and picture KB, chunks, API calls and the slowest one's server time,
+  socket messages and KB, the three slowest requests. Pages: sign-in (cold,
+  reload, the sign-in click to a usable lobby), lobby, Hall, Deck Depot,
+  Account, Admin, Status (cold, reload), the five header pages in the app
+  (first and again), every Admin tab (a click, and cold by its address);
+  then a room, the game and spectate (cold, reload). Links: local, slow 4G
+  (150 ms, 1.6 Mbit/s down, 750 kbit/s up), live-like (150 ms, 10/5 Mbit/s),
+  poor (300 ms, 1 Mbit/s / 500 kbit/s). "Poor with compression on, as the
+  live site has it" (P11-R6) can't be made by a relay: our server
+  compresses nothing until E4, so poor is measured as our server sends today.
+
+## As built: P11-C1 (2026-11-21)
+
+The redraw measure is in the kit (above): `frontend/tools/measure/redraw.spec.ts`
+with `probes.ts`, run by `node ci/measure.mjs redraw`. The speed test's
+recorder and bot moved unchanged into `e2e/speed-kit.ts`
+(`match-speed.spec.ts` imports them; its budgets, `measure`, the glow check
+and `playAndTime` stay in it).
+
+**Today's numbers (RUN, 2026-11-21: 3 runs, the owner's PC, 13th Gen Intel
+Core i5-13600KF x20 / 32 GB, Playwright's bundled Chromium (headless shell, build 1248), 1920x1080, local stack
+at app build fd804f4c's code (image built 2026-11-21 16:16 UTC from the
+working tree), main fd804f4c plus this kit).** The PC was not idle: a game client the
+owner had open ran in the background through every run today (about a quarter of
+one of the 20 threads, sampled once at the end). An "after" should run on the
+same PC with other programs closed, and say so. Medians of 3; "!" marks a
+number whose three runs are not all within ±10% of the median (or half a
+unit). "upd" is a game update: every message the host page's match socket
+brought (as match-speed counts them). "app ms" is the page's own JavaScript
+(the profile's app-bundle stacks); "all JS" is ScriptDuration, which also
+holds the test's own.
+
+```text
+moment            renders GameScreen plate  app ms  all JS  style ms layout ms paints  frames     updates  JS ms/s
+                    /upd    /upd     /upd    /upd    /upd     /upd     /upd     /upd   p95/worst
+bench (replayed, a table of 40 permanents a side; nothing polls)
+1x bench-idle        0      0        0       0      3.2*     8.3*      0        0     16.7/83.3    0        0.8
+1x tap-one-land     63      1        1      3.17    4.08     3.63     0.56     11     16.7/16.8   20        5.8
+1x bench-40         60.7    1        1      3.02    4.24     5.25     0.47     12.75  16.7/16.8   20        4.2
+4x bench-idle        0      0        0      0.19   9.6*!   46.1*!     0        0     16.8/417    0        2.2!
+4x tap-one-land     63      1        1     18.3    20.1    16.7!     2.54     11     16.8/66.7!  20       28.1
+4x bench-40         60.7    1        1     16.0    18.5    25.1!     2.10     12.75  16.7/83.4!  20       18.1
+the real game (match-speed's moments, the speed kit's bot)
+1x idle              0      0        0       0      5.3*!   38.5*!     0        0     16.7/99.9!   0        0.9
+1x hover           103!     0        0      6.0*!  16.5*!  24.0*!    0.29*    60*!   16.7/16.8    0        4.6!
+1x cast             49.6    1.07     1.14   1.26    1.53     0.72     0.10     8.81  16.7/16.8  107       25.7
+1x combat           45.9    0.96     1.06   1.39    1.52     0.73     0.13     7.18  33.3/50    176       28.0
+1x end              67.8    1.33     1.59   1.91    2.40     2.41!    0.30     9.64  33.3!/50    33        7.5!
+4x idle              0      0        0      0.79   30.2*!  191*!       0        0     16.8/467     0        4.6!
+4x hover           103!     0        0     47.5*!  87.7*! 158*!      1.18*    62*!   16.8/83.2!   0       20.6
+4x cast             56.6!   0.98     1.04   9.44!   9.20!    6.25!    1.06     9.37! 16.8/83.4   53!      74.4!
+4x combat           34.3    0.64     0.73   7.05!   6.82     3.89     0.75     7.97! 33.4!/100  158!      99.7!
+4x end              53.6    1.00     1.23  10.0!   11.0!    13.0!     1.63     9.64! 33.3/117!   33!      31.3
+* a moment with no update: the moment's total, not per update
+```
+
+Next to the paper's 2026-11-19 baseline (1.73.0, headless Edge, no profiler
+or trace running; its per-update renders were derived):
+
+```text
+                 renders/upd       GameScreen/upd    plate/upd       JS ms/s            frames p95/worst
+               11-19   today      11-19  today     11-19  today    11-19   today      11-19       today
+1x cast         ~59    49.6        1.2   1.07       1.2   1.14     18.0    25.7       16.7/16.8   16.7/16.8
+1x combat       ~43    45.9        0.9   0.96       1.0   1.06     21.7    28.0       16.8/50.0   33.3/50
+4x cast         ~39    56.6!       0.8   0.98       0.8   1.04     41.6    74.4!      16.7/33.4   16.8/83.4
+4x combat       ~34    34.3        0.7   0.64       0.8   0.73     61.7    99.7!      33.3/66.6   33.4/100
+```
+
+- **The target is met where a change can be judged: per update, the
+  replayed table is steady to ±10% over 3 runs, at 1x and 4x,** on every
+  count (renders, GameScreen, plates, paints: identical in all three runs),
+  the page's own JavaScript (4x tap-one-land 17.7-18.5 ms, bench-40
+  15.1-16.9), all JavaScript, layout, and frames p95. Not steady at 4x:
+  style time (tap-one-land 15.6-20.5 ms, bench-40 24.4-30.3) and the
+  slowest frame (50-83 ms). The 1x real game is steady too for the cast and
+  the combat (renders 45-51, app 1.25-1.49 ms, all JS 1.43-1.68 per update).
+- **The 4x real game is not steady, by nature:** the cast moment's 6 s
+  caught 33, 53 and 89 updates in the three games (the slowed page falls
+  behind, so how much of the game lands in the window differs), and the
+  combat's app time per update is 6.2-7.2 ms (±13%). The per-second figure
+  still swings most (combat 96-116 ms/s). So C2-C5 judge their change on the
+  bench (and the 1x game), with the 4x game as a cross-check (an owner
+  question below, because C6's 80/70 budget is per second on this game).
+- **Tapping one land today:** 63 component renders per update (target ≤ 10),
+  GameScreen 1, each plate 1 (target 0), 11 paints, 3.2 ms of the page's
+  JavaScript at 1x and 18 ms at 4x, 3.6 / 16.7 ms of style. On a 40-a-side
+  table the busy updates cost about the same (61 renders): the work follows
+  the table's size, not what changed, as the paper read in the code.
+- **A still table does no React work** (0 renders, 0 paints, 0 app ms), but
+  it does recalculate style: 8 ms over 4 s on the replayed table at 1x, 46 ms
+  at 4x; 24-47 ms over 6 s in the real game at 1x, 178-254 ms at 4x. That is
+  the looping CSS animations (24 of them, the paper's Repaints note) being
+  restyled every frame without a paint. New today; for C5.
+- **The 0096 numbers are higher than the paper's** (JS ms/s 1x cast 25.7
+  against 18.0, 4x combat 99.7 against 61.7): this measure runs a CPU
+  profiler (200 us samples) and Chrome's trace throughout, and in bundled
+  Chromium, not Edge. The test's own JavaScript, which the paper could only
+  estimate (17-20 ms/s at 4x), is now measured apart: 1.95 ms per update in
+  the 4x combat (about 19 ms/s), 0.27 at 1x.
+- Frames: the 4x real game drops frames as the paper says (combat p95 33.4,
+  worst 100); the replayed table at 4x keeps p95 16.8 with worst 50-83.
+- The hover row's renders (47-181) depend on how many cards the hand holds
+  in that game; it is counted per moment, not per update.
+- The replayed table's own counter reads 87 card elements on the table for
+  the 80 permanents (the probe's `boardCards`, which also counts what a seat
+  draws beside its permanents).
+- **Caveat (INFERENCE):** the paint area (`paintKpx`) is in the files but not
+  in the tables: Chrome's paint clips are whole layers (see the kit), so it
+  waits for C5's invalidation tracking.
+
+**For the owner (raised 2026-11-21, not decided):** C6's target is "the
+page's JavaScript per second, at 4x, in the real game": cast 80, combat 70.
+That number swings by itself (combat 96-116 ms/s over today's three games),
+because each game is dealt differently and a slowed page catches a
+different share of it. The replayed table above is steady to a few per
+cent. Should C6 be judged on the replayed table's per-update numbers (with
+the real game kept as a check that nothing got worse), or stay on the real
+game's per-second number, run more times? Recommended: the replayed table.
+
+## As built: P11-D1 (2026-11-21)
+
+The wire measure is in the kit: the browser side rides on the redraw
+measure's real game (`wire.ts` `countBytes` on both players' pages;
+`results.ts` `serverCpuMs`), the Lab side is `scripts/measure-wire.py`.
+
+**Browser side (RUN, 2026-11-21, the same 3 real games per CPU as C1, the
+mono-green deck at 28-40 permanents).** Bytes are the message text the page
+reads (nothing is compressed today, so these are also the bytes on the
+wire).
+
+```text
+                        boards  board bytes median / p95 / largest   match messages  messages/s   match KB in
+1x cast (6 s), seat 1      24        13,485 / 13,763 / 14,204              107          16.4!        328!
+1x combat (9 s), seat 1    39        14,796 / 15,509 / 16,290              176          17.8         602
+1x combat, seat 2          39        15,373 / 16,236 / 17,108              166          17.0         613
+1x whole game, seat 1     298        11,825 / 15,968! / 19,036            1,270           7.2!      3,467!
+1x whole game, seat 2     298        12,146 / 16,237 / 19,358             1,246           7.0!      3,583
+4x combat, seat 1          35!       15,323 / 16,196 / 17,269              158!         15.1         563
+4x whole game, seat 1     312!       11,988 / 15,932 / 19,543             1,313!          6.8!      3,613!
+server: Arena Server CPU per board sent (both seats), whole game: 1x 1.74-2.07 ms (median 1.86), 4x 1.83-2.44 (1.96)
+a whole game's match messages, seat 1 (1x, median): MATCH_SNAPSHOT 298 (3,236 KB), DECISION_REQUEST 108 (120 KB),
+  MATCH_STEP 283 (49 KB), MATCH_ASKING 395 (42 KB), DECISION_ACCEPTED 109 (12 KB), DECISION_CLEARED 93 (9 KB)
+```
+
+- **A real board is about 3.5 times the Lab's:** 11.8-12.2 KB median per
+  seat over a whole game (13.5-15.4 KB in the cast and the combat), against
+  the Lab's 3.4 KB. What it is made of (RUN, one more 1x game the same day,
+  the largest board each seat read, 17.8 KB; `wire.ts` `boardMakeup`, now in
+  every run's file as `largest board seatN`): the battlefield 51%, payments
+  16-17%, the play log 12%, the hand 9-10%, damage 5%, players 2%. The
+  picture fields the server adds (`MatchArt` `annotate`: `art`, `crop`) are
+  16-17% of the board, inside those zones. So the size is mostly the big
+  table (28-40 permanents against the Lab's mostly small games), plus the
+  history lists D3 is about (payments and the play log: 29% here, against
+  15% in the Lab's whole set); pictures are a sixth (one run: INFERENCE that
+  it holds for every game).
+- **Boards are a quarter of the messages but 93% of the bytes:** a whole game
+  brings each seat about 1,250 match messages, of which 298 boards; the rest
+  are questions and their acks and steps (MATCH_ASKING 395, MATCH_STEP 283,
+  DECISION_* 310), small but many. Messages per second in a combat: 15-18 a
+  seat (the paper's "about 9 boards per combat" is boards only; the 9 s
+  combat moment here holds 35-41 boards, as it runs past the combat into the
+  next turn's start).
+- **Steady:** bytes per board and messages per second in the combat are
+  within ±10% over 3 runs; a whole game's totals vary with the game (290-325
+  boards: the decks are shuffled), so before/after of a game's total reads
+  the Lab's fixed set, where the games are the same.
+- **Server time per board:** about 1.9 ms of the Arena Server's CPU per board
+  sent, over a whole game (reading the worker's board, adding pictures,
+  writing it to each seat, plus everything else the server did meanwhile:
+  its sockets, questions, the lobby). Small next to the network; it is the
+  number D2 (compression), D4 (deltas) and D7 must not make worse.
+
+**Lab side (RUN, `scripts/measure-wire.py` over the 1.75.0 release run's 432
+traces, 2026-11-21).** The fixed set is 16 traces (`FIXED`).
+
+```text
+                       board bytes median/p95/largest  deflated median/p95 (share)  delta median/p95 (share)  boards/game median/p95  boards/combat  payments same
+all 432 (1.75.0)          3,384 / 7,560 / 17,660           717 / 1,081 (19.1%)          46 / 890 (6.8%)          232 / 519            9 / 10         86.6%
+fixed 16                  5,674 / 10,166 / 17,660          868 / 1,239 (15.1%)          47 / 3,320 (8.9%)        747 / 1,746          9 / 21         80.7%
+paper 11-19 (384, 1.73.0) 3,346-3,430 / 7,565-7,815 / 17,604  717 / 1,083 (19%)          46 / 926 (7%)            242 / 518            9 / 10         87%
+```
+
+The whole set today agrees with the paper's 2026-11-19 baseline to within
+1-4% everywhere (48 more games since 1.73.0). The fixed set's boards are
+bigger (it picks the big games on purpose). A fixed trace set made again after a change measures the change; making
+it is a Lab run of the 16 scenarios. How far a Lab game differs between two
+runs of the same build is not measured yet (each scenario's deck is
+stacked; its shuffles are not checked here): the first "after" should run
+the 16 twice on the before build to see.
+
+## As built: P11-E1 (2026-11-21)
+
+The loading measure is in the kit: `frontend/tools/measure/loading.spec.ts`
+with `link.ts`, run by `node ci/measure.mjs loading`.
+
+**Today's numbers (RUN, 2026-11-21: 3 runs per engine, the same PC and stack
+as C1, Playwright's bundled Chromium (headless shell 1248) and WebKit
+(2370), 1920x1080, the relay's links).** Milliseconds to usable, medians of
+3; "!" as in C1 (here a frame, 17 ms, is the small step). 363 of the 376
+usable times are steady to ±10% over the 3 runs; every byte and request
+count is (all 376). Room, game and spectate: the host's or the spectator's
+own new profile while the game runs.
+
+```text
+Chromium         local                    slow 4G                   live-like                 poor                   local requests / KB
+                 cold reload 1st again    cold  reload 1st again    cold  reload 1st again    cold  reload 1st again   (cold)
+sign-in            40   26     -    -     1679  1504    -    -       701   526    -    -      2801  2491    -    -       6 / 302
+sign-in click    1430    -     -    -     4578     -    -    -      2959     -    -    -      6841     -    -    -      29 / 561
+lobby             103!  43    47   43     3317  2148   55   43      1702  1037   46   44      5584  3602   42   48      27 / 502
+Hall              130   65    87   41     3662  1891  530  252!     1950   919  410  207      6214  3206  860  421      33 / 699
+Deck Depot        120   54    58   54     3476  1889  531  241      1764   939  397  214      5911  3194  908  415      33 / 723
+Account           109   60    58   50     3182  1707  300   43      1610   736  223   54      5335  2851  508   47      24 / 471
+Admin              98   36    45   48     3426  1677  526   48      1655   724  265   44      5733  2830  868   61!     35 / 622
+Admin, a tab       76-92 cold; a click 12-24 local, 13-24 on every link        slow 4G cold 3395-3418, live 1624-1635, poor 5720-5748
+Status             85!  52     -    -     6794  1706    -    -      1970   734    -    -     11131  2853    -    -      13 / 1127
+room              135   51     -    -     3343  1876    -    -      1745   933    -    -      5636  3161    -    -      30 / 521
+game              168   67     -    -     8596  2413    -    -      2907  1386    -    -     14136  4195    -    -      48 / 1556
+spectate          182   77     -    -     8554  2462    -    -      2916  1386    -    -     14100  4205    -    -      41 / 1563
+
+WebKit
+sign-in            95   77     -    -     2221  1546    -    -       724   573    -    -      3694  2539    -    -       6 / 302
+sign-in click    1666    -     -    -     4914     -    -    -      3288     -    -    -      7218     -    -    -      29 / 560
+lobby             413  309   128  141     3417! 2272! 153  140      1799  1244  129  128      5521  3710  136  127!     27 / 501
+Hall              377  297   265  187     3595  2254  685  378      2041  1132  589  342      5871  3508 1037  536      33 / 698
+Deck Depot        354  309   248  187     3579  2254  693  360      1906  1097  580  329      5866  3630 1076  529      33 / 722
+Account           436  700   319  174!    3426  2305  538  159      1732  1329  445! 160      5425  3344  725  158     152 / 1241
+Admin             319  236   189  127     3517  1956  647  128      1719   903  382  129      5887  3029  984  141      35 / 621
+Admin, a tab      278-319 cold; a click 107-126 (one 214 on live)               slow 4G cold 3457-3506, live 1703-1734, poor 5729-5919
+Status            440  215     -    -     7917   644    -    -      2264   557    -    -     12859  1006    -    -      14 / 1331
+room              381! 311     -    -     3528  2211    -    -      1999  1150    -    -      5805  3584    -    -      30 / 520
+game              582  396     -    -     8877  2535    -    -      3270  1495    -    -     14466  4020    -    -      44 / 1550
+spectate          596  448     -    -     8961  2646    -    -      3457  1567    -    -     14558  4121    -    -      41 / 1561
+"1st" / "again": the page opened from the header, first time in the session / once more.
+```
+
+Next to the paper's 2026-11-19 baseline (Chromium, CDP link emulation, one
+run; game, room and spectate on the live-like link):
+
+```text
+                      11-19 local      today local        11-19 slow 4G              today slow 4G
+                      cold  reload     cold  reload       cold  reload  1st/again    cold  reload  1st/again
+sign-in                 50    31         40    26         1,445 1,424     -          1,679 1,504     -
+sign-in click        1,453     -      1,430     -         4,650     -     -          4,578     -     -
+lobby                  125    49        103    43         3,268 1,839   66/67        3,317 2,148   55/43
+Hall                   140   122        130    65         3,278 2,240  865/330       3,662 1,891  530/252
+Deck Depot             121    50        120    54         3,274 1,839  536/253       3,476 1,889  531/241
+Account                121    90        109    60         3,256 1,608  344/42        3,182 1,707  300/43
+Admin                  118    49         98    36         3,782 1,617  863/63        3,426 1,677  526/48
+Admin, a tab cold  100-134     -      76-92     -         3,312-3,351  -    -        3,395-3,418  -    -
+Status                  62    42         85    52         2,254 1,630     -          6,794 1,706     -
+game (live-like)       237    80        168    67         2,889 1,374     -          2,907 1,386     -
+spectate (live-like)   234    88        182    77         2,916 1,357     -          2,916 1,386     -
+room (live-like)       131   141        135    51         1,872 1,361     -          1,745   933     -
+WebKit local, 11-19 -> today: lobby 377/325 -> 413/309, Admin 966/249 -> 319/236, Account 864/895 -> 436/700,
+  in-app Hall 351/220 -> 265/187, Admin tab click 114-148 -> 107-126
+```
+
+- **The relay matches Chrome's own emulation** where the method is the same:
+  game and spectate on the live-like link 2,907 / 2,916 against 2,889 /
+  2,916; Admin by address on slow 4G 3,395-3,418 against 3,312-3,351. So the
+  links mean the same in every engine now. On slow 4G, WebKit's cold loads of
+  the signed-in pages land within 1-8% of Chromium's (distance dominates, as
+  6c expected); sign-in is 32% slower (2,221 against 1,679) and Status 17%.
+- **The 2026-11-19 in-app numbers were late by Playwright's own retries.**
+  A first kit run today with the deep dive's `expect`-based "usable" gave the
+  paper's numbers again (Hall first 843, Admin first 861 on slow 4G), but
+  `expect` re-checks at 0, 20, 50, 100, then every 500 ms, so a page that
+  became usable between checks was timed at the next one. The kit now checks
+  in the page on every frame (`READY`): Hall first visit 530 (not 865), Admin
+  526 (not 863), Hall again 252 (330). The targets in the exit gate (6a) are
+  unchanged; its bracketed "today" figures are the 11-19 ones, so read them
+  with this correction (Admin's first click is 526 today, not 863).
+- **Status's "Ready" waits for the page's own status poll:** cold on slow 4G
+  it took 6,794 ms today (2,254 on 11-19; 2,547 in the first run), reload
+  1,706 (4,986 in the first run). It flips between runs of the kit while
+  staying steady within one, so it lands on the poll's rhythm, not the
+  network (INFERENCE: `status.ts` polls on a timer; to read in E5/E8).
+- **The game page on slow 4G is the slowest load anywhere:** 8.6 s cold
+  (1.56 MB, 48 requests, nothing compressed), 2.4 s reloaded. E4 and E6's
+  targets are on the live-like link, where it is 2.9 s; on slow 4G it is
+  three times that.
+- **Account's avatars** (E2): every reload fetches all of them (152 requests,
+  1,041 KB in Chromium); cold, Chromium fetches 24 requests and WebKit 152.
+  The second in-app visit in Chromium fetched 126 again (749 KB).
+- WebKit (Windows build) locally is 2.5-4x Chromium's time as on 11-19
+  (Admin cold 319 against 98; tab click about 110 against 12-24), and its
+  Account and Admin cold loads are much nearer Chromium's than on 11-19 (436
+  and 319, against 864 and 966). Its slow-link in-app visits are slower than
+  Chromium's (Hall first 685 against 530, again 378 against 252), so the
+  engine allowance (6c) matters on slow links too until E8.
+- Not measured yet: Firefox (CI's `engines` job is its first run); "poor"
+  with compression on (P11-R6), which waits for E4; the live site.
+
+## As built: P11-F1, CI part (step 1, 2026-11-21)
+
+- **CI job `engines`** (`.github/workflows/ci.yml`, "Other engines
+  (firefox|webkit)"): on its own candidate stack, the test accounts and the
+  green deck, Playwright's bundled Firefox and WebKit (`npx playwright
+  install --with-deps <engine>`, cached per engine) run the loading measure
+  on the local and slow-4G links: sign-in, every page and every Admin tab,
+  the five header pages in the app, a room, a game started and loaded, and
+  spectate. Its numbers are printed and uploaded (`engines-<engine>`
+  artifact), not enforced (P11-R6). Firefox runs only there (the decision 11
+  correction above).
+- **Not yet in the release gate:** the job is `continue-on-error` and
+  `publish` doesn't need it, because Firefox has never run this suite
+  anywhere: the first CI run is its first run. RUN locally: WebKit passed
+  the same spec (the local link, both tests, 1.4 min) and the full kit (four
+  links, 3 runs, below). Firefox: not run (it can't start here).
+- **Owed to finish F1** (next): a short game played to its end in Firefox and
+  WebKit (the smoke set's "one short game"; today's job starts a game and
+  loads it, it doesn't play it), then the job joins `publish`'s needs once
+  it has been green on main. And the avatar comparison in all three engines
+  (E2's first step) on CI's Firefox.
+
+## As built: P11-F3 (2026-11-21)
+
+**What a brand can change on its engine, and how Proxic is affected.** Read
+from each browser's documented behaviour (SOURCE: the brands' own help pages
+and the engines' release notes, as gathered in `Phase 11 loading and net deep
+dive.md`, "Cross-browser"); what it means for Proxic is INFERENCE until the
+named check has run. "Proof" is the test that settles the row: an automated
+one where an engine can show it, P11-F2's hand checklist where only the brand
+can.
+
+| Behaviour | Where it differs | How Proxic is affected | Proof |
+|---|---|---|---|
+| Hidden-tab timers | Chromium brands (Chrome, Edge, Brave, Opera, Vivaldi): timers at most once a second when hidden, once a minute after 5 minutes hidden ("intensive throttling"). Firefox: a per-tab budget. Safari: stricter still. | The lobby's liveness check runs on JS timers (`lobby.ts` `connectLobby`: `PING_MS` 20 s, `QUIET_MS` 45 s): a once-a-minute timer can see "nothing heard for 45 s" and drop a healthy socket. The hard pause's 2 s / 5 s heartbeat (owner decision 6, Q7) is exposed the same way. | P11-E13's browser test (a tab hidden 10 minutes keeps its socket, all three engines); F2 per brand |
+| Tab freezing and sleeping | Chrome Memory Saver and Energy Saver, Edge sleeping tabs (on by default), Brave's and Opera's memory savers, Vivaldi's hibernation, Safari | A frozen page runs no JavaScript and can't answer the server; its socket stays open. Owner's answer (2026-11-19): connected while the connection is open; the game pauses only if it really drops. | E13 (designed to it); F2: a tab hidden 10 minutes, then back, on each brand |
+| WebSocket over HTTP/2 or HTTP/3 | Firefox uses WebSocket over HTTP/2 (RFC 8441) when the server offers it; Chromium and WebKit opened a connection of their own, live (378-474 ms against 148-187 ms per request, 2026-11-19) | The avatar wait (E2) and the game socket's first message (E12) | E1's socket timings per engine (local: `loading-*.json` `socketMessages`; live: `livews.mjs` in the deep dive's kit); E12's research |
+| Lazy-loading distance | Chromium loads `loading="lazy"` images 1,250-2,500 px ahead; WebKit (Windows build) fetched all 132 avatars on Account; Firefox nearer (unmeasured) | Account's avatar picker, the Deck Depot and the Hall: how many pictures a page fetches up front | E1 per engine (`images`, `imageKb` on Account); E2's "≤ 40 fetched up front" in all three |
+| Image cache across reloads | Firefox keeps one decoded-image cache per browser; Chromium per page, then the disk cache | How soon a reload shows pictures (avatars, card art) | E1 `reload` rows per engine (`images`) |
+| HTTP cache heuristics | With no Cache-Control or validator, each engine guesses how long to keep a file; ours sends neither on the sign-in files (E3) | Locally, re-fetched on reload (live, Cloudflare adds `max-age`) | E1 `sign-in reload` bytes per engine; E3 makes them 0 |
+| `immutable` | Firefox and Safari honour it; Chrome revalidates nothing on a normal reload anyway | None (E3's header is right in all three) | E3's header test |
+| Tracking protection | Brave Shields, Edge Tracking Prevention, Firefox ETP (strict), Safari ITP | Unlikely: one origin, no third-party calls or storage. Shields "strict" must not block the sockets | F2: sign-in, lobby, a game with Shields strict (Brave), ETP strict (Firefox), Prevention strict (Edge) |
+| Storage limits and eviction | Safari deletes script-written storage after 7 days unused; every brand partitions third-party storage | Only if E2/E8 keep data in browser storage: it is a hint, never the truth (the server's answer wins) | E2/E8's tests with storage empty; F2 on Safari |
+| Picture formats | WebP everywhere on the support list; AVIF in Chrome 85+, Firefox 93+, Safari 16+ | E11's choice (owner: WebP) is safe on every supported browser | E11's picture test in all three engines |
+| Fonts | woff2 everywhere on the support list | None (the .woff copies are never fetched) | E14's screenshot compare |
+| `fetchpriority`, `modulepreload` | Chromium and Safari in full; Firefox `modulepreload` from 115, `fetchpriority` from 132 | E5/E6 use them; harmless where ignored, but the gain may differ by engine | E5/E6 measured per engine with E1 |
+| Network emulation in tests | Chrome's DevTools emulation (CDP) exists in Chromium only | The 2026-11-19 slow-link numbers were Chromium-only | E1's relay (`tools/measure/link.ts`) makes the links the same in every engine |
+
+## As built: P11-F4 (2026-11-21)
+
+The owner's support list (2026-11-19) is **AGENTS.md UI-007**, beside UI-006:
+supported (tested; a problem is a defect) Chrome, Edge, Firefox and Safari on
+a Mac, current and previous version, at 1920x1080 and above; best effort,
+checked by hand before a phase is accepted, Brave, Opera and Vivaldi; best
+effort, untested, phones and tablets (UI-006). Its gate is CI's engine smoke
+set from F1, written in the rule as **owed until F1 lands** (today the
+`engines` job runs, outside the gate, as above).

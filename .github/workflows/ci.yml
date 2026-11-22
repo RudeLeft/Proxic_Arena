@@ -863,6 +863,105 @@ jobs:
             frontend/playwright-report/
           retention-days: 7
 
+  # PHASE_11 P11-F1 (step 1): Firefox and WebKit. Every page loads, signed
+  # out and in, a room, a game started and watched, through the loading
+  # measure (frontend/tools/measure/loading.spec.ts) on the local and slow-4G
+  # links: its numbers are printed and kept, not enforced (P11-R6: off CI).
+  # Firefox runs only here: it does not start on the owner's PC (2026-11-21).
+  # Not yet part of the release gate (publish does not need it, and a failure
+  # here does not fail the run): it joins the gate once it has been green on
+  # main, with F1's game played to its end (UI-007, owed until then).
+  engines:
+    name: Other engines (${{ matrix.engine }})
+    runs-on: ubuntu-26.04
+    needs: [changes, build]
+    if: needs.changes.outputs.code == 'true'
+    continue-on-error: true
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [firefox, webkit]
+    steps:
+      - uses: actions/checkout@v5.1.0
+      - uses: actions/setup-node@v5.0.0
+        with:
+          node-version: "24.22.1"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Start the candidate stack
+        run: |
+          docker pull "$IMAGE:$CANDIDATE_TAG"
+          {
+            echo "POSTGRES_DB=proxic"
+            echo "POSTGRES_USER=proxic"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+            echo "PROXIC_SESSION_SECRET=$(openssl rand -hex 32)"
+            echo "APP_ENV=production"
+            echo "PROXIC_CI_IMAGE=$IMAGE:$CANDIDATE_TAG"
+          } > .env
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+          for _ in $(seq 1 60); do
+            if docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T arena-server wget -qO- http://127.0.0.1:8080/api/health/ready > /dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T arena-server wget -qO- http://127.0.0.1:8080/api/health/ready
+      - name: Create the test accounts
+        run: |
+          server() { docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T arena-server "$@"; }
+          printf '%s' 'a perfectly fine local passphrase' \
+            | server /app/bin/arena-admin create RudeLeft --admin --password-stdin
+          printf '%s' 'a perfectly ordinary player password' \
+            | server /app/bin/arena-admin create Pat --password-stdin
+          for name in $(node -p 'require("./frontend/e2e/match-accounts.json").accounts.map(a => a.username).join(" ")'); do
+            node -e 'process.stdout.write(require("./frontend/e2e/match-accounts.json").accounts.find(a => a.username === process.argv[1]).password)' "$name" \
+              | server /app/bin/arena-admin create "$name" --password-stdin
+          done
+      - name: Build the green deck package
+        run: |
+          mkdir -p "Test Deck"
+          node scripts/make-ci-deck.mjs "Test Deck/green-deck.zip" protocol/fixtures/green-deck
+      - run: npm ci
+        working-directory: frontend
+      - name: Which Playwright
+        id: playwright
+        working-directory: frontend
+        run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6.1.0
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ matrix.engine }}-${{ steps.playwright.outputs.version }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps ${{ matrix.engine }}
+        working-directory: frontend
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps ${{ matrix.engine }}
+        working-directory: frontend
+      - name: Every page in ${{ matrix.engine }} (the loading measure, printed)
+        working-directory: frontend
+        env:
+          PROXIC_LOAD_LINKS: local,slow4g
+          PROXIC_MEASURE_OUT: test-results/measure
+        run: npx playwright test -c playwright.measure.config.ts --project=${{ matrix.engine }} loading.spec.ts
+      - name: Server log, if anything failed
+        if: failure() || cancelled()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --tail 200 arena-server
+      - uses: actions/upload-artifact@v6.0.0
+        if: always()
+        with:
+          name: engines-${{ matrix.engine }}
+          # Not the signed-in browser profiles the measure keeps (state-*.json).
+          path: |
+            frontend/test-results/
+            !frontend/test-results/**/state-*.json
+          retention-days: 7
+
   publish:
     name: Promote to latest
     runs-on: ubuntu-26.04

@@ -415,6 +415,27 @@ Release-blocking. Treat every rule here as security, not presentation.
   and a problem there is not a defect unless the owner asks for it. This
   supersedes PHASE_01 §1.19's 1366×768 minimum (frozen; not edited).
   Browser tests run at 1920×1080 unless they say otherwise. _AUTO._
+- **UI-007 — MUST:** Build and test for the supported browsers (owner
+  2026-11-19, Phase 11 decision 9), on the screens UI-006 names:
+  - **Supported** (tested; a problem is a defect): Chrome, Edge, Firefox,
+    and Safari on a Mac, each in its current and previous version.
+  - **Best effort, checked by hand** before a phase is accepted (Phase
+    11's P11-F2 checklist): Brave, Opera and Vivaldi. They share Chrome's
+    engine, so the engine is tested; their own shields, savers and
+    settings are what the hand check covers.
+  - **Best effort, untested**, as UI-006 says: phones and tablets,
+    including Safari on iPhone and iPad.
+
+  The engines stand for the brands: Playwright's bundled Chromium for
+  Chrome and Edge, its Firefox for Firefox, its WebKit for Safari. **Gate:**
+  CI's engine smoke set (P11-F1: sign-in, every page loads, a game and
+  spectate, plus the loading measure's subset) in Firefox and WebKit,
+  beside the full Chromium suite. **Owed until P11-F1 lands:** today CI
+  runs Chromium only; WebKit runs locally (the loading measure,
+  `frontend/tools/measure/`); Firefox does not start on the owner's PC
+  (side-by-side activation of its "mozglue" fails with the Visual C++
+  runtimes installed, 2026-11-21), so its runs are CI's (Linux).
+  _REVIEW until the gate lands, then AUTO._
 
 ---
 
