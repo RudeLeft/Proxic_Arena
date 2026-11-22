@@ -19,7 +19,7 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
-import { isNewBuild } from "../status";
+import { buildTagOf, isNewBuild } from "../status";
 import { useSettled } from "../useSettled";
 import { useLobbyConnection } from "./LobbyConnection";
 import {
@@ -53,6 +53,12 @@ async function buildIdNow(): Promise<string | null> {
   }
 }
 
+/** The build tag the server wrote into this page, when it can be compared. */
+function pageBuildTag(): string | null {
+  const tag = document.querySelector('meta[name="proxic-build"]')?.getAttribute("content");
+  return tag && typeof crypto !== "undefined" && crypto.subtle ? tag : null;
+}
+
 /**
  * A page loaded before an update keeps running the old screens until it
  * is reloaded (seen 2026-10-21: the joining player had the pre-Phase-7
@@ -63,13 +69,22 @@ function useNewVersion(): boolean {
   const [stale, setStale] = useState(false);
   useEffect(() => {
     let alive = true;
+    // P11-E16: the page says which build served it (the server's
+    // `<meta name="proxic-build">`, a hash of the build id), so opening a
+    // page asks nothing; the check runs on the minute and on focus. Without
+    // it (Vite, a build with no id, no Web Crypto) the page asks on opening,
+    // as before, and compares build ids.
+    const servedBy = pageBuildTag();
     const check = async () => {
-      const now = await buildIdNow();
+      const id = await buildIdNow();
+      const now = servedBy === null ? id : await buildTagOf(id);
       if (!alive) return;
-      if (loadedWith.current === null) loadedWith.current = now;
+      if (servedBy !== null) {
+        if (isNewBuild(servedBy, now)) setStale(true);
+      } else if (loadedWith.current === null) loadedWith.current = now;
       else if (isNewBuild(loadedWith.current, now)) setStale(true);
     };
-    void check();
+    if (servedBy === null) void check();
     const timer = window.setInterval(() => void check(), VERSION_CHECK_MS);
     const onFocus = () => void check();
     window.addEventListener("focus", onFocus);

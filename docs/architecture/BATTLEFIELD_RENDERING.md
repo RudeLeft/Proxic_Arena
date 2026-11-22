@@ -292,7 +292,10 @@ rather than teleports.
    0032), and Barlow Condensed in four weights since 2026-11-04 (owner:
    it was named in the font stacks but not shipped, so a player without
    it installed saw Segoe UI; `assets/fonts/barlow-condensed-*.woff2`,
-   SIL Open Font License in `OFL-barlow.txt`).
+   SIL Open Font License in `OFL-barlow.txt`). Declared once, in
+   `styles.css`, since P11-E14 (2026-11-22): the `@fontsource` copy the
+   board and the shell also imported is gone; its Latin Extended and
+   Vietnamese files for 500-700 are project files now.
 
 9. **Lifecycle guarantees of Phase 1 §1.18 still apply** to the overlay
    layers and any animation loop: no duplicates across navigation, no

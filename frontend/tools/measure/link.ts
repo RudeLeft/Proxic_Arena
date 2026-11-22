@@ -7,9 +7,9 @@
 // (the TCP handshake); every chunk then takes half a round trip each way,
 // after its turn on the link, which carries one chunk at a time at the
 // link's speed in each direction (shared by every connection, as a home
-// line is). TLS is not modelled (the local stack is plain HTTP), nor is
-// compression ("poor" with compression on, as P11-R6 has it, waits for our
-// server to compress: P11-E4).
+// line is). TLS is not modelled (the local stack is plain HTTP). Compression
+// is the server's own since P11-E4 (gzip), so every link, "poor" included,
+// now carries it as P11-R6 asks.
 
 import { createServer, connect, type Server, type Socket } from "node:net";
 
@@ -55,19 +55,35 @@ export async function relay(link: Link, target: { host: string; port: number }):
   /** Returns when the last chunk it was given will have been passed on. */
   const pipe = (from: Socket, to: Socket, lane: Lane) => {
     let last = 0;
-    from.on("data", (chunk) => {
-      // In order on each connection, whatever the lane says.
+    // In order on each connection, whatever the lane says: one queue and
+    // one timer per connection. A timer per chunk could fire out of order
+    // (seen 2026-11-22, once the server gzipped (P11-E4) and so sent many
+    // small chunks: a body's 5-byte chunked terminator written before its
+    // last 5.9 KB, so the page got ERR_INVALID_HTTP_RESPONSE or a module
+    // missing its exports, and the game page never became usable).
+    const queue: { at: number; chunk: Buffer }[] = [];
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let ended = false;
+    const flush = () => {
+      timer = null;
+      const now = Date.now();
+      while (queue.length > 0 && queue[0]!.at <= now) {
+        const { chunk } = queue.shift()!;
+        if (!to.destroyed) to.write(chunk);
+      }
+      if (queue.length > 0) timer = setTimeout(flush, Math.max(0, queue[0]!.at - Date.now()));
+      // The end goes through the same queue, after the last chunk.
+      else if (ended) to.end();
+    };
+    from.on("data", (chunk: Buffer) => {
       const at = Math.max(last, lane.take(chunk.length) + half);
       last = at;
-      setTimeout(
-        () => {
-          if (!to.destroyed) to.write(chunk);
-        },
-        Math.max(0, at - Date.now()),
-      );
+      queue.push({ at, chunk });
+      if (timer === null) timer = setTimeout(flush, Math.max(0, at - Date.now()));
     });
     from.on("end", () => {
-      setTimeout(() => to.end(), Math.max(0, last - Date.now()));
+      ended = true;
+      if (timer === null) flush();
     });
     return () => last;
   };

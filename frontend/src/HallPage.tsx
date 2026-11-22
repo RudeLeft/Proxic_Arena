@@ -8,7 +8,7 @@
 // (GET /api/hall); this page only draws them, and fetches them again
 // whenever a game ends (the lobby's STANDINGS message says so).
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import trophyBronze from "./assets/trophies/trophy-bronze.webp";
 import trophyGold from "./assets/trophies/trophy-gold.webp";
 import trophyLast from "./assets/trophies/trophy-last.webp";
@@ -74,19 +74,30 @@ export default function HallPage() {
   const now = Date.now();
 
   // Fetched on opening, and again whenever a finished game moves the
-  // standings (the server sends STANDINGS to everybody then).
+  // standings (the server sends STANDINGS to everybody then). Not again for
+  // the socket's first STANDINGS after the page opened (P11-E16): that is
+  // the list as it stands on joining, which the Hall just read.
   const standings = lobby.standings;
+  const readWith = useRef<{ standings: typeof standings } | null>(null);
+  // The latest read wins; none lands after the page has gone.
+  const reads = useRef(0);
   useEffect(() => {
-    let current = true;
+    const before = readWith.current;
+    readWith.current = { standings };
+    if (before !== null && before.standings === null && standings !== null) return;
+    const read = (reads.current += 1);
     void fetchHall().then((next) => {
-      if (!current) return;
+      if (read !== reads.current) return;
       setFailed(next === null);
       if (next) setHall(next);
     });
-    return () => {
-      current = false;
-    };
   }, [standings]);
+  useEffect(
+    () => () => {
+      reads.current += 1;
+    },
+    [],
+  );
 
   const name = (userId: string | null | undefined) => nameIn(lobby, userId);
 

@@ -646,10 +646,10 @@ class AuthApiTest {
                 listOf("private, max-age=31536000, immutable"),
                 found.headers.getAll(HttpHeaders.CacheControl),
             )
-            // The sign-in screen's own files are as before: no header.
+            // The sign-in screen's own files: the same for everyone, kept by anyone (P11-E3).
             val open = client.get("/assets/entry.js")
             assertEquals(HttpStatusCode.OK, open.status)
-            assertEquals(null, open.headers[HttpHeaders.CacheControl])
+            assertEquals(listOf("public, max-age=31536000, immutable"), open.headers.getAll(HttpHeaders.CacheControl))
         }
 
     // --- logout-all (§3.34) -----------------------------------------

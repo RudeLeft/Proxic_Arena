@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { checkState, versionState, fetchStatus, connectSystemSocket, isNewBuild } from "./status";
+import {
+  checkState,
+  versionState,
+  fetchStatus,
+  connectSystemSocket,
+  isNewBuild,
+  buildTagOf,
+} from "./status";
 import type { VersionInfo } from "./status";
 
 const GOOD: VersionInfo = {
@@ -156,5 +163,13 @@ describe("isNewBuild", () => {
     // Unknown is not newer: an older server, or a development run.
     expect(isNewBuild(null, "f7e5a8e")).toBe(false);
     expect(isNewBuild("f1794ba", null)).toBe(false);
+  });
+});
+
+describe("buildTagOf (P11-E16)", () => {
+  it("is the server's tag: SHA-256 of the build id, the first 16 hex (HttpEfficiencyTest)", async () => {
+    expect(await buildTagOf("dev")).toBe("ef260e9aa3c673af");
+    expect(await buildTagOf("4a5acfe")).toBe("7e0996dfcf0124fe");
+    expect(await buildTagOf(null)).toBe(null);
   });
 });

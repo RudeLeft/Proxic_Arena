@@ -1653,3 +1653,232 @@ checked by hand before a phase is accepted, Brave, Opera and Vivaldi; best
 effort, untested, phones and tablets (UI-006). Its gate is CI's engine smoke
 set from F1, written in the rule as **owed until F1 lands** (today the
 `engines` job runs, outside the gate, as above).
+
+## As built: step 2 part B -- P11-E3, E4, E14, E16, E17 (2026-11-22)
+
+Five small loading items, built together because they touch the same answers.
+Nothing a player sees changed (E14's compare below). Not committed.
+
+**How it was measured (RUN, 2026-11-22).** The second local stack
+(`http://127.0.0.1:8081`, project `proxic-arena-b`), the owner's PC as C1
+(13th Gen i5-13600KF, 32 GB), Playwright's bundled Chromium and WebKit,
+`node ci/measure.mjs loading --engines chromium,webkit --links local,slow4g`,
+3 runs before and 3 after, on the pages these items touch (every page: the
+cache rules and compression cover every answer). The before was taken on the
+same stack, rebuilt from main (5586c120) just before, rather than the
+2026-11-21 baseline folder, so both sides ran on the same stack and the same
+day (the baseline was on the first stack); its numbers agree with the
+baseline's within the run-to-run spread. The after was built from main plus
+only these items (the other builder's socket compression, D2, and sign-in
+work, E9, were left out of that build). Of 156 after "usable" times, 143 are
+steady to ±10%; every byte and request count is.
+
+**What changed.**
+
+- `server/.../HttpEfficiency.kt` (new), installed from `Application.kt`
+  (`installHttpEfficiency()`, one line, and the two index.html answers now
+  `call.respondPage`): Ktor `Compression` (new dependency
+  `ktor-server-compression-jvm`, pinned by `ktorVersion`, lockfile updated);
+  the `/api` cache rule; the page's ETag and build tag; `Vary:
+  Accept-Encoding` on everything compressible.
+- `auth/SignedInGate.kt` `keepOnlySuccesses`: one branch more, for the
+  sign-in files (a cache rule; nothing in the gate's decisions changed).
+- Frontend: fonts declared once (`styles.css`; the `@fontsource` imports gone
+  from `shell/base.css` and `Board.tsx`, the package removed); the 700
+  preloaded (`index.html`); `HallPage.tsx` reads the Hall once per load;
+  `shell/PageNotices.tsx` and `status.ts` `buildTagOf` (the version check).
+- Tests: `HttpEfficiencyTest` (5 tests, two signed-in users), the gate's
+  sign-in file assertion in `AuthApiTest` (one assertion: was "no header"),
+  `fetchOnce.test.tsx` (4), `status.test.ts` (`buildTagOf`). Each bites:
+  removing the `/api` rule, compressing POSTs, compressing `/api/auth`,
+  dropping the public sign-in rule, dropping the 304, compressing fonts, or
+  dropping the Hall's skip each fails a test (TEST-004).
+- The measuring kit: `tools/measure/link.ts`, a relay bug found by this
+  item, below.
+
+**Before and after (medians of 3; usable ms / KB).**
+
+```text
+Chromium                  local usable   slow4G usable    KB (cold or reload)     API calls
+sign-in cold                 39 ->   41    1679 -> 1079    301.8 -> 154.1           1 -> 1
+sign-in reload               32 ->   21    1503 ->  203    301.8 ->   1.1           1 -> 1
+sign-in click              1432 -> 1422    4546 -> 2552    556.3 -> 119.1           6 -> 5
+lobby cold / reload       106/48 -> 113/36  3323/2133 -> 2204/728   497/269 -> 213/3.7   5 -> 4
+Hall cold / reload        134/59 -> 117/49  3632/1873 -> 2282/577   651/269 -> 384/2.4   4 -> 2
+Deck Depot cold / reload  113/54 -> 121/43  3486/1872 -> 2289/559   514/268 -> 263/2.5   3 -> 2
+Account cold / reload     118/55 -> 109/48  3165/1704 -> 2056/387   465/1047 -> 197/785  4 -> 3
+Admin cold / reload        94/39 ->  93/28  3414/1692 -> 2125/406   536/284 -> 226/10.8 10 -> 9
+Status cold / reload       83/52 ->  70/46  6775/1708 -> 2982/393   1127/223 -> 361/2.6  3 -> 3
+room cold / reload        138/54 -> 117/58  3348/1874 -> 2225/578   504/269 -> 220/4.3   5 -> 4
+game cold / reload        162/68 -> 171/73  8592/2415 -> 4573/1111  1526/302 -> 697/2.2  3 -> 2
+spectate cold / reload    176/75 -> 187/73  8636/2470 -> 4523/1111  1557/323 -> 725/2.2  3 -> 2
+
+WebKit                    local usable      slow4G usable           KB (cold / reload)
+sign-in cold / reload      95/70 ->  98/48  2227/1551 -> 1109/246   302/302 -> 154/84
+lobby cold / reload      396/322 -> 411/295  3403/2255 -> 2249/953   497/497 -> 212/53
+Hall cold / reload       363/307 -> 340/272  3539/2216 -> 2389/805   651/651 -> 383/233
+Admin cold / reload      310/239 -> 320/220  3502/1877 -> 2191/584   536/537 -> 225/65
+Status cold / reload     415/232 -> 404/215  7920/649 -> 2898/621    1331/1331 -> 360/32
+game cold / reload       567/386 -> 515/348  8915/2579 -> 5027/1243  1545/1546 -> 714/164
+spectate cold / reload   580/433 -> 551/370  8952/2658 -> 5133/1256  1555/1555 -> 723/173
+In-app visits (header clicks) are unchanged in both engines within the spread, except the version
+check and the Hall's second read gone (Hall again on slow 4G: 6 -> 1 request).
+```
+
+- **On slow 4G every page is faster, in both engines:** cold loads -34% to
+  -56% (game 8.6 s -> 4.6 s, Status 6.8 s -> 3.0 s), reloads -60% to -88%
+  (sign-in 1.5 s -> 0.2 s). WebKit's reloads gain less than Chromium's
+  (lobby 2255 -> 953 against 2133 -> 728): WebKit still fetches some
+  pictures and the page's own chunks on a reload (53 KB lobby, 164 KB game).
+- **Locally (no link) a few cold loads are slower by a frame or less**
+  (P11-R7): Chromium game cold 162 -> 171 ms, spectate 176 -> 187, Deck
+  Depot 113 -> 121, lobby 106 -> 113; WebKit lobby 396 -> 411, Admin 310 ->
+  320. That is the gzip work with nothing to save on a loopback. Others are
+  faster locally (Hall 134 -> 117, Status 83 -> 70, room 138 -> 117).
+
+**P11-E3 -- cache rules for the sign-in files and the page. Target met.**
+Hashed sign-in files say `public, max-age=31536000, immutable` (they are
+the same for everyone; the signed-in ones stay `private`, as spec 0060 has
+them). index.html stays `no-cache` and now has an ETag: an unchanged page is
+a 304 with no body. **Reload of sign-in: code fetched 204 KB -> 0** in both
+engines (Chromium's whole reload is 1.1 KB: the 304 and `/api/auth/me`;
+WebKit's 84 KB is the sign-in picture, which it fetches again on a reload).
+`updateReload` still covers a page open across an update; the page itself is
+still asked for every time.
+
+**P11-E4 -- gzip. Partly met: every first visit is about half; the two byte
+targets are not reached.** gzip (level 6, Ktor's default) on GET answers of
+HTML, CSS, JavaScript, JSON and SVG of 1 KB or more; never pictures or fonts
+(`matchContentType`); `Vary: Accept-Encoding` on each. Brotli: Ktor 2 has no
+encoder; not added.
+
+- Lobby first visit 497 -> 213 KB (target 200): the rest is the two fonts
+  (44 KB woff2, already compressed) and pictures (13 KB).
+- Game page first visit 1,526 -> 697 KB (target 500): its code is 1,075 ->
+  438 KB, but the board's chunk holds 145 KB of base64 PNGs, which hardly
+  compress (that chunk: 460 -> 219 KB), and the card pictures are 122 KB.
+  **E6** (mana pictures as files) is the item that takes it under 500.
+- **Server CPU per request (P11-R5),** the Arena Server's own CPU
+  (`/proc/1/stat`), 60-100 reads each, 3 rounds, local stack:
+
+  ```text
+                         bytes     gzip   CPU ms/request plain   gzip
+  board chunk          460,459  218,464   6.2-23.3             17.0-24.8   (+9-11 ms)
+  entry JS             208,380   68,340   3.0-7.3              8.0-10.0    (+3-5 ms)
+  entry CSS             14,417    3,423   1.8-3.0              1.8-2.2
+  /api/admin/sign-ins   14,194    1,291   1.4-9.0              2.2-8.9     (within the noise)
+  ```
+
+  A first visit to the game page after an update costs the server about 30
+  ms of CPU once (each file is then kept by the browser for a year); JSON
+  lists cost nothing measurable. The Unraid box is slower than this PC
+  (INFERENCE: not measured there).
+- **BREACH, checked per route (SOURCE, 2026-11-22).** BREACH needs one
+  compressed body that holds both a secret and text an attacker chooses.
+
+  | Answers | Secret in the body? | Attacker's text in it? | Compressed? |
+  |---|---|---|---|
+  | Built files, `/assets/*` | no (the same build for everyone) | no | yes |
+  | The page (index.html) | no (the build tag is a hash, public in effect) | no | yes when 1 KB or more (today 871 B: no) |
+  | `/api/auth/**`: sign-in, me, join, reset, device codes, device link | the device link answers a device token; device codes a one-time code | the names typed | **never** (excluded by path) |
+  | `POST`/`PUT` answers anywhere: invitations (the link, once), a reset sent, an account made | the invitation link | the email typed | **never** (only GET is compressed) |
+  | `/api/admin/email` | SMTP settings (the password is never sent back, but excluded anyway) | the admin's own | **never** |
+  | `/api/deck-builder/**` | none in the body (the token is a request header) | deck names | **never** (excluded; small) |
+  | GET lists: lobby, decks, Hall, rooms, matches, admin lists, reports, account | none: the session and CSRF tokens are cookies, never a body; invitation tokens are never listed (`InvitesResponse`) | yes (names, deck names, chat, reports) | yes |
+  | Card pictures, avatars, fonts | no | no | never (type) |
+  | Sockets `/ws/**` | not this item (D2) | | **never** by this plugin (excluded by path) |
+
+  So no compressed body mixes a secret with attacker-chosen text. Live,
+  Cloudflare already compresses what reaches the browser (zstd), so the
+  browser-side exposure is Cloudflare's either way; this compresses the hop
+  from the Unraid box to Cloudflare. Guard: `HttpEfficiencyTest` "text is
+  gzipped, pictures fonts and secrets are not" and "only reads outside the
+  secret-bearing routes are compressible"; a new route that hands out a
+  secret on a GET outside `/api/auth` must be added to `NEVER_COMPRESSED`.
+
+**P11-E17 -- API answers carry a cache rule. Target met.** Every `/api`
+answer that does not set its own now says `private, no-store` (refusals and
+errors too). The routes that set their own keep them: pictures (`private`,
+a year), deck rules (`private, no-cache`). No ETag on the admin lists: E7
+reworks them (each list kept and refreshed behind), so a validator waits
+for E7.
+
+**Cache safety, proven with two people (E3 + E17).** `HttpEfficiencyTest`
+"no signed-in answer may be kept by a shared cache, for either of two
+people" signs in as an administrator and a player and reads `/api/auth/me`,
+`/api/version`, `/api/decks`, `/api/hall`, `/api/rooms`,
+`/api/system/status`, a missing `/api` address, an administrator's list and a
+stranger's refusal: each says `private, no-store`; a signed-in built file
+says `private`; the two people's `/api/auth/me` differ. "What a shared cache
+may keep is the same for everyone" reads each `public` file as a stranger
+and as both people (one body, byte for byte), and the page at three
+addresses as all three: one ETag, one body, `no-cache`, and a 304 for each
+with the tag.
+
+**P11-E14 -- fonts declared once, the bold preloaded. Target met; no look
+changed.**
+
+- Before: the project's four Barlow Condensed files (`styles.css`) plus
+  `@fontsource/barlow-condensed` 500/600/700 (`shell/base.css` and again in
+  `Board.tsx`): 23 font files built (9 woff2 + 9 woff from fontsource), the
+  faces declared twice on most pages and three times on the game page. Now
+  11: the same four, the card-title face, and fontsource's Latin Extended
+  and Vietnamese files for 500-700 as project files, declared once in
+  `styles.css` with their `unicode-range` (so a name with, say, "ő" still
+  gets Barlow, as before). The Latin files were the same font: Barlow
+  Condensed 1.408 in both, the same outlines, advances and kerning for every
+  shared character (fontTools, every glyph and every kerning pair compared);
+  the project's adds combining marks, fontsource's adds "⁴".
+- Preloaded: the **700** only (`index.html`), the one face every page draws
+  (sign-in, every signed-in page and the table; seen in the page's loaded
+  fonts). The 600 is on every signed-in page but not on sign-in or the
+  table, where a preload would fetch it for nothing, so it is left to the
+  styles. The row asked for two; this is one, for that reason.
+- **Screenshot compare (RUN):** sign-in, lobby, Hall, Deck Depot, Account,
+  Admin, Status, `/dev/board` (the table, 167 runs of display-face text) and
+  `/dev/bench`, before and after, 1920x1080, Chromium, animations paused:
+  every display-face text run sits at the same place with the same size to
+  1/1000 px on every page. Pixels: sign-in, Account, Status, bench and the
+  in-app pages identical; the rest differ only where two "after" runs
+  differ from each other (the pulsing Connected dot, the Admin sign-in
+  count, a deck tile), except `/dev/board`, where a few dozen single pixels
+  on the edges of turned cards and the art differ (anti-aliasing of rotated
+  layers; no text pixel). Not compared: Firefox (it does not start here),
+  and a real game's table (the dev board is its stand-in).
+
+**P11-E16 -- each fetched once per load. Target met.**
+
+- `/api/hall`: read twice on every cold Hall load (on opening, and again when
+  the lobby socket's first STANDINGS arrived, the list as it stood on
+  joining). Now once (`HallPage.tsx`: the first STANDINGS after opening
+  doesn't re-read; a later one, a finished game, still does; the latest read
+  wins). Hall cold: 4 -> 2 API calls.
+- `/api/version`: read on every page load (the update check's starting
+  point). The server now writes which build served the page into it,
+  `<meta name="proxic-build">`, the first 16 hex of SHA-256 of the build id
+  (`HttpEfficiency.kt` `buildTag`), and the check compares `/api/version`'s
+  id hashed the same way (`status.ts` `buildTagOf`), so it reads only on the
+  minute and on focus. Without the meta (Vite, a build with no id) it reads
+  on opening, as before. The hash names no commit; a stranger learns only
+  that the page changed with a build, which its ETag says anyway. One API
+  call fewer on every page load.
+- `/api/matches/watch`: **read once per spectate load** in the before
+  measure too (spectate cold: me, version, watch); the second read the
+  paper saw on 11-19 is `WatchPage`'s own 3-second poll (`ROOM_LOOK_MS`)
+  landing inside a slow load. Unchanged.
+
+**Found on the way: the measuring relay reordered bytes** (ROADMAP Flakes).
+The first after-run's game page on slow 4G never became usable: a module
+"does not provide an export named 'B'", and `net::ERR_INVALID_HTTP_RESPONSE`
+in a later try. The server's bytes, captured at the relay, framed correctly
+every time; the relay (`link.ts`) gave each chunk its own timer, and an
+instrumented run caught one writing a body's 5-byte chunked terminator
+before its last 5.9 KB. gzip makes many small chunked writes, so it showed
+now. Fixed: one queue and one timer per connection, the end through the same
+queue. The before-run used the old relay without a failure; the link model
+(delays and pacing) is unchanged.
+
+**Not done here, left open:** "poor with compression on" (P11-R6) can be
+measured now (not run: targeted measuring); Firefox (does not start on this
+PC); the live site through Cloudflare (it compresses already; the origin hop
+is what changed); brotli.

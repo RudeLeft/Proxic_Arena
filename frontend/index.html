@@ -4,6 +4,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Proxic Arena</title>
+    <!-- P11-E14: the display face's bold, which every page draws (Sign in,
+         the signed-in pages and the game table), asked for at once rather
+         than after the styles are read. The 600 is every signed-in page's
+         but not Sign in's or the table's, so it is left to the styles. -->
+    <link
+      rel="preload"
+      href="/src/assets/fonts/barlow-condensed-700.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
   </head>
   <body>
     <div id="root"></div>

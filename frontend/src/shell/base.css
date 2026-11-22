@@ -2,11 +2,8 @@
  * the UI design canvas: colours, type, the header, fields, buttons,
  * notices and the sign-in page. Everything else is in app.css, which is
  * loaded only with the signed-in pages (owner 2026-10-24: a stranger
- * gets the sign-in screen and nothing else). */
-
-@import "@fontsource/barlow-condensed/500.css";
-@import "@fontsource/barlow-condensed/600.css";
-@import "@fontsource/barlow-condensed/700.css";
+ * gets the sign-in screen and nothing else). The display face is
+ * declared once, in styles.css (P11-E14). */
 
 :root {
   --pa-bg: #0a0d11;

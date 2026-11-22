@@ -225,6 +225,9 @@ private fun Application.installPluginsAndDependencies(config: ServerConfig): Dep
     // every response, including error responses and static assets.
     install(SecurityHeaders)
 
+    // Phase 11 E3/E4/E17: gzip for text, and who may keep what (HttpEfficiency.kt).
+    installHttpEfficiency()
+
     install(WebSockets) {
         // Ktor 2.x takes java.time.Duration here, not kotlin.time.
         pingPeriod = Duration.ofSeconds(Limits.WS_PING_SECONDS)
@@ -375,10 +378,7 @@ private fun Application.installRoutes(
             // route and gets the app.
             val file = resolveStaticFile(staticDir, path)
             if (file != null) {
-                if (file.name == "index.html") {
-                    call.response.headers.append(io.ktor.http.HttpHeaders.CacheControl, "no-cache")
-                }
-                call.respondFile(file)
+                if (file.name == "index.html") call.respondPage(file) else call.respondFile(file)
             } else if (path.startsWith("/assets/")) {
                 // A MISSING build asset must 404. Falling back to
                 // index.html here answers a script request with HTML,
@@ -396,8 +396,8 @@ private fun Application.installRoutes(
                 // player kept the old screens after an update
                 // (2026-10-21). Always asked for again; the hashed
                 // scripts themselves may be kept for ever.
-                call.response.headers.append(io.ktor.http.HttpHeaders.CacheControl, "no-cache")
-                call.respondFile(indexHtml)
+                // P11-E3: with an ETag, so an unchanged page is a 304.
+                call.respondPage(indexHtml)
             } else {
                 // Honest about WHY, per §1.71: the frontend was never
                 // built, which is not the same as a missing route.

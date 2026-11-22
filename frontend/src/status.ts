@@ -38,6 +38,16 @@ export function isNewBuild(loadedWith: string | null, now: string | null): boole
   return loadedWith !== null && now !== null && loadedWith !== now;
 }
 
+/** The server's tag for a build id (HttpEfficiency.kt `buildTag`): SHA-256, the first 16 hex. */
+export async function buildTagOf(buildId: string | null): Promise<string | null> {
+  if (buildId === null) return null;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(buildId));
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 16);
+}
+
 /** `GET /api/system/status` -- signed-in, the server's own checks. */
 export interface SystemStatus {
   server: string;

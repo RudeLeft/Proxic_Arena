@@ -14,7 +14,6 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@fontsource/barlow-condensed": "5.1.0",
     "html-to-image": "1.11.11",
     "pixi.js": "8.22.0",
     "react": "18.3.1",

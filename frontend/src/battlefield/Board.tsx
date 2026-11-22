@@ -41,9 +41,6 @@ import {
   type ReactNode,
 } from "react";
 import { useFit } from "../FitName";
-import "@fontsource/barlow-condensed/500.css";
-import "@fontsource/barlow-condensed/600.css";
-import "@fontsource/barlow-condensed/700.css";
 import "./battlefield.css";
 import cardBack from "../assets/card-back.webp";
 import {

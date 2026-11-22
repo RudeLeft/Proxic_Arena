@@ -179,7 +179,8 @@ fun Application.installSignedInGate(
  * Spec 0060 -- how long an answer under /assets may be kept, decided by
  * the answer itself, once. A signed-in file: by the browser, for ever,
  * never by Cloudflare (a shared copy would hand a signed-in page to a
- * stranger). Anything that is not a success -- a refusal, a missing file,
+ * stranger). A sign-in file (the same for everyone, P11-E3): by anyone,
+ * for ever. Anything that is not a success -- a refusal, a missing file,
  * an error -- by nobody: an update's restart made one picture fail, and a
  * kept failure would outlive the restart. A 404 sent to a signed-in page
  * used to say "immutable" for a year.
@@ -193,6 +194,9 @@ private fun Application.keepOnlySuccesses() {
             !status.isSuccess() -> call.response.headers.append(HttpHeaders.CacheControl, "no-store")
             call.attributes.getOrNull(SIGNED_IN_ASSET) == true ->
                 call.response.headers.append(HttpHeaders.CacheControl, "private, max-age=31536000, immutable")
+            // P11-E3: the sign-in screen's own files, the same for everyone
+            // and named by their hash, kept by anyone for ever.
+            else -> call.response.headers.append(HttpHeaders.CacheControl, "public, max-age=31536000, immutable")
         }
     }
 }

@@ -37,6 +37,8 @@ dependencies {
     implementation("io.ktor:ktor-server-auto-head-response-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-status-pages-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-cors-jvm:$ktorVersion")
+    // P11-E4: gzip for the built files and the JSON lists (HttpEfficiency.kt).
+    implementation("io.ktor:ktor-server-compression-jvm:$ktorVersion")
     implementation("ch.qos.logback:logback-classic:$logbackVersion")
 
     // Database (PHASE_01 1.36-1.38). The driver and Flyway are
