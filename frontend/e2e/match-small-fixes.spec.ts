@@ -692,27 +692,78 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
         const w = window as unknown as { __mill: Row[] };
         w.__mill = [];
         const seen = new WeakSet<Element>();
-        // The number a player sees: spec 0074 holds each earlier number over
-        // the newest while it ticks, so the one drawn most opaque now.
-        const n = (tile: string) => {
-          let best = NaN;
-          let shown = -1;
-          for (const el of document.querySelectorAll(`[data-zone-tile="${tile}"] .gs-zone-n`)) {
-            const o = Number(getComputedStyle(el).opacity);
-            if (o > shown) {
-              shown = o;
-              best = Number(el.textContent);
-            }
+        // The numbers a player sees, read from the tile's own run: spec 0074
+        // holds each earlier number over the newest while it ticks, each shown
+        // for its own stretch of one clock (graves.ts tileSpells/tileFrames).
+        // Not "the digit most opaque in this frame": the digits' opacity is
+        // played by the compositor, so a number can be on the screen while
+        // this script misses its whole stretch (a CI runner's busy main
+        // thread). CI run 44987413439's screencast drew the host's 68 for a
+        // frame that no frame of this script saw ([69,67]). So each frame
+        // lists every number the run has started since the last one, in
+        // order, by the run's own clock; a run cancelled for a new one
+        // (Board's carry-over) counts only what it showed, and a number the
+        // page wrote over one still owed (fixes0074 F-0074-B) is read as it
+        // is now -- a real skip still shows as one.
+        type Spell = { n: number; start: number };
+        type Run = { a: Animation; spells: Spell[]; at: number };
+        const runs = new Map<string, Run>();
+        const opacityRun = (el: Element) =>
+          el
+            .getAnimations()
+            .find(
+              (a) =>
+                a.effect instanceof KeyframeEffect &&
+                a.effect.getKeyframes().some((k) => "opacity" in k),
+            );
+        const passed = (tile: string): number[] => {
+          const digits = [...document.querySelectorAll(`[data-zone-tile="${tile}"] .gs-zone-n`)];
+          const newest = digits.find((el) => !el.classList.contains("gs-zone-was"));
+          const own = newest ? opacityRun(newest) : undefined;
+          const was = runs.get(tile);
+          const out: number[] = [];
+          if (was && was.a !== own) {
+            // The last run ended between two frames: if it played to its end
+            // (not cancelled), the numbers it still had to show were shown.
+            if (was.a.playState === "finished")
+              for (const s of was.spells) if (s.start > was.at) out.push(s.n);
+            runs.delete(tile);
           }
-          return best;
+          if (!newest) return out;
+          if (!own) return [...out, Number(newest.textContent)];
+          const spells = digits
+            .flatMap((el) => {
+              const a = opacityRun(el);
+              if (!a?.effect) return [];
+              const on = (a.effect as KeyframeEffect)
+                .getKeyframes()
+                .find((k) => Number(k.opacity) === 1);
+              const length = Number(a.effect.getComputedTiming().duration);
+              return [{ n: Number(el.textContent), start: (on?.computedOffset ?? 0) * length }];
+            })
+            .sort((x, y) => x.start - y.start);
+          const at = Number(own.currentTime ?? 0);
+          const from = was?.a === own ? was.at : -Infinity;
+          for (const s of spells) if (s.start > from && s.start <= at) out.push(s.n);
+          runs.set(tile, { a: own, spells, at });
+          return out;
         };
+        const shown = { lib: NaN, grave: NaN };
         let last = "";
         const frame = () => {
-          const lib = n("viewer:library");
-          const grave = n("viewer:graveyard");
-          const now = `${lib}/${grave}`;
-          if (now !== last) w.__mill.push({ t: performance.now(), lib, grave });
-          last = now;
+          const lib = passed("viewer:library");
+          const grave = passed("viewer:graveyard");
+          for (const [key, list] of [
+            ["lib", lib],
+            ["grave", grave],
+          ] as const)
+            for (const v of list) {
+              shown[key] = v;
+              const now = `${shown.lib}/${shown.grave}`;
+              if (now !== last && !Number.isNaN(shown.lib) && !Number.isNaN(shown.grave))
+                w.__mill.push({ t: performance.now(), lib: shown.lib, grave: shown.grave });
+              last = now;
+            }
           for (const el of document.querySelectorAll<HTMLElement>("[data-ghost-of][data-turn]")) {
             if (seen.has(el)) continue;
             seen.add(el);
