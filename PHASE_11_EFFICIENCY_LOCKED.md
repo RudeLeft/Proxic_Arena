@@ -428,6 +428,7 @@ the recommended order across all groups.
 
 | # | Today (measured or read) | Target | Size | Risk | Order |
 |---|---|---|---|---|---|
+| P11-D0 | **Where the time goes, end to end** (owner, 2026-11-21). Step 1 measures each side alone (server 1.9 ms CPU per board, 12 KB per board, the page's redraw per update), never one moment from click to both screens. | For four moments (tap one land, cast a spell with a target, a big combat, Karn's restart), each step timed on one timeline: the engine deciding, the worker building each seat's board (hidden cards removed, HID-001), the server sending, the browser receiving and parsing, React's commit, layout and paint, on both seats; 3 runs, at 1x and 4x. A one-page chart per moment says which slice is biggest; the plan's order is re-checked against it. Hiding cards stays on the server whatever it shows. | S | none (measuring) | step 1b |
 | P11-D1 | **A measure of what goes over the wire.** Only the worker's side is measured (Lab traces). Picture addresses added by the server aren't counted, nor messages per second in a real game, nor server time per board. | Per seat, from the browser's side in real games (match-speed, plus a byte counter): bytes per update (median, p95), bytes per game, messages per second in a combat, server time per board. A fixed set of Lab traces for bytes before and after each change. | S | none (measuring) | 2 |
 | P11-D2 | **No compression.** Median board 3.4 KB, 0.7 KB compressed (19%). | permessage-deflate on (Ktor `WebSocketDeflateExtension`), checked through the Unraid proxy. Bytes on the wire per board about a fifth of today. Server CPU per board measured (P11-R5). | S | the proxy dropping the extension (then nothing changes, safely); CPU cost; nothing secret shares a seat's stream, because hidden cards are removed before sending (HID-001) | 3 |
 | P11-D3 | **History re-sent on every board.** `payments` (16% of bytes) is the same as the board before on 87% of boards that carry it; `rolls`, `shuffles`, `notices`, play log likewise "the last N". | Each history entry is sent **once**, when it is new; the page keeps the list. A page joining or reconnecting gets the whole list once. Bytes per board about -16% before deltas. | M | a page that missed an entry (reconnect): the full board on join carries the lists; tests that read the lists off full snapshots (`match-dice`, the hidden checks) | 4 |
@@ -509,6 +510,7 @@ keep their relative order.)
    D1 + E1**, the measuring kit for all three goals, and **F1, F3, F4**:
    three engines installed, the brand table, the support list. Nothing
    changes until today is measured in all three engines (P11-R5, P11-R6).
+1b. **D0**, where the time goes (owner 2026-11-21): one end-to-end timeline per moment, from step 1's kit plus the server's own steps; its chart may reorder steps 2-9.
 2. **D2**, compression on the game socket: the quickest big saving, small
    risk. Beside it, the quick loading wins: **E3** (cache rules), **E4**
    (HTTP compression), **E9** (sign-in's 1.2 s, cause first), **E14**
