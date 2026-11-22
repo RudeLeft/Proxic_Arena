@@ -32,14 +32,37 @@ vi.mock("../match", async (original) => ({
 const lobbyNow = vi.hoisted(() => ({
   lobby: null as unknown as LobbyState,
   sent: [] as unknown[],
+  version: 0,
+  listeners: new Set<() => void>(),
 }));
-vi.mock("../shell/LobbyConnection", () => ({
-  useLobbyConnection: () => ({
-    lobby: lobbyNow.lobby,
-    setLobby: () => {},
-    send: (m: unknown) => lobbyNow.sent.push(m),
-  }),
-}));
+// As the real hook (a context): every part that reads the lobby is drawn
+// again when it changes, whether or not its parent is (P11-C4: the chat is
+// kept as it was while nothing it is given changes).
+vi.mock("../shell/LobbyConnection", async () => {
+  const { useSyncExternalStore } = await import("react");
+  const subscribe = (listener: () => void) => {
+    lobbyNow.listeners.add(listener);
+    return () => lobbyNow.listeners.delete(listener);
+  };
+  return {
+    useLobbyConnection: () => {
+      useSyncExternalStore(subscribe, () => lobbyNow.version);
+      return {
+        lobby: lobbyNow.lobby,
+        setLobby: () => {},
+        send: (m: unknown) => lobbyNow.sent.push(m),
+      };
+    },
+  };
+});
+/** The lobby changes, as the lobby's socket would tell every part that reads it. */
+function lobbyBecomes(next: LobbyState) {
+  act(() => {
+    lobbyNow.lobby = next;
+    lobbyNow.version += 1;
+    for (const listener of lobbyNow.listeners) listener();
+  });
+}
 
 // Spec 0105: the other player's hold is derived from the flight it covers.
 const { GameScreen, THEIR_SPELL_HOLD_MS } = await import("./GameScreen");
@@ -237,7 +260,7 @@ describe("the play log on the page", () => {
   });
 
   it("counts unread: plays in grey while you read the chat, chat in gold while you read the log", () => {
-    const { chat, view } = screen();
+    const { chat } = screen();
     open(chat());
     expect(chat().querySelector(".gs-cw-cnt")).toBeNull();
     board(4, [line(5, 4, "damage", [bolt, " dealt 3 damage to ", bears])]);
@@ -248,7 +271,7 @@ describe("the play log on the page", () => {
     fireEvent.click(plays);
     expect(tab(chat(), /^Play log/).querySelector(".gs-cw-cnt")).toBeNull();
     // Bob says something while the log is showing.
-    lobbyNow.lobby = {
+    lobbyBecomes({
       ...EMPTY_LOBBY,
       gameChat: [
         {
@@ -259,8 +282,7 @@ describe("the play log on the page", () => {
           sentAt: "2026-11-08T12:00:00Z",
         },
       ],
-    };
-    view.rerender(<GameScreen match={match} me="u-1" onLeave={() => {}} />);
+    });
     const talk = tab(chat(), /^Chat/);
     expect(talk.getAttribute("aria-label")).toBe("Chat, 1 new");
     const gold = talk.querySelector(".gs-cw-cnt")!;

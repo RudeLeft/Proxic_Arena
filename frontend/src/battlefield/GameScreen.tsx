@@ -91,6 +91,7 @@ import {
   type BoardData,
 } from "./fromSnapshot";
 import { fanCards, pileGlows } from "./pileFan";
+import { sameProps } from "./sameProps";
 import { preparedMarkBox } from "./copies";
 import { clickOn, questionOf, type Question } from "./interaction";
 import { DISCARD_KIND, discardCount, discardWords, togglePick } from "./discard";
@@ -756,9 +757,13 @@ export function GameScreen({
   const bannerDue = !finished || endStart !== null;
 
   // Everything the board draws that an option may name.
+  // P11-C4 -- the same set while the same things are on view, so the
+  // question (and all that is worked out from it) stays the same object
+  // across boards that only moved or tapped what was already there.
+  const visibleBefore = useRef<ReadonlySet<string>>(new Set());
   const visible = useMemo(() => {
     const ids = new Set<string>();
-    if (!board) return ids;
+    if (!board) return keptSet(visibleBefore, ids);
     for (const card of [...board.battlefield, ...board.hand]) ids.add(card.id);
     // Spec 0088 (Q4 C) -- a library's top card on its tile is clicked as a card.
     for (const card of board.libraryTop ?? []) ids.add(card.id);
@@ -772,7 +777,7 @@ export function GameScreen({
     for (const card of fanCards(board)) ids.add(card.id);
     for (const entry of board.stack) ids.add(entry.id);
     for (const player of board.players) ids.add(`player:${player.seat}`);
-    return ids;
+    return keptSet(visibleBefore, ids);
   }, [board]);
 
   // Spec 0102, item 1 -- no question over a held or sweeping table: game 2's
@@ -1857,6 +1862,32 @@ export function GameScreen({
     [question, answer, decision, marked, aimAt, board, payPicks],
   );
 
+  // P11-C4 -- the gear's callbacks, the same on every board.
+  const toggleList = useCallback(() => setListOpen((open) => !open), []);
+  const concede = useCallback(() => {
+    setGame((previous) => ({ ...previous, concession: null }));
+    socketRef.current?.concede();
+  }, []);
+  // P11-C4 -- a card named in the play log opens its close-up while it is on
+  // the board now (the board read when clicked, so the chat is not drawn
+  // again for a new board alone).
+  const boardRef = useRef(board);
+  boardRef.current = board;
+  const inspectFromLog = useCallback((id: string) => {
+    const now = boardRef.current;
+    if (!now || !cardOf(now, id)) return false;
+    setInspecting(id);
+    return true;
+  }, []);
+  // P11-C4 -- the same function on every board (it calls the newest pick), so
+  // a part that is handed it is not drawn again for a new board alone.
+  const pickRef = useRef(pick);
+  pickRef.current = pick;
+  const pickLatest = useCallback(
+    (objectId: string, members?: readonly string[]) => pickRef.current(objectId, members),
+    [],
+  );
+
   // "All attack" selects every creature that can attack; you then point.
   const selectAll = useCallback(() => {
     if (decision) setMarked(joinable(decision));
@@ -2629,7 +2660,7 @@ export function GameScreen({
                   </EndEnter>
                 )}
                 {turning > 0 && <div key={turning} className="gs-turning" aria-hidden="true" />}
-                <NoticeStack notices={tableNotices} place="table" />
+                <KeptNoticeStack notices={tableNotices} place="table" />
                 {awayLong && !finished && (
                   // W-26 (Amendment 20): a game window beside their plate.
                   <AwayWindow
@@ -2665,7 +2696,7 @@ export function GameScreen({
                 mySeat={board.seat}
                 asking={game.asking}
                 busy={busy}
-                onPick={pick}
+                onPick={pickLatest}
                 onPass={() => answer(null)}
                 combat={
                   decision && question && COMBAT_KINDS.has(decision.kind) && !listOpen
@@ -2743,8 +2774,9 @@ export function GameScreen({
               lastFan.current = fan;
               return (
                 <>
-                  {board && (
-                    <RollsOverlay
+                  {/* P11-C4 -- only once a roll has been made since the page opened. */}
+                  {board && rollsSince(board, rollsBefore.current) && (
+                    <KeptRollsOverlay
                       rolls={board.rolls ?? []}
                       stack={board.stack}
                       since={rollsBefore.current ?? Number.MAX_SAFE_INTEGER}
@@ -2757,11 +2789,11 @@ export function GameScreen({
                   {/* Spec 0086 -- the crown, the initiative, emblems, the Ring,
                       energy's sparks and mana coming in, flying (flights.tsx);
                       and, when the turn becomes yours, the band of light. */}
-                  {board && <PlayerFlights board={board} />}
-                  {board && <TurnSweep board={board} geometry={geometry} />}
+                  {board && <KeptPlayerFlights board={board} />}
+                  {board && <KeptTurnSweep board={turnOf(board)} geometry={geometry} />}
                   {board && (
-                    <ManaBalls
-                      payments={board.payments ?? []}
+                    <KeptManaBalls
+                      payments={board.payments ?? NO_PAYMENTS}
                       at={at}
                       geometry={geometry}
                       ledger={balls.current}
@@ -3022,26 +3054,23 @@ export function GameScreen({
               />
             )
           ) : (
-            <GameMenu
+            <KeptGameMenu
               match={match}
               report={reportGame}
               live={live && !finished}
               choices={decision ? decision.options.length - (question?.cancel ? 1 : 0) : null}
               listOpen={listOpen}
-              onList={() => setListOpen((open) => !open)}
+              onList={toggleList}
               concession={finished ? null : concessionText(game.concession)}
               bigger={bigger}
               onBigger={setBigger}
-              onConcede={() => {
-                setGame((previous) => ({ ...previous, concession: null }));
-                socketRef.current?.concede();
-              }}
+              onConcede={concede}
             />
           )}
         </div>
 
         {decision && question && !windowed && (
-          <QuestionBar
+          <KeptQuestionBar
             decision={decision}
             question={question}
             mySeat={mine?.seatNumber ?? null}
@@ -3050,7 +3079,7 @@ export function GameScreen({
             onAnswer={answer}
             onSearch={search}
             artUrl={pictureUrl}
-            players={board}
+            players={board ? { players: board.players } : null}
           />
         )}
 
@@ -3110,7 +3139,7 @@ export function GameScreen({
         {/* Spec 0067 (checklist 5) -- a spectator reads the public play log,
           read-only: no chat, no box to type in. */}
         {drawn && board && (
-          <GameChat
+          <KeptGameChat
             open={chatOpen}
             onToggle={setChatOpen}
             me={me}
@@ -3120,17 +3149,62 @@ export function GameScreen({
             mySeat={board.spectator ? -1 : board.seat}
             handCount={board.hand.length}
             logOnly={watching}
-            onInspect={(id) => {
-              if (!cardOf(board, id)) return false;
-              setInspecting(id);
-              return true;
-            }}
+            onInspect={inspectFromLog}
           />
         )}
       </section>
     </SeatsContext.Provider>
   );
 }
+
+/**
+ * P11-C4 -- the overlay's parts, drawn again only when what they are given
+ * changed: not for the board's own marks and ghosts coming and going. The
+ * dice and the turn's sweep by what they show (the sweep by whose turn it
+ * is); the flights and the mana balls on every new board, as before (each
+ * compares the board with the last, or notes where the pool's mana is).
+ */
+const KeptRollsOverlay = memo(RollsOverlay, sameProps);
+const KeptPlayerFlights = memo(PlayerFlights);
+const KeptTurnSweep = memo(TurnSweep, sameProps);
+const KeptManaBalls = memo(ManaBalls);
+const NO_PAYMENTS: NonNullable<Snapshot["payments"]> = [];
+/** P11-C4 -- the question's bar, drawn again only when what it shows changed. */
+const KeptQuestionBar = memo(QuestionBar, sameProps);
+
+/** P11-C4 -- [next], or the set kept in [before] when it holds the same ids. */
+function keptSet(before: { current: ReadonlySet<string> }, next: Set<string>): ReadonlySet<string> {
+  const was = before.current;
+  if (was.size === next.size && [...next].every((id) => was.has(id))) return was;
+  before.current = next;
+  return next;
+}
+
+/** P11-C4 -- what the turn's sweep reads from the board (turnBecameYours). */
+function turnOf(board: Snapshot) {
+  return {
+    spectator: board.spectator === true,
+    gameEpoch: board.gameEpoch,
+    turn: board.turn,
+    activeSeat: board.activeSeat,
+    seat: board.seat,
+  };
+}
+
+/** P11-C4 -- a roll has been made since this page opened ([since]: the newest before it). */
+function rollsSince(board: Snapshot, since: number | null): boolean {
+  const newest = since ?? Number.MAX_SAFE_INTEGER;
+  return (board.rolls ?? []).some((roll) => roll.n > newest);
+}
+
+/** P11-C4 -- the table's notices, drawn again only when they changed. */
+const KeptNoticeStack = memo(NoticeStack, sameProps);
+
+/** P11-C4 -- the gear and its menu, drawn again only when what they show changed. */
+const KeptGameMenu = memo(GameMenu, sameProps);
+
+/** P11-C4 -- the chat and play log, drawn again only when what they show changed. */
+const KeptGameChat = memo(GameChat, sameProps);
 
 /**
  * Spec 0047 -- who sits where, for the plates' pictures: the match on the
@@ -3180,13 +3254,37 @@ const ROW_PX = 22;
  * rail (S1); the glowing gem sweeps to the step the game is in (M2), and
  * at a new turn the steps dim and it starts again from the top (M4).
  */
-function StepLadder({
+/** P11-C4 -- what the step ladder reads from the board. */
+interface LadderBoard {
+  phase: string;
+  turn: number;
+  gameEpoch: number;
+  activeSeat: number;
+  spectator: boolean;
+  /** A spectator's ladder names whose turn it is. */
+  activeName: string | null;
+  dayTime: Snapshot["dayTime"];
+}
+
+function ladderOf(board: Snapshot): LadderBoard {
+  return {
+    phase: board.phase,
+    turn: board.turn,
+    gameEpoch: board.gameEpoch,
+    activeSeat: board.activeSeat,
+    spectator: board.spectator === true,
+    activeName: board.players.find((p) => p.seat === board.activeSeat)?.name ?? null,
+    dayTime: board.dayTime,
+  };
+}
+
+function StepLadderView({
   board,
   mySeat,
   watching = 0,
   watchers = [],
 }: {
-  board: Snapshot;
+  board: LadderBoard;
   mySeat: number;
   /** Spec 0047 -- how many people are watching this game. */
   watching?: number;
@@ -3253,10 +3351,9 @@ function StepLadder({
   // Owner 2026-10-29: "Your turn" and "Opponent's turn", not a name --
   // except to a spectator (spec 0047), whose turn it is nobody's.
   const whose = board.spectator
-    ? (() => {
-        const name = board.players.find((p) => p.seat === board.activeSeat)?.name;
-        return name ? `${name}’s turn` : "Their turn";
-      })()
+    ? board.activeName
+      ? `${board.activeName}’s turn`
+      : "Their turn"
     : mine
       ? "Your turn"
       : "Your opponent’s turn";
@@ -3368,6 +3465,9 @@ function StepLadder({
     </div>
   );
 }
+
+/** P11-C4 -- the ladder, drawn again only on a step, a turn or a watcher. */
+const StepLadder = memo(StepLadderView, sameProps);
 
 // --- the right-hand column ------------------------------------------------------------
 
@@ -3649,24 +3749,121 @@ function usePlateEnd(
   }, [end?.start, end?.role]);
 }
 
-function SeatBlock({
+/**
+ * P11-C4 -- everything a plate reads from the board, worked out once per
+ * board by the rail: the plate is drawn again only when one of these (or
+ * one of its other props) changes, not on every board (a land tapping
+ * elsewhere leaves both plates as they were).
+ */
+interface PlateFacts {
+  spectator: boolean;
+  active: boolean;
+  priority: boolean;
+  /** The stack entry in focus targets this player. */
+  targeted: boolean;
+  /** How many of this player's hand cards this viewer may see. */
+  visibleHand: number;
+  exiled: number;
+  glows: ReturnType<typeof pileGlows>;
+  libTop: SnapshotCard | null;
+  known: readonly SnapshotCard[];
+  /** The Curses on this player, each with the id of its trigger rising (if one is). */
+  curses: readonly { card: SnapshotCard; glowing: string | null }[];
+  /** Spec 0102 -- another player plays this turn: who, and the card that did it. */
+  control: { by: number; name: string; from: SnapshotCard | null } | null;
+  /** Spec 0086 -- the monarch's and the initiative's triggers on the stack. */
+  holders: Snapshot["stack"];
+  /** Spec 0086 (10 B) -- what says a turn began for this player. */
+  turn: { gameEpoch: number; turn: number; activeSeat: number };
+}
+
+function plateFacts(
+  board: Snapshot,
+  player: SnapshotPlayer,
+  mine: boolean,
+  stackFocus: string | null,
+): PlateFacts {
+  const seat = player.seat;
+  // The stack entry in focus targets this player: their life total glows
+  // (owner 2026-10-21), as a targeted card does on the board. Spec 0100,
+  // item 9: the entry pointed at (the Board's focus), else the front one.
+  const focused = board.stack.find((e) => e.id === stackFocus) ?? board.stack[0];
+  return {
+    spectator: board.spectator === true,
+    active: board.activeSeat === seat,
+    priority: board.prioritySeat === seat,
+    targeted: (focused?.targets ?? []).some((t) => "player" in t && t.player === seat),
+    visibleHand: board.otherHands.filter((card) => card.seat === seat).length,
+    // Spec 0082 -- a spell prepared on a creature is drawn on it, not in the pile.
+    exiled: exilePile(board).filter((card) => card.seat === seat).length,
+    // Spec 0087 -- a tile glows gold while it holds a card someone may still
+    // use from there (a suspended card, not playable yet, does not light it).
+    glows: pileGlows(fanCards(board), mine ? "viewer" : "opponent"),
+    // Spec 0088 (Q4 C) -- this library's top card, when the game lets this
+    // viewer see it (public, or theirs to look at): small on the tile.
+    libTop: (board.libraryTop ?? []).find((c) => c.seat === seat) ?? null,
+    // Spec 0103, item 4 (Q4 A) -- the cards this viewer put on top of its own
+    // library (sent to it alone), shown while it points at its Library tile.
+    known:
+      mine && !board.spectator
+        ? (board.knownTop ?? []).filter((c) => (c.owner ?? c.seat) === seat)
+        : [],
+    curses: board.battlefield
+      .filter((card) => card.attachedToPlayer === seat)
+      .map((card) => ({
+        card,
+        glowing: board.stack.find((e) => e.kind === "trigger" && e.source === card.id)?.id ?? null,
+      })),
+    control:
+      player.controlledBy === undefined
+        ? null
+        : {
+            by: player.controlledBy,
+            name:
+              board.players.find((p) => p.seat === player.controlledBy)?.name ?? "another player",
+            from: player.controlledFrom
+              ? ([...board.graveyard, ...board.exile, ...board.battlefield].find(
+                  (card) => card.id === player.controlledFrom,
+                ) ?? null)
+              : null,
+          },
+    holders: board.stack.filter((s) => s.from === "monarch" || s.from === "initiative"),
+    turn: { gameEpoch: board.gameEpoch, turn: board.turn, activeSeat: board.activeSeat },
+  };
+}
+
+/** P11-C4 -- what the question (and W-14's selection) makes of a plate, as plain answers. */
+function plateChoice(
+  board: Snapshot,
+  seat: number,
+  question: Question | null,
+  aim: ReadonlySet<string> | null | undefined,
+): { choosable: boolean; chosenTarget: boolean; libTopChoosable: boolean } {
+  const id = `player:${seat}`;
+  const libTop = (board.libraryTop ?? []).find((c) => c.seat === seat);
+  return {
+    choosable: Boolean(question?.onBoard.has(id) || aim?.has(id)),
+    chosenTarget: question?.chosen.includes(id) ?? false,
+    libTopChoosable: !!libTop && Boolean(question?.onBoard.has(libTop.id)),
+  };
+}
+
+function SeatBlockView({
   player,
-  board,
+  facts,
   mine,
   deciding = false,
   end = null,
   away = null,
-  question,
-  aim = null,
+  choosable,
+  chosenTarget,
+  libTopChoosable,
   busy,
   onPick,
   onView,
-  stackFocus = null,
 }: {
-  /** Spec 0100, item 9 -- the stack entry whose beams show: its targets light the shield. */
-  stackFocus?: string | null;
   player: SnapshotPlayer;
-  board: Snapshot;
+  facts: PlateFacts;
   mine: boolean;
   /** Spec 0089 (Q1 A) -- this plate's part in the end of the game. */
   end?: PlateEnd | null;
@@ -3674,54 +3871,33 @@ function SeatBlock({
   away?: number | null;
   /** W-25 — it is this player's move and you are waiting: the plate glows. */
   deciding?: boolean;
-  question: Question | null;
-  /** W-14 -- a selection can be pointed at this player. */
-  aim?: ReadonlySet<string> | null;
+  /** The question (or W-14's selection) can point at this player. */
+  choosable: boolean;
+  /** Amendment 17: already chosen as a target of the spell being cast. */
+  chosenTarget: boolean;
+  /** The library's top card on view can be chosen. */
+  libTopChoosable: boolean;
   busy: boolean;
   onPick: (id: string) => void;
   onView: (view: { seat: number; zone: "graveyard" | "exile" | "hand" }) => void;
 }) {
   const id = `player:${player.seat}`;
-  const active = board.activeSeat === player.seat;
+  const { active, priority, targeted, exiled, glows, libTop, known, spectator } = facts;
   // Spec 0013 (G1) — the player's own picture, beside their life total.
   const { lobby } = useLobbyConnection();
   const seats = useContext(SeatsContext) ?? lobby.match?.participants;
   const seatedAs = seats?.find((p) => p.seatNumber === player.seat)?.userId;
-  const priority = board.prioritySeat === player.seat;
-  const choosable = Boolean(question?.onBoard.has(id) || aim?.has(id));
-  // Amendment 17: already chosen as a target of the spell being cast.
-  const chosenTarget = question?.chosen.includes(id) ?? false;
-  // The stack entry in focus targets this player: their life total glows
-  // (owner 2026-10-21), as a targeted card does on the board. Spec 0100,
-  // item 9: the entry pointed at (the Board's focus), else the front one.
-  const focused = board.stack.find((e) => e.id === stackFocus) ?? board.stack[0];
-  const targeted = (focused?.targets ?? []).some((t) => "player" in t && t.player === player.seat);
   // Said to a screen reader only (owner 2026-10-28: the medallion shows
   // just the name and the Belt; the gold ring on the life says whose turn).
   // Spec 0067 -- a spectator is nobody's "you" or "opponent".
   // Spec 0092 -- who has priority is said here only: the dot under the name is gone.
   const said = plateWords({
     name: player.name,
-    who: board.spectator ? "player" : mine ? "you" : "opponent",
+    who: spectator ? "player" : mine ? "you" : "opponent",
     active,
     priority,
   });
-  const visibleHand = board.otherHands.filter((card) => card.seat === player.seat);
-  // Spec 0082 -- a spell prepared on a creature is drawn on it, not in the pile.
-  const exiled = exilePile(board).filter((card) => card.seat === player.seat).length;
-  // Spec 0087 -- a tile glows gold while it holds a card someone may still
-  // use from there (a suspended card, not playable yet, does not light it).
-  const glows = pileGlows(fanCards(board), mine ? "viewer" : "opponent");
-  // Spec 0088 (Q4 C) -- this library's top card, when the game lets this
-  // viewer see it (public, or theirs to look at): small on the tile.
-  const libTop = (board.libraryTop ?? []).find((c) => c.seat === player.seat) ?? null;
-  // Spec 0103, item 4 (Q4 A) -- the cards this viewer put on top of its own
-  // library (sent to it alone), shown while it points at its Library tile.
   const [pointingLibrary, setPointingLibrary] = useState(false);
-  const known =
-    mine && !board.spectator
-      ? (board.knownTop ?? []).filter((c) => (c.owner ?? c.seat) === player.seat)
-      : [];
   const firstBoard = useRef(true);
   useEffect(() => {
     firstBoard.current = false;
@@ -3735,7 +3911,7 @@ function SeatBlock({
   // Spec 0086 (10 B) -- a turn begins for this player: the light runs along
   // the plate's top edge and the shield glows.
   const runRef = useRef<HTMLSpanElement>(null);
-  usePlateLight(board, player.seat, runRef, lifeRef);
+  usePlateLight(facts.turn, player.seat, runRef, lifeRef);
   // Spec 0089 (Q1 A) -- the end of the game, on this plate.
   const plateRef = useRef<HTMLDivElement>(null);
   const flareRef = useRef<HTMLSpanElement>(null);
@@ -3763,9 +3939,9 @@ function SeatBlock({
     >
       <span ref={runRef} className="gs-seat-run" aria-hidden="true" />
       {/* Spec 0100, item 6 (round 2 Q5 A) -- the Curses on this player. */}
-      <CurseTabs board={board} seat={player.seat} />
+      <CurseTabs curses={facts.curses} />
       {/* Spec 0102, item 2 (owner, missed Q7 A) -- another player plays this turn. */}
-      <ControlChain player={player} board={board} />
+      {facts.control && <ControlChain control={facts.control} />}
       {end?.role === "won" && <span ref={flareRef} className="gs-seat-flare" aria-hidden="true" />}
       <span className="pa-visually-hidden">
         {said} {life} life
@@ -3783,7 +3959,7 @@ function SeatBlock({
             rank={seatedAs ? rankOf(lobby, seatedAs) : undefined}
           />
           {/* Spec 0086 (8) -- the crown on the monarch's face, the initiative on its corner. */}
-          <FaceMarks seat={player.seat} designations={player.designations} stack={board.stack} />
+          <FaceMarks seat={player.seat} designations={player.designations} stack={facts.holders} />
         </span>
         <span className="gs-seat-who">
           {/* Spec 0041: 12 characters in full, smaller if need be. */}
@@ -3792,12 +3968,12 @@ function SeatBlock({
           <ThisTurnCounts
             counts={player.thisTurn}
             name={player.name}
-            mine={mine && !board.spectator}
+            mine={mine && !spectator}
             side={mine ? "viewer" : "opponent"}
           />
           {away !== null && <span className="gs-seat-away">Away · {away} min</span>}
           {/* Spec 0047 -- a spectator sees no hand: how many cards it holds. */}
-          {board.spectator && <span className="gs-seat-hand">{player.handCount} in hand</span>}
+          {spectator && <span className="gs-seat-hand">{player.handCount} in hand</span>}
           {/* Under the name: the Belt, so the name keeps the whole row.
               Spec 0092 -- no priority dot: the name never moves as priority
               passes (the summary above says who has it). */}
@@ -3863,7 +4039,7 @@ function SeatBlock({
           from the top edge; its count stays here for screen readers. */}
       {!mine && (
         <p className="pa-visually-hidden">
-          {`${player.name}'s hand, ${pileWords(player.handCount)}${visibleHand.length ? `, ${numberWord(visibleHand.length)} visible to you` : ""}`}
+          {`${player.name}'s hand, ${pileWords(player.handCount)}${facts.visibleHand ? `, ${numberWord(facts.visibleHand)} visible to you` : ""}`}
         </p>
       )}
       <div className="gs-zones">
@@ -3872,28 +4048,27 @@ function SeatBlock({
         <div
           className={`gs-zone${libraryWarning(player.libraryCount) ? ` gs-zone-${libraryWarning(player.libraryCount)}` : ""}`}
           title={
-            libraryWords(player.libraryCount, mine && !board.spectator ? null : player.name) ??
-            "Library"
+            libraryWords(player.libraryCount, mine && !spectator ? null : player.name) ?? "Library"
           }
-          aria-label={`${player.name}'s library, ${pileWords(player.libraryCount)}${libraryWarning(player.libraryCount) ? `. ${libraryWords(player.libraryCount, mine && !board.spectator ? null : player.name)}` : ""}`}
+          aria-label={`${player.name}'s library, ${pileWords(player.libraryCount)}${libraryWarning(player.libraryCount) ? `. ${libraryWords(player.libraryCount, mine && !spectator ? null : player.name)}` : ""}`}
           data-warning={libraryWarning(player.libraryCount) ?? undefined}
           data-zone-tile={`${mine ? "viewer" : "opponent"}:library`}
-          onMouseEnter={mine && !board.spectator ? () => setPointingLibrary(true) : undefined}
-          onMouseLeave={mine && !board.spectator ? () => setPointingLibrary(false) : undefined}
+          onMouseEnter={mine && !spectator ? () => setPointingLibrary(true) : undefined}
+          onMouseLeave={mine && !spectator ? () => setPointingLibrary(false) : undefined}
         >
           <ZoneIcon zone="library" />
           <span className="gs-zone-n">{player.libraryCount}</span>
           <span className="gs-zone-key">
             {libraryWarning(player.libraryCount) === "empty"
-              ? libraryWords(0, mine && !board.spectator ? null : player.name)
+              ? libraryWords(0, mine && !spectator ? null : player.name)
               : "Library"}
           </span>
         </div>
         {pointingLibrary && <KnownTop cards={known} />}
         <LibraryTop
           card={libTop}
-          owner={mine && !board.spectator ? "your" : `${player.name}'s`}
-          choosable={!!libTop && Boolean(question?.onBoard.has(libTop.id))}
+          owner={mine && !spectator ? "your" : `${player.name}'s`}
+          choosable={libTopChoosable}
           busy={busy}
           quiet={firstBoard.current}
           onPick={onPick}
@@ -3940,19 +4115,15 @@ function SeatBlock({
  * Curses, several tabs. Nothing here is a card on view: the card is on the
  * table; the tab is its mirror (no object id, nothing to click).
  */
-function CurseTabs({ board, seat }: { board: Snapshot; seat: number }) {
-  const curses = board.battlefield.filter((card) => card.attachedToPlayer === seat);
+/** P11-C4 -- a plate, drawn again only when what it shows changed. */
+const SeatBlock = memo(SeatBlockView, sameProps);
+
+function CurseTabs({ curses }: { curses: PlateFacts["curses"] }) {
   if (curses.length === 0) return null;
   return (
     <span className="gs-curse-tabs" data-curses={curses.length}>
-      {curses.map((card) => (
-        <CurseTab
-          key={card.id}
-          card={card}
-          glowing={
-            board.stack.find((e) => e.kind === "trigger" && e.source === card.id)?.id ?? null
-          }
-        />
+      {curses.map(({ card, glowing }) => (
+        <CurseTab key={card.id} card={card} glowing={glowing} />
       ))}
     </span>
   );
@@ -4077,7 +4248,7 @@ function passEmblem(word: string): keyof typeof EMBLEM {
  * that empties once over the response window (it starts when the
  * countdown button appears, as the countdown does).
  */
-function Coin({ emblem, seconds }: { emblem: keyof typeof EMBLEM; seconds?: number }) {
+function CoinView({ emblem, seconds }: { emblem: keyof typeof EMBLEM; seconds?: number }) {
   if (seconds !== undefined) {
     return (
       <span className="gs-coin gs-coin-timer" aria-hidden="true">
@@ -4107,6 +4278,9 @@ function Coin({ emblem, seconds }: { emblem: keyof typeof EMBLEM; seconds?: numb
     </span>
   );
 }
+
+/** P11-C4 -- the act button's coin, drawn again only when it changes. */
+const Coin = memo(CoinView);
 
 /** Spec 0002 — how long nobody must be asked before the rail says "Resolving…". */
 const RESOLVING_AFTER_MS = 500; // not paced: a wait (spec 0106)
@@ -4614,21 +4788,19 @@ function Rail({
         <SeatBlock
           key={`seat-${them.seat}`}
           player={them}
-          stackFocus={stackFocus}
-          board={board}
+          facts={plateFacts(board, them, false, stackFocus)}
           mine={false}
           away={theirAway ?? null}
           end={plateEnd(end, them.seat)}
           deciding={waiting?.seat === them.seat || actingSeat === them.seat}
-          question={question}
-          aim={aim}
+          {...plateChoice(board, them.seat, question, aim)}
           busy={busy}
           onPick={onPick}
           onView={onView}
         />
       )}
 
-      <StepLadder board={board} mySeat={mySeat} watching={watching} watchers={watchers} />
+      <StepLadder board={ladderOf(board)} mySeat={mySeat} watching={watching} watchers={watchers} />
 
       {/* The act button keeps its canvas place. The stack is drawn as cards
           on the board (owner 2026-10-22: the column's Stack box is gone).
@@ -4639,12 +4811,11 @@ function Rail({
         <SeatBlock
           key={`seat-${me.seat}`}
           player={me}
-          stackFocus={stackFocus}
-          board={board}
+          facts={plateFacts(board, me, true, stackFocus)}
           mine
           end={plateEnd(end, me.seat)}
           deciding={actingSeat === me.seat}
-          question={question}
+          {...plateChoice(board, me.seat, question, null)}
           busy={busy}
           onPick={onPick}
           onView={onView}
@@ -4683,17 +4854,11 @@ interface RestartHold {
  * It comes in as the turn begins and goes when control ends (CSS, so reduce
  * motion simply shows it).
  */
-function ControlChain({ player, board }: { player: SnapshotPlayer; board: Snapshot }) {
-  if (player.controlledBy === undefined) return null;
-  const by = board.players.find((p) => p.seat === player.controlledBy)?.name ?? "another player";
-  const from = player.controlledFrom
-    ? [...board.graveyard, ...board.exile, ...board.battlefield].find(
-        (card) => card.id === player.controlledFrom,
-      )
-    : undefined;
+function ControlChain({ control }: { control: NonNullable<PlateFacts["control"]> }) {
+  const { by: controlledBy, name: by, from } = control;
   const art = from?.crop ?? from?.art ?? null;
   return (
-    <span className="gs-control" data-controlled-by={player.controlledBy}>
+    <span className="gs-control" data-controlled-by={controlledBy}>
       <svg className="gs-control-chain" aria-hidden="true">
         <rect className="gs-control-under" x="0" y="0" width="100%" height="100%" rx="10" />
         <rect className="gs-control-links" x="0" y="0" width="100%" height="100%" rx="10" />

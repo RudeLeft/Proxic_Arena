@@ -31,13 +31,19 @@ export const ROLL_MS = paced(300);
 export const SWEEP_MS = paced(550);
 
 /** A turn began for [seat] on [now] (not the first board seen, not another game's). */
-export function turnBeganFor(was: Snapshot | null, now: Snapshot, seat: number): boolean {
+/** What says a turn began: the game, its turn and whose it is. */
+type TurnOf = Pick<Snapshot, "gameEpoch" | "turn" | "activeSeat">;
+
+export function turnBeganFor(was: TurnOf | null, now: TurnOf, seat: number): boolean {
   if (!was || was.gameEpoch !== now.gameEpoch || now.turn <= was.turn) return false;
   return now.activeSeat === seat;
 }
 
 /** The turn became YOURS: it was not your turn before (an extra turn of yours does not sweep again). */
-export function turnBecameYours(was: Snapshot | null, now: Snapshot): boolean {
+/** What says the turn became yours. */
+type YoursOf = Pick<Snapshot, "spectator" | "gameEpoch" | "turn" | "activeSeat" | "seat">;
+
+export function turnBecameYours(was: YoursOf | null, now: YoursOf): boolean {
   if (now.spectator || !was || was.gameEpoch !== now.gameEpoch || now.turn <= was.turn)
     return false;
   return now.activeSeat === now.seat && was.activeSeat !== now.seat;
@@ -59,12 +65,12 @@ const SHIELD_FRAMES: Keyframe[] = [
 
 /** Lights [plate]'s top edge and glows [shield] when a turn begins for [seat]. */
 export function usePlateLight(
-  board: Snapshot,
+  board: TurnOf,
   seat: number,
   run: RefObject<HTMLElement | null>,
   shield: RefObject<HTMLElement | null>,
 ): void {
-  const was = useRef<Snapshot | null>(null);
+  const was = useRef<TurnOf | null>(null);
   const [lit, setLit] = useState(0);
   useLayoutEffect(() => {
     const before = was.current;
@@ -140,9 +146,9 @@ export function Rolling({ value, className }: { value: string; className?: strin
  * The band of light across the table toward you, when the turn becomes
  * yours (owner C). Put in the board's overlay; nothing to click.
  */
-export function TurnSweep({ board, geometry }: { board: Snapshot; geometry: Geometry }) {
+export function TurnSweep({ board, geometry }: { board: YoursOf; geometry: Geometry }) {
   const ref = useRef<HTMLDivElement>(null);
-  const was = useRef<Snapshot | null>(null);
+  const was = useRef<YoursOf | null>(null);
   const [sweeping, setSweeping] = useState(0);
   useLayoutEffect(() => {
     const before = was.current;

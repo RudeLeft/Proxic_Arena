@@ -7569,23 +7569,31 @@ export function Board({
       // table (the first time a card has to glide) instead of once per card
       // between the animations this loop starts: asking each card in turn
       // made the browser work out every style again for each.
+      // P11-C3 -- and only of the cards that move: the whole table's
+      // animations (every looping glow and bob on every card) were listed
+      // to find the few on the cards gliding. The cards that may glide are
+      // known before any of them starts (same test as the loop's below); each
+      // is asked once, together, so the style is worked out once for them all.
+      const mayGlide: HTMLElement[] = [];
+      for (const item of items) {
+        if (!before.mounted.has(item.id)) continue;
+        const was = wasAt(item.id);
+        if (!was || item.id === pointed || before.pointed === item.id) continue;
+        const same =
+          Math.abs(was.box.x - item.box.x) < 0.5 &&
+          Math.abs(was.box.y - item.box.y) < 0.5 &&
+          Math.abs(was.box.scale - item.box.scale) < 0.001 &&
+          was.box.rotation === item.box.rotation;
+        const element = elements.current.get(item.id);
+        if (!same && element) mayGlide.push(element);
+      }
       let playing: Map<Element, Animation[]> | null = null;
       const animationsOf = (element: HTMLElement): Animation[] => {
         if (playing === null) {
           playing = new Map();
-          const root = ref.current;
-          if (root && typeof root.getAnimations === "function")
-            for (const a of root.getAnimations({ subtree: true })) {
-              const effect = a.effect as KeyframeEffect | null;
-              const target = effect?.target;
-              if (!target || effect.pseudoElement) continue;
-              const list = playing.get(target);
-              if (list) list.push(a);
-              else playing.set(target, [a]);
-            }
-          else return element.getAnimations?.() ?? [];
+          for (const el of mayGlide) playing.set(el, el.getAnimations?.() ?? []);
         }
-        return playing.get(element) ?? [];
+        return playing.get(element) ?? element.getAnimations?.() ?? [];
       };
       for (const item of items) {
         if (!before.mounted.has(item.id)) continue;
@@ -9393,6 +9401,34 @@ export function Board({
     return () => document.removeEventListener("visibilitychange", seen);
   }, []);
 
+  // P11-C4 -- "where is it", for the game screen's overlay (a spell cast
+  // flies there, mana balls leave from there): one function while none of
+  // what it reads changed, so the overlay's parts are not drawn again when
+  // only the board's own marks or ghosts did.
+  const overlayAt = useMemo(() => {
+    if (!result) return (): Box | null => null;
+    const spots = stackSpotBoxes(result.geometry, (stack ?? []).length, stackScale);
+    const spotAt = new Map((stack ?? []).slice(0, spots.length).map((s, i) => [s.id, spots[i]!]));
+    const waitingAt = waitingBoxes(copying, stack ?? [], spots);
+    const waitAt = new Map<string, Box>();
+    for (const w of copying) {
+      const box = waitingAt.get(w.id);
+      if (!box) continue;
+      for (const id of [w.id, ...(w.members ?? [])]) waitAt.set(id, box);
+    }
+    // Spec 0094 -- a hand card pointed at is "where" its reading card
+    // is: a card cast from there rises from it.
+    return (id: string): Box | null =>
+      (reading?.id === id ? reading.box : null) ??
+      positions.get(id)?.box ??
+      spotAt.get(id) ??
+      waitAt.get(id) ??
+      fanBoxesNow.get(id) ??
+      fanWas.current.boxes.get(id) ??
+      fanWas.current.gone.get(id)?.box ??
+      null;
+  }, [result, stack, copying, stackScale, reading, positions, fanBoxesNow]);
+
   if (!result) return <div ref={ref} className="bf-board" data-testid="battlefield" />;
   const g = result.geometry;
   // Spec 0083 (18 B) -- whose hand a split-second spell locks: the side that
@@ -10598,18 +10634,7 @@ export function Board({
           <g ref={leavingRef} className="bf-lines-leaving" />
         </svg>
         {/* A stack object is "where" its spot is: a spell cast flies there (spec 0044). */}
-        {overlay?.(
-          // Spec 0094 -- a hand card pointed at is "where" its reading card
-          // is: a card cast from there rises from it.
-          (id) =>
-            (reading?.id === id ? reading.box : null) ??
-            positions.get(id)?.box ??
-            spotBox.get(id) ??
-            waitingBox.get(id) ??
-            fanBox(id) ??
-            null,
-          g,
-        )}
+        {overlay?.(overlayAt, g)}
         {marks
           .filter((m) => m.kind === "dim")
           .map((m) => (

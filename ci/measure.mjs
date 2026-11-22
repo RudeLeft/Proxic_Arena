@@ -150,8 +150,11 @@ function run(spec, runs, out, env, projects, grep) {
                     `--project=${project}`,
                     spec,
                     ...(grep ? ["-g", grep] : []),
-                    // Playwright's own results (traces, attachments), kept out of the repo if asked.
-                    ...(pwOutput ? [`--output=${join(pwOutput, `run-${k}-${project}`)}`] : []),
+                    // Playwright's own files (traces, attachments): where --pw-output
+                    // says, else beside the run's numbers; never in the checkout (two
+                    // builders' runs must never share one folder).
+                    "--output",
+                    pwOutput ? join(pwOutput, `run-${k}-${project}`) : join(out, `playwright-${k}-${project}`),
                 ],
                 {
                     cwd: frontend,
