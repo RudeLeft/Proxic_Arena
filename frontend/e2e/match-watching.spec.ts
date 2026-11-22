@@ -24,8 +24,8 @@ import { extraPlayers, secondPassword, secondUser, signIn, signInAs, testUser } 
 import {
   attackWithAll,
   clearEverything,
+  clickIf,
   clickNow,
-  clickUnlessCombat,
   discardIfAsked,
   expectReady,
   lifeSettled,
@@ -269,6 +269,8 @@ test("a third player spectates: Starting…, Spectate, the log, Switch sides, a 
 
 /** Every animation the page makes runs at this rate (the fights, their marks, the plates' clock). */
 const SLOW = 0.2;
+/** "Pay the mana" on screen: the one question a board card is clicked for in the loop below. */
+const PAYING = ':is(.gs-question, .gs-your-move, .gs-win)[data-kind="applyManaToCost"]';
 
 test("life steps down at each hit, and a life below zero shows on the shield and in the words", async ({
   browser,
@@ -387,7 +389,10 @@ test("life steps down at each hit, and a life below zero shows on the shield and
           );
           const listed = panel.locator(".gs-question li button, .gs-win li button");
           if ((await listed.count()) > 0) await clickNow(listed);
-          else if ((await mana.count()) > 0) await clickUnlessCombat(mana);
+          // A board card is mana only while "Pay the mana" is asked: priority
+          // can come back between the look above and this click, and a click
+          // then activates Mogg Fanatic (CI 45050944578), which no branch answers.
+          else if ((await mana.count()) > 0) await clickIf(mana, PAYING);
           else await clickNow(passButton(page));
           continue;
         }

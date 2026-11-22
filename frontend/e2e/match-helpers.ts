@@ -587,6 +587,33 @@ export async function clickUnless(target: Locator, unplanned: string): Promise<b
 }
 
 /**
+ * The other half of [clickUnless]: clicks [target] only if something
+ * matching [planned] is on screen at that very moment, the check and the
+ * click one step in the page. For a catch-all whose click means one thing
+ * only under one question -- a board card is a mana payment while "Pay the
+ * mana" is asked, and an ability to activate the moment priority comes back
+ * (CI 45050944578: the bot looked for priority while a creature was still
+ * resolving, then clicked Mogg Fanatic as "mana" 126 ms later, after
+ * priority had come back, and could not answer "Sacrifice Mogg Fanatic?").
+ * True when it clicked.
+ */
+export async function clickIf(target: Locator, planned: string): Promise<boolean> {
+  if ((await target.count()) === 0) return false;
+  return target
+    .first()
+    .evaluate(
+      (e, planned) => {
+        if (!document.querySelector(planned)) return false;
+        (e as HTMLElement).click();
+        return true;
+      },
+      planned,
+      { timeout: 5_000 },
+    )
+    .catch(() => false);
+}
+
+/**
  * Declare no attack (or no block): the combat button. If something is
  * selected and not pointed (W-14), that button is locked until it is
  * pointed or unselected: Esc unselects first, as a player would. For a

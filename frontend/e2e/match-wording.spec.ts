@@ -117,6 +117,14 @@ const priorityHere = async (page: Page) =>
     .count()) > 0;
 /** Fabricate's cost window: the one whose yes is the cost's own action. */
 const costWindow = (page: Page) => matchPanel(page).locator(".gs-win:has(button.gs-cost-act)");
+/**
+ * Nagging Thoughts' two cards come in a tray of this kind. While step 2
+ * waits for it, no catch-all below may see one: it can open between step
+ * 2's look and theirs (CI 45050944578: 54 ms apart, answerCardTray picked
+ * the first tile, the Island stayed in hand and the guest's report said a
+ * Swamp went to the graveyard -- never the report step 2 reads).
+ */
+const DIG_KIND = '[data-kind="chooseEntitiesForEffect"]';
 
 /** A still of one window, when PROXIC_E2E_STILLS names a folder. */
 async function still(target: Locator, file: string) {
@@ -419,7 +427,12 @@ test("the game screen's words: the act button, a look-at-the-top report, a count
 
         // Fabricate's window may have come in since the look above: never answer it below.
         if (isHost && (await costWindow(page).count()) > 0) continue;
-        if (await answerCardTray(page)) continue;
+        // Nor the dig's tray while step 2 waits for it: the exclusion is in the
+        // catch-alls' own locators, so a tray opening after step 2 looked is not
+        // found by them either.
+        const digWait = isHost && st.thoughtsClicked && !st.digPicked;
+        const notDig = digWait ? `:not(${DIG_KIND})` : "";
+        if (await answerCardTray(page, digWait ? { except: DIG_KIND } : {})) continue;
         // Nobody attacks.
         if ((await panel.locator("button.gs-act-combat").count()) > 0) {
           await passCombat(page);
@@ -428,7 +441,7 @@ test("the game screen's words: the act button, a look-at-the-top report, a count
         if (!(await priorityHere(page))) {
           // Never Fabricate's cost window: it can come in between the look above
           // and this click (CI run 44900484054 pressed its main button unread).
-          const asked = ".gs-win:not(:has(button.gs-cost-act))";
+          const asked = `.gs-win:not(:has(button.gs-cost-act))${notDig}`;
           const listed = panel.locator(`.gs-question li button, ${asked} li button`);
           const main = panel.locator(`${asked} button.gs-win-btn-main:not(:disabled)`);
           if ((await listed.count()) > 0) await clickNow(listed);
