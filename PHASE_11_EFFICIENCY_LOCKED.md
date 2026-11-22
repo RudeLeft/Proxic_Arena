@@ -515,6 +515,7 @@ keep their relative order.)
    risk. Beside it, the quick loading wins: **E3** (cache rules), **E4**
    (HTTP compression), **E9** (sign-in's 1.2 s, cause first), **E14**
    (fonts), **E16** (duplicate fetches), **E17** (API cache rules).
+3a. **C3 and C4** beside step 3 (owner 2026-11-22, from D0's finding).
 3. **E2**, avatars without the socket (the owner's report), with **E13**,
    hidden tabs. E13 must be settled before the hard pause is built.
 4. **D3**, history sent once: smaller boards before deltas, and it
@@ -870,6 +871,8 @@ INFERENCE = reasoned.
 **Owner answers, 2026-11-19 (later):** Firefox and WebKit installed for testing (yes; here, and in CI as part of F1). Supported browsers: Chrome, Edge, Firefox and Safari on a Mac (current and previous version) at 1920x1080 and above; Brave, Opera and Vivaldi best effort, checked by hand; phones best effort, untested (UI-006). Card pictures: WebP, with a side-by-side canvas before switching. A hidden or frozen tab counts as connected while its connection is open; the game pauses only if the connection actually drops.
 
 **Owner answer, 2026-11-21 (C6's yardstick):** C6 is judged on the measuring kit's replayed table (40 a side, tap one land, the busy scene), per update, which is steady to a few per cent; real games still run, only to show nothing got worse. The real-game 4x figure swings 96-116 ms/s between deals and no longer decides C6.
+
+**Owner answers, 2026-11-22 (after P11-D0):** the deliberate pauses (0061's 400 ms per passed step, 0105's stack rest) stay as they are; Phase 11 works on real slowness only. **C3 and C4 move up to run beside step 3** (the browser's React commit and next frame are the biggest slice of the system's own time in a tap, a cast and a combat); C2 stays after D4.
 
 ## As built: P11-B5 (2026-11-21)
 
