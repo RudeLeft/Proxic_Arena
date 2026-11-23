@@ -32,11 +32,16 @@ const pkg = join(process.cwd(), "..", "Test Deck", "swarm-deck.zip");
 const SPELLS =
   /^(Goblin Rally|Hordeling Outburst|Beetleback Chief|Dragon Fodder|Krenko's Command|Goblin Instigator)/;
 
-/** A stack of untapped Goblins on one side, as `viewer` sees it: its size. */
-async function goblinStack(page: Page, side: "viewer" | "opponent"): Promise<number> {
+/**
+ * A stack of untapped Goblins on one side, as `viewer` sees it: its size.
+ * `able`: only a stack the viewer may choose now -- at declare attackers, one
+ * that can attack (a summoning-sick stack is its own pile and is not offered).
+ */
+async function goblinStack(page: Page, side: "viewer" | "opponent", able = false): Promise<number> {
+  const offered = able ? '[data-choosable="true"]' : "";
   const piles = await page
     .locator(
-      `.bf-cards button[data-controller="${side}"][data-tapped="false"][data-pile]:not([data-blocking])`,
+      `.bf-cards button[data-controller="${side}"][data-tapped="false"][data-pile]${offered}:not([data-blocking])`,
     )
     .filter({ hasText: "Goblin" })
     .evaluateAll((els) => els.map((el) => Number((el as HTMLElement).dataset["pile"] ?? 1)));
@@ -76,11 +81,14 @@ test("a stack blocks a stack: select from the pile, point at theirs, and blocker
             .catch(() => null)) ?? "";
 
         if (kind === "declareAttackers") {
-          // The host attacks once, with everything, when both swarms are up.
+          // The host attacks once, with everything, when both swarms are up:
+          // a stack that can attack now, not one made this turn (CI run
+          // 45122241724: a sick stack of 4 counted, and "All attack" sent
+          // two single Goblins, so there was no attacking stack to block).
           const ready =
             page === host &&
             !attacked &&
-            (await goblinStack(host, "viewer")) >= 4 &&
+            (await goblinStack(host, "viewer", true)) >= 4 &&
             (await goblinStack(host, "opponent")) >= 3;
           if (ready && (await attackWithAll(page))) {
             await page.screenshot({ path: "test-results/seen/attack-pointed.png" });
