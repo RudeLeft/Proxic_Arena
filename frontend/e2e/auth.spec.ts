@@ -250,3 +250,158 @@ test("the avatars fold away, open on request, and a pick saves and folds them ag
     "true",
   );
 });
+
+// --- P11-E5: the start-up chain, started together ----------------------------
+//
+// With a session hint (the readable CSRF cookie), a signed-in page's code,
+// its data and the lobby connection start beside "who am I" (src/early.ts).
+// The owner's two rules for it: a stranger still gets the sign-in files and
+// nothing else (2026-10-24), and no page is drawn before "who am I" answers.
+
+/** Every request and socket a page makes, from before its first byte. */
+function watched(page: import("@playwright/test").Page) {
+  const requests: {
+    url: string;
+    status: number | null;
+    /** The answer's Content-Length: a refusal's sentence, or a file. */
+    body: number;
+    headers: number;
+    cache: string | null;
+  }[] = [];
+  const sockets: string[] = [];
+  // Recorded as asked, and filled in when the answer's headers land: an
+  // answer nobody reads (a primed one dropped) never "finishes".
+  const entries = new Map<import("@playwright/test").Request, (typeof requests)[number]>();
+  page.on("request", (request) => {
+    const entry = {
+      url: new URL(request.url()).pathname,
+      status: null,
+      body: 0,
+      headers: 0,
+      cache: null,
+    };
+    entries.set(request, entry);
+    requests.push(entry);
+  });
+  page.on("response", (response) => {
+    void response
+      .headersArray()
+      .then((headers) => {
+        const entry = entries.get(response.request());
+        if (!entry) return;
+        const header = (name: string) =>
+          headers.find((h) => h.name.toLowerCase() === name)?.value ?? null;
+        entry.status = response.status();
+        entry.cache = header("cache-control");
+        entry.body = Number(header("content-length") ?? 0);
+        entry.headers = headers.reduce((sum, h) => sum + h.name.length + h.value.length + 4, 0);
+      })
+      .catch(() => undefined);
+  });
+  page.on("websocket", (socket) => sockets.push(new URL(socket.url()).pathname));
+  return { requests, sockets };
+}
+
+/** The build's list of each signed-in page's files (vite.config.ts `earlyFiles`). */
+async function earlyFiles(page: import("@playwright/test").Page): Promise<string[]> {
+  const text = await page.locator("#pa-early").textContent();
+  expect(text, "the page carries the signed-in pages' file list").toBeTruthy();
+  const built = JSON.parse(text!) as { files: string[] };
+  return built.files.map((file) => `/${file}`);
+}
+
+test("P11-E5: a stranger asks for the sign-in files and who am I, and nothing else", async ({
+  page,
+}) => {
+  const seen = watched(page);
+  for (const path of ["/play", "/hall", "/admin", "/game"]) {
+    await page.goto(path);
+    await expect(page.getByLabel("Username")).toBeVisible();
+  }
+  await page.waitForTimeout(500);
+  const signedIn = await earlyFiles(page);
+  const api = seen.requests.filter((r) => r.url.startsWith("/api/")).map((r) => r.url);
+  expect(new Set(api), "only who am I").toEqual(new Set(["/api/auth/me"]));
+  expect(seen.sockets, "no lobby connection").toEqual([]);
+  const asked = seen.requests.filter((r) => signedIn.includes(r.url));
+  expect(asked, "no signed-in file").toEqual([]);
+});
+
+test("P11-E5: a session that ended elsewhere: each early start is refused, costs nothing, and signing in still draws the page", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  // The CSRF cookie outlives a session ended from elsewhere: the hint is wrong.
+  await context.addCookies([{ name: "proxicarena_csrf", value: "stale", url: baseURL! }]);
+  const seen = watched(page);
+  await page.goto("/play");
+  await expect(page.getByLabel("Username")).toBeVisible();
+  await page.waitForTimeout(1_000);
+  const signedIn = await earlyFiles(page);
+
+  const early = seen.requests.filter((r) => signedIn.includes(r.url));
+  expect(early.length, "the hint started the shell's and the lobby's files").toBeGreaterThan(3);
+  for (const r of early) {
+    expect(r.status, r.url).toBe(404);
+    expect(r.cache, r.url).toBe("no-store");
+  }
+  const data = seen.requests.filter((r) => r.url.startsWith("/api/") && r.url !== "/api/auth/me");
+  expect(data.map((r) => r.url).sort()).toEqual(
+    ["/api/decks", "/api/matches/current", "/api/rooms/current"].sort(),
+  );
+  for (const r of data) expect(r.status, r.url).toBe(401);
+  expect(seen.sockets).toEqual(["/ws/user"]);
+  const refused = [...early, ...data];
+  const body = refused.reduce((sum, r) => sum + r.body, 0);
+  const headers = refused.reduce((sum, r) => sum + r.headers, 0);
+  console.log(
+    `[P11-E5] stale hint: ${refused.length} refusals, ${body} bytes of body, ${headers} of headers`,
+  );
+  // Each a refusal's sentence, never a file or a list.
+  for (const r of refused) expect(r.body, r.url).toBeLessThan(200);
+
+  // A refused early fetch is never remembered by the page: signing in draws
+  // the lobby with its own styles and its connection.
+  await page.getByLabel("Username").fill(username);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/play$/);
+  await expect(page.getByRole("status").filter({ hasText: "Connected" })).toBeVisible();
+  await expect(page.locator(".pa-header")).toHaveCSS("display", "flex");
+  await expect(page.locator("#players-heading")).toBeVisible();
+});
+
+test("P11-E5: the page waits for who am I before drawing, while its code, data and connection start beside it", async ({
+  page,
+}) => {
+  await signIn(page);
+  for (const [path, check] of [
+    ["/play", "#players-heading"],
+    ["/hall", "text=Leaderboard"],
+  ] as const) {
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/api/auth/me", async (route) => {
+      await held;
+      await route.continue();
+    });
+    const seen = watched(page);
+    await page.goto(path);
+    await page.waitForTimeout(1_500);
+    // Who am I is still out: nothing of any page is drawn, signed in or not.
+    await expect(page.locator(".pa-header")).toHaveCount(0);
+    await expect(page.getByLabel("Username")).toHaveCount(0);
+    expect(await page.locator("#root").innerText()).toBe("Checking your session…");
+    // ...but the page's data and the lobby connection are already asked for.
+    expect(seen.sockets, path).toEqual(["/ws/user"]);
+    const api = seen.requests.map((r) => r.url).filter((u) => u.startsWith("/api/"));
+    expect(api, path).toContain(path === "/play" ? "/api/rooms/current" : "/api/hall");
+    release();
+    await expect(page.locator(check).first()).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Connected" })).toBeVisible();
+    // One lobby connection: the early one, taken by the shell.
+    expect(seen.sockets, path).toEqual(["/ws/user"]);
+    await page.unroute("**/api/auth/me");
+  }
+});

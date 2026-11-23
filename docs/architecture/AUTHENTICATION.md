@@ -215,6 +215,16 @@ CSRF cookie is deliberately **not**, because the page must read it to
 echo it back. That asymmetry is the whole mechanism, not an
 oversight.
 
+The page also reads the CSRF cookie's presence as a **session hint**
+(P11-E5, `frontend/src/early.ts`): with it, a signed-in page's code, data
+and lobby connection start beside `/api/auth/me` instead of after it. It
+is a hint, never an authorisation: the page still draws nothing until
+`/api/auth/me` answers, and the server still refuses each of those
+requests without a session (a 404 for a signed-in file, a 401 for the
+data, the socket closed with `VIOLATED_POLICY`). A visitor who never
+signed in has no CSRF cookie and asks for nothing more than the sign-in
+files and `/api/auth/me`.
+
 Cookies are written with Ktor's default encoding rather than RAW. Ktor
 appends an `$x-enc=` marker either way (the live header reads
 `...; SameSite=Lax; $x-enc=URI_ENCODING`); it is harmless, an attribute

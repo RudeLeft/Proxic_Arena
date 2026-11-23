@@ -110,7 +110,8 @@ cannot express it — and a body that adds one is ignored (§5.216).
         "isHost": true,
         "deckSelected": true,
         "selectedDeckId": "…",      // viewer's own seat only
-        "selectedDeckName": "…"     // viewer's own seat only
+        "selectedDeckName": "…",    // viewer's own seat only
+        "avatar": "avatar-07"       // P11-E5; null = the default face
       }
     ]
   }
@@ -135,6 +136,20 @@ business. Deck **contents** never appear here at all.
 
 Never present, for anybody: session data, account security data,
 deck contents, the Deck Depot share graph (§5.141).
+
+### `avatar` (P11-E5, owner 2026-11-22)
+
+Each seat's avatar, the same for every viewer: the name of one of the
+set (`avatar-07` .. `avatar-132`), or `null` for the default face. It is
+always present, `null` included; a client that finds it absent is
+talking to an older server and asks elsewhere (`lobbyView.ts`
+`avatarOf`). Only an **active** account's avatar is sent, as `PLAYERS`
+lists them (P11-E2): a disabled player's seat says `null`, the default
+face. It is there so a freshly opened room draws the other seat's own
+face before the socket's `PLAYERS` list lands; once that list has
+arrived, the list is the truth. Read when the view is made
+(`RoomService.views`, `RoomViews.of`), so a changed avatar shows in the
+next room answer or `ROOM` message (and at once through `PLAYERS`).
 
 ### `revision`
 

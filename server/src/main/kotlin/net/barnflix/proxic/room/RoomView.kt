@@ -1,6 +1,7 @@
 package net.barnflix.proxic.room
 
 import kotlinx.serialization.Serializable
+import net.barnflix.proxic.lobby.AccountNames
 import java.util.UUID
 
 // What a room looks like on the wire — PHASE_05 §5.138–§5.141.
@@ -54,6 +55,15 @@ data class RoomMemberView(
      */
     val selectedDeckId: String? = null,
     val selectedDeckName: String? = null,
+    /**
+     * P11-E5 (owner 2026-11-22) — the seat's avatar ("avatar-07"), or null
+     * for the default face, so a freshly opened room draws the other seat's
+     * own face before the socket's PLAYERS list lands. Only an ACTIVE
+     * account's, as PLAYERS lists them (P11-E2): a disabled player shows
+     * the default face. No default value, so it is always sent, null too:
+     * absent means an older server, null means the default face.
+     */
+    val avatar: String?,
 )
 
 @Serializable
@@ -84,7 +94,11 @@ data class RoomView(
  * HTTP takes it from the authenticated principal and the socket
  * from the connection's own session (§5.67).
  */
-fun Room.viewFor(viewerId: UUID): RoomView =
+fun Room.viewFor(
+    viewerId: UUID,
+    /** P11-E5 — each member's avatar, active accounts only (RoomService.viewFor); absent is the default face. */
+    avatars: Map<UUID, String?> = emptyMap(),
+): RoomView =
     RoomView(
         roomId = roomId.toString(),
         name = displayName(),
@@ -109,9 +123,22 @@ fun Room.viewFor(viewerId: UUID): RoomView =
                         member.selectedDeckId.takeIf { member.userId == viewerId }?.toString(),
                     selectedDeckName =
                         member.selectedDeckName.takeIf { member.userId == viewerId },
+                    avatar = avatars[member.userId],
                 )
             },
     )
+
+/**
+ * [Room.viewFor] with each seat's avatar (P11-E5, owner 2026-11-22): every
+ * room answer and ROOM message goes through here (`RoomService.views`), so
+ * the room data and PLAYERS name the same faces.
+ */
+class RoomViews(private val names: AccountNames) {
+    fun of(
+        room: Room,
+        viewerId: UUID,
+    ): RoomView = room.viewFor(viewerId, names.avatarsOf(room.members.map { it.userId }))
+}
 
 /** §5.137 — which HTTP status a refusal deserves. */
 fun RoomError.httpStatus(): io.ktor.http.HttpStatusCode =

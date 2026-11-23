@@ -22,6 +22,7 @@ import { EMPTY_LOBBY, catchUp, connectLobby, type LobbySocket, type LobbyState }
 import { watchActivity } from "../activity";
 import { PAGE_RECONNECTED } from "../avatars";
 import { learnAvatars } from "../knownAvatars";
+import { lobbyUrl, takeEarlySocket } from "../early";
 
 interface LobbyConnectionValue {
   lobby: LobbyState;
@@ -30,11 +31,6 @@ interface LobbyConnectionValue {
 }
 
 const LobbyConnectionContext = createContext<LobbyConnectionValue | null>(null);
-
-function lobbyUrl(): string {
-  const scheme = location.protocol === "https:" ? "wss" : "ws";
-  return `${scheme}://${location.host}/ws/user`;
-}
 
 export function LobbyConnectionProvider({ children }: { children: ReactNode }) {
   const [lobby, setLobbyState] = useState<LobbyState>(EMPTY_LOBBY);
@@ -50,12 +46,22 @@ export function LobbyConnectionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (players.length > 0) learnAvatars(players.map((p) => [p.userId, p.avatar] as const));
   }, [players]);
+  // P11-E5 -- and the room's seats say theirs (the room data carries them).
+  const members = lobby.room?.members;
+  useEffect(() => {
+    if (members)
+      learnAvatars(
+        members.flatMap((m) => (m.avatar === undefined ? [] : [[m.userId, m.avatar] as const])),
+      );
+  }, [members]);
 
   useEffect(() => {
     // Spec 0009 — away or back, said only when it changes; said again
     // after a reconnect, which the server sees as a fresh, active tab.
     let away = false;
     const opened = connectLobby(lobbyUrl(), setLobbyState, WebSocket, {
+      // P11-E5 -- the connection main.tsx opened beside "who am I", if any.
+      first: takeEarlySocket,
       onReopen: () => {
         if (away) opened.send({ type: "ACTIVITY", away: true });
         void catchUp(setLobbyState, () => latest.current);

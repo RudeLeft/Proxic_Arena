@@ -168,7 +168,7 @@ class LobbyService(
         // One message PER MEMBER, not one message to all of them:
         // §5.47 and §5.140 make the room a personalized snapshot,
         // so each player's copy names only their own deck.
-        for (member in room.members) hub.sendTo(member.userId, roomMessage(room, member.userId))
+        for (member in room.members) hub.sendTo(member.userId, roomMessage(rooms.views.of(room, member.userId)))
         publishRooms()
     }
 
@@ -294,7 +294,7 @@ class LobbyService(
 
         // A refresh should land you back where you were, not outside
         // it (§5.119): the room survived, so send it.
-        rooms.roomOf(user.userId)?.let { hub.sendTo(user.userId, roomMessage(it, user.userId)) }
+        rooms.roomOf(user.userId)?.let { hub.sendTo(user.userId, roomMessage(rooms.views.of(it, user.userId))) }
         // ...and so should an invitation, either way round.
         desk.resend(user.userId)
 

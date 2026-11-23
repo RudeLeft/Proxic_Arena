@@ -5,6 +5,7 @@
 // each answer into words a person can act on.
 
 import { apiFetch } from "./auth";
+import { primedFetch } from "./early";
 import { learnAvatars } from "./knownAvatars";
 import type { DirectoryRoom } from "./lobby";
 
@@ -85,7 +86,7 @@ async function read<T>(
   }
 }
 
-export const fetchAccounts = (fetchFn: typeof fetch = fetch) =>
+export const fetchAccounts = (fetchFn: typeof fetch = primedFetch) =>
   read(
     "/api/admin/accounts",
     (b) => {
@@ -99,13 +100,13 @@ export const fetchAccounts = (fetchFn: typeof fetch = fetch) =>
     fetchFn,
   );
 
-export const fetchAdminRooms = (fetchFn: typeof fetch = fetch) =>
+export const fetchAdminRooms = (fetchFn: typeof fetch = primedFetch) =>
   read("/api/admin/rooms", (b) => (b["rooms"] as AdminRoom[]) ?? [], fetchFn);
 
-export const fetchServerState = (fetchFn: typeof fetch = fetch) =>
+export const fetchServerState = (fetchFn: typeof fetch = primedFetch) =>
   read("/api/admin/server", (b) => b as unknown as ServerState, fetchFn);
 
-export const fetchAdminMatches = (fetchFn: typeof fetch = fetch) =>
+export const fetchAdminMatches = (fetchFn: typeof fetch = primedFetch) =>
   read(
     "/api/admin/matches",
     (b) => ({
@@ -125,7 +126,7 @@ export function sizeText(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1000))} KB`;
 }
 
-export const fetchSignIns = (fetchFn: typeof fetch = fetch) =>
+export const fetchSignIns = (fetchFn: typeof fetch = primedFetch) =>
   read("/api/admin/sign-ins", (b) => (b["events"] as SignInEvent[]) ?? [], fetchFn);
 
 /** Spec 0027 — a computer linked to the Deck Builder, for the Computers tab. */
@@ -142,7 +143,7 @@ export interface AdminComputer {
   lastUsedFrom?: string | null;
 }
 
-export const fetchComputers = (fetchFn: typeof fetch = fetch) =>
+export const fetchComputers = (fetchFn: typeof fetch = primedFetch) =>
   read("/api/admin/computers", (b) => (b["computers"] as AdminComputer[]) ?? [], fetchFn);
 
 export const removeComputer = (deviceId: string, fetchFn: typeof fetch = fetch) =>

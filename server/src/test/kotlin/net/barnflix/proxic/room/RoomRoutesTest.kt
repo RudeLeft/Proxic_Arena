@@ -333,6 +333,43 @@ class RoomRoutesTest {
             assertEquals(true, theirs["deckSelected"]!!.jsonPrimitive.content.toBoolean())
         }
 
+    /**
+     * P11-E5 (owner 2026-11-22) — each seat's face comes with the room, so
+     * a freshly opened room's other seat is drawn with its own avatar
+     * before the socket's PLAYERS list lands. An active account's only, as
+     * PLAYERS lists them (P11-E2): a disabled player is the default face,
+     * and the default face is a null that is always there.
+     */
+    @Test
+    fun `each seat carries its avatar, an active account's only`() =
+        testApplication {
+            application { module(config()) }
+            val host = signIn("RudeLeft")
+            val roomId = client.createRoom(host)["roomId"]!!.jsonPrimitive.content
+            seat(roomId, "Pat")
+            sql("UPDATE app_user SET avatar = 'avatar-07' WHERE username = 'Pat'")
+
+            suspend fun faces(path: String): Map<String, String> =
+                client.get(path) { signedBy(host) }.room()["members"]!!.jsonArray.associate {
+                    val member = it.jsonObject
+                    assertTrue("avatar" in member, "every seat says its face: $member")
+                    member["username"]!!.jsonPrimitive.content to member["avatar"].toString()
+                }
+            // The host wears the default face.
+            val expected = mapOf("RudeLeft" to "null", "Pat" to "\"avatar-07\"")
+            assertEquals(expected, faces("/api/rooms/current"))
+            assertEquals(expected, faces("/api/rooms/$roomId"))
+
+            // A disabled player shows the default face, as PLAYERS (which does not list them) has it.
+            sql("UPDATE app_user SET status = 'DISABLED' WHERE username = 'Pat'")
+            assertEquals(expected + ("Pat" to "null"), faces("/api/rooms/current"))
+        }
+
+    private fun sql(statement: String) =
+        Database.connect(config())!!.use { database ->
+            database.dataSource().connection.use { it.createStatement().executeUpdate(statement) }
+        }
+
     /** §5.43 — a deck id you do not hold is not a key to anything. */
     @Test
     fun `selecting a deck you cannot use is refused`() =

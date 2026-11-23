@@ -20,6 +20,7 @@ import {
   type LoginFailure,
 } from "./auth";
 import { forgetAvatars } from "./knownAvatars";
+import { endEarly, primedFetch, startEarly, whoAnswered } from "./early";
 
 interface AuthContextValue {
   state: AuthState;
@@ -42,7 +43,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    void fetchAuthState().then((next) => {
+    void fetchAuthState(primedFetch).then((next) => {
+      // P11-E5 — an administrator's lists now; a stranger drops what the hint started.
+      whoAnswered(next.status === "authenticated" ? next.user : null, location.pathname);
       if (!cancelled) setState(next);
     });
     return () => {
@@ -53,6 +56,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (username: string, password: string) => {
     const result = await loginRequest(username, password);
     if (result.ok) {
+      // P11-E5 — signed in, everybody lands in the lobby: its code, data
+      // and connection start now, beside the shell's.
+      startEarly("/play", { certain: true });
       setState({ status: "authenticated", user: result.user });
       return null;
     }
@@ -63,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await logoutRequest();
     forgetAvatars();
+    endEarly();
     setState({ status: "anonymous" });
   }, []);
 
@@ -76,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sessionExpired = useCallback(() => {
     forgetAvatars();
+    endEarly();
     setState({ status: "anonymous", reason: "expired" });
   }, []);
 

@@ -79,7 +79,7 @@ fun Route.roomRoutes(
         readRoutes(rooms)
         lifecycleRoutes(rooms, announcer)
         memberRoutes(rooms, announcer)
-        idle?.let { keepOpenRoute(it, announcer) }
+        idle?.let { keepOpenRoute(it, rooms, announcer) }
     }
 }
 
@@ -87,6 +87,7 @@ fun Route.roomRoutes(
 
 private fun Route.keepOpenRoute(
     idle: RoomIdle,
+    rooms: RoomService,
     announcer: RoomAnnouncer,
 ) {
     // A member presses Keep it open: something happened, and the room's
@@ -95,7 +96,7 @@ private fun Route.keepOpenRoute(
         val roomId = roomIdOrNull() ?: return@post respondBadRoomId()
         val room = idle.keepOpen(roomId, callerId()) ?: return@post respondNoSuchRoom()
         announcer.roomChanged(room)
-        call.respond(RoomResponse(room.viewFor(callerId())))
+        call.respond(RoomResponse(rooms.views.of(room, callerId())))
     }
 }
 
@@ -105,7 +106,7 @@ private fun Route.readRoutes(rooms: RoomService) {
     // §5.139 — what the lobby asks on load, so a refresh puts you
     // back where you were rather than outside it.
     get("/current") {
-        call.respond(CurrentRoomResponse(rooms.roomOf(callerId())?.viewFor(callerId())))
+        call.respond(CurrentRoomResponse(rooms.roomOf(callerId())?.let { rooms.views.of(it, callerId()) }))
     }
 
     // §5.138 — members only. A non-member gets exactly the answer
@@ -114,7 +115,7 @@ private fun Route.readRoutes(rooms: RoomService) {
         val roomId = roomIdOrNull() ?: return@get respondBadRoomId()
         val room = rooms.find(roomId)
         if (room == null || !room.isMember(callerId())) return@get respondNoSuchRoom()
-        call.respond(RoomResponse(room.viewFor(callerId())))
+        call.respond(RoomResponse(rooms.views.of(room, callerId())))
     }
 }
 
@@ -143,7 +144,7 @@ private fun Route.lifecycleRoutes(
             is RoomResult.Refused -> respondRefusal(result.error)
             is RoomResult.Ok -> {
                 announcer.roomChanged(result.room)
-                call.respond(HttpStatusCode.Created, RoomResponse(result.room.viewFor(callerId())))
+                call.respond(HttpStatusCode.Created, RoomResponse(rooms.views.of(result.room, callerId())))
             }
         }
     }
@@ -166,7 +167,7 @@ private fun Route.lifecycleRoutes(
                 } else {
                     announcer.roomChanged(result.room)
                 }
-                call.respond(RoomResponse(result.room.viewFor(callerId())))
+                call.respond(RoomResponse(rooms.views.of(result.room, callerId())))
             }
         }
     }
@@ -180,7 +181,7 @@ private fun Route.lifecycleRoutes(
             is RoomResult.Refused -> respondRefusal(result.error)
             is RoomResult.Ok -> {
                 announcer.roomClosed(roomId, before, "CLOSED_BY_HOST")
-                call.respond(RoomResponse(result.room.viewFor(callerId())))
+                call.respond(RoomResponse(rooms.views.of(result.room, callerId())))
             }
         }
     }
@@ -199,6 +200,7 @@ private fun Route.lifecycleRoutes(
                 ?: return@put respondBadBody("Choose how many players.")
 
         respondRoom(
+            rooms,
             rooms.setPlayerCount(roomId, callerId(), body.playerCount, body.expectedRoomRevision),
             announcer,
         )
@@ -233,7 +235,7 @@ private fun Route.memberRoutes(
                 // the room.
                 announcer.removedFromRoom(roomId, targetId, "REMOVED_BY_HOST")
                 announcer.roomChanged(result.room)
-                call.respond(RoomResponse(result.room.viewFor(callerId())))
+                call.respond(RoomResponse(rooms.views.of(result.room, callerId())))
             }
         }
     }
@@ -260,6 +262,7 @@ private fun Route.memberRoutes(
         // inside the service's transaction, where the answer cannot
         // go stale between the check and the write (§5.51).
         respondRoom(
+            rooms,
             rooms.selectDeck(roomId, callerId(), deckId, body.expectedRoomRevision),
             announcer,
         )
@@ -273,6 +276,7 @@ private fun Route.memberRoutes(
                 ?: return@put respondBadBody("That couldn't be changed. Try again.")
 
         respondRoom(
+            rooms,
             rooms.setReady(roomId, callerId(), body.ready, body.expectedRoomRevision),
             announcer,
         )

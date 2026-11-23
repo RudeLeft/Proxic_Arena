@@ -6,9 +6,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import net.barnflix.proxic.room.Room
 import net.barnflix.proxic.room.RoomView
-import net.barnflix.proxic.room.viewFor
 import java.util.UUID
 
 // What the socket says about a ROOM — PHASE_05 §5.76, §5.79, §5.81.
@@ -42,14 +40,13 @@ private val viewJson = Json { encodeDefaults = true }
  * another participant does not need your deck's display name, and
  * §5.140 forbids one overbroad payload when deck information
  * differs by viewer. The table learns that a seat has chosen; what
- * it chose is the chooser's business.
+ * it chose is the chooser's business. The view is made by
+ * `RoomService.views`, as the HTTP answers are (with each seat's
+ * avatar, P11-E5).
  */
-fun roomMessage(
-    room: Room,
-    viewerId: UUID,
-): JsonObject =
+fun roomMessage(view: RoomView): JsonObject =
     envelope("ROOM") {
-        put("room", viewJson.encodeToJsonElement(RoomView.serializer(), room.viewFor(viewerId)))
+        put("room", viewJson.encodeToJsonElement(RoomView.serializer(), view))
     }
 
 /** Spec 0019 — the host's Start is checking both decks (or stopped checking). */

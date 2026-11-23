@@ -8,12 +8,17 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { AppRoutes } from "./routes";
 import { installReportLog } from "./reportLog";
 import { installUpdateReload } from "./updateReload";
+import { startEarly } from "./early";
 import "./styles.css";
 
 // Spec 0039 — the page's own log, for a report: from the first moment.
 installReportLog();
 // A page open across an update reloads itself, once (owner 2026-11-06).
 installUpdateReload();
+
+// P11-E5 — with a session hint, this page's code, data and lobby
+// connection start now, beside "who am I", not one after another.
+startEarly(location.pathname, { who: true });
 
 const host = document.getElementById("root");
 if (!host) {

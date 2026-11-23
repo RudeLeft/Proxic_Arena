@@ -318,6 +318,10 @@ export function avatarOf(lobby: LobbyState, userId: string): string | null {
   // Once the list has come, somebody not on it (a disabled account) is the
   // default face, as before: the list is the truth.
   if (lobby.players.length > 0) return null;
+  // P11-E5 -- before the list, a room seat's own data says it (a freshly
+  // opened room's other seat no longer starts on the default face).
+  const seat = lobby.room?.members.find((m) => m.userId === userId);
+  if (seat?.avatar !== undefined) return seat.avatar;
   return knownAvatar(userId) ?? null;
 }
 

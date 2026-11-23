@@ -35,6 +35,7 @@ internal suspend inline fun <reified T : Any> Handler.bodyOrNull(): T? = runCatc
 
 /** The ordinary ending: answer the caller, then tell the room. */
 internal suspend fun Handler.respondRoom(
+    rooms: RoomService,
     result: RoomResult,
     announcer: RoomAnnouncer,
 ) {
@@ -42,7 +43,7 @@ internal suspend fun Handler.respondRoom(
         is RoomResult.Refused -> respondRefusal(result.error)
         is RoomResult.Ok -> {
             announcer.roomChanged(result.room)
-            call.respond(RoomResponse(result.room.viewFor(callerId())))
+            call.respond(RoomResponse(rooms.views.of(result.room, callerId())))
         }
     }
 }

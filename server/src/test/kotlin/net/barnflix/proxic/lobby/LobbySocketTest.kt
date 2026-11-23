@@ -171,6 +171,13 @@ class LobbySocketTest {
             val client = createClient { install(ClientWebSockets) }
             val hostToken = tokenFor("RudeLeft")
             val guestToken = tokenFor("Pat")
+            // P11-E5 -- the guest wears one; the host the default face.
+            Database.connect(config())!!.use { database ->
+                database.dataSource().connection.use {
+                    it.createStatement()
+                        .executeUpdate("UPDATE app_user SET avatar = 'avatar-07' WHERE username = 'Pat'")
+                }
+            }
 
             client.webSocket(
                 "/ws/user",
@@ -222,6 +229,13 @@ class LobbySocketTest {
                     for (message in listOf(guestRoom, hostRoom)) {
                         val members = message["room"]!!.jsonObject["members"]!!.jsonArray
                         assertEquals(2, members.size, message.toString())
+                        // P11-E5 -- each seat's face comes with the room, the default as null.
+                        val faces =
+                            members.associate {
+                                it.jsonObject["username"]!!.jsonPrimitive.content to it.jsonObject["avatar"]
+                            }
+                        assertEquals("\"avatar-07\"", faces["Pat"].toString(), message.toString())
+                        assertEquals("null", faces["RudeLeft"].toString(), message.toString())
                     }
                 }
             }

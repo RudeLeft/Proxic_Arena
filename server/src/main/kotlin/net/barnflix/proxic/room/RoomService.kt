@@ -1,6 +1,7 @@
 package net.barnflix.proxic.room
 
 import net.barnflix.proxic.deck.DeckAuthorization
+import net.barnflix.proxic.lobby.AccountNames
 import java.util.UUID
 import javax.sql.DataSource
 
@@ -61,6 +62,9 @@ class RoomService(
 ) {
     private val store = RoomStore(dataSource)
     // --- reads --------------------------------------------------------
+
+    /** A room as one viewer may see it, with each seat's avatar (P11-E5). */
+    val views = RoomViews(AccountNames(dataSource))
 
     /**
      * The room, or null.

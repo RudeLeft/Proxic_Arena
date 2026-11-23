@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "./auth";
+import { primedFetch } from "./early";
 import "./report.css";
 
 export interface ReportListItem {
@@ -47,7 +48,9 @@ export const STATUS_WORDS: Record<string, string> = {
   PLANNED: "Planned",
 };
 
-export async function fetchReports(fetchFn: typeof fetch = fetch): Promise<ReportsList | null> {
+export async function fetchReports(
+  fetchFn: typeof fetch = primedFetch,
+): Promise<ReportsList | null> {
   try {
     const response = await apiFetch("/api/admin/reports", {}, fetchFn);
     return response.ok ? ((await response.json()) as ReportsList) : null;

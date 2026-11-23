@@ -4,6 +4,7 @@
 // from a linked Proxic Deck Builder, so there is no upload here.
 
 import { apiFetch } from "./auth";
+import { primedFetch } from "./early";
 import { learnAvatars } from "./knownAvatars";
 
 export interface DeckSummary {
@@ -124,7 +125,7 @@ export interface DeckDetail {
  * "Nothing imported yet" would be untrue when the server did not answer
  * (spec 0008).
  */
-export async function listDecks(fetchFn: typeof fetch = fetch): Promise<DeckLibrary | null> {
+export async function listDecks(fetchFn: typeof fetch = primedFetch): Promise<DeckLibrary | null> {
   try {
     const response = await fetchFn("/api/decks", { credentials: "same-origin" });
     if (!response.ok) return null;

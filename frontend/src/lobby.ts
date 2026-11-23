@@ -13,6 +13,7 @@
 // lobby ends up showing two different truths to two players.
 
 import { apiFetch } from "./auth";
+import { primedFetch } from "./early";
 import { REACTIONS } from "./chatEmoji";
 import { onPageBack, pageIsLeaving } from "./pageLife";
 import { countWords } from "./words";
@@ -63,6 +64,12 @@ export interface RoomMemberView {
   deckSelected: boolean;
   selectedDeckId: string | null;
   selectedDeckName: string | null;
+  /**
+   * P11-E5 -- the seat's avatar, as the room data says it: a name, or null
+   * for the default face (also a disabled account's); absent when the
+   * server did not say (lobbyView.ts `avatarOf` then asks elsewhere).
+   */
+  avatar?: string | null;
 }
 
 export interface RoomView {
@@ -980,6 +987,8 @@ function asMember(value: unknown): RoomMemberView | null {
     deckSelected: v["deckSelected"] === true,
     selectedDeckId: asString(v["selectedDeckId"]),
     selectedDeckName: asString(v["selectedDeckName"]),
+    // P11-E5 -- said by the room data: a name of the set, or the default face.
+    ...("avatar" in v ? { avatar: user.avatar ?? null } : {}),
   };
 }
 
@@ -1052,9 +1061,19 @@ export function connectLobby(
   url: string,
   onState: (next: (previous: LobbyState) => LobbyState) => void,
   WebSocketImpl: typeof WebSocket = WebSocket,
-  options: { onReopen?: () => void; delays?: readonly number[] } = {},
+  options: {
+    onReopen?: () => void;
+    delays?: readonly number[];
+    /**
+     * P11-E5 -- a connection already opened for [url] (early.ts
+     * `takeEarlySocket`), used as the first instead of a new one; its
+     * earlier events arrive once the listeners are on. Never for a reconnect.
+     */
+    first?: (url: string) => WebSocket | null;
+  } = {},
 ): LobbySocket {
   const delays = options.delays ?? RECONNECT_DELAYS;
+  let firstOpen = true;
   let closedByUs = false;
   let ended = false;
   let everOpened = false;
@@ -1063,7 +1082,9 @@ export function connectLobby(
   let ws: WebSocket | null = null;
 
   const open = () => {
-    const socket = new WebSocketImpl(url);
+    const given = firstOpen ? (options.first?.(url) ?? null) : null;
+    firstOpen = false;
+    const socket = given ?? new WebSocketImpl(url);
     ws = socket;
     let dropped = false;
     let heard = Date.now();
@@ -1376,7 +1397,7 @@ export async function watchRoom(
  */
 export async function watchRoomAnswer(
   roomId: string,
-  fetchFn: typeof fetch = fetch,
+  fetchFn: typeof fetch = primedFetch,
 ): Promise<{ kind: "match"; match: MatchView } | { kind: "none" } | { kind: "unknown" }> {
   try {
     const response = await apiFetch(
@@ -1636,7 +1657,9 @@ export async function abandonMatch(
       };
 }
 
-export async function fetchCurrentMatch(fetchFn: typeof fetch = fetch): Promise<MatchView | null> {
+export async function fetchCurrentMatch(
+  fetchFn: typeof fetch = primedFetch,
+): Promise<MatchView | null> {
   try {
     const response = await apiFetch("/api/matches/current", {}, fetchFn);
     if (!response.ok) return null;
@@ -1663,7 +1686,9 @@ function asMatch(value: unknown): MatchView | null {
 }
 
 /** §5.139 — asked on load, so a refresh lands you back in the room. */
-export async function fetchCurrentRoom(fetchFn: typeof fetch = fetch): Promise<RoomView | null> {
+export async function fetchCurrentRoom(
+  fetchFn: typeof fetch = primedFetch,
+): Promise<RoomView | null> {
   try {
     const response = await apiFetch("/api/rooms/current", {}, fetchFn);
     if (!response.ok) return null;

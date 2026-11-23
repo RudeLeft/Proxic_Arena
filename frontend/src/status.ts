@@ -6,6 +6,7 @@
 // — the status logic is where the lying would happen, not the pixels.
 
 import { PROTOCOL_VERSION, parseEnvelope, makeEnvelope } from "./protocol";
+import { primedFetch } from "./early";
 
 /** §1.70 — the six states that must be distinguishable. */
 export type ServiceState =
@@ -122,7 +123,7 @@ export const INITIAL_SNAPSHOT: Snapshot = {
 
 /** Fetch the server's checks + version. Never throws; failure is a state. */
 export async function fetchStatus(
-  fetchFn: typeof fetch = fetch,
+  fetchFn: typeof fetch = primedFetch,
 ): Promise<Omit<Snapshot, "websocket">> {
   let version: VersionInfo | null = null;
   let readiness: { checks: Record<string, string> } | null = null;

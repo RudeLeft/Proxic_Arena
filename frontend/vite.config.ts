@@ -1,5 +1,52 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { earlyFilesOf } from "./src/earlyPages";
+
+/**
+ * P11-E5 -- each signed-in page's built files, written into index.html (a
+ * data block, never run) so a page with a session hint can fetch them beside
+ * "who am I" (src/early.ts). The same page for everybody: the entry already
+ * names every one of these files, and a stranger who asks for one is refused.
+ */
+function earlyFiles(): Plugin {
+  return {
+    name: "proxic-early-files",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler(html, ctx) {
+        const bundle = ctx.bundle;
+        if (!bundle) return html;
+        const chunks = Object.values(bundle).flatMap((out) =>
+          out.type === "chunk"
+            ? [
+                {
+                  fileName: out.fileName,
+                  isEntry: out.isEntry,
+                  imports: out.imports,
+                  moduleIds: out.moduleIds,
+                  css: [...(out.viteMetadata?.importedCss ?? [])],
+                },
+              ]
+            : [],
+        );
+        // File names are hashes (build.rollupOptions.output below): no "<" to escape.
+        const json = JSON.stringify(earlyFilesOf(chunks));
+        return {
+          html,
+          tags: [
+            {
+              tag: "script",
+              attrs: { type: "application/json", id: "pa-early" },
+              children: json,
+              injectTo: "head",
+            },
+          ],
+        };
+      },
+    },
+  };
+}
 
 // PHASE_01 1.28: in development Vite proxies /api and /ws to Ktor, so
 // the browser talks to one origin and no CORS config is needed. The Host
@@ -10,7 +57,7 @@ import react from "@vitejs/plugin-react";
 // PRODUCTION Vite does not run at all -- Ktor serves the built static
 // files (1.27).
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), earlyFiles()],
   server: {
     port: 5173,
     proxy: {

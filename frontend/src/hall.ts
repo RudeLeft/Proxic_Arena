@@ -4,6 +4,7 @@
 // avatar name beside them (`avatars`), so the faces don't wait for that list.
 
 import { learnAvatars } from "./knownAvatars";
+import { primedFetch } from "./early";
 import { capital, countWords, numberWord } from "./words";
 
 export interface HallDeck {
@@ -96,7 +97,7 @@ export interface Hall {
 }
 
 /** The Hall, or null when it could not be read. */
-export async function fetchHall(fetchFn: typeof fetch = fetch): Promise<Hall | null> {
+export async function fetchHall(fetchFn: typeof fetch = primedFetch): Promise<Hall | null> {
   try {
     const response = await fetchFn("/api/hall", { credentials: "same-origin" });
     if (!response.ok) return null;
