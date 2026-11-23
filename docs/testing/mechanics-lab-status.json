@@ -551,6 +551,22 @@
       "scenario": "Alice's Wrath of God with her Darksteel Myr and Bob's Grizzly Bears on the table.",
       "result": "PASSED",
       "evidence": "scripts/check-survivors.py, run in CI (2026-11-12, spec 0080). Both seats: the Bears' move says \"destroyed\" and they are gone; the indestructible Myr is named in survived (\"indestructible\") and stays."
+    },
+    "Counterspell": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "F-0116-A, F-0116-B",
+      "scenario": "Alice's Lightning Bolt at Bob's Grizzly Bears; Bob casts Counterspell at it, answering the first target option that names the Bolt.",
+      "result": "PASSED",
+      "evidence": "scripts/check-spell-choices.py counter, run in CI (2026-11-22, spec 0116). The target question has one option for the Bolt, \"Lightning Bolt on the stack\" (target:stack:), and no card on the stack offered as a card; the Bolt is countered into Alice's graveyard and the Bears live. With spec 0116's drop removed the list also offered \"Lightning Bolt\" (target:card:), first, and picking it paid for Counterspell, did not counter the Bolt, and the Bears died."
+    },
+    "Deflecting Swat": {
+      "owner": "P8_COVERAGE",
+      "required": "Exploratory",
+      "tests": "F-0100-B, F-0116-A",
+      "scenario": "Alice's Lightning Bolt at Bob's Grizzly Bears; Bob casts Deflecting Swat at it and turns it on Alice.",
+      "result": "PASSED",
+      "evidence": "scripts/check-spell-choices.py swat, run in CI (2026-11-22, spec 0116). Deflecting Swat's target question has one option for the Bolt, \"Lightning Bolt on the stack\" (target:stack:), and no card on the stack; the Bolt then aims at Alice for both seats, and Alice gets the report \"Bob changed your Lightning Bolt's target to you.\" (Its free-cast condition is not checked here.)"
     }
   }
 }

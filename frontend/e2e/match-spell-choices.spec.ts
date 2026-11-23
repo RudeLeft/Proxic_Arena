@@ -8,10 +8,14 @@
 //    1 at the host's shield (item 4), the beams are blue-violet, the guest's
 //    (item 7), and the Ogre -- its target -- lifts (item 9).
 // 2. The host casts Lightning Bolt at the guest's Ogre; the guest REALLY
-//    clicks Spellskite to take it. On the host's page the Bolt's beam swings
-//    to Spellskite as one beam (item 8), and the host -- the caster -- gets
-//    the report window "... changed your Lightning Bolt's target to
-//    Spellskite." (the guest gets none).
+//    clicks Spellskite to take it, and chooses its target from "List
+//    choices": one button names the Bolt, "Lightning Bolt on the stack"
+//    (spec 0116, F-0116-C), and the guest really clicks it. (The board
+//    click of a spell on the stack sends the same answer, target:stack:,
+//    and is covered by the page's board tests.) On the host's page the
+//    Bolt's beam swings to Spellskite as one beam (item 8), and the host --
+//    the caster -- gets the report window "... changed your Lightning
+//    Bolt's target to Spellskite." (the guest gets none).
 // 3. The guest casts Reanimate at the host's Ogre in the host's graveyard:
 //    on the host's page the beam runs to the host's Graveyard tile and the
 //    Ogre peeks out of it with the corners (item 5).
@@ -183,6 +187,8 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
     let arc: Record<string, unknown> | null = null;
     let boltCast = false;
     let skiteClicked = false;
+    // Step 2's "List choices" buttons that name the Bolt, as the guest saw them (spec 0116).
+    let boltButtons: string[] | null = null;
     let swung: Record<string, unknown> | null = null;
     let reanimateCast = false;
     let reanimate: Record<string, unknown> | null = null;
@@ -424,16 +430,46 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
             await realClick(page, theirOgre);
             continue;
           }
-          if (!isHost && skiteClicked && (await boltOnStack.count()) > 0) {
-            await realClick(page, boltOnStack);
-            continue;
+          // Step 2, Spellskite's target (spec 0116, F-0116-C): from "List
+          // choices", not the board. The list has ONE button naming the
+          // Bolt, "Lightning Bolt on the stack"; the guest really clicks
+          // the first that names it (before 0116 that was a plain
+          // "Lightning Bolt", the Bolt's card, which did nothing).
+          if (!isHost && skiteClicked && boltButtons === null && (await boltOnStack.count()) > 0) {
+            const every = page.getByRole("dialog", { name: "Every choice" });
+            const named = every.getByRole("button").filter({ hasText: /Lightning Bolt/ });
+            if ((await named.count()) > 0) {
+              boltButtons = await named.evaluateAll((els) =>
+                els.map((el) => ((el as HTMLElement).innerText ?? "").replace(/\s+/g, " ").trim()),
+              );
+              await page
+                .screenshot({ path: join(SHOTS, "spell-choices-list.png") })
+                .catch(() => undefined);
+              // Spec 0116 (F-0116-C): one button for the Bolt, the spell on the stack.
+              expect(boltButtons, "one button names the Bolt: the spell on the stack").toEqual([
+                "Lightning Bolt on the stack",
+              ]);
+              await realClick(page, named.first());
+              continue;
+            }
+            const list = page.getByRole("button", { name: /^List choices/ });
+            const open = await list.evaluateAll((els) =>
+              els.map((el) => el.getAttribute("aria-expanded")),
+            );
+            if (open.length > 0 && open[0] !== "true") {
+              await realClick(page, list.first());
+              continue;
+            }
+            if (open[0] === "true") {
+              // Open, not drawn yet: wait for its buttons, never answer it blind.
+              await named
+                .first()
+                .waitFor({ timeout: 5_000 })
+                .catch(() => undefined);
+              continue;
+            }
           }
           const listed = panel.locator(".gs-win li button, .gs-question li button");
-          const stackOption = listed.filter({ hasText: /on the stack|Lightning Bolt/ });
-          if (!isHost && skiteClicked && (await stackOption.count()) > 0) {
-            await clickNow(stackOption);
-            continue;
-          }
           const choosable = page
             .locator('.bf-cards button[data-choosable="true"]:not([data-zone="viewer:hand"])')
             .filter({ hasNotText: /^Spellskite/ });
@@ -550,6 +586,10 @@ test("Arc Lightning's split stands at its ripples, blue-violet; Spellskite swing
     expect(arc!["lifted"], "the Ogre, its target, lifts").toContain(arc!["ogre"]);
     expect(arc!["faded"], "nothing dims").toBe(0);
 
+    console.log(`step 2 (Spellskite, the guest's List choices): ${JSON.stringify(boltButtons)}`);
+    // Spec 0116 (F-0116-C): it was chosen from "List choices" (its one button
+    // for the Bolt is asserted where it was read, above).
+    expect(boltButtons, "the guest chose Spellskite's target from List choices").not.toBeNull();
     expect(swung, "the host was told its Bolt's target changed").not.toBeNull();
     expect(swung!["said"]).toContain("changed your Lightning Bolt's target to Spellskite.");
     const swings = swung!["swings"] as { to: string; key: string; at: string; f: number }[];

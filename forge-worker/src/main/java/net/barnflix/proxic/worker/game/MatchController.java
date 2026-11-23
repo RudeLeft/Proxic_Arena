@@ -1188,6 +1188,21 @@ public final class MatchController extends GeneratedControllerBase {
     }
 
     /**
+     * Spec 0116 -- a card Forge offers as a target is left out of the list
+     * when it is in the stack zone and the target zone includes the stack:
+     * that card is a spell, offered once as itself ("Lightning Bolt on the
+     * stack", {@code target:stack:<id>}) when Forge's canTargetSpellAbility
+     * accepts it -- as Forge's own TargetSelection.chooseCardFromList turns
+     * such a pick into the spell. A card in any other zone (Unsubstantiate's
+     * creatures, Venser's permanents) stays.
+     */
+    static boolean offeredAsItsSpell(java.util.List<forge.game.zone.ZoneType> targetZones,
+                                     forge.game.zone.ZoneType cardZone) {
+        return targetZones != null && targetZones.contains(forge.game.zone.ZoneType.Stack)
+                && cardZone == forge.game.zone.ZoneType.Stack;
+    }
+
+    /**
      * Spec 0055 -- a target's name for the list, never Forge's internal
      * number ("Glistener Elf (46)"); the same name twice is told apart by
      * order: "Storm-Charged Slasher (first)", "(second)".
@@ -1300,15 +1315,28 @@ public final class MatchController extends GeneratedControllerBase {
                     || (filter != null && !filter.test(entity)));
 
             // SPELLS ON THE STACK (Counterspell, Force of Will). Forge's
-            // getAllCandidates covers players and cards in the target
-            // zone, never the stack: its own human client handles stack
-            // targets separately (TargetSelection.chooseCardFromStack),
-            // asking canTargetSpellAbility of each stack instance. Ported
-            // here; until now no counterspell could be cast at all -- the
-            // target list was empty and the cast rolled back silently
-            // (found by check-costs.py, 2026-10-20).
+            // getAllCandidates covers players and the cards in the target
+            // zone -- the stack's CARDS too, when the zone includes the
+            // stack (Counterspell, Remand, Spellskite) -- but never the
+            // spells themselves. Its own human client asks of the spells
+            // separately (TargetSelection.chooseCardFromStack, asking
+            // canTargetSpellAbility of each stack instance), and when a
+            // card on the stack is picked from a mixed list it adds that
+            // card's SPELL instead (TargetSelection.chooseCardFromList).
+            // The spells are ported here; until then no counterspell
+            // could be cast at all -- the target list was empty and the
+            // cast rolled back silently (found by check-costs.py,
+            // 2026-10-20). Spec 0116: and a card on the stack is not
+            // offered as well, so a spell is offered once, as
+            // "Lightning Bolt on the stack" -- its card entry did nothing
+            // (counter, change-target, copy and control effects act on
+            // getTargetSpells, and a card is not a spell).
+            java.util.List<forge.game.zone.ZoneType> zones = restrictions.getZone();
+            candidates.removeIf(entity -> entity instanceof forge.game.card.Card card
+                    && offeredAsItsSpell(zones, player.getGame().getZoneOf(card) == null ? null
+                    : player.getGame().getZoneOf(card).getZoneType()));
             java.util.LinkedHashMap<String, SpellAbility> onStack = new java.util.LinkedHashMap<>();
-            if (restrictions.getZone() != null && restrictions.getZone().contains(forge.game.zone.ZoneType.Stack)) {
+            if (zones != null && zones.contains(forge.game.zone.ZoneType.Stack)) {
                 for (forge.game.spellability.SpellAbilityStackInstance instance : player.getGame().getStack()) {
                     SpellAbility there = instance.getSpellAbility();
                     if (ability.canTargetSpellAbility(there) && !ability.getTargets().contains(there)

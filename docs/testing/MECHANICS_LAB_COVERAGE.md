@@ -140,7 +140,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Contagion Clasp | TSR:391 | 1 | Counters & tokens | Proliferate; -1/-1 counter; activated ability | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Control Magic | EMA:42 | 1 | Advanced rules | Continuous control-changing Aura | P6_REQUIRED | Required | PASSED |
 | Council's Judgment | 2XM:11 | 1 | Actions & choices | Will of the council; multiplayer voting; exile | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Counterspell | MB2:158 | 1 | Advanced rules | Counter target spell; stack targeting | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
+| Counterspell | MB2:158 | 1 | Advanced rules | Counter target spell; stack targeting | P8_COVERAGE | Exploratory | PASSED |
 | Craw Giant | TSB:76 | 1 | Combat & evergreen | Rampage; trample; multiple blockers | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Crawling Chorus | ONE:8 | 1 | Counters & tokens | Toxic; poison counters; dies token | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Creative Technique | SOC:241 | 1 | Multiplayer | Demonstrate; copy for controller and chosen opponent | P8_COVERAGE | Exploratory | BLOCKED_BY_UNSUPPORTED_PRESET |
@@ -155,7 +155,7 @@ resolved by Forge, and not yet the subject of any Proxic test.
 | Dauthi Slayer | TPR:97 | 1 | Combat & evergreen | Shadow; must attack if able | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Dawnhand Dissident | ECL:98 | 1 | Recent mechanics 2024-2026 | Blight keyword action; put -1/-1 counters on your own creature as a cost | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Deadly Dispute | J25:115 | 1 | Counters & tokens | Treasure token; sacrifice as additional cost; draw | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
-| Deflecting Swat | CMM:214 | 1 | Advanced rules | Change targets; alternative free-cast condition | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
+| Deflecting Swat | CMM:214 | 1 | Advanced rules | Change targets; alternative free-cast condition | P8_COVERAGE | Exploratory | PASSED |
 | Delina, Wild Mage | AFR:138 | 1 | Actions & choices | Roll d20; token copies; repeated roll | P8_COVERAGE | Exploratory | NOT_YET_TESTED |
 | Delver of Secrets // Insectile Aberration | INR:60 | 1 | Card structures | Transforming double-faced card | P6_REQUIRED | Required | PASSED |
 | Demonic Tutor | CMM:150 | 1 | Zones & information | Search hidden library; reveal/no reveal; shuffle | P8_COVERAGE | Exploratory | NOT_YET_TESTED |

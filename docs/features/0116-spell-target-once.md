@@ -86,3 +86,27 @@ None. The owner chose option A on 2026-11-21.
 ## Amendments
 
 None.
+
+## As built (2026-11-22)
+
+Built on branch `spec-0116` from 247212b9 (after 1.75.0's specs), one builder. Labels: SOURCE (read in the code), RUN (run here, this build).
+
+### What changed
+
+- **Worker** (`MatchController.selectTargets`): before the stack's spells are listed, every candidate from `TargetRestrictions.getAllCandidates` that is a card in the Stack zone (`Game.getZoneOf`) is dropped when the restriction's zone includes `Stack`; the test is the pure helper `MatchController.offeredAsItsSpell` (unit test `SpellTargetOnceTest`). The spell is still offered as `target:stack:<id>` only when Forge's `canTargetSpellAbility` accepts it. The wrong comment ("never the stack") now says what is true and cites `TargetSelection.chooseCardFromList`. `chooseNewTargetsFor` uses the same `selectTargets`, nothing extra. No protocol, server or page code; the labels are 0113's.
+- **Lab** (`scripts/check-spell-choices.py`): `spellskite` and `swat` now also check F-0116-A (`once`: the first target question after the Bolt is answered has exactly one option naming the Bolt, "Lightning Bolt on the stack", a `target:stack:` id, and no question offers a `target:card:` of a card that is a stack entry's `source`). New scenarios `counter`, `remand`, `unsubstantiate` (F-0116-B): Bob answers with Islands up and picks, as a player would, the FIRST option that names the Bolt. Already in CI's Lab list (`spell-choices`), so no CI change.
+- **Ledger**: `mechanics-lab-status.json` rows for Counterspell and Deflecting Swat (both in the corpus; PASSED); `MECHANICS_LAB_COVERAGE.md` regenerated. Remand, Unsubstantiate, Spellskite and Lightning Bolt are not corpus cards, so they have no rows.
+- **Browser** (`match-spell-choices.spec.ts`, F-0116-C): step 2's target is chosen from "List choices" (opened by a real click), the button texts naming the Bolt are read in the "Every choice" window and must be exactly `["Lightning Bolt on the stack"]` (asserted at that moment), then the first is really clicked; the beam swing and the host's report window are asserted as before.
+
+### Proofs (RUN)
+
+- Worker gate `mvn -q -o test` with `-Dforge.res`: green, `SpellTargetOnceTest` 3 tests.
+- `check-spell-choices.py`, all ten scenarios, three runs: all OK each time. Hidden checks over its traces (`check-snapshot-first`, `check-hidden-hands`, `check-hidden-log`, `check-kinds`, `check-hidden-mulligans`, `check-hidden-information`, `check-wording`, and the as-sent copies): all OK; `check-hidden-tops` exit 2 (nothing to check, allowed as in CI).
+- **TEST-004, worker mutation 1** (the drop switched off): `spellskite`, `swat`, `counter`, `remand`, `unsubstantiate` all WRONG on the one-option check (each list was `Lightning Bolt` as `target:card:` first, then `Lightning Bolt on the stack`); `counter` and `remand` also WRONG on the outcome (the Bears died; the Bolt went to the graveyard, not back to hand) -- the spec's RUN table again; `unsubstantiate`'s outcome held, as the table says, and its offered-list check failed.
+- **Worker mutation 2** (the spell entries dropped too): all five WRONG (no target question for the Bolt, or none naming it).
+- **Real-click game** on the second local stack (1920x1080): passed twice on the fixed build, and once more under `node ci/ci-speed.mjs` (CPU 4x, after its CI neighbour `match-ring`): guest's list `["Lightning Bolt on the stack"]`, the beam swung to Spellskite, the host told "... changed your Lightning Bolt's target to Spellskite.".
+- **Page-test bite**: the same game on a stack built with mutation 1 fails at the one-button assertion (received `["Lightning Bolt", "Lightning Bolt on the stack"]`). Its screenshot shows the owner's bug ("Two choices"); after the fix the window says "One choice" with the one button, matching option A on the canvas.
+
+### Not done here
+
+- Copy and gain-control cards (Fork, Commandeer) are not played, as Out of scope says; the trigger there stands.

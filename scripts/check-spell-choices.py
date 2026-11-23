@@ -24,6 +24,19 @@ are choices announced as it is cast, CR 601.2b-c):
              herself: "Bob changed your Lightning Bolt's target to you."
   own-swat   Alice redirects her OWN Bolt with her own Deflecting Swat: no
              change-of-target report for anyone
+  counter    (spec 0116) Bob's Counterspell at the Bolt: the Bolt is
+             countered, the Bears live
+  remand     (spec 0116) Bob's Remand: the Bolt goes back to Alice's hand,
+             the Bears live
+  unsubstantiate (spec 0116) Bob's Unsubstantiate ("target spell or
+             creature"): offered Bob's Bears and the Bolt on the stack, no
+             Bolt card; the Bolt goes back to Alice's hand
+
+Spec 0116, in every scenario where Bob answers the Bolt (spellskite, swat,
+counter, remand, unsubstantiate): the target question naming the Bolt has
+exactly ONE option for it, "Lightning Bolt on the stack" (target:stack:),
+and no target question offers a card that is on the stack (target:card: of
+a stack entry's source) -- that card entry did nothing when picked.
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
@@ -308,24 +321,55 @@ def actions(g, seat):
     return [a] + list(a.get("gathered") or [])
 
 
+ANSWERS = ("Counterspell", "Remand", "Unsubstantiate")
+
+
+def offers(g, f, seat):
+    """Spec 0116 -- one target question: its options, and the cards on the stack then."""
+    return {"seat": seat, "options": [(o["actionId"], o.get("label")) for o in f["options"]],
+            "stackCards": [e.get("source") for e in stack(g, seat) if e.get("source")]}
+
+
+def once(found, problems):
+    """Spec 0116 (F-0116-A) -- the Bolt offered once, as the spell; no card on the stack offered."""
+    asked = found.get("offers") or []
+    if not asked:
+        problems.append("no target question was recorded after the Bolt was answered")
+        return
+    for q in asked:
+        cards = [i for i, _ in q["options"] if card_of(i) and card_of(i) in q["stackCards"]]
+        if cards:
+            problems.append(f"seat {q['seat']}: a card on the stack offered as a card target {cards}: {q['options']}")
+    bolt = [(i, label) for i, label in asked[0]["options"] if "Lightning Bolt" in (label or "")]
+    if len(bolt) != 1 or not bolt[0][0].startswith("target:stack:") or bolt[0][1] != "Lightning Bolt on the stack":
+        problems.append(f"exactly one option for the Bolt, 'Lightning Bolt on the stack' (target:stack:): {bolt}")
+
+
 def redirect(name, by, aim_self=False):
-    """Alice's Bolt at Bob's Bears; then `by` changes its target."""
-    swat = by != "Spellskite"
+    """Alice's Bolt at Bob's Bears; then `by` changes its target (or, spec 0116, answers it)."""
+    answer = by in ANSWERS
+    swat = by != "Spellskite" and not answer
     own = by == "own"
-    seat2 = BEARS if own else [("Forest", 20), ("Mountain", 20), (by, 20), ("Grizzly Bears", 20)]
-    deal2 = BEARS_DEAL if own else {"hand": ["Forest", "Mountain", "Forest", "Grizzly Bears", by, "Mountain", by],
-                                    "top": ["Mountain", "Forest", "Mountain"]}
+    blue = "Island" if answer else "Mountain"
+    seat2 = BEARS if own else [("Forest", 20), (blue, 20), (by, 20), ("Grizzly Bears", 20)]
+    deal2 = BEARS_DEAL if own else (
+        {"hand": ["Forest", "Island", "Island", "Grizzly Bears", by, "Island", by],
+         "top": ["Island", "Forest", "Island"]} if answer
+        else {"hand": ["Forest", "Mountain", "Forest", "Grizzly Bears", by, "Mountain", by],
+              "top": ["Mountain", "Forest", "Mountain"]})
     deck1 = [("Mountain", 40), ("Lightning Bolt", 10)] + ([("Deflecting Swat", 10)] if own else [])
     hand1 = ["Mountain"] * 4 + ["Lightning Bolt"] * 2 + ["Deflecting Swat" if own else "Mountain"]
     g = game(name, deck1, seat2, hand=hand1, top=["Mountain"] * 6, deal2=deal2)
     st = {"bolt": False, "changed": False, "bears": None, "skite": None, "after": {}, "reports": {1: [], 2: []},
-          "asked": []}
+          "asked": [], "offers": [], "boltsInHand": None}
     actor = 1 if own else 2
 
     def ready(g):
         bears = g.zone(1, "battlefield", owner=2, name="Grizzly Bears")
         if own:
             return bears and len(g.untapped_lands(1)) >= 4
+        if answer:
+            return bears and len(g.untapped_lands(1)) >= 1 and len(g.untapped_lands(2, name="Island")) >= 2
         skite = g.zone(1, "battlefield", owner=2, name="Spellskite")
         lands2 = len(g.untapped_lands(2))
         return bears and len(g.untapped_lands(1)) >= 1 and (skite if not swat else lands2 >= 3)
@@ -335,10 +379,11 @@ def redirect(name, by, aim_self=False):
         if k == "chooseSpellAbilityToPlay":
             bolt_up = any(e.get("name") == "Lightning Bolt" and e.get("kind") == "spell" for e in stack(g, seat))
             if seat == actor and st["bolt"] and not st["changed"] and bolt_up and len(stack(g, seat)) == 1:
-                o = (g.option(f, name="Spellskite", zone="battlefield") if not swat
+                o = (cast(g, f, by) if answer else g.option(f, name="Spellskite", zone="battlefield") if not swat
                      else cast(g, f, "Deflecting Swat"))
                 if o:
                     st["changed"] = True
+                    st["boltsInHand"] = len(g.zone(1, "hand", owner=1, name="Lightning Bolt"))
                     return o
             if seat == 1 and not st["bolt"] and stack_empty(g) and ready(g):
                 o = cast(g, f, "Lightning Bolt")
@@ -351,7 +396,7 @@ def redirect(name, by, aim_self=False):
             land = g.play_land(f)
             if land:
                 return land
-            if seat == 2 and not own and not swat and not g.mine(2, name="Spellskite"):
+            if seat == 2 and not own and not swat and not answer and not g.mine(2, name="Spellskite"):
                 return cast(g, f, "Spellskite")
             if seat == 2 and len(g.mine(2, name="Grizzly Bears")) < 1:
                 return cast(g, f, "Grizzly Bears")
@@ -360,6 +405,7 @@ def redirect(name, by, aim_self=False):
             return next((o["actionId"] for o in f["options"] if card_of(o["actionId"]) == st["bears"]), DEFAULT)
         if k == "chooseTargetsFor" and st["changed"]:
             st["asked"].append((seat, f.get("prompt"), [o.get("label") for o in f["options"]]))
+            st["offers"].append(offers(g, f, seat))
             if swat:
                 # Deflecting Swat's own target: the Bolt on the stack; then
                 # the Bolt's new target: Alice herself (Bob's swat) or
@@ -370,6 +416,12 @@ def redirect(name, by, aim_self=False):
                     return o
                 want = "Bob" if own else "Alice"
                 return next((o["actionId"] for o in f["options"] if o.get("label") == want), DEFAULT)
+            if answer:
+                # Spec 0116 -- as a player would: the first option that
+                # names the Bolt (before the fix, its card came first, and
+                # did nothing).
+                return next((o["actionId"] for o in f["options"] if "Lightning Bolt" in (o.get("label") or "")),
+                            DEFAULT)
             return next((o["actionId"] for o in f["options"]
                          if (o["actionId"].startswith("target:stack:") and "Lightning Bolt" in (o.get("label") or ""))), DEFAULT)
         if k == "confirmAction" and st["changed"]:
@@ -387,13 +439,19 @@ def redirect(name, by, aim_self=False):
                 seen = [r.get("key") for r in st["reports"][seat]]
                 if "changed" in (a.get("said") or "") and a.get("key") not in seen:
                     st["reports"][seat].append(a)
+        if answer:
+            return st["changed"] and stack_empty(g)
         return st["changed"] and stack_empty(g) and any(
             c.get("name") == "Lightning Bolt" for c in g.zone(1, "graveyard", owner=1))
 
     g.run(policy, until=until, max_turn=24)
     skite = g.zone(1, "battlefield", owner=2, name="Spellskite")
     found = {"after": st["after"], "reports": st["reports"], "asked": st["asked"], "bears": st["bears"],
-             "skite": skite and skite[0]["id"], "stopped": g.stopped_badly()}
+             "skite": skite and skite[0]["id"], "stopped": g.stopped_badly(), "offers": st["offers"],
+             "boltsInHand": st["boltsInHand"],
+             "boltsNow": len(g.zone(1, "hand", owner=1, name="Lightning Bolt")),
+             "boltGraveyard": len(g.zone(1, "graveyard", owner=1, name="Lightning Bolt")),
+             "bearsNow": [c["id"] for c in g.zone(1, "battlefield", owner=2, name="Grizzly Bears")]}
     if not st["changed"]:
         return "inconclusive", f"{by} never changed the Bolt's target", found
     return found
@@ -420,7 +478,9 @@ def spellskite():
         problems.append(f"by Bob, from Spellskite: {r1[0].get('by')}, {r1[0].get('source')}")
     if r2:
         problems.append(f"Bob, who did it, gets no report: {[r.get('said') for r in r2]}")
-    return outcome(problems, f"Spellskite: the Bolt's target became Spellskite; Alice told {want!r}; Bob not told",
+    once(found, problems)
+    return outcome(problems, f"Spellskite: the Bolt's target became Spellskite; Alice told {want!r}; Bob not told; "
+                             "the Bolt offered once, on the stack",
                    found)
 
 
@@ -438,7 +498,9 @@ def swat():
         problems.append(f"Alice gets one report {want!r}: {[r.get('said') for r in r1]}")
     if r2:
         problems.append(f"Bob, who did it, gets no report: {[r.get('said') for r in r2]}")
-    return outcome(problems, f"Deflecting Swat: the Bolt turned on Alice; Alice told {want!r}; Bob not told", found)
+    once(found, problems)
+    return outcome(problems, f"Deflecting Swat: the Bolt turned on Alice; Alice told {want!r}; Bob not told; "
+                             "the Bolt offered once, on the stack", found)
 
 
 def own_swat():
@@ -454,8 +516,61 @@ def own_swat():
     return outcome(problems, "Alice's own Deflecting Swat on her own Bolt: the target changed, no report", found)
 
 
+def answered(name, by, returned):
+    """Spec 0116 (F-0116-B) -- Bob answers the Bolt with `by`, picking 'Lightning Bolt on the stack'."""
+    found = redirect(name, by)
+    if isinstance(found, tuple):
+        return found
+    problems = []
+    once(found, problems)
+    if found["bearsNow"] != [found["bears"]]:
+        problems.append(f"the Bears live: {found['bears']} -> {found['bearsNow']}")
+    if returned:
+        if found["boltGraveyard"] or found["boltsNow"] != (found["boltsInHand"] or 0) + 1:
+            problems.append(f"the Bolt goes back to Alice's hand: {found['boltsInHand']} in hand before, "
+                            f"{found['boltsNow']} after, {found['boltGraveyard']} in her graveyard")
+    elif found["boltGraveyard"] != 1 or found["boltsNow"] != found["boltsInHand"]:
+        problems.append(f"the Bolt is countered, into Alice's graveyard: {found['boltGraveyard']} there, "
+                        f"hand {found['boltsInHand']} -> {found['boltsNow']}")
+    return problems, found
+
+
+def counter():
+    got = answered("counter", "Counterspell", returned=False)
+    if len(got) == 3:
+        return got
+    problems, found = got
+    return outcome(problems, "Counterspell at 'Lightning Bolt on the stack' (its one option): the Bolt is countered, "
+                             "the Bears live", found)
+
+
+def remand():
+    got = answered("remand", "Remand", returned=True)
+    if len(got) == 3:
+        return got
+    problems, found = got
+    return outcome(problems, "Remand at 'Lightning Bolt on the stack' (its one option): the Bolt goes back to "
+                             "Alice's hand, the Bears live", found)
+
+
+def unsubstantiate():
+    got = answered("unsubstantiate", "Unsubstantiate", returned=True)
+    if len(got) == 3:
+        return got
+    problems, found = got
+    asked = found["offers"][0]["options"] if found["offers"] else []
+    offered = sorted(i for i, _ in asked if i != "target:cancel")
+    bolt = [i for i, label in asked if label == "Lightning Bolt on the stack"]
+    want = sorted([f"target:{found['bears']}"] + bolt)
+    if len(bolt) != 1 or offered != want:
+        problems.append(f"offered: Bob's Bears and the Bolt on the stack, nothing else: {asked}")
+    return outcome(problems, "Unsubstantiate: offered the Bears and 'Lightning Bolt on the stack', no Bolt card; "
+                             "the Bolt goes back to Alice's hand, the Bears live", found)
+
+
 SCENARIOS = {"kicked": kicked, "overload": overload, "evoke": evoke, "curse": curse,
-             "spellskite": spellskite, "swat": swat, "own-swat": own_swat}
+             "spellskite": spellskite, "swat": swat, "own-swat": own_swat,
+             "counter": counter, "remand": remand, "unsubstantiate": unsubstantiate}
 
 if __name__ == "__main__":
     codes = []
