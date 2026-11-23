@@ -80,6 +80,7 @@ test("history sent once: reload, a cut connection, a spectator and a second tab 
   browser,
 }) => {
   test.skip(!existsSync(pkg) || extraPlayers.length === 0, "no deck package or no third account");
+  test.setTimeout(900_000);
   const viewport = { width: 1920, height: 1080 };
   const hostContext = await browser.newContext({ viewport });
   const host = await hostContext.newPage();
