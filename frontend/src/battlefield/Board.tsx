@@ -7569,31 +7569,23 @@ export function Board({
       // table (the first time a card has to glide) instead of once per card
       // between the animations this loop starts: asking each card in turn
       // made the browser work out every style again for each.
-      // P11-C3 -- and only of the cards that move: the whole table's
-      // animations (every looping glow and bob on every card) were listed
-      // to find the few on the cards gliding. The cards that may glide are
-      // known before any of them starts (same test as the loop's below); each
-      // is asked once, together, so the style is worked out once for them all.
-      const mayGlide: HTMLElement[] = [];
-      for (const item of items) {
-        if (!before.mounted.has(item.id)) continue;
-        const was = wasAt(item.id);
-        if (!was || item.id === pointed || before.pointed === item.id) continue;
-        const same =
-          Math.abs(was.box.x - item.box.x) < 0.5 &&
-          Math.abs(was.box.y - item.box.y) < 0.5 &&
-          Math.abs(was.box.scale - item.box.scale) < 0.001 &&
-          was.box.rotation === item.box.rotation;
-        const element = elements.current.get(item.id);
-        if (!same && element) mayGlide.push(element);
-      }
       let playing: Map<Element, Animation[]> | null = null;
       const animationsOf = (element: HTMLElement): Animation[] => {
         if (playing === null) {
           playing = new Map();
-          for (const el of mayGlide) playing.set(el, el.getAnimations?.() ?? []);
+          const root = ref.current;
+          if (root && typeof root.getAnimations === "function")
+            for (const a of root.getAnimations({ subtree: true })) {
+              const effect = a.effect as KeyframeEffect | null;
+              const target = effect?.target;
+              if (!target || effect.pseudoElement) continue;
+              const list = playing.get(target);
+              if (list) list.push(a);
+              else playing.set(target, [a]);
+            }
+          else return element.getAnimations?.() ?? [];
         }
-        return playing.get(element) ?? element.getAnimations?.() ?? [];
+        return playing.get(element) ?? [];
       };
       for (const item of items) {
         if (!before.mounted.has(item.id)) continue;
