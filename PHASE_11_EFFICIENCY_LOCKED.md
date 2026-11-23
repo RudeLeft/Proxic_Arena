@@ -2478,3 +2478,135 @@ while the sign-in page opens.
 **Not done here, left open:** the game and spectate targets (E6, E11); Status
 in Chromium (its poll); Firefox (it does not start on this PC; CI's `engines`
 job runs the loading measure there); the live site.
+
+## As built: P11-D3 (2026-11-22)
+
+**What changed.** A board's history lists are sent once. The worker still
+builds `payments` (the last 24), `rolls` (the last six) and `notices` (the
+last six) whole on every board, per seat, with the hidden ids stripped
+(`HiddenIds`), and the server still stores the whole board. But each
+connection now remembers the lists its page holds (`BoardHistory.kt`
+`BoardStream`, one per connection, under one lock with the send), and a board
+sent on it carries only the entries the page lacks, plus `kept`:
+`{"payments": 23}` = "keep the last 23 of the payments you hold, then add
+this board's" (`protocol/README.md`, `kept`). The page rebuilds the whole
+board in `match.ts` before anything reads it (`history.ts` `withHistory`), so
+every part of the page reads the board the worker made. Nothing a player
+sees changes (P11-R1).
+
+- **Done in the server, not the worker** (rejected: the worker sending only
+  new entries). The Lab traces are the worker's output and stay whole, so the
+  Lab, the hidden checks, `match-dice`, the jump tool and the ledger read
+  whole lists as before; only the server-to-page leg changes.
+- **By place, not by `n`** (rejected: merging entries by their `n`).
+  `notices` are plain strings, with no number; one rule covers all three.
+- **A page that missed an entry never shows a wrong or missing history:**
+  - `kept` names m only when the last m entries the page holds ARE the first
+    m of the new list, so the rebuild is the worker's list, entry for entry;
+    otherwise the list goes whole: an entry whose id the worker stripped after
+    it was sent (its card went into a hand), or a list that started again
+    (Karn's restart);
+  - it is per connection, so a connection's first board carries every list
+    whole: a join, a reconnect, a reload, a second tab, a spectator (the
+    public view, the same way);
+  - a board older than one already sent on the connection (the stored board
+    a joining connection reads, overtaken by a live one) goes whole and is
+    not remembered: the page drops it (`match.ts`, the revision check);
+  - board and memory move together under the connection's lock, so the
+    joining connection's stored board and a live board cannot cross.
+- **Hidden information:** what is sent is always a run of the seat's own
+  whole list as the worker stripped it; nothing decides visibility here
+  (`MATCH_STATE_VISIBILITY.md`).
+- **The play log is not here:** the worker already sends each line once
+  (this round's lines) and the server adds the whole log to a joining
+  connection's first board (`LiveMatch.snapshotFor`), as since spec 0064.
+  `shuffles` is this round's only. The research note's "the play log, the
+  last N" did not hold (SOURCE, and RUN over the Lab: repeated play log lines
+  are 0.0% of the bytes, repeated payments 11.8%, rolls and notices 0.1%
+  each).
+- **Tools and tests:** browser specs that clone the last board and send it
+  again keep it whole with `WholeBoards` (`match-dice`, `notices`,
+  `match-modes-doing`, the redraw measure's bench); the jump tool can replay
+  boards as the server now sends them (`JUMPS_HISTORY_ONCE=1`, `trimHistory`);
+  `scripts/measure-wire.py` has "once" columns and rebuilds every Lab board as
+  the page does (`historyMismatches`).
+
+**Numbers (RUN, 2026-11-22, the owner's PC as C1, bundled Chromium, the first
+local stack; before = f83e2155, after = f1a37487, each built from its own
+worktree; the redraw measure's real game at 1x, 3 runs each).**
+
+```text
+Lab, scripts/measure-wire.py over the 1.75.0 run's traces (players' boards)
+               board median / p95    as sent now (once)   all bytes   streamed (deflated as sent): median, share
+fixed 16       5,674 / 10,166        4,088 / 7,701        -23.4%      85 -> 70, 1.7% -> 1.5%
+all 432        3,384 / 7,560         3,111 / 5,582        -13.5%      64 -> 59, 2.1% -> 2.1%
+rebuilt as the page does: 0 mismatches over every board of the 432 games, both seats and the spectators
+
+real game, per seat (seat 1 / seat 2), medians of 3     before             after              change
+  bytes per board read, whole game, median              12,426 / 11,180    9,346 / 9,677      -25% / -13%
+  the same, p95                                         15,912 / 15,630    13,528 / 14,338    -15% / -8%
+  combat (9 s), median                                  15,227 / 14,746    12,919 / 13,399    -15% / -9%
+  cast (6 s), median                                    13,899 / 14,023    12,130 / 12,854    -13% / -8%
+  on the wire (compressed, D2), the combat              21.3 / 20.5 KB     19.1 / 19.3 KB     -10% / -6%
+  on the wire, the cast                                 11.0 / 10.7 KB     10.3 / 9.6 KB      -6% / -10%
+  Arena Server CPU per board, whole game                4.17 ms (2.7-5.2)  3.37 ms (2.6-5.1)  within the spread
+```
+
+- **Target: bytes per board about -16% before deltas. Met:** -13% to -25% on
+  the real game's median board, -23% of all the fixed Lab set's bytes (-28% on
+  its median board). Over the whole Lab set it is -13.5%: nearly all of what
+  payments were there (14.5% of the bytes; a list is sent again only when an
+  entry in it changed).
+- **On the wire the saving is smaller:** compression (D2) had already
+  squeezed most of a repeated list away, so the compressed combat is 6-10%
+  smaller, and a whole game's compressed bytes move with how long the game ran
+  (within ±3%; boards per game differ run to run, as D1 found). The page
+  parses the smaller messages either way.
+- **Server CPU per board:** not worse; the three runs spread 2.6-5.2 ms before
+  and after alike (the trimming compares at most 24 short entries per list).
+- Steady (±10% over 3 runs): seat 1's whole-game medians and the host's cast;
+  the others vary with the deal, as D1 found for whole games.
+
+**Proof.**
+
+- **The hidden checks** (RUN) over the 432 traces as the worker made them and
+  over the same traces rewritten as the server now sends each board (per seat,
+  `measure-wire.py` `trim`): `check-snapshot-first`, `check-hidden-hands`,
+  `check-hidden-log`, `check-kinds`, `check-hidden-tops`,
+  `check-hidden-mulligans`, `check-wording.py --res`: every one passes on
+  both, with the same counts (11,818 hand-card sightings, 22,806 play log
+  lines, 45,659 questions; the wording check reads 369,892 strings as sent
+  against 369,905, the notices not sent again).
+- **The jump check** (RUN, headed Edge) over the 15 traces whose history moves
+  (dice: `dice-swap`, `dice-reroll`, `dice-nudge`, `card-actions-die`;
+  payments: the six `mana-balls-*`, `costs-convoke`, `pay-picks-delve`; the
+  play log: `play-log`; Karn's restart: `karn`; notices: `unreachable-ante`),
+  both seats: before (f83e2155, whole boards) and after (f1a37487, boards
+  trimmed as sent, `JUMPS_HISTORY_ONCE=1`): `check-jumps.py`'s reports are
+  identical, line for line.
+- **A real game** (`match-history`, new, RUN): spells paid for, then the host
+  reloads, the guest's connection is cut (it reconnects on its own), a
+  spectator arrives and later reloads, and the host opens a second tab. Each
+  new connection's first board is whole, and its lists equal the ones the
+  page had rebuilt from the trimmed boards before; trimmed boards were seen on
+  every kind of connection (HID-004: the trimming ran). With the server's trim
+  broken by one entry (`drop(keep + 1)`, a mutant image) it fails at the first
+  reload.
+- **Bites (TEST-004):** `BoardHistoryTest` (server, 9 tests, among them 200
+  random histories rebuilt exactly with nothing sent outside the full board)
+  fails with the overlap check removed (5 fail), the stale-board rule removed
+  (1), or the hub sending boards whole (2). `history.test.ts` (page) fails
+  with the rebuild taken out of `match.ts` (1) or keeping the first m instead
+  of the last (2).
+- **Browser specs** (RUN, the first local stack at 220a62ee, bundled
+  Chromium): `match-history`, `match-dice`, `match-modes-doing`,
+  `match-play-log`, `match-report`, `match-session`, `match-watching` (2) and
+  `notices` (2): 10 passed. `node ci/ci-speed.mjs` (CPU 4x, each with its CI
+  neighbour) on `match-history`, `match-dice`, `match-modes-doing`,
+  `match-play-log`, `match-session`, `match-watching`: 13 passed, 0 failed.
+  The redraw measure's bench (which now keeps its base board whole) ran once
+  at 1x: passed, tap-one-land 18 renders, plates 0 per update.
+- **Not measured:** 4x (the change is server-side bytes and one shallow copy
+  per board on the page); Firefox and WebKit (the page code is the same in
+  every engine); a live link (INFERENCE: on slow 4G the combat's compressed
+  bytes, about 2 KB less a seat, are about 10 ms less transfer).
