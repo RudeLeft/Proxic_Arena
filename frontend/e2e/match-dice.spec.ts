@@ -17,6 +17,7 @@ import { expect, test, type WebSocketRoute } from "@playwright/test";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import { WholeBoards } from "../src/history";
 
 type Frame = Record<string, unknown>;
 
@@ -35,12 +36,15 @@ test("dice tumble on the stack; the roll, sector, sprocket and crank windows say
 
   let client: WebSocketRoute | null = null;
   let lastSnap = "";
+  const whole = new WholeBoards();
   let lastAsk = "";
   await guest.routeWebSocket("**/ws/matches/**", (ws) => {
     client = ws;
     const server = ws.connectToServer();
     server.onMessage((message) => {
-      if (typeof message === "string" && message.includes('"MATCH_SNAPSHOT"')) lastSnap = message;
+      // P11-D3: kept whole, so the boards made from it below are whole boards.
+      if (typeof message === "string" && message.includes('"MATCH_SNAPSHOT"'))
+        lastSnap = whole.take(message);
       if (typeof message === "string" && message.includes('"DECISION_REQUEST"')) lastAsk = message;
       ws.send(message);
     });

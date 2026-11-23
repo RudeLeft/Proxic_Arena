@@ -25,23 +25,28 @@ import java.util.concurrent.ConcurrentHashMap
 internal class Connection(
     val connectionId: String,
     val outgoing: SendChannel<Frame>,
-)
+) {
+    /** P11-D3 -- the history this connection's page holds; boards are trimmed against it. */
+    val board = BoardStream()
+}
 
 /** The connections watching each match, by user. */
 class MatchWatchers {
     private val watchers =
         ConcurrentHashMap<UUID, ConcurrentHashMap<UUID, MutableSet<Connection>>>()
 
-    fun open(
+    internal fun open(
         matchId: UUID,
         userId: UUID,
         connectionId: String,
         outgoing: SendChannel<Frame>,
-    ) {
+    ): Connection {
+        val connection = Connection(connectionId, outgoing)
         watchers
             .computeIfAbsent(matchId) { ConcurrentHashMap() }
             .computeIfAbsent(userId) { java.util.concurrent.ConcurrentHashMap.newKeySet() }
-            .add(Connection(connectionId, outgoing))
+            .add(connection)
+        return connection
     }
 
     fun close(
@@ -93,10 +98,11 @@ class MatchHub : DecisionAnnouncer {
         message: JsonObject,
     ) {
         val start = MatchTiming.now()
-        val text = message.toString()
+        val text = lazy { message.toString() }
         val connections = spectators.all(matchId)
         connections.forEach { connection ->
-            runCatching { connection.outgoing.send(Frame.Text(text)) }
+            // P11-D3 -- a board through the connection's history (BoardStream).
+            runCatching { connection.deliver(message, text) }
                 .onFailure { log.debug("match $matchId: a spectator connection would not take a frame") }
         }
         MatchTiming.out(matchId, null, message, start, connections.size)
@@ -110,7 +116,7 @@ class MatchHub : DecisionAnnouncer {
     ) {
         // P11-D0 (test only): 0 while timing is off.
         val start = MatchTiming.now()
-        val text = message.toString()
+        val text = lazy { message.toString() }
         val connections = watchers.of(matchId, userId)
         connections.forEach { connection ->
             // A NEW Frame per connection. A Frame carries a
@@ -119,7 +125,9 @@ class MatchHub : DecisionAnnouncer {
             // empty at every connection after the first. That is
             // not hypothetical: it shipped in the lobby hub and
             // presented as "the second player sees nothing".
-            runCatching { connection.outgoing.send(Frame.Text(text)) }
+            // P11-D3 -- and a board goes through the connection's
+            // history: each page is sent only the entries it lacks.
+            runCatching { connection.deliver(message, text) }
                 .onFailure { log.debug("match $matchId: a connection would not take a frame") }
         }
         MatchTiming.out(matchId, userId, message, start, connections.size)

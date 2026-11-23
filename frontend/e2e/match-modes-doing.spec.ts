@@ -21,6 +21,7 @@ import { expect, test, type WebSocketRoute } from "@playwright/test";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
+import { WholeBoards } from "../src/history";
 
 type Frame = Record<string, unknown>;
 const MODES = [
@@ -46,6 +47,7 @@ test("several modes are ticked then Done, and the page answers the rest; the wai
   let client: WebSocketRoute | null = null;
   let lastAsk = "";
   let lastSnap = "";
+  const whole = new WholeBoards();
   let seat = 0;
   let catching = false;
   const answers: Frame[] = [];
@@ -56,7 +58,8 @@ test("several modes are ticked then Done, and the page answers the rest; the wai
       if (typeof m === "string" && m.includes('"DECISION_REQUEST"')) lastAsk = m;
       if (typeof m === "string" && m.includes('"MATCH_SNAPSHOT"')) {
         seat = (JSON.parse(m) as { state: { seat: number } }).state.seat;
-        lastSnap = m;
+        // P11-D3: kept whole, so the board made from it below is a whole board.
+        lastSnap = whole.take(m);
       }
       if (catching && typeof m === "string" && /"(DECISION_|MATCH_ASKING)/.test(m)) return;
       ws.send(m);

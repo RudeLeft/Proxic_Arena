@@ -57,6 +57,7 @@ import {
   step,
   theirLife,
 } from "../../e2e/speed-kit";
+import { WholeBoards } from "../../src/history";
 import { perUpdate, timer, type Timer } from "./probes";
 import { serverCpuMs, writeResult, type Row } from "./results";
 import { boardMakeup, countBytes, tap, wireBytesIn, wireNumbers, type Counter } from "./wire";
@@ -212,13 +213,15 @@ test("bench: a 40-a-side table and one land tapping, replayed", async ({ browser
     let client: WebSocketRoute | null = null;
     let takenOver = false;
     let base: { message: Record<string, unknown>; state: State } | null = null;
+    const whole = new WholeBoards();
     await host.routeWebSocket("**/ws/matches/**", (ws) => {
       client = ws;
       const server = ws.connectToServer();
       server.onMessage((m) => {
         if (typeof m === "string" && m.includes('"MATCH_SNAPSHOT"')) {
           if (takenOver) return;
-          const message = JSON.parse(m) as Record<string, unknown> & { state: State };
+          // P11-D3: the whole board (its history rebuilt), so the replayed table is whole.
+          const message = JSON.parse(whole.take(m)) as Record<string, unknown> & { state: State };
           base = { message, state: message.state };
         }
         if (

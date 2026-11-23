@@ -22,15 +22,20 @@
 // 250 ms, into <out>/clips/. A clip's "more": N films the N boards after it
 // too, each "every" shots after the one before, or at the shots in "at"
 // (spec 0062: a whole payment, the last boards a moment apart).
+// JUMPS_HISTORY_ONCE=1 (P11-D3) sends each board as the server now does,
+// its history lists trimmed to what the page holds (history.ts trimHistory),
+// so the page's rebuild is what is drawn; unset, whole boards as before.
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import { appendFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "../../e2e/helpers";
 import { clearEverything, sharedDeck, startAMatch } from "../../e2e/match-helpers";
+import { trimHistory, type HeldHistory } from "../../src/history";
 
 const AUDIT = process.env.AUDIT_DIR!;
 const OUT = process.env.JUMPS_OUT!;
 const ONLY = process.env.JUMPS_ONLY ? new RegExp(process.env.JUMPS_ONLY) : null;
+const ONCE = process.env.JUMPS_HISTORY_ONCE === "1";
 
 type Snap = { seat: number; state: Record<string, unknown> };
 
@@ -372,6 +377,8 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
     await Promise.all(
       pages.map(async (p) => {
         const list = boards(trace, p.seat!);
+        // P11-D3: what this page holds (a fresh page holds nothing).
+        let held: HeldHistory = {};
         const file = join(OUT, `${trace.replace(/\.jsonl$/, "")}.seat${p.seat}.jsonl`);
         writeFileSync(file, "");
         for (const [i, snap] of list.entries()) {
@@ -379,12 +386,10 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
           await p.page.evaluate((m) => {
             (window as unknown as { __mark: string }).__mark = m;
           }, mark);
-          p.client!.send(
-            JSON.stringify({
-              type: "MATCH_SNAPSHOT",
-              state: { ...snap.state, stateRevision: ++revision },
-            }),
-          );
+          const whole = { ...snap.state, stateRevision: ++revision };
+          let state: Record<string, unknown> = whole;
+          if (ONCE) ({ sent: state, held } = trimHistory(held, whole));
+          p.client!.send(JSON.stringify({ type: "MATCH_SNAPSHOT", state }));
           await p.page.waitForTimeout(60);
           await settled(p.page);
           const rows = await p.page.evaluate(() =>

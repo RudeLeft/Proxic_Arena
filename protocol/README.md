@@ -39,6 +39,8 @@ On the wire, every socket may be compressed (permessage-deflate, RFC
 7692, since Phase 11 P11-D2, `server/.../SocketCompression.kt`) when
 the browser offers it, which every browser does; one that doesn't gets
 the same messages uncompressed. The messages themselves don't change.
+A board's history lists (`payments`, `rolls`, `notices`) are sent once
+per connection since P11-D3 (`kept`, under "What the board is told").
 
 `messageId` is present from the first infrastructure message on
 purpose. Phase 0A's decision gate rejects duplicate and stale
@@ -428,6 +430,33 @@ payments                  spec 0062: what each payment step paid, the last
                           `for` and a mana's card `from` follow the rule
                           below: a card now in a hidden zone has no `for`,
                           and its mana says from "unseen".
+kept                      P11-D3 (2026-11-22), server -> browser only: the
+                          history lists `payments`, `rolls` and `notices` are
+                          sent once. The worker still builds each whole ("the
+                          last N", per seat, ids stripped, as above), and the
+                          server stores the whole board; but each connection
+                          remembers the lists its page holds, and a board sent
+                          on it carries only the entries the page lacks, with
+                          kept {payments?: m, rolls?: m, notices?: m}: "keep
+                          the last m of the list you hold, then add this
+                          board's" (the key absent: nothing new). A list not
+                          named in `kept` is whole, as before (absent: none).
+                          `kept` names m only when the last m entries the page
+                          holds ARE the first m of the new list, so the rebuild
+                          is the worker's list exactly; a changed entry (an id
+                          stripped as its card goes into a hand) or a list that
+                          started again (Karn's restart) goes whole. A
+                          connection's first board has nothing to keep: on
+                          join, reconnect, a second tab and for a spectator
+                          (the public view, the same way) every list comes
+                          whole. A board older than one already sent on the
+                          connection (the page drops it: the revision check)
+                          goes whole and is not remembered. The page rebuilds
+                          the whole board before reading it (frontend
+                          `history.ts` `withHistory`; server
+                          `BoardHistory.kt`); browser tests that re-send a
+                          board use `WholeBoards`. Lab traces (the worker's
+                          output) carry the lists whole, as always
 playLog                   spec 0064: this round's play log lines for THIS
                           seat, written by the worker from Forge's events
                           with only what this seat may identify (both

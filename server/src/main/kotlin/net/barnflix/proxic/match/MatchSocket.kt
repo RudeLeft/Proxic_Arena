@@ -74,7 +74,7 @@ fun Route.matchSocket(
         }
 
         val connectionId = "mconn-${connectionSequence.incrementAndGet()}"
-        hub.watchers.open(matchId, userId, connectionId, outgoing)
+        val connection = hub.watchers.open(matchId, userId, connectionId, outgoing)
 
         try {
             // Spec 0047 — how many are watching, from the start (spec 0067: and who).
@@ -87,8 +87,11 @@ fun Route.matchSocket(
             // §6.110, §6.48 — STATE FIRST. A decision references
             // objects by id, so the board has to arrive before
             // the question that names them.
+            // P11-D3: through this connection's history, so it and a live
+            // board that reached the connection first cannot cross; the
+            // first board on a connection carries every list whole.
             runtime.snapshotFor(matchId, userId)?.let { state ->
-                send(Frame.Text(snapshotMessage(state).toString()))
+                connection.board.send(outgoing, state) { snapshotMessage(it) }
             }
 
             // §6.111, §6.112 — whatever Forge is still waiting for,
@@ -136,14 +139,14 @@ private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.spect
     val userId = user.userId
     val connectionId = "mwatch-${connectionSequence.incrementAndGet()}"
     hub.spectatorNames[userId] = user.displayName
-    hub.spectators.open(matchId, userId, connectionId, outgoing)
+    val connection = hub.spectators.open(matchId, userId, connectionId, outgoing)
     watching(runtime, matchId, userId, on = true, anyoneLeft = true)
     tellPlayers(matchId, runtime, hub)
     try {
         send(Frame.Text(matchHelloMessage(matchId, PUBLIC_SEAT).toString()))
         // Spec 0067 — with the public play log so far.
         runtime.liveMatch(matchId)?.publicSnapshotWithLog()?.let { state ->
-            send(Frame.Text(snapshotMessage(state).toString()))
+            connection.board.send(outgoing, state) { snapshotMessage(it) }
         }
         askingFor(runtime, matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
         for (frame in incoming) {

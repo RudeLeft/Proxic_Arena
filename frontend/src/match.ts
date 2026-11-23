@@ -24,6 +24,7 @@ import { logLine, summarise } from "./reportLog";
 import { onPageBack, pageIsLeaving } from "./pageLife";
 import { asOutcome, type MatchOutcome } from "./lobby";
 import { countWords } from "./words";
+import { withHistory, type HeldHistory } from "./history";
 
 export interface DecisionOption {
   actionId: string;
@@ -1276,6 +1277,11 @@ export interface MatchState {
    * until that board is on the table).
    */
   playLog?: PlayLogLine[];
+  /**
+   * P11-D3 -- the history lists (payments, rolls, notices) as the board this
+   * page last took had them: a board sends only the entries the page lacks.
+   */
+  history?: HeldHistory;
 }
 
 /** Spec 0067 -- how a game ended, told to a spectator (MATCH_ENDED). */
@@ -1353,9 +1359,13 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
     }
 
     case "MATCH_SNAPSHOT": {
+      // P11-D3 -- the history lists come once: the whole board first, from
+      // the lists this page holds (history.ts), so everything below reads
+      // the board the worker made.
+      const whole = withHistory(state.history, message["state"]);
+      const raw = whole.state;
       // Spec 0064 -- the play log first: a stale board (a reconnect's stored
       // one) still brings the log's history, which the page keeps by number.
-      const raw = message["state"];
       const lines = asPlayLog(
         typeof raw === "object" && raw !== null
           ? (raw as Record<string, unknown>)["playLog"]
@@ -1377,6 +1387,7 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       return {
         ...state,
         board,
+        history: whole.history,
         spotlight: fresh ? board : state.spotlight,
         recent: [...(state.recent ?? []).slice(-(RECENT_KEPT - 1)), board],
       };

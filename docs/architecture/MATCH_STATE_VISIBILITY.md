@@ -75,6 +75,12 @@ Bolt bounced to the other player's hand still flies there as a back
 (`fromSnapshot` `withLeavers`). `scripts/check-hidden-hands.py` now looks
 at every string that is a card id, under any key.
 
+Since P11-D3 (2026-11-22) the server sends `payments`, `rolls` and
+`notices` to a page once (protocol `kept`), but always as a run of the
+seat's own whole list as the worker stripped it: an entry whose id was
+stripped after it was sent no longer matches what the page holds, so the
+list is sent again, stripped. Nothing is decided about visibility there.
+
 *Since 2026-11-16:* a stack entry's `source` no longer counts as the card
 on view (Sensei's Divining Top, gone to the top of the library under two
 of its own abilities, kept its id there), and a "(N)" id inside Forge's

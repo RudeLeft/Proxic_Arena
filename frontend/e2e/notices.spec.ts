@@ -12,6 +12,7 @@ import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import { join } from "node:path";
 import { noticeCard, secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import { clearEverything, sharedDeck, startAMatch } from "./match-helpers";
+import { WholeBoards } from "../src/history";
 
 /** The lobby socket, with a way to say things to the page as the server. */
 async function lobbySocket(page: Page): Promise<() => WebSocketRoute | null> {
@@ -89,6 +90,7 @@ test("in a game, the game's messages sit top right of the table and clicks go th
   // The guest's game socket: its last snapshot, and a way to drop it.
   let client: WebSocketRoute | null = null;
   let last = "";
+  const whole = new WholeBoards();
   let dropped = false;
   await guest.routeWebSocket("**/ws/matches/**", (ws) => {
     if (dropped) {
@@ -98,7 +100,9 @@ test("in a game, the game's messages sit top right of the table and clicks go th
     client = ws;
     const server = ws.connectToServer();
     server.onMessage((message) => {
-      if (typeof message === "string" && message.includes('"MATCH_SNAPSHOT"')) last = message;
+      // P11-D3: kept whole, so the board made from it below is a whole board.
+      if (typeof message === "string" && message.includes('"MATCH_SNAPSHOT"'))
+        last = whole.take(message);
       ws.send(message);
     });
     ws.onMessage((message) => server.send(message));

@@ -251,7 +251,11 @@ those could answer for somebody else or defeat the staleness check
 One per player, built by the worker for that viewer from Forge's state;
 the server does not re-filter or rebuild it (§6.42) -- it only adds the
 picture addresses (`art`, `crop`) for the cards that viewer was sent
-(`MATCH_ASSET_AUTHORIZATION.md`). Carries the turn, phase, active seat, `dayTime`, `gameEpoch`,
+(`MATCH_ASSET_AUTHORIZATION.md`), and (P11-D3) sends the history lists
+`payments`, `rolls` and `notices` to each connection once: a board carries
+only the entries that connection's page lacks, and `kept` says how many of
+its own to keep; the page rebuilds the whole board before reading it
+(`protocol/README.md`, `kept`; `BoardHistory.kt`, `history.ts`). Carries the turn, phase, active seat, `dayTime`, `gameEpoch`,
 `stateRevision`, every player's public totals and Forge state
 (counters, designations, command zone, Ring temptations, completed
 dungeons), and the zones this viewer may see: `hand` (own), `otherHands`
@@ -413,7 +417,9 @@ P6-AG).
 
 A dropped socket changes nothing in the game. The question stays
 pending -- a disconnect never passes, concedes or picks (§6.111) -- and
-on reconnect the hello, snapshot and same question are sent again.
+on reconnect the hello, snapshot and same question are sent again. The
+snapshot is a new connection's first board, so its history lists come
+whole (P11-D3).
 Refresh, two tabs and a closed browser are covered by P6-R/S/T/BB;
 on the live site a page reloaded mid-game was back in the same match
 (P6-BK).

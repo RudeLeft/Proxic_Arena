@@ -21,7 +21,13 @@ SocketCompression.kt; boards only, so INFERENCE for the real socket, whose
 stream also carries questions and steps), a simple
 delta from that seat's board before (changed keys, changed or added list
 members by id, removed ids), boards per game, boards per combat, and
-`payments` repeated unchanged from the board before. `--out` writes the
+`payments` repeated unchanged from the board before. Since P11-D3 the
+server sends each history entry once (`payments`, `rolls`, `notices`;
+BoardHistory.kt): "once" is the board as the server now sends it, made
+here by the same rule (`trim`, one memory per seat's connection), and
+"onceStreamed" is that deflated as sent; every such board is rebuilt as the
+page does (`rebuild`, frontend history.ts) and checked to equal the worker's
+board, the spectator's too (`historyMismatches` must be 0). `--out` writes the
 kit's result file (ci/measure.mjs compare reads it); stdout has the same.
 """
 
@@ -91,6 +97,58 @@ def delta(prev, cur) -> int:
     return n
 
 
+# P11-D3 -- the server's rule (BoardHistory.kt), mirrored for the Lab's boards.
+HISTORY_KEYS = ("payments", "rolls", "notices")
+
+
+def overlap(had, now):
+    m = min(len(had), len(now))
+    while m > 0:
+        if had[len(had) - m:] == now[:m]:
+            return m
+        m -= 1
+    return 0
+
+
+def trim(state, held):
+    """The board the server sends for `state` to a page holding `held`, and what it then holds."""
+    out = dict(state)
+    kept = {}
+    holds = {}
+    for k in HISTORY_KEYS:
+        now = state.get(k) if isinstance(state.get(k), list) else []
+        holds[k] = now
+        m = overlap(held.get(k, []), now)
+        if m == 0:
+            continue
+        kept[k] = m
+        rest = now[m:]
+        if rest:
+            out[k] = rest
+        else:
+            out.pop(k, None)
+    if kept:
+        out["kept"] = kept
+    return out, holds
+
+
+def rebuild(sent, held):
+    """The page's step (frontend history.ts withHistory)."""
+    out = dict(sent)
+    kept = out.pop("kept", None) or {}
+    for k, m in kept.items():
+        out[k] = held.get(k, [])[len(held.get(k, [])) - m:] + (sent.get(k) or [])
+    return out
+
+
+def same_history(a, b):
+    for k in HISTORY_KEYS:
+        if (a.get(k) or []) != (b.get(k) or []):
+            return False
+    rest = lambda x: {k: v for k, v in x.items() if k not in HISTORY_KEYS}
+    return rest(a) == rest(b)
+
+
 def pct(xs, p):
     xs = sorted(xs)
     return xs[min(len(xs) - 1, int(len(xs) * p))] if xs else 0
@@ -106,9 +164,14 @@ def measure(files):
     payments_boards = 0
     payments_same = 0
     fields = Counter()
+    once = []
+    once_streamed = []
+    mismatches = 0
     for f in files:
         last = {}
         streams = {}
+        held = {}
+        once_streams = {}
         count = 0
         run = 0
         for line in f.read_text(encoding="utf-8").splitlines():
@@ -123,11 +186,19 @@ def measure(files):
             st = fr.get("state") or {}
             b = compact(st)
             count += 1
+            sent, held_now = trim(st, held.get(seat, {}))
+            if not same_history(st, rebuild(sent, held.get(seat, {}))):
+                mismatches += 1
+            held[seat] = held_now
             if seat in (1, 2):
                 raw["players"].append(len(b))
                 deflated.append(len(zlib.compress(b, 6)))
                 z = streams.setdefault(seat, zlib.compressobj(6, zlib.DEFLATED, -15))
                 streamed.append(len(z.compress(b) + z.flush(zlib.Z_SYNC_FLUSH)) - 4)
+                t = compact(sent)
+                once.append(len(t))
+                zo = once_streams.setdefault(seat, zlib.compressobj(6, zlib.DEFLATED, -15))
+                once_streamed.append(len(zo.compress(t) + zo.flush(zlib.Z_SYNC_FLUSH)) - 4)
                 for k, v in st.items():
                     fields[k] += len(compact(v))
                 if seat in last:
@@ -159,6 +230,13 @@ def measure(files):
         "streamedBytesMedian": pct(streamed, 0.5),
         "streamedBytesP95": pct(streamed, 0.95),
         "streamedShare": round(sum(streamed) / total, 3),
+        "onceBytesMedian": pct(once, 0.5),
+        "onceBytesP95": pct(once, 0.95),
+        "onceShare": round(sum(once) / total, 3),
+        "onceStreamedBytesMedian": pct(once_streamed, 0.5),
+        "onceStreamedBytesP95": pct(once_streamed, 0.95),
+        "onceStreamedShare": round(sum(once_streamed) / total, 3),
+        "historyMismatches": mismatches,
         "deltaBytesMedian": pct(deltas, 0.5),
         "deltaBytesP95": pct(deltas, 0.95),
         "deltaShare": round(sum(deltas) / total, 3),
