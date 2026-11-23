@@ -57,7 +57,7 @@ import {
   step,
   theirLife,
 } from "../../e2e/speed-kit";
-import { WholeBoards } from "../../src/history";
+import { WholeBoards } from "../../src/delta";
 import { perUpdate, timer, type Timer } from "./probes";
 import { serverCpuMs, writeResult, type Row } from "./results";
 import { boardMakeup, countBytes, tap, wireBytesIn, wireNumbers, type Counter } from "./wire";
@@ -218,11 +218,16 @@ test("bench: a 40-a-side table and one land tapping, replayed", async ({ browser
       client = ws;
       const server = ws.connectToServer();
       server.onMessage((m) => {
-        if (typeof m === "string" && m.includes('"MATCH_SNAPSHOT"')) {
+        if (typeof m === "string" && /"MATCH_(SNAPSHOT|DELTA)"/.test(m)) {
           if (takenOver) return;
           // P11-D3: the whole board (its history rebuilt), so the replayed table is whole.
-          const message = JSON.parse(whole.take(m)) as Record<string, unknown> & { state: State };
+          // P11-D4: a delta rebuilt too, and the page handed the whole board, so
+          // the bench's boards (built from this one) meet no later delta.
+          const text = whole.take(m);
+          const message = JSON.parse(text) as Record<string, unknown> & { state: State };
           base = { message, state: message.state };
+          ws.send(text);
+          return;
         }
         if (
           takenOver &&

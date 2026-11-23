@@ -519,7 +519,8 @@ private fun Route.databaseRoutes(
     // /api/ws/... behind the REST auth gate, which answers an
     // upgrade with a 401 the browser reports as "connection
     // failed".
-    val matchHub = net.barnflix.proxic.match.MatchHub()
+    // P11-D4 -- only what changed (MATCH_DELTA), behind its switches.
+    val matchHub = net.barnflix.proxic.match.matchHubFor(config, application.log)
     // TEST ONLY -- spec 0098. Null unless PROXIC_TEST_DEALS=true (the local
     // and CI overrides only): then no route below and no deal for any match.
     val testDeals =

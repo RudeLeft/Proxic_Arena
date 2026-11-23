@@ -564,7 +564,8 @@ export function optionalCostTitle(decision: Decision): string {
 
 export function matchUrl(matchId: string): string {
   const scheme = location.protocol === "https:" ? "wss" : "ws";
-  return `${scheme}://${location.host}/ws/matches/${matchId}`;
+  // P11-D4 -- `?deltas=1`: this page takes MATCH_DELTA (only what changed).
+  return `${scheme}://${location.host}/ws/matches/${matchId}?deltas=1`;
 }
 
 /**

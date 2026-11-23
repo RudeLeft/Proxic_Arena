@@ -25,9 +25,13 @@ import java.util.concurrent.ConcurrentHashMap
 internal class Connection(
     val connectionId: String,
     val outgoing: SendChannel<Frame>,
+    /** P11-D4 -- this connection takes MATCH_DELTA (it asked, and the server's switch allows it). */
+    deltas: Boolean = false,
+    /** P11-D4 (TEST ONLY, PROXIC_TEST_DELTA_CHECK) -- each delta carries the whole board too. */
+    check: Boolean = false,
 ) {
-    /** P11-D3 -- the history this connection's page holds; boards are trimmed against it. */
-    val board = BoardStream()
+    /** P11-D3 -- the history this connection's page holds; P11-D4 -- and the last board it was sent. */
+    val board = BoardStream(deltas, check)
 }
 
 /** The connections watching each match, by user. */
@@ -40,8 +44,10 @@ class MatchWatchers {
         userId: UUID,
         connectionId: String,
         outgoing: SendChannel<Frame>,
+        deltas: Boolean = false,
+        check: Boolean = false,
     ): Connection {
-        val connection = Connection(connectionId, outgoing)
+        val connection = Connection(connectionId, outgoing, deltas, check)
         watchers
             .computeIfAbsent(matchId) { ConcurrentHashMap() }
             .computeIfAbsent(userId) { java.util.concurrent.ConcurrentHashMap.newKeySet() }
@@ -75,7 +81,10 @@ class MatchWatchers {
     fun users(matchId: UUID): Set<UUID> = watchers[matchId]?.keys?.toSet().orEmpty()
 }
 
-class MatchHub : DecisionAnnouncer {
+class MatchHub(
+    /** P11-D4 -- who may be sent deltas (ServerConfig: PROXIC_MATCH_DELTAS, PROXIC_SPECTATOR_DELTAS). */
+    val deltas: DeltaSettings = DeltaSettings(),
+) : DecisionAnnouncer {
     private val log = LoggerFactory.getLogger(MatchHub::class.java)
 
     val watchers = MatchWatchers()
@@ -100,9 +109,11 @@ class MatchHub : DecisionAnnouncer {
         val start = MatchTiming.now()
         val text = lazy { message.toString() }
         val connections = spectators.all(matchId)
+        val memo = DiffMemo()
         connections.forEach { connection ->
             // P11-D3 -- a board through the connection's history (BoardStream).
-            runCatching { connection.deliver(message, text) }
+            // P11-D4 -- or as a delta from the board this connection was last sent.
+            runCatching { connection.deliver(message, text, memo) }
                 .onFailure { log.debug("match $matchId: a spectator connection would not take a frame") }
         }
         MatchTiming.out(matchId, null, message, start, connections.size)
@@ -118,6 +129,8 @@ class MatchHub : DecisionAnnouncer {
         val start = MatchTiming.now()
         val text = lazy { message.toString() }
         val connections = watchers.of(matchId, userId)
+        // P11-D4 -- one diff per distinct base: two tabs usually share theirs.
+        val memo = DiffMemo()
         connections.forEach { connection ->
             // A NEW Frame per connection. A Frame carries a
             // ByteBuffer whose position is consumed on write, so
@@ -127,7 +140,8 @@ class MatchHub : DecisionAnnouncer {
             // presented as "the second player sees nothing".
             // P11-D3 -- and a board goes through the connection's
             // history: each page is sent only the entries it lacks.
-            runCatching { connection.deliver(message, text) }
+            // P11-D4 -- and only what changed since its own last board.
+            runCatching { connection.deliver(message, text, memo) }
                 .onFailure { log.debug("match $matchId: a connection would not take a frame") }
         }
         MatchTiming.out(matchId, userId, message, start, connections.size)

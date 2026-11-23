@@ -88,6 +88,26 @@ data class ServerConfig(
      * in production (scripts/check-test-switch.py).
      */
     val testTiming: Boolean = false,
+    /**
+     * Phase 11 P11-D4 (spec 0117) -- PROXIC_MATCH_DELTAS, default true: a
+     * player's page that asks (`?deltas=1`) is sent only what changed
+     * (MATCH_DELTA). False turns it off for every new board, with no new
+     * build: every board goes whole, exactly as after P11-D3.
+     */
+    val matchDeltas: Boolean = true,
+    /**
+     * P11-D4 -- PROXIC_SPECTATOR_DELTAS, default FALSE: spectators the same
+     * way, switched on in a later release once the players' deltas are proven
+     * live (owner decision 2, 2026-11-23).
+     */
+    val spectatorDeltas: Boolean = false,
+    /**
+     * TEST ONLY -- P11-D4 (PROXIC_TEST_DELTA_CHECK=true). Every delta also
+     * carries the whole board, which the page compares with what it rebuilt
+     * (DELTA_MISMATCH in its console). Set only by the local and CI compose
+     * overrides; never in production (scripts/check-test-switch.py).
+     */
+    val testDeltaCheck: Boolean = false,
 ) {
     /** Where match game records live (§7.56). */
     fun gameRecords(): net.barnflix.proxic.match.GameRecords =
@@ -134,6 +154,7 @@ data class ServerConfig(
             "databaseUrl=${redactUrl(databaseUrl)}, " +
             "forgeWorkerJar=$forgeWorkerJar, dataRoot=$dataRoot, " +
             "staticRoot=$staticRoot, testDeals=$testDeals, " +
+            "matchDeltas=$matchDeltas, spectatorDeltas=$spectatorDeltas, testDeltaCheck=$testDeltaCheck, " +
             "sessionSecret=${mask(sessionSecretValue)}, " +
             "databasePassword=${mask(databasePasswordValue)})"
 
@@ -165,6 +186,9 @@ data class ServerConfig(
                 databaseUserValue = getenv("POSTGRES_USER"),
                 testDeals = getenv("PROXIC_TEST_DEALS")?.toBooleanStrictOrNull() ?: false,
                 testTiming = getenv("PROXIC_TEST_TIMING")?.toBooleanStrictOrNull() ?: false,
+                matchDeltas = getenv("PROXIC_MATCH_DELTAS")?.toBooleanStrictOrNull() ?: true,
+                spectatorDeltas = getenv("PROXIC_SPECTATOR_DELTAS")?.toBooleanStrictOrNull() ?: false,
+                testDeltaCheck = getenv("PROXIC_TEST_DELTA_CHECK")?.toBooleanStrictOrNull() ?: false,
                 matchRecordDays =
                     getenv("PROXIC_MATCH_RECORD_DAYS")?.toLongOrNull()?.takeIf { it > 0 }
                         ?: net.barnflix.proxic.match.GameRecords.DEFAULT_DAYS,

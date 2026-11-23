@@ -15,6 +15,7 @@
 
 import { expect, test, type Locator, type Page, type WebSocketRoute } from "@playwright/test";
 import { join } from "node:path";
+import { WholeBoards } from "../src/delta";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   clearEverything,
@@ -94,6 +95,7 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
   // the next real snapshot, 40 ms later, took the emblem away for good).
   let client: WebSocketRoute | null = null;
   let last = "";
+  const whole = new WholeBoards();
   let extra: { mine: Partial<Player>; theirs: Partial<Player> } | null = null;
   const filled = (message: string) => {
     if (!extra) return message;
@@ -111,9 +113,12 @@ test("the status tray's list says what things do, beside the tray; Space and Pee
     client = ws;
     const server = ws.connectToServer();
     server.onMessage((message) => {
-      if (typeof message === "string" && message.includes('"MATCH_SNAPSHOT"')) {
-        last = message;
-        ws.send(filled(message));
+      // P11-D4: a delta rebuilt to the whole board first (WholeBoards), so what
+      // is filled is a whole board and no later delta builds on a board the
+      // server never sent.
+      if (typeof message === "string" && /"MATCH_(SNAPSHOT|DELTA)"/.test(message)) {
+        last = whole.take(message);
+        ws.send(filled(last));
         return;
       }
       ws.send(message);

@@ -79,36 +79,3 @@ export function trimHistory(
   if (Object.keys(kept).length > 0) sent["kept"] = kept;
   return { sent, held: holds };
 }
-
-/**
- * For browser tests that read or re-send boards off the match socket: the
- * page's own rebuild, kept per socket. `take` gives a MATCH_SNAPSHOT
- * frame's text back whole (as the worker made it), so a test that clones
- * the last board and sends it again sends a whole board, never one trimmed
- * against a list it then doubles.
- */
-export class WholeBoards {
-  private held: HeldHistory | undefined;
-  private revision = -Infinity;
-  /** The last whole board this socket's page took (not one older than its own), or null. */
-  last: Record<string, unknown> | null = null;
-  /** How many boards came trimmed (with `kept`), by list. */
-  readonly trimmed: Record<string, number> = {};
-
-  take(frame: string): string {
-    const message = JSON.parse(frame) as Record<string, unknown>;
-    if (message["type"] !== "MATCH_SNAPSHOT") return frame;
-    const raw = message["state"] as { kept?: Record<string, unknown> } | null;
-    for (const key of Object.keys(raw?.kept ?? {}))
-      this.trimmed[key] = (this.trimmed[key] ?? 0) + 1;
-    const { state, history } = withHistory(this.held, raw);
-    const rev = (state as { stateRevision?: unknown } | null)?.stateRevision;
-    // The page keeps the history of the boards it takes: not one older than its own.
-    if (typeof rev === "number" && rev >= this.revision) {
-      this.revision = rev;
-      this.held = history;
-      this.last = state as Record<string, unknown>;
-    }
-    return JSON.stringify({ ...message, state });
-  }
-}

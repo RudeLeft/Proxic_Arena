@@ -17,7 +17,7 @@ import { expect, test, type WebSocketRoute } from "@playwright/test";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
-import { WholeBoards } from "../src/history";
+import { WholeBoards } from "../src/delta";
 
 type Frame = Record<string, unknown>;
 
@@ -43,8 +43,14 @@ test("dice tumble on the stack; the roll, sector, sprocket and crank windows say
     const server = ws.connectToServer();
     server.onMessage((message) => {
       // P11-D3: kept whole, so the boards made from it below are whole boards.
-      if (typeof message === "string" && message.includes('"MATCH_SNAPSHOT"'))
+      // P11-D4: a delta too, and the page is handed the whole board (it takes
+      // one at any time), so a board said again below never meets a delta
+      // built on the server's board instead of the one this test sent.
+      if (typeof message === "string" && /"MATCH_(SNAPSHOT|DELTA)"/.test(message)) {
         lastSnap = whole.take(message);
+        ws.send(lastSnap);
+        return;
+      }
       if (typeof message === "string" && message.includes('"DECISION_REQUEST"')) lastAsk = message;
       ws.send(message);
     });

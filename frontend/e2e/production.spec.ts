@@ -43,6 +43,7 @@ import {
   seatOf,
   settlePregame,
 } from "./match-helpers";
+import { WholeBoards } from "../src/delta";
 
 test.describe.configure({ timeout: 2_700_000 });
 // No single step may wait out the clock: an action inherits the TEST
@@ -65,14 +66,18 @@ type State = {
   [zone: string]: unknown;
 };
 
-/** Every snapshot a page receives, across reloads. */
+/** Every snapshot a page receives, across reloads (P11-D4: deltas rebuilt, per socket). */
 function snapshots(page: Page) {
   const seen: State[] = [];
   page.on("websocket", (socket) => {
     if (!socket.url().includes("/ws/matches/")) return;
+    const whole = new WholeBoards();
     socket.on("framereceived", (event) => {
       try {
-        const frame = JSON.parse(String(event.payload)) as { type?: string; state?: State };
+        const frame = JSON.parse(whole.take(String(event.payload))) as {
+          type?: string;
+          state?: State;
+        };
         if (frame.type === "MATCH_SNAPSHOT" && frame.state) seen.push(frame.state);
       } catch {
         // not JSON; not ours

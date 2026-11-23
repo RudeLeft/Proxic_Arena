@@ -20,7 +20,8 @@
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { HISTORY_KEYS, WholeBoards } from "../src/history";
+import { WholeBoards } from "../src/delta";
+import { HISTORY_KEYS } from "../src/history";
 import { extraPlayers, secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import { clearEverything, sharedDeck, startAMatch, watchGame } from "./match-helpers";
 import { step } from "./speed-kit";
@@ -42,9 +43,11 @@ function sockets(page: Page) {
     socket.on("framereceived", (event) => {
       const text = String(event.payload);
       lastFrame = Date.now();
-      if (!text.includes('"MATCH_SNAPSHOT"')) return;
+      // P11-D4: a delta is a board too (rebuilt by WholeBoards); a connection's
+      // first board is always a whole MATCH_SNAPSHOT.
+      if (!/"MATCH_(SNAPSHOT|DELTA)"/.test(text)) return;
       s.frames += 1;
-      if (!s.first) s.first = (JSON.parse(text) as { state: Board }).state;
+      if (!s.first) s.first = (JSON.parse(text) as { state: Board }).state ?? null;
       s.whole.take(text);
     });
   });

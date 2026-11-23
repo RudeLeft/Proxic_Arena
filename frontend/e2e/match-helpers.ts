@@ -13,7 +13,7 @@
 //
 // Every locator here was read off the running application.
 
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { basename, extname, join } from "node:path";
 import { importPackage, noticeCard, secondUser, shareOpenDeckWith, testUser } from "./helpers";
 import { geometry } from "../src/battlefield/layout";
@@ -889,6 +889,96 @@ export async function whoseTurn(a: Page, b: Page): Promise<{ asked: Page; waitin
  * match" until the timeout. Every step here asserts the server
  * agreed before the next one depends on it.
  */
+// --- P11-D4: every browser game is P11-R4's browser gate (F-0117-E) ---------
+//
+// The CI and local stacks run with PROXIC_TEST_DELTA_CHECK on: every delta the
+// server sends also carries the whole board, and the page compares the board
+// it rebuilt with it, logging DELTA_MISMATCH (match.ts) on a difference. For a
+// seat, the whole board IS the worker's stripped view, so "rebuilt equals
+// whole" means the page held nothing more than the worker allowed. Every page
+// in a game this file starts is watched: a DELTA_MISMATCH, or a page asking
+// for the whole board again (MATCH_RESYNC: only ever a bug; 0 in every CI
+// game), fails the test. The deltas each page was sent are counted (HID-004:
+// the gate is seen running) and printed as the page closes.
+
+/** What one page's match sockets carried, for P11-D4's gate. */
+export type DeltaTally = {
+  who: string;
+  deltas: number;
+  boards: number;
+  resyncs: number;
+  mismatches: string[];
+  /** A test that forces a resync on purpose (match-deltas) sets this. */
+  allowResync: boolean;
+};
+
+const tallies = new WeakMap<Page, DeltaTally>();
+const watchedContexts = new WeakSet<BrowserContext>();
+
+/** Soft-fail the running test (an event can arrive after it ended: then only printed). */
+function deltaProblem(text: string) {
+  try {
+    test.info();
+    expect.soft(text, "P11-R4's browser gate (spec 0117)").toBe("");
+  } catch {
+    console.log(`[deltas] after the test: ${text}`);
+  }
+}
+
+/** Watch one page (and, with its context, every page opened in it later): see the file note above. */
+export function watchDeltas(page: Page, who = "page"): DeltaTally {
+  const known = tallies.get(page);
+  if (known) return known;
+  const tally: DeltaTally = {
+    who,
+    deltas: 0,
+    boards: 0,
+    resyncs: 0,
+    mismatches: [],
+    allowResync: false,
+  };
+  tallies.set(page, tally);
+  page.on("console", (message) => {
+    const text = message.text();
+    if (!text.includes("DELTA_MISMATCH")) return;
+    tally.mismatches.push(text);
+    deltaProblem(`${who}: ${text}`);
+  });
+  page.on("websocket", (socket) => {
+    if (!socket.url().includes("/ws/matches/")) return;
+    socket.on("framereceived", (event) => {
+      const text = String(event.payload);
+      const head = text.slice(0, 80);
+      if (head.includes('"MATCH_DELTA"')) tally.deltas += 1;
+      else if (head.includes('"MATCH_SNAPSHOT"')) tally.boards += 1;
+    });
+    socket.on("framesent", (event) => {
+      if (!String(event.payload).includes('"MATCH_RESYNC"')) return;
+      tally.resyncs += 1;
+      if (!tally.allowResync)
+        deltaProblem(`${who}: asked for the whole table again (MATCH_RESYNC)`);
+    });
+  });
+  page.on("close", () => {
+    if (tally.deltas + tally.boards > 0)
+      console.log(
+        `[deltas] ${who}: ${tally.deltas} deltas, ${tally.boards} whole boards, ` +
+          `${tally.resyncs} resyncs, ${tally.mismatches.length} mismatches`,
+      );
+  });
+  const context = page.context();
+  if (!watchedContexts.has(context)) {
+    watchedContexts.add(context);
+    context.on("page", (opened) => watchDeltas(opened, `${who} (another tab)`));
+  }
+  return tally;
+}
+
+/** The tally of a page watched (startAMatch watches both players'). */
+export function deltasOf(page: Page): DeltaTally {
+  return tallies.get(page) ?? watchDeltas(page);
+}
+
 export async function startAMatch(
   host: Page,
   guest: Page,
@@ -915,6 +1005,9 @@ export async function startAMatch(
     deal?: { host?: SeatDeal; guest?: SeatDeal };
   } = {},
 ) {
+  // P11-D4 -- both players' pages are P11-R4's browser gate.
+  watchDeltas(host, "host");
+  watchDeltas(guest, "guest");
   await host.goto("/play");
   await guest.goto("/play");
   await openRoom(host);

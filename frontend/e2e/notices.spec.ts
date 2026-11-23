@@ -12,7 +12,7 @@ import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import { join } from "node:path";
 import { noticeCard, secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import { clearEverything, sharedDeck, startAMatch } from "./match-helpers";
-import { WholeBoards } from "../src/history";
+import { WholeBoards } from "../src/delta";
 
 /** The lobby socket, with a way to say things to the page as the server. */
 async function lobbySocket(page: Page): Promise<() => WebSocketRoute | null> {
@@ -101,8 +101,13 @@ test("in a game, the game's messages sit top right of the table and clicks go th
     const server = ws.connectToServer();
     server.onMessage((message) => {
       // P11-D3: kept whole, so the board made from it below is a whole board.
-      if (typeof message === "string" && message.includes('"MATCH_SNAPSHOT"'))
+      // P11-D4: a delta too; the page is handed the whole board (it takes one
+      // at any time), so the board this test sends meets no later delta.
+      if (typeof message === "string" && /"MATCH_(SNAPSHOT|DELTA)"/.test(message)) {
         last = whole.take(message);
+        ws.send(last);
+        return;
+      }
       ws.send(message);
     });
     ws.onMessage((message) => server.send(message));

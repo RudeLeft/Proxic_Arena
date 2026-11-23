@@ -87,3 +87,19 @@ services:
       # docker-compose.yml, docker-compose.unraid.yml or the Dockerfile
       # (scripts/check-test-switch.py).
       PROXIC_TEST_TIMING: "${PROXIC_TEST_TIMING:-false}"
+      # TEST ONLY -- Phase 11 P11-D4 (spec 0117). Every delta (MATCH_DELTA)
+      # also carries the whole board, and the page logs DELTA_MISMATCH if the
+      # board it rebuilt differs: the browser half of P11-R4's gate, which
+      # every browser game reads (e2e/match-helpers.ts). On unless the shell
+      # says otherwise; the measuring kit turns it off (it doubles the bytes):
+      #
+      #   PROXIC_TEST_DELTA_CHECK=false docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+      #
+      # NEVER in docker-compose.yml, docker-compose.unraid.yml or the
+      # Dockerfile (scripts/check-test-switch.py).
+      PROXIC_TEST_DELTA_CHECK: "${PROXIC_TEST_DELTA_CHECK:-true}"
+      # Phase 11 P11-D4 -- the production switches, passed through so a local
+      # run can try each way (F-0117-H, F-0117-I); production needs neither
+      # (players on, spectators off are the server's defaults).
+      PROXIC_MATCH_DELTAS: "${PROXIC_MATCH_DELTAS:-true}"
+      PROXIC_SPECTATOR_DELTAS: "${PROXIC_SPECTATOR_DELTAS:-false}"

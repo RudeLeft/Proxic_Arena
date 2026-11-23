@@ -1,8 +1,5 @@
 package net.barnflix.proxic.match
 
-import kotlinx.coroutines.channels.SendChannel
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -54,62 +51,6 @@ val HISTORY_KEYS: List<String> = listOf("payments", "rolls", "notices")
 
 /** P11-D3 -- the key that says how many of each list the page keeps. */
 const val KEPT_KEY = "kept"
-
-/** P11-D3 -- what one connection's page holds, and the board that trims against it. */
-internal class BoardStream {
-    private val lock = Mutex()
-
-    /** The lists the page holds now, as it rebuilt them. */
-    private var held: Map<String, List<JsonElement>> = emptyMap()
-
-    /** The newest board revision sent on this connection; null before the first. */
-    private var revision: Long? = null
-
-    /**
-     * Send [state] on [outgoing], trimmed to what this page lacks. [envelope]
-     * wraps the board actually sent (the same envelope for every connection,
-     * so its messageId is one).
-     */
-    suspend fun send(
-        outgoing: SendChannel<io.ktor.websocket.Frame>,
-        state: JsonObject,
-        envelope: (JsonObject) -> JsonObject,
-    ) {
-        lock.withLock {
-            val sent = next(state)
-            outgoing.send(io.ktor.websocket.Frame.Text(envelope(sent).toString()))
-        }
-    }
-
-    /** The board to send for [state], with the memory moved on: the step [send] makes, apart for tests. */
-    fun next(state: JsonObject): JsonObject {
-        val rev = (state["stateRevision"] as? JsonPrimitive)?.longOrNull
-        val last = revision
-        // The page drops a board older than the one it has: send it whole, remember nothing.
-        if (rev != null && last != null && rev < last) return state
-        if (rev != null) revision = rev
-        val trimmed = BoardHistory.trim(state, held)
-        held = trimmed.held
-        return trimmed.board
-    }
-}
-
-/**
- * P11-D3 -- one message to one connection: a MATCH_SNAPSHOT through the
- * connection's [BoardStream] (its history trimmed to what the page lacks;
- * the envelope, and so the messageId, unchanged), anything else as [text].
- */
-internal suspend fun Connection.deliver(
-    message: JsonObject,
-    text: Lazy<String>,
-) {
-    val state = message["state"] as? JsonObject
-    if ((message["type"] as? JsonPrimitive)?.content == "MATCH_SNAPSHOT" && state != null) {
-        board.send(outgoing, state) { sent -> JsonObject(message + ("state" to sent)) }
-    } else {
-        outgoing.send(io.ktor.websocket.Frame.Text(text.value))
-    }
-}
 
 /** P11-D3 -- the trimming itself, pure: a board and what the page holds in; what to send and hold out. */
 object BoardHistory {

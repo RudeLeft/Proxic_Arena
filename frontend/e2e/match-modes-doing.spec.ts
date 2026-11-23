@@ -21,7 +21,7 @@ import { expect, test, type WebSocketRoute } from "@playwright/test";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import { clearEverything, matchPanel, sharedDeck, startAMatch } from "./match-helpers";
-import { WholeBoards } from "../src/history";
+import { WholeBoards } from "../src/delta";
 
 type Frame = Record<string, unknown>;
 const MODES = [
@@ -56,10 +56,14 @@ test("several modes are ticked then Done, and the page answers the rest; the wai
     const server = ws.connectToServer();
     server.onMessage((m) => {
       if (typeof m === "string" && m.includes('"DECISION_REQUEST"')) lastAsk = m;
-      if (typeof m === "string" && m.includes('"MATCH_SNAPSHOT"')) {
-        seat = (JSON.parse(m) as { state: { seat: number } }).state.seat;
+      if (typeof m === "string" && /"MATCH_(SNAPSHOT|DELTA)"/.test(m)) {
         // P11-D3: kept whole, so the board made from it below is a whole board.
+        // P11-D4: a delta too; the page is handed the whole board (it takes one
+        // at any time), so the board said again below meets no later delta.
         lastSnap = whole.take(m);
+        seat = (JSON.parse(lastSnap) as { state: { seat: number } }).state.seat;
+        ws.send(lastSnap);
+        return;
       }
       if (catching && typeof m === "string" && /"(DECISION_|MATCH_ASKING)/.test(m)) return;
       ws.send(m);

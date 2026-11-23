@@ -62,8 +62,10 @@ fun Route.matchSocket(
         // Spec 0047 — not a player: a spectator, if the game is on here
         // (spec 0067: every game may be watched). Sent the public view,
         // never asked.
+        // P11-D4 -- the page takes deltas (`?deltas=1`): a format choice, nothing else.
+        val asks = hub.deltas.asked(call.request.queryParameters["deltas"])
         if (match != null && seat == null && mayWatch(match, runtime)) {
-            spectate(matchId!!, principal.user, runtime, hub)
+            spectate(matchId!!, principal.user, runtime, hub, asks.spectators)
             return@webSocket
         }
         // Spec 0067 — a spectator back after the game ended here.
@@ -74,7 +76,15 @@ fun Route.matchSocket(
         }
 
         val connectionId = "mconn-${connectionSequence.incrementAndGet()}"
-        val connection = hub.watchers.open(matchId, userId, connectionId, outgoing)
+        val connection =
+            hub.watchers.open(
+                matchId,
+                userId,
+                connectionId,
+                outgoing,
+                deltas = asks.players,
+                check = hub.deltas.check,
+            )
 
         try {
             // Spec 0047 — how many are watching, from the start (spec 0067: and who).
@@ -91,7 +101,7 @@ fun Route.matchSocket(
             // board that reached the connection first cannot cross; the
             // first board on a connection carries every list whole.
             runtime.snapshotFor(matchId, userId)?.let { state ->
-                connection.board.send(outgoing, state) { snapshotMessage(it) }
+                connection.board.send(outgoing, snapshotMessage(state))
             }
 
             // §6.111, §6.112 — whatever Forge is still waiting for,
@@ -108,21 +118,111 @@ fun Route.matchSocket(
             // screen does not guess it from priority.
             askingFor(runtime, matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
 
-            for (frame in incoming) {
-                val text = (frame as? Frame.Text)?.readText() ?: continue
-                // P11-D0 (test only): when the player's message was read; 0 while off.
-                val read = MatchTiming.now()
-                handle(text, matchId, userId, runtime, presence)?.let { reply ->
-                    val start = MatchTiming.now()
-                    send(Frame.Text(reply.toString()))
-                    MatchTiming.out(matchId, userId, reply, start, 1)
-                }
-                MatchTiming.answerRead(matchId, userId, text, read)
-            }
+            listen(connection, runtime, matchId, userId, presence)
         } finally {
             hub.watchers.close(matchId, userId, connectionId)
+            boardsSent(matchId, connectionId, connection.board)
         }
     }
+}
+
+private val socketLog = org.slf4j.LoggerFactory.getLogger("net.barnflix.proxic.match.MatchSocket")
+
+/** Every message a player's page sends, answered in turn until the connection closes. */
+private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.listen(
+    connection: Connection,
+    runtime: MatchRuntime,
+    matchId: UUID,
+    userId: UUID,
+    presence: net.barnflix.proxic.room.Presence,
+) {
+    val resyncs = Resyncs(matchId, connection.connectionId)
+    for (frame in incoming) {
+        val text = (frame as? Frame.Text)?.readText() ?: continue
+        // P11-D4 -- a delta did not fit: the board again, whole, then the question.
+        if (resyncs.asked(text, connection)) {
+            resync(connection, runtime, matchId, userId)
+            continue
+        }
+        // P11-D0 (test only): when the player's message was read; 0 while off.
+        val read = MatchTiming.now()
+        handle(text, matchId, userId, runtime, presence)?.let { reply ->
+            val start = MatchTiming.now()
+            send(Frame.Text(reply.toString()))
+            MatchTiming.out(matchId, userId, reply, start, 1)
+        }
+        MatchTiming.answerRead(matchId, userId, text, read)
+    }
+}
+
+/**
+ * P11-D4 -- MATCH_RESYNC answered as a new connection is (without the hello):
+ * the stored board whole, with the whole play log (the connection's memory
+ * forgotten first), then the question still waiting for this user, then who
+ * is asked. State first (PROTO-002, §6.110).
+ */
+private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.resync(
+    connection: Connection,
+    runtime: MatchRuntime,
+    matchId: UUID,
+    userId: UUID,
+) {
+    connection.board.resend(outgoing) { runtime.snapshotFor(matchId, userId) }
+    runtime.pendingFor(matchId, userId)?.let { question ->
+        send(Frame.Text(decisionMessage(question).toString()))
+    }
+    askingFor(runtime, matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
+}
+
+/**
+ * P11-D4 -- MATCH_RESYNC on one connection. Nothing in it is acted on (§6.100):
+ * `have` is written to the log line only, as numbers. At most one a second is
+ * answered; more are logged and ignored.
+ */
+internal class Resyncs(
+    private val matchId: UUID,
+    private val connectionId: String,
+) {
+    private var last = 0L
+
+    /** True when [text] is a MATCH_RESYNC to answer now (it is logged either way). */
+    fun asked(
+        text: String,
+        connection: Connection,
+    ): Boolean {
+        if (!text.contains("\"MATCH_RESYNC\"")) return false
+        val message = runCatching { json.parseToJsonElement(text) as JsonObject }.getOrNull() ?: return false
+        if (message["type"]?.jsonPrimitive?.contentOrNullSafe() != "MATCH_RESYNC") return false
+        val have = message["have"] as? JsonObject
+
+        fun number(key: String) = runCatching { have?.get(key)?.jsonPrimitive?.long }.getOrNull()?.toString() ?: "?"
+        val had = "${number("gameEpoch")}/${number("stateRevision")}"
+        val now = System.currentTimeMillis()
+        if (now - last < RESYNC_GAP_MS) {
+            socketLog.warn("match $matchId: connection $connectionId asked for a full board again at once: ignored")
+            return false
+        }
+        last = now
+        socketLog.warn(
+            "match $matchId: connection $connectionId asked for a full board " +
+                "(had $had, sent ${connection.board.sent()})",
+        )
+        return true
+    }
+}
+
+private const val RESYNC_GAP_MS = 1_000L
+
+/** P11-D4 -- one line per connection as it closes: its boards, as deltas and whole by why (the measure counts them). */
+private fun boardsSent(
+    matchId: UUID,
+    connectionId: String,
+    board: BoardStream,
+) {
+    val counts = board.counts.toSortedMap()
+    if (counts.isEmpty()) return
+    val told = counts.entries.joinToString { "${it.key} ${it.value}" }
+    socketLog.info("match $matchId: connection $connectionId boards sent: $told")
 }
 
 /**
@@ -135,25 +235,34 @@ private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.spect
     user: net.barnflix.proxic.auth.User,
     runtime: MatchRuntime,
     hub: MatchHub,
+    deltas: Boolean,
 ) {
     val userId = user.userId
     val connectionId = "mwatch-${connectionSequence.incrementAndGet()}"
     hub.spectatorNames[userId] = user.displayName
-    val connection = hub.spectators.open(matchId, userId, connectionId, outgoing)
+    val connection = hub.spectators.open(matchId, userId, connectionId, outgoing, deltas, hub.deltas.check)
+    val resyncs = Resyncs(matchId, connectionId)
     watching(runtime, matchId, userId, on = true, anyoneLeft = true)
     tellPlayers(matchId, runtime, hub)
     try {
         send(Frame.Text(matchHelloMessage(matchId, PUBLIC_SEAT).toString()))
         // Spec 0067 — with the public play log so far.
         runtime.liveMatch(matchId)?.publicSnapshotWithLog()?.let { state ->
-            connection.board.send(outgoing, state) { snapshotMessage(it) }
+            connection.board.send(outgoing, snapshotMessage(state))
         }
         askingFor(runtime, matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
         for (frame in incoming) {
-            // A spectator changes nothing: whatever arrives is dropped.
+            // A spectator changes nothing: whatever arrives is dropped, but for
+            // P11-D4's MATCH_RESYNC (the public view again, whole).
+            val text = (frame as? Frame.Text)?.readText() ?: continue
+            if (resyncs.asked(text, connection)) {
+                connection.board.resend(outgoing) { runtime.liveMatch(matchId)?.publicSnapshotWithLog() }
+                askingFor(runtime, matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
+            }
         }
     } finally {
         hub.spectators.close(matchId, userId, connectionId)
+        boardsSent(matchId, connectionId, connection.board)
         val stillWatching = hub.spectators.of(matchId, userId).isNotEmpty()
         watching(runtime, matchId, userId, on = stillWatching, anyoneLeft = hub.spectators.people(matchId) > 0)
         tellPlayers(matchId, runtime, hub)

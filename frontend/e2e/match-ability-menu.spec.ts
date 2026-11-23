@@ -12,6 +12,7 @@
 import { expect, test, type WebSocketRoute } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { WholeBoards } from "../src/delta";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import {
   clearEverything,
@@ -49,11 +50,14 @@ test("a card's abilities: the unusable ones greyed, cost first, with why; and wh
   // one ability not offered now, on each question with options.
   // Set from the socket handler, which TypeScript cannot see.
   let mine = [] as string[];
+  // P11-D4: the host's boards read through WholeBoards (read only: the page
+  // is sent the frames as they came, deltas too).
+  const whole = new WholeBoards();
   await host.routeWebSocket("**/ws/matches/**", (ws: WebSocketRoute) => {
     const server = ws.connectToServer();
     server.onMessage((message) => {
       if (typeof message !== "string") return ws.send(message);
-      const frame = JSON.parse(message) as Record<string, unknown>;
+      const frame = JSON.parse(whole.take(message)) as Record<string, unknown>;
       if (frame["type"] === "MATCH_SNAPSHOT") {
         const state = frame["state"] as {
           seat: number;

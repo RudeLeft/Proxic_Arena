@@ -28,3 +28,14 @@ services:
       # docker-compose.unraid.yml or the Dockerfile; CI fails if they
       # name it (scripts/check-test-switch.py).
       PROXIC_TEST_DEALS: "true"
+      # TEST ONLY -- Phase 11 P11-D4 (spec 0117). Every delta also carries the
+      # whole board, and any page whose rebuilt board differs logs
+      # DELTA_MISMATCH, which fails its test (e2e/match-helpers.ts): P11-R4's
+      # browser gate, over every browser game. NEVER in production
+      # (scripts/check-test-switch.py).
+      PROXIC_TEST_DELTA_CHECK: "true"
+      # P11-D4 -- spectators' deltas, off in production until owner decision 2
+      # turns them on, are on here so the gate covers the spectators' view too
+      # (match-watching, match-history). Off is today's whole boards, which the
+      # server's tests hold (BoardDeltaTest).
+      PROXIC_SPECTATOR_DELTAS: "true"

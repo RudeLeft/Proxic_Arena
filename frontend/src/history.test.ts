@@ -5,7 +5,8 @@
 
 import { describe, expect, it } from "vitest";
 import { EMPTY_MATCH, reduceMatch, type MatchState } from "./match";
-import { WholeBoards, trimHistory, withHistory, type HeldHistory } from "./history";
+import { trimHistory, withHistory, type HeldHistory } from "./history";
+import { WholeBoards } from "./delta";
 
 type Raw = Record<string, unknown>;
 

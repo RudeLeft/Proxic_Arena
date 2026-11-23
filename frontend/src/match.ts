@@ -25,6 +25,7 @@ import { onPageBack, pageIsLeaving } from "./pageLife";
 import { asOutcome, type MatchOutcome } from "./lobby";
 import { countWords } from "./words";
 import { withHistory, type HeldHistory } from "./history";
+import { applyDelta, DeltaError, firstDifference } from "./delta";
 
 export interface DecisionOption {
   actionId: string;
@@ -1282,6 +1283,18 @@ export interface MatchState {
    * page last took had them: a board sends only the entries the page lacks.
    */
   history?: HeldHistory;
+  /**
+   * P11-D4 -- the BASE: the last whole board this page took, as sent (after
+   * the history is rebuilt, before `asSnapshot`). A MATCH_DELTA builds on it.
+   * Kept apart from `board`: MATCH_STEP moves the board shown, never this.
+   */
+  base?: Record<string, unknown> | null;
+  /**
+   * P11-D4 -- a delta did not fit (it builds on a board this page does not
+   * have): the page has asked for a full board and drops deltas until one
+   * comes. The table stays as it is meanwhile (owner decision 3: nothing shown).
+   */
+  resync?: boolean;
 }
 
 /** Spec 0067 -- how a game ended, told to a spectator (MATCH_ENDED). */
@@ -1305,6 +1318,40 @@ export const EMPTY_MATCH: MatchState = {
   watching: 0,
   awayMinutes: 10,
 };
+
+/**
+ * A whole board in (a MATCH_SNAPSHOT's, or one a MATCH_DELTA rebuilt), as
+ * the worker made it: the play log merged, then the board taken unless it is
+ * older than the one shown. P11-D4: it becomes the base too.
+ */
+function takeBoard(state: MatchState, raw: unknown, history: HeldHistory): MatchState {
+  // Spec 0064 -- the play log first: a stale board (a reconnect's stored
+  // one) still brings the log's history, which the page keeps by number.
+  const lines = asPlayLog(
+    typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>)["playLog"] : null,
+  );
+  if (lines.length > 0) state = { ...state, playLog: mergePlayLog(state.playLog ?? [], lines) };
+  const board = asSnapshot(raw);
+  if (!board) return state;
+  // §6.41 — the revision is monotonic, so an older snapshot
+  // arriving late must not overwrite a newer one. Frames are
+  // ordered on one socket, but a reconnect sends the stored
+  // snapshot while the live one may already be in flight.
+  if (state.board && board.stateRevision < state.board.stateRevision) return state;
+  const before = new Set((state.board?.stack ?? []).map((entry) => entry.id));
+  const fresh = board.stack.some(
+    (entry) =>
+      entry.controller !== null && entry.controller !== board.seat && !before.has(entry.id),
+  );
+  return {
+    ...state,
+    board,
+    history,
+    base: raw as Record<string, unknown>,
+    spotlight: fresh ? board : state.spotlight,
+    recent: [...(state.recent ?? []).slice(-(RECENT_KEPT - 1)), board],
+  };
+}
 
 /**
  * Apply one server message.
@@ -1363,34 +1410,43 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       // the lists this page holds (history.ts), so everything below reads
       // the board the worker made.
       const whole = withHistory(state.history, message["state"]);
-      const raw = whole.state;
-      // Spec 0064 -- the play log first: a stale board (a reconnect's stored
-      // one) still brings the log's history, which the page keeps by number.
-      const lines = asPlayLog(
-        typeof raw === "object" && raw !== null
-          ? (raw as Record<string, unknown>)["playLog"]
-          : null,
+      // P11-D4 -- a full board is taken at any time, and ends a wait for one.
+      return takeBoard(
+        state.resync ? { ...state, resync: false } : state,
+        whole.state,
+        whole.history,
       );
-      if (lines.length > 0) state = { ...state, playLog: mergePlayLog(state.playLog ?? [], lines) };
-      const board = asSnapshot(raw);
-      if (!board) return state;
-      // §6.41 — the revision is monotonic, so an older snapshot
-      // arriving late must not overwrite a newer one. Frames are
-      // ordered on one socket, but a reconnect sends the stored
-      // snapshot while the live one may already be in flight.
-      if (state.board && board.stateRevision < state.board.stateRevision) return state;
-      const before = new Set((state.board?.stack ?? []).map((entry) => entry.id));
-      const fresh = board.stack.some(
-        (entry) =>
-          entry.controller !== null && entry.controller !== board.seat && !before.has(entry.id),
-      );
-      return {
-        ...state,
-        board,
-        history: whole.history,
-        spotlight: fresh ? board : state.spotlight,
-        recent: [...(state.recent ?? []).slice(-(RECENT_KEPT - 1)), board],
-      };
+    }
+
+    // P11-D4 -- only what changed since the board this page was last sent.
+    case "MATCH_DELTA": {
+      // Waiting for a full board: deltas are dropped until it comes.
+      if (state.resync) return state;
+      const base = state.base;
+      if (
+        !base ||
+        base["gameEpoch"] !== message["gameEpoch"] ||
+        base["stateRevision"] !== message["from"]
+      ) {
+        // Builds on a board this page does not have: ask (connectMatch sends MATCH_RESYNC).
+        return { ...state, resync: true };
+      }
+      let rebuilt: Record<string, unknown>;
+      try {
+        rebuilt = applyDelta(base, message);
+      } catch (error) {
+        if (error instanceof DeltaError) return { ...state, resync: true };
+        throw error;
+      }
+      const whole = withHistory(state.history, rebuilt);
+      // TEST ONLY (PROXIC_TEST_DELTA_CHECK): the server sent the full board
+      // too. Compared, and a difference logged -- the REBUILT board is drawn.
+      if ("whole" in message) {
+        const at = firstDifference(whole.state, message["whole"]);
+        if (at !== null)
+          console.error(`DELTA_MISMATCH at ${at} (revision ${String(message["to"])})`);
+      }
+      return takeBoard(state, whole.state, whole.history);
     }
 
     case "MATCH_STEP": {
@@ -2815,6 +2871,12 @@ function asString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+/**
+ * P11-D4 -- how long the page waits for the full board it asked for
+ * (MATCH_RESYNC) before closing the socket; the reconnect then brings one.
+ */
+export const MATCH_RESYNC_WAIT_MS = 3_000;
+
 /** Waits before each try to reconnect to a game, in milliseconds; the last one repeats. */
 export const MATCH_RECONNECT_DELAYS: readonly number[] = [500, 1000, 2000, 4000, 8000];
 
@@ -2864,6 +2926,24 @@ export function connectMatch(
     const current = factory(url);
     socket = current;
     let dropped = false;
+    // P11-D4 -- this socket asked for a full board; the timer that closes it
+    // (the reconnect then brings one) if none has come in time.
+    let resyncAsked = false;
+    let resyncTimer: ReturnType<typeof setTimeout> | null = null;
+    const askForBoard = (base: Record<string, unknown> | null | undefined) => {
+      if (resyncAsked || current.readyState !== WebSocket.OPEN) return;
+      resyncAsked = true;
+      const have =
+        base && typeof base["gameEpoch"] === "number" && typeof base["stateRevision"] === "number"
+          ? { gameEpoch: base["gameEpoch"], stateRevision: base["stateRevision"] }
+          : undefined;
+      logLine("game", "asked for the whole table again");
+      current.send(JSON.stringify({ type: "MATCH_RESYNC", ...(have ? { have } : {}) }));
+      resyncTimer = setTimeout(() => {
+        resyncTimer = null;
+        if (resyncAsked && !closedByUs) current.close(4000, "no full board");
+      }, MATCH_RESYNC_WAIT_MS);
+    };
     current.onopen = () => {
       if (attempt > 0) logLine("connection", "game connection back");
       attempt = 0;
@@ -2874,10 +2954,23 @@ export function connectMatch(
       // Spec 0067 -- the game is over: the server closes this socket next,
       // and there is nothing to come back to.
       if (parsed["type"] === "MATCH_ENDED") over = true;
+      // P11-D4 -- a full board answers a request for one.
+      if (parsed["type"] === "MATCH_SNAPSHOT" && resyncAsked) {
+        resyncAsked = false;
+        if (resyncTimer !== null) clearTimeout(resyncTimer);
+        resyncTimer = null;
+      }
       logLine("game", summarise("in", parsed)); // spec 0039
-      onState((previous) => reduceMatch(previous, parsed));
+      onState((previous) => {
+        const next = reduceMatch(previous, parsed);
+        // P11-D4 -- a delta that does not fit: ask once for the whole board.
+        if (next.resync && !previous.resync) askForBoard(previous.base);
+        return next;
+      });
     };
     current.onclose = (event) => {
+      if (resyncTimer !== null) clearTimeout(resyncTimer);
+      resyncTimer = null;
       if (dropped || closedByUs) return;
       dropped = true;
       logLine("connection", `game connection closed (${event.code})`);

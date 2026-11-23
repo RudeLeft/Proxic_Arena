@@ -5,7 +5,9 @@
 PROXIC_TEST_DEALS=true lets a browser test deal set cards (the server then
 starts the worker with --lab-deal and mounts POST /api/matches/test-deal).
 PROXIC_TEST_TIMING=true writes timing marks to the server's log and each
-match's worker log (P11-D0's timeline measure). Each belongs only in the
+match's worker log (P11-D0's timeline measure). PROXIC_TEST_DELTA_CHECK=true
+adds the whole board to every MATCH_DELTA for the page to compare (P11-D4's
+browser gate). Each belongs only in the
 test overrides. This fails if the production compose files or the
 Dockerfile (the image's defaults) mention either at all -- not just
 "=true": a line passing it through from .env would let a host's settings
@@ -30,6 +32,12 @@ SWITCHES = {
     # The local stack only, off unless the shell bringing it up says so.
     "PROXIC_TEST_TIMING": {
         "docker-compose.local.yml": r'"\$\{PROXIC_TEST_TIMING:-false\}"',
+    },
+    # P11-D4: always on in CI, on in the local stack unless the shell says
+    # otherwise (the measuring kit turns it off).
+    "PROXIC_TEST_DELTA_CHECK": {
+        "docker-compose.local.yml": r'"\$\{PROXIC_TEST_DELTA_CHECK:-true\}"',
+        "docker-compose.ci.yml": r'"true"',
     },
 }
 
