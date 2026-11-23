@@ -34,6 +34,7 @@ import net.barnflix.proxic.deck.deckRulesRoutes
 import net.barnflix.proxic.deck.startPictureCleanup
 import net.barnflix.proxic.hall.HallGameSource
 import net.barnflix.proxic.hall.hallRoutes
+import net.barnflix.proxic.lobby.AccountNames
 import net.barnflix.proxic.match.MatchLauncher
 import net.barnflix.proxic.match.matchRoutes
 import net.barnflix.proxic.match.matchSocket
@@ -665,10 +666,8 @@ private fun Route.databaseRoutes(
         // exist; a browser holding a stale list is
         // corrected rather than believed.
         matchPresetRoutes()
-        hallRoutes(
-            HallGameSource(database.dataSource()), // spec 0018
-            net.barnflix.proxic.lobby.AccountNames(database.dataSource())::avatarsOf, // P11-E2
-        )
+        // Spec 0018; P11-E2: each player the Hall names comes with their avatar.
+        hallRoutes(HallGameSource(database.dataSource()), AccountNames(database.dataSource())::avatarsOf)
         reportRoutes(Reports(database.dataSource(), config.dataRoot, config.gameRecords())) // spec 0039
 
         val importer =
