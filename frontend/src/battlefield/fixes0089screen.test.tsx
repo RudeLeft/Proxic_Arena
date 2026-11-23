@@ -262,18 +262,25 @@ describe("F-0089-A · the game ends: banner after the last hit; the shield break
     // The last hit lands (the clock ends): the end plays.
     const clock = animations.find((a) => a.options.id === "life-clock")!;
     expect(clock).toBeTruthy();
+    const before = performance.now();
     act(() => clock.animation.onfinish?.());
     expect(plate(c, 2).classList.contains("gs-seat-lost")).toBe(true);
     expect(plate(c, 2).dataset.end).toBe("lost:life");
     const shards = [...plate(c, 2).querySelectorAll(".gs-life-shard")];
     expect(shards).toHaveLength(3);
-    // (Each from the end's start: a few ms have passed since it began.)
-    for (const shard of shards)
-      expect(Number(runsOn(shard)[0]?.options.delay)).toBeGreaterThan(BREAK_AT - 30);
+    // Each delay is counted from the end's start, so it is its moment less the
+    // time that has passed since. That time is measured, not guessed: a fixed
+    // 30 ms allowance failed under a loaded full run (776.8 > 783, 2026-11-22).
+    const passed = performance.now() - before + 1;
+    for (const shard of shards) {
+      const delay = Number(runsOn(shard)[0]?.options.delay);
+      expect(delay).toBeGreaterThan(BREAK_AT - passed);
+      expect(delay).toBeLessThanOrEqual(BREAK_AT);
+    }
     expect(plate(c, 1).classList.contains("gs-seat-won")).toBe(true);
-    expect(
-      Number(runsOn(plate(c, 1).querySelector(".gs-seat-flare"))[0]?.options.delay),
-    ).toBeGreaterThan(FLARE_AT - 30);
+    const flare = Number(runsOn(plate(c, 1).querySelector(".gs-seat-flare"))[0]?.options.delay);
+    expect(flare).toBeGreaterThan(FLARE_AT - (performance.now() - before + 1));
+    expect(flare).toBeLessThanOrEqual(FLARE_AT);
     // The banner: there, faded in at BANNER_AT, not clickable until it is in.
     const enter = c.querySelector<HTMLElement>(".gs-over-enter")!;
     expect(enter.querySelector(".gs-over")).toBeTruthy();
