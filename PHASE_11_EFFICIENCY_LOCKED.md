@@ -875,6 +875,8 @@ INFERENCE = reasoned.
 
 **Owner answers, 2026-11-22 (after P11-D0):** the deliberate pauses (0061's 400 ms per passed step, 0105's stack rest) stay as they are; Phase 11 works on real slowness only. **C3 and C4 move up to run beside step 3** (the browser's React commit and next frame are the biggest slice of the system's own time in a tap, a cast and a combat); C2 stays after D4.
 
+**Owner answers, 2026-11-22 (after P11-E2):** while an avatar is unknown the **default face stays** (no empty circle; no look change). The last swap — a freshly opened room's other seat — is fixed by **adding the avatar to the room data, done with E5** (the start-up chain), not separately.
+
 ## As built: P11-B5 (2026-11-21)
 
 `tsc -p tsconfig.e2e.json` had 11 errors (not 7; `match-small-fixes` had gained four since the count): `admin.spec.ts` (the evaluate tuple, an unchecked first title), `device-link.spec.ts` (baseURL possibly undefined; the config always sets it), `match-small-fixes.spec.ts` (two `Row` types under `exactOptionalPropertyTypes`, one missing `mine`; the counts typed as pairs), and two page files lacking Vite's types (`tsconfig.e2e.json` now has `vite/client`). All fixed; `ci.yml`'s checks job runs `npx tsc -p tsconfig.e2e.json --noEmit` after the page check. tsc, eslint, prettier clean.
