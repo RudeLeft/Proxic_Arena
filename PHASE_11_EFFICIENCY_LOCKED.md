@@ -1883,3 +1883,217 @@ queue. The before-run used the old relay without a failure; the link model
 measured now (not run: targeted measuring); Firefox (does not start on this
 PC); the live site through Cloudflare (it compresses already; the origin hop
 is what changed); brotli.
+
+## As built: P11-E2 (2026-11-22)
+
+**The cause, in Chromium (RUN, local stack):** a person's avatar name reached
+a page only with the lobby socket's PLAYERS list (`lobbyView.ts` `avatarOf`),
+so a page that drew people from its own data first drew the default face and
+swapped it when the list landed. Measured before this change (the loading
+measure's new avatar probe, below): the Hall's 11 portraits swapped on every
+reload in both engines (and cold in WebKit), your own on Account on every
+load, and the other seat in a room. The live socket's slow open in Chromium
+(378-474 ms, 2026-11-19) makes that wait longer there. **Why Firefox looked
+instant is not confirmed** (Firefox does not start on this PC). The
+inference: Firefox opens the socket over the page's own HTTP/2 connection
+(RFC 8441, F3's table), so PLAYERS lands within a request's time and the
+swap is too quick to see. Owed to CI's `engines` job (see "What CI must
+confirm" below).
+
+**What changed.**
+
+- The data that names a person carries their avatar's name, for an
+  **active** account only (as PLAYERS lists them, so a disabled player keeps
+  the default face the page always gave them):
+  - `/api/auth/me` and signing in: `UserView.avatar` (`Accounts.avatarOf`);
+  - `/api/hall`: `HallView.avatars`, for every player it names
+    (`HallView.named`), looked up by `AccountNames.avatarsOf`;
+  - `/api/admin/accounts` (`AdminAccountView.avatar`) and a deck's shares
+    (`ShareRecipient.avatar`).
+- The page keeps every name it learns for the tab (`knownAvatars.ts`,
+  sessionStorage; the socket's own list too, from `LobbyConnectionProvider`),
+  so a reload or the next page draws the right face at once. `avatarOf` asks
+  the socket's lists first and, once they have arrived, treats them as the
+  truth (somebody not on them is the default face, as before). Storage is a
+  hint: empty, full, refused or malformed, the page waits for the socket as
+  before. Cleared at sign-out and on an expired session.
+- Account, Admin and the computers list read the avatar through `avatarOf`
+  (they read `lobby.players` directly before).
+- The Account page's set of 132 is drawn once it is first opened, not with
+  the page (Chromium fetched 129 on every reload, WebKit 127-129 on every
+  visit, folded).
+- The kit: the loading measure follows every portrait from the moment it is
+  drawn (`loading.spec.ts` `AVATAR_PROBE`): `avatarSwaps` (the default face,
+  then the player's own, on the same element or on the one React draws in its
+  place in the same commit), `avatarLateMs`, `avatarAfterUsableMs`,
+  `avatarFetches`. `ci/measure.mjs --pw-output DIR` keeps Playwright's own
+  results out of the repo.
+- Tests: `knownAvatars.test.tsx` (4: the socket's list wins, kept for the
+  tab, learned from me/Hall/admin/shares, the Hall drawn with the lobby empty
+  shows Pat's own face); `AdminApiTest` "an active account's avatar comes
+  with the accounts list and the Hall's lookup, a disabled one's never"
+  (with `/api/auth/me` and sign-in); `HallTest` "every player the Hall names
+  is named once". Removing `avatarOf`'s fallback fails 2 page tests;
+  removing the Hall's learning fails 2 (TEST-004).
+
+**Before and after (RUN, 2026-11-22; the owner's PC, 13th Gen i5-13600KF,
+32 GB; the first local stack, built from 6ded276e, then from e1138da6;
+Playwright's bundled Chromium and WebKit; `node ci/measure.mjs loading
+--engines chromium,webkit --links local,slow4g`, 3 runs each; medians).**
+
+```text
+avatar swaps (portraits drawn with the default face, then their own)
+                         Chromium local   Chromium slow 4G   WebKit local   WebKit slow 4G
+Hall cold                    0 -> 0           0 -> 0          11 -> 0         0 -> 0
+Hall reload                  0 -> 0          11 -> 0          11 -> 0        11 -> 0
+Account cold                 1 -> 0           1 -> 0           1 -> 0         1 -> 0
+Account reload               1 -> 0           1 -> 0           1 -> 0         1 -> 0
+room reload                  2 -> 2           2 -> 0           2 -> 0         2 -> 0
+room cold                    2 -> 3           0 -> 0           2 -> 1         0 -> 0
+Admin, Deck Depot, lobby, game, spectate, in-app visits: 0 before and after
+
+from a portrait drawn to its own picture loaded (avatarLateMs, the latest on the page)
+Hall reload                  0 -> 0         171 -> 0          35 -> 0       148 -> 0
+Account reload              39 -> 2         357 -> 1          76 -> 3       374 -> 3
+Account cold                52 -> 45        403 -> 415       118 -> 24      121 -> 216
+Hall cold                   22 -> 23       1134 -> 1131       92 -> 46      488 -> 501
+Hall in-app first           19 -> 23       1277 -> 1134       17 -> 44      490 -> 490
+
+Account: portrait pictures fetched (avatarFetches)
+reload                     129 -> 1         129 -> 1         129 -> 1       129 -> 1
+cold                         1 -> 1           1 -> 2         129 -> 1       129 -> 1
+in-app first                 0 -> 0           0 -> 0         127 -> 0       127 -> 0
+
+usable (ms), where it moved
+Account cold / reload, WebKit local             439 / 785 -> 324 / 235
+Account reload, WebKit slow 4G                  1,032 -> 600
+lobby, Hall, Deck Depot cold, Chromium local    106 / 123 / 118 -> 123 / 145 / 135
+Hall, Deck Depot reload, Chromium local         45 / 43 -> 67 / 54
+every slow-4G usable time, both engines: within the runs' spread (-6% to +2%)
+```
+
+- **Targets.**
+  - 0 swaps for a player with an avatar: **met** on every page the row
+    names (Hall, Admin, shares, Account), cold and reloaded, both engines.
+    **Not met on a cold room** (2-3 in Chromium, 1 in WebKit, local only):
+    the other seat is drawn from `/api/rooms/current` before PLAYERS lands,
+    and a new tab has nothing kept. The room's data is the lobby protocol's
+    `RoomMemberView`, not one of the row's sources: left for E5 (the socket
+    beside `/api/auth/me`), or a small protocol field (the owner's call).
+  - Real avatar ≤ 100 ms after its row is drawn (reload, in-app): met
+    locally; on slow 4G met on reloads (0-3 ms), **not on a first in-app
+    Hall visit** (1.1 s Chromium, 0.5 s WebKit). That wait is the pictures'
+    own download: the Hall's two portrait files share the 1.6 Mbit/s link
+    with its other pictures (the belt art, the trophies; 215 KB in all) and
+    land with them (`slowest`: the belt 1.27 s, the portraits 1.10-1.14 s).
+    The same holds cold (≤ 300 ms after usable: met locally; 1.1 s on slow
+    4G in Chromium, 0.5 s in WebKit). Fetching portraits ahead of the rest
+    belongs to E5/E8's start-up work, or lighter Hall art (E11).
+  - Account: on-screen avatars ≤ 500 ms and ≤ 40 fetched up front: **met**
+    (1 fetched; your own portrait 2-415 ms).
+- **Slower (P11-R7):** Chromium's local loads of lobby, Hall and Deck Depot
+  came out 10-22 ms slower, and the Hall's API time went from 12-13 to
+  14-21 ms in the measure. Timed directly afterwards, 40 reads each on the
+  same stack: `/api/hall` 10.5 ms median, `/api/auth/me` 3.8 ms against
+  `/api/version`'s 3.4 (the one extra row read). So the extra work is about
+  half a millisecond on "who am I" and a few on the Hall. The rest of the
+  local gap is within these local runs' spread (167 of the after run's
+  numbers were outside ±10%, mostly local times of a few tens of ms). Slow-4G
+  usable times are unchanged in both engines.
+- **Not changed, an owner choice (P11-R1):** the row's "an empty circle, not
+  the default face, while unknown". Today's default face still shows for
+  anybody not known yet (a cold game or spectate page's opponent, a cold
+  room's other seat). An empty circle is a new look and needs a canvas.
+- **What CI must confirm** (Firefox does not start here): the `engines` job's
+  Firefox loading rows now carry the avatar numbers, and the after numbers
+  must show 0 swaps on the Hall and Account there, as here. Whether Firefox
+  also swapped at 6ded276e's code is no longer measurable on main once this
+  lands; if the owner wants the cause confirmed, one `engines` run of the kit
+  commit alone (f34eaa9f, the probe without the fix) gives Firefox's before.
+  It would be the first Firefox measurement of avatars anywhere.
+
+## As built: P11-E13 (2026-11-22)
+
+**The cause (RUN):** the lobby's liveness check (`lobby.ts` `connectLobby`)
+ran on its 20 s `setInterval` and dropped the connection when nothing had
+been heard for 45 s. A hidden tab's timers are slowed (Chromium: once a
+minute after 5 minutes hidden) or stopped (a frozen tab), while its
+connection stays open and the browser answers the server's own pings. So the
+beat came a minute after the last PONG, read that as silence, and dropped a
+healthy connection: `hidden-tab.spec.ts` against 6ded276e's `lobby.ts`
+failed at its first slowed minute ("no PONG; the lobby sockets: open 1,
+closed 1"). A long-hidden tab reconnected about once a minute, and each
+reconnect is a moment offline for the other players.
+
+**What changed** (`lobby.ts`, client only):
+
+- A beat on time (a visible tab) judges as before: a PING unanswered for
+  `REPLY_MS` (25 s), with nothing heard for 45 s. A visible page drops a dead
+  connection at the same moment as before.
+- A beat more than `LATE_BEAT_MS` (30 s) after the last means the page was
+  slowed or asleep, with an answer perhaps unread behind it: it judges
+  nothing, sends a fresh PING and checks that one `WAKE_REPLY_MS` (5 s) on.
+  A dead connection is still found: in a slowed tab at its next wake-up
+  (about a minute), and 5 s after waking from a freeze.
+- That check judges nothing when it fires more than `ASLEEP_MS` (90 s) after
+  its PING (frozen again); the next beat asks again.
+- **The server needed nothing.** It keeps a connection while Ktor's own
+  pings are answered (`Limits.WS_PING_SECONDS` 15, `WS_TIMEOUT_SECONDS` 30),
+  and the browser answers those while the page's thread is held (RUN,
+  below). That is the owner's rule: a hidden or frozen tab counts as
+  connected while its connection is open. The game socket has no timer of
+  its own (`match.ts` reconnects only on the browser's close), so it already
+  follows the rule.
+- Rejected: only raising `QUIET_MS` (a once-a-minute timer, or a freeze of
+  any length, still beats a fixed quiet time); treating late beats as asleep
+  with no check after (a dead network in a long-hidden tab would never be
+  found, so an invitation could wait unseen until the tab is shown again).
+
+**For the hard pause (owner decision 6, Q7: 2 s heartbeat, 5 s of silence is
+a drop):** build its heartbeat on what a frozen tab still does: the
+connection's own pings, answered by the browser. Do not build it on a page
+timer or a page reply. A page-timer heartbeat would pause a game for every
+tab that is merely hidden (Chromium's once-a-minute timers) and for every
+frozen one. That is decision 7's option (b), which the owner did not choose.
+Concretely: the server pings each match socket every 2 s (Ktor's
+`pingPeriod` for that route) and counts 5 s with no pong as dropped; the page
+sends nothing for it.
+
+**Tests.**
+
+- `reconnect.test.ts`, three new tests (a fake clock jumped between timers,
+  as a slowed tab's run): ten slowed minutes keep the one socket; a frozen
+  tab wakes and asks again, and a check that fires ten minutes late judges
+  nothing; a dead connection is still dropped in a slowed tab, and 5 s after
+  waking. With 6ded276e's `lobby.ts` all three fail (TEST-004).
+- `hidden-tab.spec.ts` (new; a real browser and the real server):
+  1. ten minutes of slowed timers, then a ten-minute freeze, keep one lobby
+     socket, never closed, "Connected" throughout (Playwright's clock:
+     `fastForward` fires each due timer once);
+  2. the page's thread held for 40 s, past the server's 30 s ping timeout,
+     as a frozen tab's is: the other player's screen still shows the held
+     player online, and the socket is the same one when the page wakes.
+
+  A real freeze can't be had headless: Chromium's CDP lifecycle "frozen"
+  state did nothing to the page (RUN: its timers kept running), and a
+  headless page is always visible.
+- RUN locally: both tests pass in Edge (Chromium) and in WebKit (1.7 min).
+  Test 1 fails against 6ded276e's `lobby.ts` (above). At CI speed (`node
+  ci/ci-speed.mjs hidden-tab lobby`: CPU 4x, after foundation, its CI
+  neighbour): 27 passed (1.6 min). The touched specs (auth, lobby, admin,
+  sharing, hidden-tab, match-away, match-session): 47 passed (3.8 min).
+- CI: the `engines` job runs `hidden-tab.spec.ts` in Firefox and WebKit
+  (`PROXIC_E2E_ENGINES` names the engine projects in `playwright.config.ts`;
+  a plain local run never starts Firefox), and CI's "other" project runs it
+  in Chromium. "A tab hidden 10 minutes keeps its socket, in all three
+  engines": Chromium and WebKit RUN here; **Firefox is owed to CI's first
+  `engines` run**.
+- Each brand's own savers (Edge's sleeping tabs, Chrome's Memory and Energy
+  Saver, Brave, Opera, Vivaldi, Safari) remain F2's hand check: a tab hidden
+  10 minutes, then back, shows no "Reconnecting".
+
+**One thing a player could notice:** before, a laptop that woke from sleep
+onto a dead network said "Reconnecting…" at the first beat after waking. Now
+it says so at most 5 s later (the fresh PING's check). Most wakes onto a dead
+network are found sooner by the browser itself (the connection's close), as
+before.
