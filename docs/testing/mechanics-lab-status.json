@@ -74,7 +74,7 @@
       "tests": "P6-AH",
       "scenario": "Choose a creature type from Forge's own list.",
       "result": "PASSED",
-      "evidence": "scripts/check-semantic-choices.py (2026-10-19): asked with 356 options, Forge's valid-type list."
+      "evidence": "scripts/check-semantic-choices.py (2026-10-19): asked with 356 options, Forge's valid-type list. P11-B4 (2026-11-22, in CI since): a dealt game; Alice alone is asked, from Forge's 356 types, picks Goblin (not the first), and on both seats' boards the Automaton is a Goblin and her Raging Goblin a 2/2."
     },
     "Fireball": {
       "owner": "P6_REQUIRED",
@@ -82,7 +82,7 @@
       "tests": "P6-AN, §6.92",
       "scenario": "Announce X from enumerated options; X is paid and the damage dealt.",
       "result": "PASSED",
-      "evidence": "scripts/check-x-announcement.py (2026-10-19): X announced, paid and dealt. Phase 9 W-11 (Amendment 14, 2026-11-04): scripts/check-numbers.py (in CI): each X option's cost with X filled in, can't-pay marked from the mana that can be made; check-x-announcement.py now announces only an X it can pay. The browser's X is a dial (match-numbers.spec.ts).",
+      "evidence": "check-x-announcement.py (2026-10-19, retired by P11-B4 on 2026-11-22): X announced, paid and dealt. Phase 9 W-11 (Amendment 14, 2026-11-04): scripts/check-numbers.py (in CI): each X option's cost with X filled in, can't-pay marked from the mana that can be made; since P11-B4 its x scenario also lets Fireball resolve and Bob loses exactly the X announced, on both seats' boards. The browser's X is a dial (match-numbers.spec.ts).",
       "notes": "Dividing damage as you choose is scripts/check-numbers.py's split scenario, with Arc Lightning: every target first, then one question for the whole split (Amendment 14)."
     },
     "Cryptic Command": {

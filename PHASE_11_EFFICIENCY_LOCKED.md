@@ -2610,3 +2610,79 @@ real game, per seat (seat 1 / seat 2), medians of 3     before             after
   per board on the page); Firefox and WebKit (the page code is the same in
   every engine); a live link (INFERENCE: on slow 4G the combat's compressed
   bytes, about 2 KB less a seat, are about 10 ms less transfer).
+
+## As built: P11-B4 (2026-11-22)
+
+**What changed.** The four Lab scripts that never ran in CI are each in CI
+or retired, and every hidden check can read the Lab's traces as a page
+receives them. Nothing a player sees changes, and no production code is
+touched (scripts and `ci.yml` only).
+
+| Script | Decision | Why |
+| --- | --- | --- |
+| `check-hidden-information.py` | **Added**, rewritten as a trace check (`<trace.jsonl>...`, like `check-hidden-hands.py`), run over every Lab game and over the same games as sent | It played its own game (400 decisions, the first option every time, burn or green) and looked only at the battlefield and the hand. Over the Lab's traces it holds, for every board to both seats and the public view: the hand is the viewer's own (`seat` and `owner`); the public view has no hand, otherHands or knownTop; no library or hand lists, only counts; a card the viewer may not see (`known` false), in ANY list, is "Face-down" and carries only the keys `UNKNOWN_KEYS` lists, so a new key on such a card fails until someone decides it is public; typed ids (`card:`, `stack:`, `known:`, `copying:`); no revision backwards per seat. These rules need no other seat's board, which is why no other hidden check had them. It is the board-shape half of P11-R4's gate. |
+| `check-card-owner.py` | **Added** to the Lab list | It already took the trace argument and is dealt (`--lab-deal`, 4 s a game). Nothing else checks `owner` (spec 0049): other scenarios read `seat`. Its rule is now a function (`board_problems`) with a `--self-test`, and gained one rule: a card that came in under one seat and is now another's must name the first as owner (before, a worker naming the thief made nothing "stolen" and the script ended inconclusive, not wrong). |
+| `check-semantic-choices.py` | **Added**, rewritten as one dealt scenario | It played up to six shuffled games and only reported whether each question was ever asked; three of its four questions are held in CI by dealt scenarios that check what follows the answer (a colour: `check-text-effects.py` Mind Bend, `check-you-choose.py` brave; a coin call and the flip told: `check-coin-flip.py`, `check-card-actions.py` coin; a creature type for a cost: `check-cost-kinds.py` Caller of the Hunt). The fourth, Adaptive Automaton, is a required corpus card whose ledger evidence was this script alone. Now: Alice alone is asked, from Forge's 356 types, picks Goblin (not the first), and on both seats' boards the Automaton is a Goblin and her Raging Goblin a 2/2. |
+| `check-x-announcement.py` | **Retired** (deleted) | A duplicate: `check-numbers.py` x (in CI) already holds the cost half (each option's cost with X filled in, the X answered is the X owed, can't-pay from what can be made), and `check-you-choose.py` blaze holds "X = 2, not the first offered, deals exactly 2". The one thing only it did, Fireball's damage, moved into `check-numbers.py` x: Fireball now resolves and Bob loses exactly the X announced, on both seats' boards. Shuffled and undealt, it was also the slowest way to prove it. |
+
+- **As sent (P11-R4, and how D4 joins).** `scripts/as-sent-traces.py
+  <traces> <out>` writes a trace folder again with every board as the
+  server sends it, per seat's stream (P11-D3's history-once rule,
+  `measure-wire.py` `trim`, the Python mirror of `BoardHistory.kt`; the
+  spectator's stream too); `--rebuilt` writes each board as the page
+  rebuilds it (`rebuild`, `history.ts`) and exits 1 at the first rebuilt
+  board that is not the worker's. Every hidden check then reads the out
+  folder as it reads the Lab's. D4 adds its step in the same two functions,
+  `sent_board` (make the delta from what the seat holds) and `page_board`
+  (apply it), so the gate's "rebuilt equals full" and "the hidden checks pass
+  over what was sent" are both already in CI when the format changes.
+- **CI.** The `checks` job runs the four new self-tests. The Lab list gains
+  `card-owner` and `semantic-choices`. Each Lab machine then runs
+  `check-hidden-information.py` over its games, rebuilds every board with
+  `as-sent-traces.py --rebuilt`, and runs `check-snapshot-first`,
+  `check-hidden-hands`, `check-hidden-log`, `check-hidden-tops`,
+  `check-hidden-mulligans` and `check-hidden-information` again over the
+  boards as sent. The "four older scenario scripts" note is gone.
+- **Ledger.** `mechanics-lab-status.json` for Adaptive Automaton and
+  Fireball now names the CI evidence; `MECHANICS_LAB_COVERAGE.md`
+  regenerated (`--check` current).
+- **Not done here:** P11-B8 (0109's reveal guard has no failing Lab
+  game) is its own item. P11-R4's text still lists five hidden checks; D4's
+  spec should name `check-hidden-information.py` among them (a change to a
+  locked rule, so it is D4's to propose, not this item's).
+
+**Proof (RUN, 2026-11-22, the owner's PC; the 1.75.0 release worker,
+whose game code is main's: only P11-D0's timing marks were added since, 554875dc).**
+
+- **Over the 1.75.0 release run's 432 traces** (109,275 boards, 1,317,227
+  cards, 342 of them ones the viewer may not see, so the identity rule
+  fired: HID-004): `check-hidden-information` OK, 5 s. Rewritten as sent
+  and as rebuilt (8 s each): every one of the 109,275 rebuilt boards equals
+  the worker's, and all six hidden checks pass on both, with the same counts
+  as the whole traces (11,818 hand-card sightings, 22,806 play log lines,
+  45,659 questions, 6,078 opening moves). Time over all 432, as sent:
+  snapshot-first 4 s, hidden-hands 5, hidden-log 7, hidden-tops 19,
+  hidden-mulligans 4, hidden-information 7; so about 20 s more per Lab
+  machine (a third each).
+- **The scenarios, three times each:** `card-owner` 3/3 OK (4 s; a stolen
+  Goblin seen by both seats), `semantic-choices` 3/3 OK (4 s), `numbers x`
+  3/3 OK ("X = 3 at {3}{R}, 3 dealt to Bob, can make 4", 4 s). All six
+  hidden checks and `check-wording` pass over their traces (hidden-tops 2:
+  nothing of its to check); `check-question-record` and the ledger
+  `--check` pass.
+- **Bites (TEST-004, HID-004).** Self-tests: `check-hidden-information` 17
+  cases (15 planted faults fail, the clean boards pass), `check-card-owner`
+  6, `check-semantic-choices` 7, `as-sent-traces` 5 (a page that forgets
+  what it held is caught). Planted in REAL traces, each fails with exit 1
+  and passes unplanted: a face-down card's name (`face-down`), a printing
+  on a foretold card in exile (`piles-foretell`), the other seat's card in
+  seat 1's hand, a hand list in a player entry, a hand in the public view
+  (`spectator-public`), an untyped stack id. `check-card-owner`'s rule over
+  its own real trace passes; with the stolen Goblin naming its thief it
+  fails ("card:106 is now seat 1's, came in under seat 2, but names owner
+  1"). Live mutants, the game answered differently from what the script
+  recorded: `numbers x` given X = 1 while it recorded 3 fails on the cost,
+  the stack entry and Bob's life on both seats ("20 -> 19");
+  `semantic-choices` given the first type (Pilot) while it recorded Goblin
+  fails on both seats ("the Automaton is not a Goblin ... the Raging Goblin
+  is 1/1").

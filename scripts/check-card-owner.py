@@ -1,6 +1,9 @@
 """A stolen card says whose card it is. Spec 0049.
 
     python -I scripts/check-card-owner.py <worker.jar> <res-root> [trace.jsonl]
+    python -I scripts/check-card-owner.py --self-test
+
+In CI's Mechanics Lab list since P11-B4 (2026-11-22).
 
 A card's `seat` is its CONTROLLER (ViewerSnapshot.describe). The server
 finds a card's picture in its OWNER's deck, so the snapshot must say who
@@ -26,8 +29,6 @@ import subprocess
 import sys
 import uuid
 
-JAR, RES = sys.argv[1], sys.argv[2]
-TRACE = sys.argv[3] if len(sys.argv) > 3 else None
 DECK = [("Mountain", 24), ("Raging Goblin", 16), ("Act of Treason", 20)]
 GOBLIN, TREASON = "Raging Goblin", "Act of Treason"
 MAX_TURN = 16
@@ -40,6 +41,69 @@ DEAL = {
     1: {"hand": ["Mountain", "Mountain", "Mountain", "Raging Goblin", "Raging Goblin", "Act of Treason", "Act of Treason"], "top": ["Mountain", "Mountain"]},
     2: {"hand": ["Mountain", "Mountain", "Mountain", "Raging Goblin", "Raging Goblin", "Act of Treason", "Act of Treason"], "top": ["Mountain", "Mountain"]},
 }
+
+
+def board_problems(s, cast_by, stolen, problems):
+    """One board's owner rules; adds to `problems` and `stolen`, returns the
+    stack entries that named their owner."""
+    viewer = s.get("seat")
+    owned = 0
+    for zone in ZONES:
+        for c in s.get(zone, []):
+            owner = c.get("owner")
+            if owner not in (1, 2):
+                problems.append(f"{zone} {c.get('id')} names no owner: {owner!r}")
+            elif zone != "battlefield" and zone != "casting" and owner != c.get("seat"):
+                problems.append(f"{zone} {c.get('id')} owner {owner} but seat {c.get('seat')}")
+    for c in s.get("battlefield", []):
+        cast_by.setdefault(c["id"], c.get("seat"))
+        if c.get("seat") != cast_by[c["id"]] and c.get("owner") != cast_by[c["id"]]:
+            # Changed hands (it came in under another seat), yet names the thief.
+            problems.append(f"{c['id']} is now seat {c.get('seat')}'s, came in under seat {cast_by[c['id']]}, "
+                            f"but names owner {c.get('owner')}")
+        if c.get("owner") != c.get("seat") and c.get("name") == GOBLIN:
+            if c.get("owner") != cast_by[c["id"]]:
+                problems.append(f"{c['id']} owner {c.get('owner')}, but it came in under seat {cast_by[c['id']]}")
+            stolen.setdefault(viewer, []).append((c["id"], c.get("seat"), c.get("owner")))
+    for entry in s.get("stack", []):
+        if entry.get("source"):
+            if entry.get("owner") not in (1, 2):
+                problems.append(f"stack {entry.get('id')} names no owner")
+            else:
+                owned += 1
+    return owned
+
+
+def self_test():
+    """The owner rules on made-up boards: a stolen Goblin naming its caster passes; each planted fault fails."""
+    def goblin(seat, owner):
+        return {"id": "card:7", "name": GOBLIN, "seat": seat, "owner": owner}
+
+    def run(*boards):
+        cast_by, stolen, problems = {}, {}, []
+        owned = sum(board_problems(b, cast_by, stolen, problems) for b in boards)
+        return problems, stolen, owned
+    came_in = {"seat": 1, "battlefield": [goblin(2, 2)]}
+    ok, stolen, _ = run(came_in, {"seat": 1, "battlefield": [goblin(1, 2)]})
+    results = {
+        "a stolen Goblin naming its caster passes, and counts as stolen": not ok and bool(stolen.get(1)),
+        "a stolen Goblin naming its thief fails": bool(run(came_in, {"seat": 1, "battlefield": [goblin(1, 1)]})[0]),
+        "a card with no owner fails": bool(run({"seat": 1, "hand": [{"id": "card:3", "seat": 1}]})[0]),
+        "a graveyard card owned by another seat fails":
+            bool(run({"seat": 1, "graveyard": [{"id": "card:3", "seat": 1, "owner": 2}]})[0]),
+        "a stack spell with no owner fails": bool(run({"seat": 1, "stack": [{"id": "stack:1", "source": "card:3"}]})[0]),
+        "a stack spell with an owner counts": run({"seat": 1, "stack": [{"id": "stack:1", "source": "card:3",
+                                                                         "owner": 2}]})[2] == 1,
+    }
+    print(json.dumps(results, indent=1))
+    return 0 if all(results.values()) else 1
+
+
+if sys.argv[1:] == ["--self-test"]:
+    sys.exit(self_test())
+
+JAR, RES = sys.argv[1], sys.argv[2]
+TRACE = sys.argv[3] if len(sys.argv) > 3 else None
 
 proc = subprocess.Popen(
     ["java", "-jar", JAR, RES, "--lab-deal"],
@@ -97,25 +161,7 @@ for line in proc.stdout:
         s = frame.get("state") or {}
         viewer = s.get("seat")
         state[viewer] = s
-        for zone in ZONES:
-            for c in s.get(zone, []):
-                owner = c.get("owner")
-                if owner not in (1, 2):
-                    problems.append(f"{zone} {c.get('id')} names no owner: {owner!r}")
-                elif zone != "battlefield" and zone != "casting" and owner != c.get("seat"):
-                    problems.append(f"{zone} {c.get('id')} owner {owner} but seat {c.get('seat')}")
-        for c in s.get("battlefield", []):
-            cast_by.setdefault(c["id"], c.get("seat"))
-            if c.get("owner") != c.get("seat") and c.get("name") == GOBLIN:
-                if c.get("owner") != cast_by[c["id"]]:
-                    problems.append(f"{c['id']} owner {c.get('owner')}, but it came in under seat {cast_by[c['id']]}")
-                stolen.setdefault(viewer, []).append((c["id"], c.get("seat"), c.get("owner")))
-        for entry in s.get("stack", []):
-            if entry.get("source"):
-                if entry.get("owner") not in (1, 2):
-                    problems.append(f"stack {entry.get('id')} names no owner")
-                else:
-                    stack_owners += 1
+        stack_owners += board_problems(s, cast_by, stolen, problems)
         if s.get("turn", 0) > MAX_TURN or (stolen.get(1) and stolen.get(2)):
             break
         continue

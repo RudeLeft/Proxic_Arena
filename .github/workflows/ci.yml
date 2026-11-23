@@ -165,6 +165,13 @@ jobs:
       - run: python3 -I scripts/check-moves.py --self-test
       # check-hidden-tops' table-link rule (spec 0103): a library card's link fails.
       - run: python3 -I scripts/check-hidden-tops.py --self-test
+      # P11-B4: each rule of the board-shape hidden check, of the Lab's owner and
+      # creature-type scenarios, and the as-sent rewrite the hidden checks read
+      # (P11-R4), on made-up boards: a clean board passes, each planted fault fails.
+      - run: python3 -I scripts/check-hidden-information.py --self-test
+      - run: python3 -I scripts/check-card-owner.py --self-test
+      - run: python3 -I scripts/check-semantic-choices.py --self-test
+      - run: python3 -I scripts/as-sent-traces.py --self-test
       # AGENTS EVID-006: live docs name code by file and symbol, never by line number.
       - run: python3 -I scripts/check-doc-refs.py --self-test && python3 -I scripts/check-doc-refs.py
 
@@ -333,9 +340,9 @@ jobs:
           # start at once instead of last: the job used to end with one
           # scenario running alone for two minutes. Dealt round-robin, so
           # each machine gets one of the longest. Every scenario CI plays is in
-          # this list exactly once; a new one goes anywhere in it. (Four older
-          # scenario scripts are not here and run only by hand: check-card-owner,
-          # check-hidden-information, check-semantic-choices, check-x-announcement.)
+          # this list exactly once; a new one goes anywhere in it. (P11-B4: every
+          # scenario script is here; check-hidden-information reads the traces below,
+          # and check-x-announcement was retired into check-numbers' x.)
           printf '%s\n' \
               cost-kinds you-choose who-did-it card-actions numbers card-trays surveil sacrifice \
               many-triggers what-happened combat-choices stops blocks shapes modes \
@@ -344,7 +351,7 @@ jobs:
               attachments printings face-down costs results \
               tracked-state text-effects coin-flip board-data concede mana-cost \
               library-order mana-pool mulligan unreachable dice unset \
-              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose stack-rests no-target quiet-reports soulbond \
+              take-backs trigger-costs land-mana spectator moves thrown-away mana-balls               play-log pay-picks seen-hands life-changes pt-changes copies survivors wipes polish spent marks players piles anywhere game-flow top-goes-home spell-choices survive-rows didnt-happen turn-ends known-top always-choose stack-rests no-target quiet-reports soulbond card-owner semantic-choices \
             | awk -v shard="$shard" 'NR % 3 == shard % 3' \
             | xargs -n 1 -P 3 sh -c \
               'limit=300; case $0 in you-choose|cost-kinds|who-did-it|card-actions|shapes|always-choose|stops|stack-rests|combat-choices) limit=900;; esac;
@@ -384,6 +391,23 @@ jobs:
           # Spec 0089, over the same games: before the first turn the other
           # player's deal, mulligan and put-back are told as backs only.
           python3 -I scripts/check-hidden-mulligans.py "$traces"/*.jsonl
+          # P11-B4, over the same games: every board's own shape -- the hand the
+          # viewer's own, no library or hand lists, a card the viewer may not see
+          # nameless, typed ids, no revision backwards; the public view too.
+          python3 -I scripts/check-hidden-information.py "$traces"/*.jsonl
+          # P11-R4 (P11-B4): the same games as a page receives them. The traces are
+          # the worker's whole boards; the server sends each history entry once
+          # (P11-D3). Every board the page rebuilds must equal the worker's, and the
+          # hidden checks hold over the boards as sent. D4's deltas join this step.
+          python3 -I scripts/as-sent-traces.py "$traces" "$RUNNER_TEMP/lab-rebuilt" --rebuilt
+          sent="$RUNNER_TEMP/lab-sent"
+          python3 -I scripts/as-sent-traces.py "$traces" "$sent"
+          python3 -I scripts/check-snapshot-first.py "$sent"/*.jsonl
+          python3 -I scripts/check-hidden-hands.py "$sent"/*.jsonl
+          python3 -I scripts/check-hidden-log.py "$sent"/*.jsonl
+          python3 -I scripts/check-hidden-tops.py "$sent"/*.jsonl || [ $? = 2 ]
+          python3 -I scripts/check-hidden-mulligans.py "$sent"/*.jsonl
+          python3 -I scripts/check-hidden-information.py "$sent"/*.jsonl
           # PHASE_08: every question these games asked, for the job below,
           # which reads both halves of the Lab together.
           python3 -I scripts/check-questions-asked.py --summarise "$traces"/*.jsonl             > "$RUNNER_TEMP/questions-asked-$shard.txt"

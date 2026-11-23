@@ -1,143 +1,143 @@
-"""Values that are not game objects — P6-AG, P6-AH, P6-AI, P6-AM.
+"""A creature type chosen from Forge's own list -- P6-AH; P11-B4 (2026-11-22).
 
-    python -I scripts/check-semantic-choices.py <worker.jar> <res-root>
+    python -I scripts/check-semantic-choices.py <worker.jar> <res-root> [trace.jsonl]
+    python -I scripts/check-semantic-choices.py --self-test
 
-Everything else the adapter asks picks a THING on the board. These
-pick a word: a creature type, a colour, a call of heads or tails.
-They share a shape and they share a risk — the allowed values must
-come from FORGE, because a list of creature types maintained
-anywhere else is a second rules engine that goes stale the day a
-set is released (P6-AH says exactly this).
+P6-AH: the values a player picks a WORD from must come from Forge, because
+a list of creature types kept anywhere else is a second rules engine that
+goes stale the day a set is released. Adaptive Automaton (a required card
+of the Lab's corpus) is the one card that asks it as it enters:
 
-Four things are watched, over as many games as it takes:
+  asked      Alice casts Adaptive Automaton with a Raging Goblin out: she
+             alone is asked `chooseSomeType`, offered Forge's whole list
+             (over 200 types, "Goblin" among them and not first)
+  used       she picks Goblin, not the first offered, and the answer is
+             what the game uses: on BOTH seats' boards the Automaton is a
+             Goblin as well as a Construct, and the Raging Goblin is a 2/2
+             (the Automaton's +1/+1 to other creatures of the chosen type)
 
-  chooseSomeType   Adaptive Automaton: a creature type, from
-                   Forge's own list of valid types
-  chooseColor(s)   Alchor's Tomb: a colour
-  chooseBinary     Goblin Archaeologist: calling a coin flip.
-                   Mana Clash cannot stand in — it sets NoCall,
-                   so Forge flips without asking
-  notices          P6-AM's other half. FORGE flips the coin; the
-                   only thing owed is that a player is TOLD the
-                   outcome. notifyOfValue used to be a no-op, so
-                   the game acted on a flip nobody saw. Spec 0075:
-                   told in the OTHER player's report window ("Alice
-                   flipped a coin and lost."), not as a grey line.
+Until P11-B4 this script played up to six shuffled games of four cards and
+only reported whether each question was ever asked. Its other three are
+held in CI by focused, dealt scenarios that check what follows the answer:
+a colour (`check-text-effects.py` Mind Bend, `check-you-choose.py` brave),
+a coin call and the flip told to the other player (`check-coin-flip.py`
+krark, `check-card-actions.py` coin), and another creature type
+(`check-cost-kinds.py` Caller of the Hunt).
 
-A game can end before any of them happens, so this plays several.
+Exit 0 when it held, 1 when it did not, 2 when the Automaton never entered.
 """
 import json
-import subprocess
+import os
 import sys
-import uuid
 
-JAR, RES = sys.argv[1], sys.argv[2]
-GAMES = int(sys.argv[3]) if len(sys.argv) > 3 else 6
-DECK = [("Mountain", 28), ("Adaptive Automaton", 10), ("Alchor's Tomb", 9),
-        ("Goblin Archaeologist", 10), ("Mana Clash", 8)]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lab import DEFAULT, Game, verdict  # noqa: E402
 
-WANTED = ("chooseSomeType", "chooseColor", "chooseColors", "chooseBinary")
-
-seen = {}
-notices = []
+AUTOMATON, GOBLIN, CHOSEN = "Adaptive Automaton", "Raging Goblin", "Goblin"
+# The Lab's deal (protocol/README.md "the Lab's deal"): the Goblin on turn
+# one, the Automaton on turn three.
+DEAL = {1: {"hand": ["Mountain", "Raging Goblin", "Mountain", "Adaptive Automaton", "Mountain", "Mountain",
+                     "Mountain"], "top": ["Mountain", "Mountain", "Mountain"]}}
 
 
-def play(game_no):
-    proc = subprocess.Popen(
-        ["java", "-jar", JAR, RES],
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL, text=True, encoding="utf-8", bufsize=1)
-
-    def send(obj):
-        proc.stdin.write(json.dumps(obj) + "\n")
-        proc.stdin.flush()
-
-    for line in proc.stdout:
-        line = line.strip()
-        if not line.startswith("{"):
+def problems_of(asked, boards):
+    """`asked`: [(seat, [option labels])] of every chooseSomeType; `boards`:
+    {seat: board} once the Automaton is out. The rules above, as problems."""
+    problems = []
+    if not asked:
+        return ["no creature type was asked"]
+    if any(seat != 1 for seat, _ in asked):
+        problems.append(f"a seat other than the caster was asked: {[s for s, _ in asked]}")
+    labels = asked[0][1]
+    if len(labels) < 200:
+        problems.append(f"only {len(labels)} types offered: not Forge's whole list")
+    if CHOSEN not in labels:
+        problems.append(f"{CHOSEN} was not offered")
+    elif labels[0] == CHOSEN:
+        problems.append(f"{CHOSEN} was the first type offered: picking it proves nothing")
+    for seat in (1, 2):
+        board = boards.get(seat) or {}
+        cards = board.get("battlefield") or []
+        auto = next((c for c in cards if c.get("name") == AUTOMATON and c.get("seat") == 1), None)
+        gob = next((c for c in cards if c.get("name") == GOBLIN and c.get("seat") == 1), None)
+        if not auto or not gob:
+            problems.append(f"seat {seat} does not see Alice's Automaton and Goblin")
             continue
-        try:
-            frame = json.loads(line)
-        except ValueError:
-            continue
-        kind = frame.get("type")
-
-        if kind == "WORKER_READY":
-            deck = [{"name": n, "quantity": q} for n, q in DECK]
-            send({"protocolVersion": 1, "type": "START_GAME",
-                  "messageId": str(uuid.uuid4()), "matchId": str(uuid.uuid4()),
-                  "players": [{"displayName": "Alice", "seatNumber": 1, "cards": deck},
-                              {"displayName": "Bob", "seatNumber": 2, "cards": deck}]})
-
-        elif kind == "MATCH_SNAPSHOT":
-            # P6-AM — what Forge told this viewer; spec 0075: a flip is the
-            # other player's report window.
-            said = ((frame.get("state") or {}).get("action") or {}).get("said") or ""
-            if "flipped a coin" in said and said not in notices:
-                notices.append(said)
-
-        elif kind == "DECISION_REQUEST":
-            options = frame.get("options", [])
-            labels = [o.get("label") or "" for o in options]
-            dkind = frame.get("kind")
-
-            if dkind in WANTED and dkind not in seen:
-                seen[dkind] = {
-                    "prompt": frame.get("prompt"),
-                    "mandatory": frame.get("mandatory"),
-                    "options": labels[:8],
-                    "count": len(labels),
-                }
-
-            lands = [o for o, label in zip(options, labels) if "Play land" in label]
-            casts = [o for o, label in zip(options, labels)
-                     if "Play land" not in label and "Add {" not in label]
-            pick = lands[0] if lands else (casts[0] if casts else None)
-            send({"protocolVersion": 1, "type": "DECISION_RESPONSE",
-                  "messageId": str(uuid.uuid4()), "decisionId": frame["decisionId"],
-                  "seat": frame["authorisedSeat"], "stateVersion": frame["stateVersion"],
-                  "actionId": pick["actionId"] if pick else None})
-
-        elif kind == "GAME_ENDED":
-            stubs = frame.get("stubsReached") or {}
-            if stubs:
-                print(f"  game {game_no}: STUB REACHED {stubs}")
-            break
-        elif kind == "ERROR":
-            print(f"  game {game_no}: worker error {frame.get('errorCode')}")
-            break
-    proc.kill()
+        if CHOSEN not in str(auto.get("types")):
+            problems.append(f"seat {seat}: the Automaton is not a {CHOSEN}: {auto.get('types')!r}")
+        if (gob.get("power"), gob.get("toughness")) != (2, 2):
+            problems.append(f"seat {seat}: the Raging Goblin is {gob.get('power')}/{gob.get('toughness')}, not 2/2")
+    return problems
 
 
-for game in range(1, GAMES + 1):
-    play(game)
-    if all(k in seen for k in ("chooseSomeType", "chooseBinary")) and notices \
-            and ("chooseColor" in seen or "chooseColors" in seen):
-        break
+def self_test():
+    """The rules on made-up questions and boards: a right game passes, each planted fault fails."""
+    types = ["Advisor", "Aetherborn"] + [f"Type{i}" for i in range(250)] + [CHOSEN]
+    auto = {"name": AUTOMATON, "seat": 1, "types": "Artifact Creature - Construct Goblin"}
+    gob = {"name": GOBLIN, "seat": 1, "power": 2, "toughness": 2}
+    good = {s: {"battlefield": [auto, gob]} for s in (1, 2)}
 
-print()
-for kind in WANTED:
-    found = seen.get(kind)
-    if not found:
-        print(f"{kind}: NOT SEEN")
-        continue
-    print(f"{kind}: {found['count']} options, mandatory={found['mandatory']}")
-    print(f"   prompt={found['prompt']!r}")
-    print(f"   options={found['options']}")
+    def fails(asked=None, boards=None):
+        return bool(problems_of(asked if asked is not None else [(1, types)], boards or good))
+    results = {
+        "a right game passes": not problems_of([(1, types)], good),
+        "a short list (not Forge's) fails": fails(asked=[(1, ["Elf", CHOSEN, "Human"])]),
+        "Goblin first fails": fails(asked=[(1, [CHOSEN] + types)]),
+        "the other seat asked fails": fails(asked=[(1, types), (2, types)]),
+        "nothing asked fails": fails(asked=[]),
+        "the answer ignored (Goblin 1/1) fails":
+            fails(boards={1: good[1], 2: {"battlefield": [auto, dict(gob, power=1, toughness=1)]}}),
+        "the Automaton not a Goblin fails":
+            fails(boards={1: {"battlefield": [dict(auto, types="Artifact Creature - Construct"), gob]}, 2: good[2]}),
+    }
+    print(json.dumps(results, indent=1))
+    return 0 if all(results.values()) else 1
 
-print()
-print(f"flips told to a player: {len(notices)}")
-for text in notices[:6]:
-    print(f"   {text!r}")
 
-print()
-missing = [k for k in ("chooseSomeType", "chooseBinary") if k not in seen]
-if "chooseColor" not in seen and "chooseColors" not in seen:
-    missing.append("chooseColor/chooseColors")
-if not notices:
-    missing.append("notices (P6-AM: the outcome must reach the player)")
-if missing:
-    print("NOT REACHED: " + ", ".join(missing))
-    sys.exit(1)
-print("OK: every value-choice was asked with Forge's own candidates,")
-print("and the flip outcome reached the other player's report window.")
+def main():
+    jar, res = sys.argv[1], sys.argv[2]
+    trace = sys.argv[3] if len(sys.argv) > 3 else ""
+    g = Game([("Mountain", 40), (GOBLIN, 10), (AUTOMATON, 10)], [("Mountain", 60)],
+             jar=jar, res=res, trace=trace, deal=DEAL)
+    st = {"asked": [], "picked": None}
+
+    def policy(g, f):
+        k, seat = f.get("kind"), f["authorisedSeat"]
+        if k == "chooseSomeType":
+            labels = g.labels(f)
+            st["asked"].append((seat, labels))
+            pick = next((o["actionId"] for o in f["options"] if o.get("label") == CHOSEN), DEFAULT)
+            st["picked"] = CHOSEN if pick is not DEFAULT else None
+            return pick
+        if seat == 1 and k == "chooseSpellAbilityToPlay":
+            land = g.play_land(f)
+            if land:
+                return land
+            if not g.mine(1, name=GOBLIN):
+                return g.option(f, name=GOBLIN, zone="hand", land=False)
+            if not g.mine(1, name=AUTOMATON) and len(g.untapped_lands(1)) >= 3:
+                return g.option(f, name=AUTOMATON, zone="hand", land=False)
+            return None
+        return DEFAULT
+
+    def out(g):
+        return all(any(c.get("name") == AUTOMATON for c in g.zone(s, "battlefield", owner=1)) for s in (1, 2))
+
+    g.run(policy, until=out, max_turn=10)
+    boards = {s: g.state.get(s, {}) for s in (1, 2)}
+    found = {"stopped": g.stopped_badly(), "asked": [(s, len(l), l[:5]) for s, l in st["asked"]],
+             "picked": st["picked"],
+             "seen": {s: [(c.get("name"), c.get("types"), c.get("power"), c.get("toughness"))
+                          for c in (b.get("battlefield") or []) if c.get("seat") == 1 and c.get("kind") != "land"]
+                      for s, b in boards.items()}}
+    if not out(g):
+        verdict(found, [], "", inconclusive="Adaptive Automaton never entered the battlefield")
+    problems = problems_of(st["asked"], boards)
+    if found["stopped"]:
+        problems.append(found["stopped"])
+    verdict(found, problems, f"Adaptive Automaton: {len(st['asked'][0][1])} types from Forge, {CHOSEN} picked; "
+                             "on both boards the Automaton is a Goblin and the Raging Goblin a 2/2")
+
+
+if __name__ == "__main__":
+    sys.exit(self_test() if sys.argv[1:] == ["--self-test"] else main())

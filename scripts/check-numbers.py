@@ -9,7 +9,9 @@ question; these games read it off the protocol and check the board after:
            paid to both seats, and no per-target share): arrange.number.values is each option's number, in
            order; canMake is sent; each option costs "{X}{R}" with X
            filled in; an option is unpayable exactly when its cost is more
-           than canMake. The X answered is the X then owed.
+           than canMake. The X answered is the X then owed, and (P11-B4,
+           from the retired check-x-announcement.py) the X Bob then loses,
+           on both seats' boards: one target, so the even split is all of it.
   kicker   Everflowing Chalice: multikicker {2} -- values, keyword
            "Multikicker", each "{2}", costs {0}, {2}, {4}...; kicked once,
            one charge counter.
@@ -147,6 +149,7 @@ def fireball():
             return g.play_land(f)
         if seat == 1 and k == "announceRequirements" and st["asked"] is None:
             st["asked"] = f
+            st["life_before"] = {v: (g.player(v, 2) or {}).get("life") for v in (1, 2)}
             payable = [o for o in f["options"] if o.get("payable") is not False]
             pick = payable[-1] if payable else f["options"][0]
             st["chosen"] = pick
@@ -163,11 +166,19 @@ def fireball():
         return DEFAULT
 
     # Spec 0100: on until Fireball waits on the stack (Bob holds priority)
-    # and both seats have seen its entry.
-    g.run(policy, until=lambda g: watch(g, st, "Fireball") and st["owing"] is not None, max_turn=14)
+    # and both seats have seen its entry; P11-B4: then until it has resolved
+    # (in Alice's graveyard, the stack empty, for both seats).
+    def resolved(g):
+        return all(g.zone(v, "graveyard", owner=1, name="Fireball") and not g.state.get(v, {}).get("stack")
+                   for v in (1, 2))
+
+    g.run(policy, until=lambda g: watch(g, st, "Fireball") and st["owing"] is not None and resolved(g),
+          max_turn=14)
+    life_after = {v: (g.player(v, 2) or {}).get("life") for v in (1, 2)}
     f = st["asked"]
     found = {"stopped": g.stopped_badly(), "owing": st["owing"], "seen": st.get("seen"),
              "chosen": st["chosen"] and st["chosen"]["actionId"],
+             "bob's life": [st.get("life_before"), life_after],
              "layout": f and number_layout(f),
              "options": f and [(o["actionId"], o.get("cost"), o.get("payable", True)) for o in f["options"]]}
     if not f or not st["owing"]:
@@ -189,7 +200,15 @@ def fireball():
         problems.append(f"Fireball's stack entry says x {x} to both seats: {seen}")
     elif any(t.get("amount") is not None for e in seen.values() for t in e.get("targets") or []):
         problems.append(f"no share per target for Fireball's even split: {seen}")
-    return outcome(problems, f"Fireball: X = {st['chosen']['actionId'][7:]} at {st['owing']}, "
+    # P11-B4: the X announced is the X dealt -- read by both seats.
+    if not resolved(g):
+        problems.append("Fireball never resolved")
+    else:
+        for v in (1, 2):
+            before, after = (st.get("life_before") or {}).get(v), life_after.get(v)
+            if before is None or after != before - x:
+                problems.append(f"X = {x}, but seat {v} saw Bob's life go {before} -> {after}")
+    return outcome(problems, f"Fireball: X = {x} at {st['owing']}, {x} dealt to Bob, "
                              f"can make {layout.get('canMake')}", found)
 
 
