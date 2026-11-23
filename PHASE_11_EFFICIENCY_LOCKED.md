@@ -2284,3 +2284,197 @@ on 93ddc009. `node ci/ci-speed.mjs` (CPU 4x, each with its CI neighbour):
 **Kit fix.** `ci/measure.mjs` gives Playwright an `--output` beside each run's
 numbers, so its files never land in the checkout (two builders' runs at once).
 The kit already honoured `PROXIC_E2E_URL` and `PROXIC_E2E_CONTAINER`.
+
+## As built: P11-E5 (2026-11-22)
+
+The start-up chain, started together, plus the owner's addition of
+2026-11-22: the room data carries each seat's avatar. Branch `p11-e5`, built
+in its own worktree against the second local stack (port 8081). Nothing a
+player sees changes but pages being usable sooner and a room's other seat no
+longer starting on the default face.
+
+**What changed.**
+
+- **The session hint** is the readable CSRF cookie (AUTHENTICATION.md
+  "Cookies"): set with the session, cleared at sign-out. With it,
+  `frontend/src/early.ts` `startEarly` (called by `main.tsx` before the first
+  draw) starts, beside "who am I":
+  - the page's data: each GET it reads on opening (`earlyPages.ts`
+    `EARLY_PAGES`: the lobby's room, match and decks; the Hall; the Deck
+    Depot; the game's match; spectate's room), handed once to the first
+    reader (`primedFetch`, now the default `fetchFn` of those readers),
+    within `FRESH_MS` (10 s) and only before the player's first click or
+    key; an administrator's lists (Admin, Status) once "who am I" says
+    administrator (`whoAnswered`), never on the hint alone;
+  - the lobby connection, buffered until the shell takes it as its first
+    (`takeEarlySocket`; `lobby.ts` `connectLobby` option `first`), its
+    messages replayed in order, then passed on; let go after 30 s untaken;
+  - the shell's and the route's code: each script as
+    `<link rel="modulepreload">`, each style as `<link rel="preload"
+    as="style">` once "who am I" says signed in. The build names each page's
+    files in index.html (`vite.config.ts` `earlyFiles`: a JSON data block,
+    `#pa-early`, the same for everybody; `earlyPages.ts` `earlyFilesOf`).
+    The entry already names every one of them.
+- "Who am I" itself is asked first, for everybody (every page asks it
+  anyway), so on a link of six connections it does not queue behind the
+  files.
+- Signing in starts the lobby's code, data and connection at once
+  (`AuthContext` `signIn`), the session then being certain.
+- Without the hint nothing more is asked than before. With a wrong hint (a
+  session ended elsewhere) everything is dropped when "who am I" says nobody
+  (`endEarly`).
+- **The room's avatars.** `RoomMemberView.avatar` (`room/RoomView.kt`): the
+  seat's avatar, or null for the default face, always sent; an **active**
+  account's only (P11-E2's rule, `AccountNames.avatarsOf`). Every room answer
+  and `ROOM` message is made by `RoomService.views` (`RoomViews.of`);
+  `roomMessage` now takes the view. The page reads it (`lobby.ts`
+  `asMember`); `lobbyView.ts` `avatarOf` uses a seat's own avatar before
+  PLAYERS lands (PLAYERS still wins after); the shell keeps it for the tab
+  (`learnAvatars`). Documented in LOBBY_PROTOCOL.md, "`avatar`".
+
+**How the code is fetched: measured, not guessed (RUN, 2026-11-22, the second
+stack, bundled Chromium and WebKit).** The first build fetched each file with
+`fetch()` into the browser's cache. Chromium did well; WebKit got slower on
+slow 4G (lobby reload 966 -> 1,836 ms, game reload 1,276 -> 5,673): it
+downloaded each file twice (once for the `fetch`, once for the module) and
+fetched them again on every reload (lobby reload 52 -> 197 KB). A probe in
+both engines, on a signed-in file, then measured each way:
+
+```text
+                                         Chromium           WebKit
+fetch(), then import                     1 download         2 downloads
+modulepreload, then import               1                  1
+a refused modulepreload; sign in; import import works       import works
+a refused preload as=script; ...; import import FAILS       import works
+a refused preload as=style; sign in;     stylesheet loads   stylesheet FAILS
+  a stylesheet
+```
+
+So scripts go as modulepreloads from the hint, and styles as style preloads
+only once the session is certain. The auth spec's stale-hint test proves the
+page is whole after signing in (header styled, lobby connected).
+
+**Before and after (RUN, 2026-11-22; the owner's PC, 13th Gen i5-13600KF,
+32 GB; the second local stack built from f83e2155, then from this branch;
+Playwright's bundled Chromium and WebKit; `node ci/measure.mjs loading
+--engines chromium,webkit --links local,slow4g`, 3 runs each; the before's
+room, game and spectate rows from a second 3-run measure with the test deck
+in place; medians, ms to usable).**
+
+```text
+slow 4G                Chromium cold      Chromium reload    WebKit cold        WebKit reload
+lobby                  2209 -> 1978       741 -> 543         2141 -> 1882       966 -> 609
+Hall                   2288 -> 1942       578 -> 396         2289 -> 1777       825 -> 600
+Deck Depot             2268 -> 1919       572 -> 399         2320 -> 1767       828 -> 594
+Account                2047 -> 1766       379 -> 384         2070 -> 1718       612 -> 565
+Admin                  2095 -> 1774       390 -> 391         2135 -> 1720       595 -> 575
+Admin, a tab by address 2081-2114 ->      -                  2126-2330 ->       -
+                         1773-1819                             1683-1748
+Status                 2984 -> 2758       418 -> 412         2950 -> 1270       636 -> 592
+room                   2221 -> 1983       572 -> 403         2486 -> 2138       812 -> 600
+game                   4546 -> 3971      1103 -> 909         5008 -> 4207      1276 -> 1070
+spectate               4526 -> 4029      1115 -> 910         5077 -> 4241      1260 -> 1051
+sign-in click          1446 -> 1440        -                 1845 -> 1684        -
+sign-in (stranger)     1083 -> 1082       201 -> 203         1108 -> 1123       250 -> 236
+
+local                  Chromium cold      Chromium reload    WebKit cold        WebKit reload
+lobby/Hall/Decks       124/123/116 ->     37/51/47 ->        396/378/363 ->     307/304/291 ->
+                         119/109/97         39/36/28           344/327/311        262/257/260
+Account/Admin          111/116 -> 101/94  30/39 -> 28/33     364/318 -> 325/287 254/238 -> 221/220
+Status/room            67/138 -> 64/119   49/58 -> 50/43     416/367 -> 231/352 249/304 -> 177/258
+game/spectate          167/179 -> 155/158 75/72 -> 50/64     624/579 -> 536/541 377/712 -> 385/647
+In-app visits (header clicks): unchanged within the spread in both engines (they start nothing early).
+Bytes and requests per load: the same in both engines (lobby cold 213 -> 214 KB, game cold 717 -> 716).
+The Deck Depot's fell (415 -> 264 KB, 30 -> 24 requests) only because the stack's own decks changed
+between the runs (the browser specs run in between import, share and delete decks).
+```
+
+- **Targets.**
+  - Every signed-in page usable ≤ 900 ms on a slow-4G reload: **met for the
+    lobby, Hall, Deck Depot, Account, Admin, Status and the room in both
+    engines (384-609 ms)**; **not for the game and spectate** (909-910 in
+    Chromium, 1,051-1,070 in WebKit; were 1,103-1,276).
+  - ≤ 2.0 s cold: **met for the lobby, Hall, Deck Depot, Account and Admin
+    (and its tabs by address) in both engines, Status in WebKit and the room
+    in Chromium**; **not for the game and spectate** (3.97-4.24 s; were
+    4.5-5.1), **Status in Chromium** (2,758) and **the room in WebKit**
+    (2,138).
+  - What is left on the game and spectate pages is their code's size, not
+    the chain: 717 KB on a cold load at 1.6 Mbit/s is about 3.6 s by itself
+    (the board's chunk, with its 145 KB of inlined mana pictures), and
+    WebKit's reload still fetches 165 KB. That is E6's (the game's code
+    before the game, mana pictures as files) and E11's.
+  - Status in Chromium waits for its poll's rhythm (E1's note, unchanged);
+    WebKit's cold room is the slower engine on the same chain (local 352 ms
+    against Chromium's 119).
+- **Slower (P11-R7):** nothing beyond the runs' spread. Within it: Chromium
+  local lobby reload 37 -> 39, Account reload 379 -> 384 on slow 4G, Admin
+  in-app first 292 -> 316 on slow 4G; WebKit local game reload 377 -> 385,
+  sign-in cold on slow 4G 1,108 -> 1,123.
+
+**The room's avatar (RUN, the same measures).** The loading measure's avatar
+probe (`avatarSwaps`: a portrait drawn with the default face, then the
+player's own) saw a freshly opened room swap the other seat **once in every
+run** before (Chromium local cold and reload, WebKit local cold; the only
+swaps left anywhere in the measure), and **0 in every run of every row**
+after, in both engines. By eye (RUN, Chromium, the second stack): a new
+profile opening /play while its player sits in a room with Pat, the room's
+first frame drawn already shows Pat's own portrait on seat 2 (RudeLeft, who
+wears none, the default face).
+
+**A stranger gets only the sign-in files (proof, RUN, `auth.spec.ts`).**
+- "P11-E5: a stranger asks for the sign-in files and who am I, and nothing
+  else": a new profile opens /play, /hall, /admin and /game; its only API
+  call is `/api/auth/me`; no lobby connection; none of the `#pa-early` files.
+- "P11-E5: a session that ended elsewhere: each early start is refused,
+  costs nothing, and signing in still draws the page": a stale CSRF cookie,
+  no session. The shell's and the lobby's scripts are refused 404 with
+  `no-store` (kept by nobody), the three data reads 401, the lobby
+  connection is closed by the server; 16 refusals, 1,696 bytes of body in
+  all (about 106 each, the refusal's sentence) plus 13.9 KB of headers (the
+  security headers every answer carries). No style is asked (it waits for
+  "who am I"). Signing in then draws the lobby whole (styled header,
+  "Connected", the players list): nothing refused was remembered.
+- The server's gate (`SignedInGate.kt`) is unchanged; it always refused these.
+
+**No wrong page before "who am I" (proof, RUN).** "P11-E5: the page waits for
+who am I before drawing, while its code, data and connection start beside
+it": "who am I" held 1.5 s on /play and on /hall. Meanwhile the page shows
+only "Checking your session…" (no header, no sign-in form), while the lobby
+connection is open and the page's data is asked; released, the page draws
+and says "Connected" over that one connection (the early one, taken by the
+shell).
+
+**Tests.**
+- `early.test.ts` (15): a stranger asks only "who am I"; a wrong hint drops
+  everything; data, socket and scripts start with the hint, styles after
+  "who am I"; a primed answer is handed over once, never stale, never after
+  a click or key, GET only; an administrator's lists only for an
+  administrator; the shell takes the early connection with its past replayed
+  in order; the build's list names each page's chunks and styles once,
+  never the entry's; every lazy page in `routes.tsx` is listed; a seat's own
+  avatar before PLAYERS, PLAYERS after; the room data's avatar read as a
+  name, the default (null) or not said. Each of seven mutations (no hint
+  check, no replay, admin lists for anybody, stale answers handed over, the
+  seat's avatar ignored, the room's avatar not read, the entry's files
+  listed) fails a test (TEST-004).
+- Server: `RoomRoutesTest` "each seat carries its avatar, an active account's
+  only" (the current room and a room by id; a disabled player is null), and
+  `LobbySocketTest`'s invitation test now checks that both `ROOM` messages
+  carry both seats' faces. With the lookup replaced by an empty map, both
+  fail.
+- Browser specs on the second stack (bundled Chromium): auth, foundation,
+  security-headers, lobby, match-setup, belt-records (the Hall), decks,
+  admin, hidden-tab and sharing, 75 passed (on the `fetch()` build); after
+  the switch to preload links, auth, security-headers and foundation, 27
+  passed.
+- Gates in the worktree on the final commit: listed in the commit's report.
+
+**What a player could notice.** Pages are usable sooner, and a room's other
+seat shows its own face at once. Not visible on the page: a browser whose
+session ended elsewhere logs a few refused requests (404, 401) in its console
+while the sign-in page opens.
+
+**Not done here, left open:** the game and spectate targets (E6, E11); Status
+in Chromium (its poll); Firefox (it does not start on this PC; CI's `engines`
+job runs the loading measure there); the live site.
