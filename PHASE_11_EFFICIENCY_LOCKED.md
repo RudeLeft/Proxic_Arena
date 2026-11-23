@@ -2099,3 +2099,188 @@ onto a dead network said "Reconnecting…" at the first beat after waking. Now
 it says so at most 5 s later (the fresh PING's check). Most wakes onto a dead
 network are found sooner by the browser itself (the connection's close), as
 before.
+
+## As built: P11-C3 and P11-C4 (2026-11-22)
+
+Moved up beside step 3 (owner 2026-11-22, from D0: React's commit and the
+frame after it are the biggest slice of the system's own time in a tap, a
+cast and a combat). Branch `p11-c3`, built in its own worktree against the
+second local stack (port 8081). Nothing a player sees changes (P11-R1): the
+jump check and a clip below.
+
+**What changed (C4, `GameScreen.tsx`).** A board update now draws again only
+the parts whose data changed:
+
+- **The plates** are kept (`memo` with `sameProps`) and no longer take the
+  whole board. The rail works out what each plate shows, once per board
+  (`plateFacts`: whose turn, priority, the stack's focus on it, the exile
+  count, the tiles' glows, the library's top card, the Curses, the control
+  chain, the monarch's and the initiative's triggers), and the question's
+  part as plain answers (`plateChoice`). The plate's turn-light reads only
+  the turn (`usePlateLight`, `turnBeganFor`).
+- **The step ladder** takes its own slice (`ladderOf`) and is kept; **the act
+  button's coin** is kept (the button itself is plain page elements, drawn
+  by the rail).
+- **The chat and play log, the gear menu, the question bar and the table's
+  notices** are kept, with callbacks that are the same on every board
+  (`pickLatest`, `inspectFromLog`, `toggleList`, `concede`).
+- **The question** stays the same object across boards that show the same
+  things (`visible` kept by its ids, `keptSet`), so the bar, the table's
+  choosable set and everything else worked out from it are not remade.
+- **The overlay's parts**: the dice only once a roll has been made since the
+  page opened, kept by what they show; the turn's sweep by whose turn it is
+  (`turnOf`); the flights and the mana balls by identity, so they still draw
+  on every new board (each compares the board with the last, and the balls
+  note where each pool's mana chip is after every board, which a spent
+  pool's ball needs), but not for the board's own ghosts and marks. The
+  board hands the overlay one "where is it" function while what it reads is
+  unchanged (`Board.tsx` `overlayAt`).
+
+**C3 (`Board.tsx`): measured; no change kept.** The glide pass was built
+first to ask only the cards that may glide for their animations, instead of
+listing the whole table's (`getAnimations({ subtree: true })`, dd565e27).
+CPU profiles of the replayed land tap at 4x showed no gain, and the trace
+showed why: the time inside that query is the style the browser works out for
+the cards React has just changed (one forced style recalculation per update,
+about 19 elements, about 1.5 ms at 4x), which the frame would work out anyway;
+the list is not the cost. So 93ddc009 put the original query back (the same
+behaviour, less code). The query cannot simply go: it is what finds a slot's
+CSS settle (`battlefield.css`, the `.bf-slot` transform transition) so the
+card's Glide can cancel it; without it a card could be drawn part by its
+settle and part by its Glide.
+
+**Before and after (RUN, 2026-11-22: `node ci/measure.mjs redraw`, 3 runs
+each, the owner's PC as C1 with other programs closed, Playwright's bundled
+Chromium; the second local stack built from the worktree: before at
+6ded276e, after at 93ddc009).** Medians of 3; "!" a number whose runs are
+not all within ±10%. Per update ("upd": every match message, as C1).
+
+```text
+moment            renders     GameScreen  plate       app ms        style ms       frames p95/worst
+                  before>after before>after before>after before>after before>after   before      after
+the replayed table (C6's yardstick, owner 2026-11-21)
+1x tap-one-land    63 > 18     1 > 1       1 > 0       3.09 > 2.41   3.53! > 3.23   16.7/16.8   16.8/16.8
+1x bench-40        60.7 > 20.2 1 > 1       1 > 0.1     2.80 > 2.29   5.44 > 4.44    16.7/16.8   16.7/16.8
+4x tap-one-land    63 > 20     1 > 1       1 > 0      17.2! > 14.5  16.9! > 14.0!   16.7/50!    16.7/50!
+4x bench-40        60.7 > 20.3 1 > 1       1 > 0.1    17.5! > 12.7  26.8! > 19.6    16.8/66.7!  16.7/66.7!
+the real game (only to show nothing got worse, owner 2026-11-21)
+1x cast            71.1! > 24.8! 1.35 > 1.21 1.49 > 0.39 1.79! > 1.16 1.23! > 0.73  16.7/16.8   16.7/16.8
+1x combat          50.7 > 20.6 1.07 > 1.05 1.19 > 0.36  1.30 > 0.91  0.66 > 0.61   33.3/50.1   16.8!/50!
+1x end             76.5 > 30.4 1.48 > 1.48 1.76 > 0.70  1.91 > 1.52  2.41 > 2.07   33.3!/50!   16.8!/50.1
+4x cast            40.0! > 26.2! 0.80 > 0.93 0.86 > 0.41 6.59! > 6.21! 3.78! > 3.44! 16.8/83.3   16.8/66.7
+4x combat          35.0 > 18.0 0.70 > 0.76 0.79 > 0.33  5.79! > 4.88 3.31! > 2.99   33.3!/100!  33.3!/83.3!
+4x end             58.8 > 26.3 1.04 > 1.15 1.30 > 0.59 10.71! > 7.40 12.57! > 11.86 16.8!/117!  33.3!/100!
+```
+
+- **Renders fell by about two thirds everywhere:** tapping one land 63 to
+  18 (18-20 at 4x, by the deal), the busy table 61 to 20, a real cast 71 to
+  25, a combat 51 to 21 (4x 35 to 18). **The plates draw 0 times** on the
+  replayed table (the busy table's 0.1 is its own life drop) and 0.33-0.70
+  in the real game, where priority, life and counts really change.
+- **The page's own JavaScript fell 16-27% on the replayed table** (tap 3.09
+  to 2.41 ms at 1x, 17.2 to 14.5 at 4x; busy table 17.5 to 12.7 at 4x), and
+  style time 8-27% with it. In the real game it fell too (4x combat 5.79 to
+  4.88 ms, 4x end 10.7 to 7.4), within that game's run-to-run spread for the
+  cast. Frames: no p95 worse on the replayed table; the real game's p95 and
+  worst move between 16.8 and 33.3 ms run to run, as before.
+- What is left per update is mostly the board itself (`Board`'s render with
+  `items` and `layout`), the glide pass (below) and the board's data
+  (`boardFromSnapshot`, `keepCards`): work that follows the table's size,
+  which is C2's (after D4).
+- **Hover** is counted per moment: per pointing at a hand card it fell from
+  12.5 renders to 7.8-9.1 at 1x; the moment's totals swing with how many cards
+  that game's hand held (4 to 13 pointings).
+- The real game's GameScreen 0.76-1.21 per message includes renders from the
+  page's own state (a hold ending, a flight landing), not a second render per
+  board.
+
+**The targets.**
+
+- **C4: GameScreen ≤ 1 render per update: met on the replayed table (1)**;
+  the real game's figure is per message (above). **Plates 0 when unchanged:
+  met.** The step ladder draws on a step only; the act button's coin only when
+  it changes. **Tapping one land ≤ 10 renders: not met, 18.** What the 18 are
+  (each commit's components read through React's DevTools hook, RUN):
+  GameScreen 1, the board 1, the rail 1; the two slots that really changed, 4
+  each as the kit counts them (the land that tapped leaves its pile of Forests
+  for a slot of its own and the pile's number changes: slot, card face, and the
+  face's kept part, which the kit counts twice, as a memo and its function);
+  the flights 2 and the mana balls 1, which still draw on every new board
+  (above); then the board's own second and third commits: the ghost of the
+  land joining or leaving its pile (an animation P10-R1 needs: board 1, ghost
+  1, its bar 1) and the ghost's end (board 1). Below 10 needs the ghosts kept
+  outside the board's own state and the flights and balls fed only what they
+  read: a bigger change, with the look at stake, left for C2/C5.
+- **C3: nothing when no card moved: met for the animations** (no card is asked
+  when none moved: the pass's own loops are 0.2-0.5 ms per update at 4x then,
+  RUN, CPU profile). **The glide pass ≤ 2 ms per update at 4x when one card
+  moves: not met.** CPU profiles of the replayed tap at 4x (RUN, the movement
+  effect, inclusive): before 3.5 and 4.2 ms per update (1.8-1.9 ms of it in
+  `getAnimations`); after, 4.3-4.6 ms over three runs (2.4-2.7 ms in it). That
+  query's time is the style recalculation the frame needs anyway (above); with
+  fewer components drawn, more of the update's style work now happens there
+  rather than earlier, while the update's style in total fell (the table
+  above). The rest of the pass is the WAAPI calls (0.5 ms) and its loops (0.5
+  ms). Under 2 ms needs the slot's CSS settle handled without a style query
+  (for example, never letting the slot's transition start when a Glide will
+  run): a change to how cards move, so it needs the jump check over all Lab
+  games at least; not done here.
+
+**Looks identical.** The jump check (RUN, 2026-11-22, bundled Chromium,
+the second stack) over the 30 Lab traces these items touch, chosen for what
+the rail, the overlay and the glide pass draw: combat (`board-data-combat`,
+`combat-choices-double-block`, `combat-choices-first-strike`, `blocks-menace`,
+`game-flow-relentless`), moves and piles (`moves-bounce`, `moves-destroy`,
+`moves-sacrifice`, `attachments`, `piles-unearth`, `card-actions-mill`,
+`wipes-wrath`, `pay-picks-delve`), copies, forms and sides (`copies-clone`,
+`shapes-meld`, `shapes-mutate`, `shapes-daybound`, `survivors-ephemerate`,
+`cost-kinds-gain-control`, `quiet-reports-act-of-treason`, `spent-mutavault`,
+`cost-kinds-crew`, `soulbond-pair`), tokens (`board-data-tokens`,
+`game-flow-krenko`), the plates (`life-changes-bolt`, `players-monarch`,
+`mindslaver`, `stack-rests-three-triggers`) and Karn's restart (`karn`), from
+the 1.75.0 release run's traces, both seats, 41.5 minutes each way. **Before
+(6ded276e) and after (dd565e27): the same report, kind by kind and flag by
+flag** (7 flagged examples each, all the known ones: the restart's cards "not
+shown at all" and in-place flips "changed form, no animation", the checker's
+blind spots listed since Phase 10). The glide pass's final code is 6ded276e's
+own (93ddc009).
+
+**The clip** (RUN): `board-data-combat`, seat 1, boards 50-61 (two
+attackers declared, a block, first-strike and regular damage, a death), replayed
+at normal speed into a real game page and filmed with Chrome's screencast
+(every painted frame, about 1,200 each), before and after. Side by side at the
+same moments after each board (0.1-1.5 s) they are the same picture: at most
+0.42% of pixels differ, from a few milliseconds' difference in when a board
+landed; each board's settled frame differs in 0-102 pixels of 518,400, all of
+them the drifting motes around the stack card (a looping, random effect),
+seen by eye. Files: the session's scratchpad, `c3-clip-before/`,
+`c3-clip-after/`, `c3-clip-sheet.jpg`.
+
+**Checks.** Gates in the worktree: `tsc -b`, `tsc -p tsconfig.e2e.json`,
+eslint, prettier, vitest (1840/1840), `check-doc-refs.py`. A new page test,
+`redrawParts.test.tsx`: a land tapping leaves both plates as they were (each
+plate's drawing counted), and Bob's life dropping draws only Bob's plate,
+with 17 on it; both fail on 6ded276e's `GameScreen.tsx` (8 drawings instead of
+4; 6 instead of 5). `fixes0064`'s chat test now delivers a lobby change the
+way the app's context does (a subscription), not by drawing the whole screen
+again: the kept chat updates through its own hook. Browser specs on the second stack, bundled Chromium (RUN): `match`,
+`match-board-motion`, `match-lands-stay-put`, `match-big-combat`, `match-state`,
+`match-status-list`, `match-play-log`, `match-dice`, `match-passing`,
+`match-numbers`, `match-watching`, `match-mindslaver`, `match-concede`,
+`match-interaction`, `match-stack-rests`, `notices` passed. `match-speed`: its
+1x test passed; its 4x test failed once on "4x combat: JavaScript 115.1 ms/s >
+88", the open flake in ROADMAP (C6's per-second figure, enforced off CI only).
+An A/B on the same
+stack (RUN): 6ded276e's build passed it (4x combat 72.7 ms/s), and the final
+build (93ddc009) passed it twice (4x combat 47.6 and 74.2 ms/s, cast 25.6 and
+60.3): the same per-second swing as before, not this change (the kit's per-update
+real game above shows the page's JavaScript level or lower). These specs ran on
+dd565e27 (the final code but for the glide pass's query, which 93ddc009 put
+back as it was); the clip, the before/after measure and match-speed's A/B ran
+on 93ddc009. `node ci/ci-speed.mjs` (CPU 4x, each with its CI neighbour):
+`match-board-motion`, `match-lands-stay-put`, `match-state`, `match-play-log`,
+`match-dice`, `match-passing` and their neighbours, 11 passed, 0 failed.
+
+**Kit fix.** `ci/measure.mjs` gives Playwright an `--output` beside each run's
+numbers, so its files never land in the checkout (two builders' runs at once).
+The kit already honoured `PROXIC_E2E_URL` and `PROXIC_E2E_CONTAINER`.
