@@ -213,9 +213,10 @@ export async function pageProbe(
     // Spec 0002: who is asked now; a null seat is the game working (or resting).
     if (data.slice(0, 120).includes('"MATCH_ASKING"'))
       probe.seen.asking = !/"seat":null/.test(data);
-    if (data.slice(0, 120).includes('"MATCH_SNAPSHOT"')) {
+    // P11-D4: a delta names what changed: damage in `set`, a stack entry in `set` or `lists`.
+    if (/"MATCH_(SNAPSHOT|DELTA)"/.test(data.slice(0, 120))) {
       if (data.includes('"damage":{')) probe.seen.damage++;
-      if (data.includes('"stack":[{')) probe.seen.stacked++;
+      if (data.includes('"stack":[{') || data.includes('"stack":{"put":[{')) probe.seen.stacked++;
       const epoch = /"gameEpoch":(\d+)/.exec(data);
       if (epoch) probe.seen.epoch = Number(epoch[1]);
     }

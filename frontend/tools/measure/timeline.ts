@@ -164,13 +164,16 @@ const ms = (us: number) => us / 1000;
 /** Result messages: what a page shows as the outcome of a step (not receipts). */
 const RESULT = new Set([
   "MATCH_SNAPSHOT",
+  // P11-D4: a board sent as what changed (the server's `out` still says MATCH_SNAPSHOT;
+  // the messageId joins them).
+  "MATCH_DELTA",
   "DECISION_REQUEST",
   "MATCH_STEP",
   "MATCH_ASKING",
   "DECISION_CLEARED",
 ]);
 /** What a page draws as the outcome first: the board, the question. */
-const SHOWN = new Set(["MATCH_SNAPSHOT", "DECISION_REQUEST"]);
+const SHOWN = new Set(["MATCH_SNAPSHOT", "MATCH_DELTA", "DECISION_REQUEST"]);
 /** Worker frames Forge's own thread writes (receipts come from the worker's main thread). */
 const FORGE_FRAMES = new Set(["MATCH_SNAPSHOT", "DECISION_REQUEST", "MATCH_STEP"]);
 
@@ -419,7 +422,8 @@ export function stepTimeline(
         totalMs: c.painted - clickT,
         slices,
         messages: inStep.length,
-        boards: inStep.filter((x) => x.m.type === "MATCH_SNAPSHOT").length,
+        boards: inStep.filter((x) => x.m.type === "MATCH_SNAPSHOT" || x.m.type === "MATCH_DELTA")
+          .length,
         bytes: inStep.reduce((a, x) => a + x.m.bytes, 0),
         handlerMsAll: inStep.reduce((a, x) => a + x.m.t1 - x.m.t0, 0),
         commits: page.commits.filter((k) => k.t > send.t && k.t <= until).length,

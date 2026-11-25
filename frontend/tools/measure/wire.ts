@@ -172,11 +172,16 @@ export function boardMakeup(board: string): Record<string, number> {
 /** The numbers D1 asks for, over [frames] (one seat's page). */
 export function wireNumbers(frames: Frame[], seconds: number): Record<string, number> {
   const inMatch = frames.filter((f) => f.dir === "in" && f.socket === "match");
-  const boards = inMatch.filter((f) => f.type === "MATCH_SNAPSHOT").map((f) => f.bytes);
+  // P11-D4: a MATCH_DELTA is an update too (the board the page rebuilds).
+  const boards = inMatch
+    .filter((f) => f.type === "MATCH_SNAPSHOT" || f.type === "MATCH_DELTA")
+    .map((f) => f.bytes);
+  const deltas = inMatch.filter((f) => f.type === "MATCH_DELTA").length;
   const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
   return {
     matchMessages: inMatch.length,
     boards: boards.length,
+    deltas,
     boardBytesMedian: percentile(boards, 0.5),
     boardBytesP95: percentile(boards, 0.95),
     boardBytesLargest: Math.max(0, ...boards),
