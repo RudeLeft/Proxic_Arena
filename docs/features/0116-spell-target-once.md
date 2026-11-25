@@ -1,6 +1,7 @@
 # 0116 — A spell on the stack is offered once as a target: "Lightning Bolt on the stack", and it works
 
 **Status:** Approved 2026-11-21 (owner, by prompt: "Approve"). Not part of a phase. Build after 1.75.0 is released. **Not part of 1.75.0** (owner, 2026-11-21: "its own fix"); its own release after 1.75.0.
+**Built:** 2026-11-23 (commit f72c9c76). **Released:** in 1.76.0, 2026-11-25.
 **Owner decisions:**
 
 - 2026-11-21, by prompt, canvas "One Bolt, Two Buttons" (https://claude.ai/artifact/HYY7LzPujZQYaJinGLJoLP), section "Options", option **A**: **"one button, 'Lightning Bolt on the stack'."** Option B (one button, "Lightning Bolt") and option C (keep both, make both work) were not taken.

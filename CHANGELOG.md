@@ -3,6 +3,34 @@
 What changed for players and for whoever runs the server, in plain
 words, newest first. Each release on GitHub carries the same notes.
 
+## 1.76.0 — 2026-11-25
+
+Phase 11 has started: the game and its pages do less work and send less data. Nothing looks different; things are just quicker, most of all on a slow connection. Plus one fix from the 1.75.0 walk-through.
+
+**For whoever runs the server**
+- Nothing to do: no database change. Update as usual (Check for Updates, then Update Stack).
+- Two optional checks after updating, in the browser's developer tools (F12): open a game and look at the `/ws/matches/…` row under Network, Headers: the response should include `permessage-deflate`. And `/api/auth/login`, Timing: "Waiting for server response" should be about 0.3 s or less.
+
+**One target button for a spell on the stack**
+- When you target a spell on the stack (Spellskite, Counterspell, Remand…), "List choices" now shows one button, "Lightning Bolt on the stack", instead of two. The plain "Lightning Bolt" button did nothing and is gone.
+
+**Quicker to load**
+- Pages load about twice as fast on a slow connection. On a phone-speed link, the lobby opens in about 2 s instead of 3.3, and a game in about 4 s instead of 8.6. Reloading a page now takes about half a second.
+- Files the browser already has are kept instead of downloaded again, and text files are compressed.
+- A signed-in page starts its code, its data and the lobby connection all at once, instead of one after another.
+- Sign-in no longer waits on a slow name lookup on the local network.
+
+**Less data during a game**
+- The game connection is compressed: a combat now sends about 20 KB to each player instead of about 620 KB.
+- History you already have (payments, dice rolls, notices) isn't sent again with every update.
+
+**Smoother clicks**
+- After each update the board redraws only the parts whose data changed. Tapping a land redraws 18 pieces of the screen instead of 63, and player plates don't redraw when nothing on them changed.
+
+**Small fixes**
+- Avatars show straight away on the Hall, Account and room pages instead of the default face first.
+- A lobby tab left in the background no longer gets disconnected after a minute.
+
 ## 1.75.0 — 2026-11-21
 
 From the owner's 2026-11-19 feedback: small fixes on the table, windows that say less, a cast that waits at its spot on the stack, soulbond pairs you can see, a clearer Barter in Blood, and plain English on every screen, page and email.
