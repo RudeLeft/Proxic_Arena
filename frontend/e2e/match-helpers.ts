@@ -14,6 +14,7 @@
 // Every locator here was read off the running application.
 
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { basename, extname, join } from "node:path";
 import { importPackage, noticeCard, secondUser, shareOpenDeckWith, testUser } from "./helpers";
 import { geometry } from "../src/battlefield/layout";
@@ -972,6 +973,29 @@ export function watchDeltas(page: Page, who = "page"): DeltaTally {
     context.on("page", (opened) => watchDeltas(opened, `${who} (another tab)`));
   }
   return tally;
+}
+
+/**
+ * The Arena Server's log (docker logs of PROXIC_E2E_CONTAINER, as
+ * match-concurrency uses), or null without the container.
+ */
+export function serverLog(): string | null {
+  const container = process.env.PROXIC_E2E_CONTAINER;
+  if (!container) return null;
+  return execFileSync("docker", ["logs", container], {
+    encoding: "utf-8",
+    maxBuffer: 256 * 1024 * 1024,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
+/** P11-D4 -- the server's delta switches, as it logged them at start; null without the container. */
+export function deltaSwitches(): { players: boolean; spectators: boolean } | null {
+  const log = serverLog();
+  if (log === null) return null;
+  const all = [...log.matchAll(/match deltas: players (true|false), spectators (true|false)/g)];
+  const last = all[all.length - 1];
+  return last ? { players: last[1] === "true", spectators: last[2] === "true" } : null;
 }
 
 /** The tally of a page watched (startAMatch watches both players'). */

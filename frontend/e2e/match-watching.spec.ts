@@ -22,6 +22,8 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { extraPlayers, secondPassword, secondUser, signIn, signInAs, testUser } from "./helpers";
 import {
+  deltaSwitches,
+  watchDeltas,
   attackWithAll,
   clearEverything,
   clickIf,
@@ -110,6 +112,8 @@ test("a third player spectates: Starting…, Spectate, the log, Switch sides, a 
   await clearEverything(guest);
   const viewerContext = await browser.newContext({ viewport });
   const viewer = await viewerContext.newPage();
+  // P11-D4 (F-0117-H): the spectator's page is the browser gate too.
+  const viewed = watchDeltas(viewer, "spectator");
   const watcher = extraPlayers[0]!;
   await signInAs(viewer, watcher.username, watcher.password);
   await clearEverything(viewer);
@@ -191,6 +195,13 @@ test("a third player spectates: Starting…, Spectate, the log, Switch sides, a 
       before + 2,
     );
     expect(asked, "a spectator is never asked anything").toBe(0);
+    // F-0117-H: with spectator deltas on, the public view came as deltas (and
+    // each rebuilt one equalled the server's whole board: watchDeltas); off,
+    // whole boards only, as before P11-D4.
+    const switches = deltaSwitches();
+    if (switches?.spectators)
+      expect(viewed.deltas, "the spectator was sent deltas").toBeGreaterThan(0);
+    else if (switches) expect(viewed.deltas, "spectator deltas are off: whole boards").toBe(0);
     await viewer.screenshot({ path: shot("04-spectator-chip.png") });
 
     // F-0067-E: the public play log, read-only: no chat, no box to type in.

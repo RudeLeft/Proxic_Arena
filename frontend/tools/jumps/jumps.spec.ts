@@ -25,17 +25,24 @@
 // JUMPS_HISTORY_ONCE=1 (P11-D3) sends each board as the server now does,
 // its history lists trimmed to what the page holds (history.ts trimHistory),
 // so the page's rebuild is what is drawn; unset, whole boards as before.
+// JUMPS_DELTAS=1 (P11-D4) sends each board as the server now sends it: the
+// first whole, then a MATCH_DELTA from the board before (delta.ts DeltaStream,
+// the server's rule, with the turn checkpoint and D3's trimming), so the page
+// draws what it rebuilt through applyDelta. A page that asks for a whole board
+// (MATCH_RESYNC) fails the run. The clips always send whole boards.
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import { appendFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { secondPassword, secondUser, signIn, signInAs } from "../../e2e/helpers";
 import { clearEverything, sharedDeck, startAMatch } from "../../e2e/match-helpers";
 import { trimHistory, type HeldHistory } from "../../src/history";
+import { DeltaStream } from "../../src/delta";
 
 const AUDIT = process.env.AUDIT_DIR!;
 const OUT = process.env.JUMPS_OUT!;
 const ONLY = process.env.JUMPS_ONLY ? new RegExp(process.env.JUMPS_ONLY) : null;
 const ONCE = process.env.JUMPS_HISTORY_ONCE === "1";
+const DELTAS = process.env.JUMPS_DELTAS === "1";
 
 type Snap = { seat: number; state: Record<string, unknown> };
 
@@ -232,6 +239,8 @@ async function settled(page: Page) {
 test("record every Lab board, frame by frame", async ({ browser }) => {
   test.setTimeout(6 * 3_600_000);
   mkdirSync(OUT, { recursive: true });
+  // P11-D4: any MATCH_RESYNC a page sends (none expected).
+  const resyncs: string[] = [];
   const pages: { page: Page; client: WebSocketRoute | null; seat: number | null; name: string }[] =
     [];
   for (const who of ["host", "guest"]) {
@@ -255,11 +264,20 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
           entry.seat = (JSON.parse(m) as { state: { seat: number } }).state.seat;
           return;
         }
+        // P11-D4: the real game's deltas never reach the page; this tool sends the boards.
+        if (typeof m === "string" && m.includes('"MATCH_DELTA"')) return;
         if (typeof m === "string" && (m.includes('"DECISION_') || m.includes('"MATCH_ASKING"')))
           return;
         ws.send(m);
       });
-      ws.onMessage((m) => server.send(m));
+      ws.onMessage((m) => {
+        // P11-D4: a page asking for a whole board means a delta did not fit: a failure here.
+        if (typeof m === "string" && m.includes('"MATCH_RESYNC"')) {
+          resyncs.push(`${who}: ${m}`);
+          return;
+        }
+        server.send(m);
+      });
     });
     pages.push(entry);
   }
@@ -379,6 +397,8 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
         const list = boards(trace, p.seat!);
         // P11-D3: what this page holds (a fresh page holds nothing).
         let held: HeldHistory = {};
+        // P11-D4: what this page's connection was last sent (a fresh page: nothing).
+        const stream = new DeltaStream();
         const file = join(OUT, `${trace.replace(/\.jsonl$/, "")}.seat${p.seat}.jsonl`);
         writeFileSync(file, "");
         for (const [i, snap] of list.entries()) {
@@ -389,7 +409,12 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
           const whole = { ...snap.state, stateRevision: ++revision };
           let state: Record<string, unknown> = whole;
           if (ONCE) ({ sent: state, held } = trimHistory(held, whole));
-          p.client!.send(JSON.stringify({ type: "MATCH_SNAPSHOT", state }));
+          if (DELTAS) {
+            const { type, body } = stream.step(whole);
+            p.client!.send(
+              JSON.stringify(type === "MATCH_DELTA" ? { type, ...body } : { type, state: body }),
+            );
+          } else p.client!.send(JSON.stringify({ type: "MATCH_SNAPSHOT", state }));
           await p.page.waitForTimeout(60);
           await settled(p.page);
           const rows = await p.page.evaluate(() =>
@@ -405,4 +430,5 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
     );
     writeFileSync(join(OUT, "index.json"), JSON.stringify(index, null, 1));
   }
+  expect(resyncs, "no page asked for a whole board (P11-D4)").toEqual([]);
 });
