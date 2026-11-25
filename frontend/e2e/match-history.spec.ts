@@ -34,11 +34,16 @@ type Board = Record<string, unknown>;
 
 /** Every match socket a page opens, its boards rebuilt as the page does. */
 function sockets(page: Page) {
-  const opened: { whole: WholeBoards; first: Board | null; frames: number }[] = [];
+  const opened: { url: string; whole: WholeBoards; first: Board | null; frames: number }[] = [];
   let lastFrame = Date.now();
   page.on("websocket", (socket) => {
     if (!socket.url().includes("/ws/matches/")) return;
-    const s = { whole: new WholeBoards(), first: null as Board | null, frames: 0 };
+    const s = {
+      url: socket.url(),
+      whole: new WholeBoards(),
+      first: null as Board | null,
+      frames: 0,
+    };
     opened.push(s);
     socket.on("framereceived", (event) => {
       const text = String(event.payload);
@@ -77,6 +82,18 @@ function sameAcrossConnections(name: string, watched: Watched, from: number) {
   expect(lists(after.first), `${name}: the rebuilt history is the server's`).toEqual(
     lists(before.whole.last),
   );
+}
+
+/**
+ * Only this game's sockets: a page that loads /play while an earlier spec's
+ * game is still live connects to that game first (run 2026-11-25:
+ * match-history read that socket's one board as "the host's", and its
+ * payments were never kept). Called once the game is running.
+ */
+function thisGame(watched: { opened: { url: string }[] }) {
+  const game = watched.opened[watched.opened.length - 1]!.url.split("?")[0];
+  const mine = watched.opened.filter((o) => o.url.split("?")[0] === game);
+  watched.opened.splice(0, watched.opened.length, ...mine);
 }
 
 test("history sent once: reload, a cut connection, a spectator and a second tab see it whole", async ({
@@ -146,6 +163,8 @@ test("history sent once: reload, a cut connection, a spectator and a second tab 
   try {
     const deck = await sharedDeck(host, guest, pkg);
     await startAMatch(host, guest, deck);
+    thisGame(hostSockets);
+    thisGame(guestSockets);
     // Play until the host's page has been sent payments it keeps.
     const deadline = Date.now() + 240_000;
     while (Date.now() < deadline && (hostSockets.opened[0]?.whole.trimmed["payments"] ?? 0) < 5) {
@@ -153,7 +172,15 @@ test("history sent once: reload, a cut connection, a spectator and a second tab 
     }
     expect(
       hostSockets.opened[0]!.whole.trimmed["payments"] ?? 0,
-      "the host was sent boards that keep its payments",
+      `the host was sent boards that keep its payments (${JSON.stringify(
+        hostSockets.opened.map((o) => ({
+          url: o.url,
+          frames: o.frames,
+          deltas: o.whole.deltas,
+          misfits: o.whole.misfits,
+          trimmed: o.whole.trimmed,
+        })),
+      )})`,
     ).toBeGreaterThanOrEqual(5);
 
     // A spectator arrives mid-game: the public view's first board is whole.

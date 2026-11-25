@@ -448,6 +448,10 @@ class BoardDeltaTest {
                     "PROXIC_TEST_DELTA_CHECK" to "true",
                 )[it]
             }
+        // A page that asks (`?deltas=1`) gets them as the switches allow; one that does not, never.
+        assertEquals(DeltaSettings(players = true, spectators = false), DeltaSettings().asked("1"))
+        assertEquals(DeltaSettings(players = false, spectators = false), DeltaSettings(spectators = true).asked(null))
+        assertEquals(DeltaSettings(players = false, spectators = true), DeltaSettings(false, true).asked("1"))
         assertFalse(set.matchDeltas)
         assertTrue(set.spectatorDeltas)
         assertTrue(set.testDeltaCheck)

@@ -40,7 +40,11 @@ On the wire, every socket may be compressed (permessage-deflate, RFC
 the browser offers it, which every browser does; one that doesn't gets
 the same messages uncompressed. The messages themselves don't change.
 A board's history lists (`payments`, `rolls`, `notices`) are sent once
-per connection since P11-D3 (`kept`, under "What the board is told").
+per connection since P11-D3 (`kept`, under "What the board is told"),
+and since P11-D4 a page that asks (`?deltas=1`) is sent only what
+changed (`MATCH_DELTA`, under "Only what changed"). One message sent to
+several connections keeps one `messageId`, even when each connection is
+sent a different delta of it.
 
 `messageId` is present from the first infrastructure message on
 purpose. Phase 0A's decision gate rejects duplicate and stale
@@ -455,7 +459,7 @@ kept                      P11-D3 (2026-11-22), server -> browser only: the
                           the whole board before reading it (frontend
                           `history.ts` `withHistory`; server
                           `BoardHistory.kt`); browser tests that re-send a
-                          board use `WholeBoards`. Lab traces (the worker's
+                          board use `WholeBoards` (`delta.ts` since P11-D4). Lab traces (the worker's
                           output) carry the lists whole, as always
 playLog                   spec 0064: this round's play log lines for THIS
                           seat, written by the worker from Forge's events
@@ -1215,6 +1219,68 @@ option.fight        0107 a "Change split" option ("split:card:N", label
                         every question, and never any board.
 ```
 
+
+## Only what changed (Phase 11 P11-D4, spec 0117, 2026-11-23)
+
+The match socket `/ws/matches/{id}?deltas=1`: the page says it takes deltas
+(a format choice, nothing else; no `protocolVersion` bump). Without it (an
+older page, a tool, a test), every board is a whole `MATCH_SNAPSHOT`, exactly
+as after P11-D3. With it, each board after the connection's first is sent as
+what changed since the board THIS connection was last sent:
+
+```text
+MATCH_DELTA   server -> browser, flat (envelope + these fields)
+  gameEpoch   the game it belongs to (a new game is always a whole board)
+  from        stateRevision of the board this connection was last sent (the base)
+  to          stateRevision of the board it makes
+  set?        {key: value}   top-level keys whose value changed (or appeared), whole
+  unset?      [key]          top-level keys the new board no longer has
+  lists?      {key: {put?: [item], drop?: [key], order?: [key]}}
+              a top-level list whose entries, old and new, are all objects with a
+              unique `id` (the zones, the stack) or, with no `id`, a unique `seat`
+              (`players`), patched by item: `put` each item new or changed, whole,
+              in the new order; `drop` the keys of items gone; `order` every key in
+              the new order, only when it is not "the kept items in their old
+              order, then the new ones in put's order". Any other list goes whole
+              in `set`.
+  kept? payments? rolls? notices?   P11-D3's history, exactly as on a board
+  whole?      TEST ONLY (PROXIC_TEST_DELTA_CHECK): the full board, to compare
+
+MATCH_RESYNC  browser -> server: {have?: {gameEpoch, stateRevision}}
+```
+
+- Nothing finer than one item: a changed card goes whole. Two values are equal
+  when their JSON is equal, ignoring key order. The rule knows keys, lists and
+  ids, never cards (ARCH-005): server `BoardDelta.kt`, page `delta.ts`, Lab
+  gate `scripts/check-deltas.py`, held together by `fixtures/delta/`.
+- The page applies a delta only when the base it holds (the last whole board
+  it took, as sent; `MATCH_STEP` never changes it) has that `gameEpoch` and
+  `stateRevision` = `from`. Revisions rise but are not consecutive for a seat,
+  so "follows" means "builds on what I have", never "to = from + 1". Whatever
+  the delta does not name is the base's own object.
+- A whole `MATCH_SNAPSHOT` goes instead on a connection's first board (join,
+  reconnect, reload, second tab, a spectator arriving), a new game
+  (`gameEpoch`), every new turn (the checkpoint: its history lists whole too),
+  a `MATCH_RESYNC`, a delta no shorter than the board, and whenever deltas are
+  off. A board older than the base goes whole and is not remembered. The page
+  takes a full board at any time.
+- `MATCH_RESYNC`: a delta that does not fit (only ever a bug) makes the page
+  ask once and drop deltas until a full board comes; with none in 3 s it
+  closes the socket and the reconnect brings one. The server reads nothing
+  from it but that it came on this connection (`have` is logged, as numbers,
+  never acted on: §6.100), forgets the connection's memory and answers as to
+  a new connection without the hello: the stored board whole with the whole
+  play log, the pending question, `MATCH_ASKING`. At most one a second; each
+  is logged ("asked for a full board (had e/r, sent e/r)").
+- Hidden information (P11-R4): a delta is made from the connection's own last
+  board and its new one only, so every id it names is in one of them.
+- Switches: `PROXIC_MATCH_DELTAS` (default true) and `PROXIC_SPECTATOR_DELTAS`
+  (default false, owner decision 2) are production settings; both off mean
+  today's whole boards. `PROXIC_TEST_DELTA_CHECK=true` (TEST ONLY: the local
+  and CI overrides; `scripts/check-test-switch.py` keeps it out of the
+  production files) adds `whole` to every delta; the page compares it with
+  what it rebuilt and logs `DELTA_MISMATCH` on a difference, which fails any
+  browser test (`frontend/e2e/match-helpers.ts`).
 
 ## Test-only: the Lab's deal (worker START_GAME, 2026-11-08)
 

@@ -81,6 +81,20 @@ seat's own whole list as the worker stripped it: an entry whose id was
 stripped after it was sent no longer matches what the page holds, so the
 list is sent again, stripped. Nothing is decided about visibility there.
 
+Since P11-D4 (spec 0117, 2026-11-23) a page that asks is sent each board as
+a `MATCH_DELTA`: what changed since the board THAT connection was last sent.
+The delta is made from two boards only, the connection's own last board and
+its new one, each the seat's own view as the worker stripped it (or, for a
+spectator, the public view), so every id it names is in one of them (P11-R4:
+"a delta may name a card id only if the seat's previous view or its new view
+names it"); no other seat's board, and nothing of the game's, is an input.
+"Card:7 is gone from the stack" is what the two whole boards say too.
+Nothing is decided about visibility there either. The gate: in the Lab,
+`scripts/check-deltas.py` rebuilds every seat's and the public stream and
+holds the id rule, then every hidden check reads the rebuilt boards and must
+say what it said over the worker's; in every browser game, the test-only
+`whole` beside each delta is compared with what the page rebuilt.
+
 *Since 2026-11-16:* a stack entry's `source` no longer counts as the card
 on view (Sensei's Divining Top, gone to the top of the library under two
 of its own abilities, kept its id there), and a "(N)" id inside Forge's

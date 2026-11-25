@@ -172,6 +172,9 @@ jobs:
       - run: python3 -I scripts/check-card-owner.py --self-test
       - run: python3 -I scripts/check-semantic-choices.py --self-test
       - run: python3 -I scripts/as-sent-traces.py --self-test
+      # P11-D4: the Lab gate's model held to the server's and the page's (the shared
+      # fixtures in protocol/fixtures/delta/), and its planted faults caught.
+      - run: python3 -I scripts/check-deltas.py --self-test
       # AGENTS EVID-006: live docs name code by file and symbol, never by line number.
       - run: python3 -I scripts/check-doc-refs.py --self-test && python3 -I scripts/check-doc-refs.py
 
@@ -395,19 +398,38 @@ jobs:
           # viewer's own, no library or hand lists, a card the viewer may not see
           # nameless, typed ids, no revision backwards; the public view too.
           python3 -I scripts/check-hidden-information.py "$traces"/*.jsonl
-          # P11-R4 (P11-B4): the same games as a page receives them. The traces are
-          # the worker's whole boards; the server sends each history entry once
-          # (P11-D3). Every board the page rebuilds must equal the worker's, and the
-          # hidden checks hold over the boards as sent. D4's deltas join this step.
-          python3 -I scripts/as-sent-traces.py "$traces" "$RUNNER_TEMP/lab-rebuilt" --rebuilt
-          sent="$RUNNER_TEMP/lab-sent"
-          python3 -I scripts/as-sent-traces.py "$traces" "$sent"
-          python3 -I scripts/check-snapshot-first.py "$sent"/*.jsonl
-          python3 -I scripts/check-hidden-hands.py "$sent"/*.jsonl
-          python3 -I scripts/check-hidden-log.py "$sent"/*.jsonl
-          python3 -I scripts/check-hidden-tops.py "$sent"/*.jsonl || [ $? = 2 ]
-          python3 -I scripts/check-hidden-mulligans.py "$sent"/*.jsonl
-          python3 -I scripts/check-hidden-information.py "$sent"/*.jsonl
+          # P11-R4 (P11-B4, P11-D4): the same games as a page receives them. The
+          # traces are the worker's whole boards; the server sends each connection
+          # only what changed since its own last board (MATCH_DELTA, spec 0117),
+          # history once (P11-D3). check-deltas.py replays every seat's stream and
+          # the public one as the server sends it and as the page rebuilds it: 0
+          # boards rebuilt differently, every id a delta names in its base or its
+          # board, every checkpoint whole, and deltas in every game (HID-004).
+          # Then every hidden check reads the rebuilt boards and must say exactly
+          # what it said over the worker's.
+          rebuilt="$RUNNER_TEMP/lab-rebuilt"
+          if ! python3 -I scripts/check-deltas.py "$traces" "$rebuilt" > "$RUNNER_TEMP/deltas.log"; then
+            grep -v "^[a-z0-9-]*: [0-9]* boards" "$RUNNER_TEMP/deltas.log" | tail -20; exit 1
+          fi
+          tail -2 "$RUNNER_TEMP/deltas.log"
+          same() {
+            a=$(python3 -I "$@" "$traces"/*.jsonl 2>&1; echo "exit $?")
+            b=$(python3 -I "$@" "$rebuilt"/*.jsonl 2>&1; echo "exit $?")
+            if [ "${a//$traces/T}" != "${b//$rebuilt/T}" ]; then
+              echo "== $1 says something else over the boards as rebuilt:"
+              diff <(echo "${a//$traces/T}") <(echo "${b//$rebuilt/T}") | head -20
+              return 1
+            fi
+            echo "== $1: the same over the boards as rebuilt ($(echo "$a" | tail -1))"
+          }
+          same scripts/check-snapshot-first.py
+          same scripts/check-hidden-hands.py
+          same scripts/check-hidden-log.py
+          same scripts/check-hidden-tops.py
+          same scripts/check-hidden-mulligans.py
+          same scripts/check-hidden-information.py
+          same scripts/check-kinds.py
+          same scripts/check-wording.py --res "$res"
           # PHASE_08: every question these games asked, for the job below,
           # which reads both halves of the Lab together.
           python3 -I scripts/check-questions-asked.py --summarise "$traces"/*.jsonl             > "$RUNNER_TEMP/questions-asked-$shard.txt"

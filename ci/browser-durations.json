@@ -3,6 +3,7 @@
   "defaultSeconds": 120,
   "seconds": {
     "match-speed.spec.ts": 420,
+    "match-deltas.spec.ts": 240,
     "match-many-triggers.spec.ts": 294,
     "match-loyalty.spec.ts": 141,
     "match-attachments.spec.ts": 138,

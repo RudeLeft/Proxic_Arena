@@ -49,7 +49,8 @@ back in the match (§6.114).
 ## WebSocket
 
 ```text
-/ws/matches/{matchId}
+/ws/matches/{matchId}            every board whole (a tool, a test, an older page)
+/ws/matches/{matchId}?deltas=1   the game page: only what changed (P11-D4)
 ```
 
 Authenticated by the session cookie, like every request (§3.78). A
@@ -106,6 +107,11 @@ regression game (P6-L, `scripts/check-snapshot-first.py`).
 
 ```text
 MATCH_SNAPSHOT          state: viewer snapshot (below)
+MATCH_DELTA             P11-D4, `?deltas=1` only: gameEpoch, from, to, set?,
+                        unset?, lists?, and P11-D3's kept/payments/rolls/
+                        notices -- the board as what changed since the board
+                        THIS connection was last sent (`protocol/README.md`,
+                        "Only what changed"); whole? in tests only
 MATCH_STEP              state: the step bar's state -- a step nobody is asked
                         at; public, the cards stay as the last board has them
                         (PHASE_07 Amendment 13)
@@ -198,6 +204,10 @@ END_FOR_AWAY        (nothing)                spec 0054: the OTHER seat concedes,
 REPORTS_CLOSED      upTo                     spec 0088: the report window was closed;
                                              reports up to that stamp are gone for
                                              your own seat. No reply
+MATCH_RESYNC        have? {gameEpoch,        P11-D4: a delta did not fit; answered as a
+                    stateRevision}           new connection is (board, question, asking),
+                                             at most once a second; `have` only logged.
+                                             Spectators may send it too
 ```
 
 **Spec 0088 — reports that stay and gather.** A report window is no longer
@@ -255,7 +265,14 @@ picture addresses (`art`, `crop`) for the cards that viewer was sent
 `payments`, `rolls` and `notices` to each connection once: a board carries
 only the entries that connection's page lacks, and `kept` says how many of
 its own to keep; the page rebuilds the whole board before reading it
-(`protocol/README.md`, `kept`; `BoardHistory.kt`, `history.ts`). Carries the turn, phase, active seat, `dayTime`, `gameEpoch`,
+(`protocol/README.md`, `kept`; `BoardHistory.kt`, `history.ts`). Since
+P11-D4 a page that asks (`?deltas=1`) is sent each board as a `MATCH_DELTA`
+from the board that connection was last sent (`BoardStream.kt`,
+`BoardDelta.kt`; the page `delta.ts`): whole on a connection's first board,
+a new game, every new turn (the checkpoint), a resync, and whenever the
+delta would not be shorter; the page's rebuilt board is the worker's board
+exactly (P11-R4's gate: `scripts/check-deltas.py` over the Lab, the
+test-only `whole` over every browser game). Carries the turn, phase, active seat, `dayTime`, `gameEpoch`,
 `stateRevision`, every player's public totals and Forge state
 (counters, designations, command zone, Ring temptations, completed
 dungeons), and the zones this viewer may see: `hand` (own), `otherHands`
@@ -419,7 +436,9 @@ A dropped socket changes nothing in the game. The question stays
 pending -- a disconnect never passes, concedes or picks (§6.111) -- and
 on reconnect the hello, snapshot and same question are sent again. The
 snapshot is a new connection's first board, so its history lists come
-whole (P11-D3).
+whole (P11-D3) and it is never a delta (P11-D4). A page that gets a delta
+it cannot build on asks for the whole board on the same connection
+(`MATCH_RESYNC`), and only if none comes in 3 s closes it and reconnects.
 Refresh, two tabs and a closed browser are covered by P6-R/S/T/BB;
 on the live site a page reloaded mid-game was back in the same match
 (P6-BK).

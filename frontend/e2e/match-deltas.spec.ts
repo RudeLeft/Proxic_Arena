@@ -132,6 +132,18 @@ function sameAcrossConnections(name: string, watched: Watched, from: number) {
   ).toBeNull();
 }
 
+/**
+ * Only this game's sockets: a page that loads /play while an earlier spec's
+ * game is still live connects to that game first (run 2026-11-25:
+ * match-history read that socket's one board as "the host's", and its
+ * payments were never kept). Called once the game is running.
+ */
+function thisGame(watched: { opened: { url: string }[] }) {
+  const game = watched.opened[watched.opened.length - 1]!.url.split("?")[0];
+  const mine = watched.opened.filter((o) => o.url.split("?")[0] === game);
+  watched.opened.splice(0, watched.opened.length, ...mine);
+}
+
 test("only what changed: taps, a targeted cast, combat, reload, a cut, a second tab, a checkpoint and a forced resync", async ({
   browser,
 }) => {
@@ -227,6 +239,8 @@ test("only what changed: taps, a targeted cast, combat, reload, a cut, a second 
         },
       },
     });
+    thisGame(hostSockets);
+    thisGame(guestSockets);
     // Play until the cast with a target and the attack are done, and both seats had deltas.
     const deadline = Date.now() + 360_000;
     while (
@@ -236,6 +250,7 @@ test("only what changed: taps, a targeted cast, combat, reload, a cut, a second 
       await playOn(3_000);
     if (on) {
       expect(done.has("cast"), "Giant Growth was cast on a creature").toBe(true);
+      expect(done.has("combat"), "the host attacked").toBe(true);
       expect(hostSockets.sum("deltas"), "the host was sent deltas").toBeGreaterThan(0);
       expect(guestSockets.sum("deltas"), "the guest was sent deltas").toBeGreaterThan(0);
       expect(hostSockets.sum("checkpoints"), "a new turn's board came whole").toBeGreaterThan(0);
