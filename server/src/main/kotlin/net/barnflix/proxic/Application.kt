@@ -246,6 +246,11 @@ private fun Application.installPluginsAndDependencies(config: ServerConfig): Dep
     // leak a stack trace to a client (§1.26, §2.76).
     install(StatusPages) {
         exception<Throwable> { call, cause ->
+            // Spec 0118: a body that passed its limit while a route read it
+            // (BodySizeLimit) is the caller's 413, not the server's error.
+            if (call.bodyLimitPassed()) {
+                return@exception call.respond(HttpStatusCode.PayloadTooLarge, call.bodyTooLarge())
+            }
             val id = call.callId
             LogContext.withFields(LogContext.ERROR_CODE to "INTERNAL_ERROR") {
                 call.application.log.error("unhandled error", cause)

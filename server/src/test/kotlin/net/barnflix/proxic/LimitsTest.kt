@@ -6,6 +6,12 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.call
+import io.ktor.server.request.receive
+import io.ktor.server.response.respond
+import io.ktor.server.routing.post
+import io.ktor.server.routing.routing
+import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
@@ -51,6 +57,79 @@ class LimitsTest {
             // correct answer -- the point is that it is NOT 413.
             val response = client.post("/api/does-not-exist") { setBody("x".repeat(1024)) }
             assertEquals(HttpStatusCode.NotFound, response.status)
+        }
+
+    /**
+     * Spec 0118 -- two probe routes on top of the real module, read the way
+     * the real routes read: `runCatching { receive }` (most of them), and an
+     * uncaught receive (the admin purge routes).
+     */
+    private fun ApplicationTestBuilder.probeApp() {
+        application {
+            module(config())
+            routing {
+                post("/probe/caught") {
+                    val read = runCatching { call.receive<ByteArray>() }.getOrNull()
+                    call.respond(HttpStatusCode.OK, ErrorResponse("READ", "${read?.size ?: -1}"))
+                }
+                post("/probe/uncaught") {
+                    val read = call.receive<ByteArray>()
+                    call.respond(HttpStatusCode.OK, ErrorResponse("READ", "${read.size}"))
+                }
+            }
+        }
+    }
+
+    private suspend fun ApplicationTestBuilder.sendChunked(
+        path: String,
+        size: Long,
+    ) = client.post(path) { setBody(ChunkedBody(ChunkedBody.padded("{}", size))) }
+
+    /** Spec 0118 (F-0118-A): no declared length, one byte over -- refused like a declared one. */
+    @Test
+    fun `a chunked body one byte over the limit is refused`() =
+        testApplication {
+            probeApp()
+            for (path in listOf("/probe/caught", "/probe/uncaught")) {
+                val response = sendChunked(path, Limits.MAX_HTTP_BODY_BYTES + 1)
+                assertEquals(HttpStatusCode.PayloadTooLarge, response.status, path)
+                val body = response.bodyAsText()
+                assertTrue(body.contains("\"errorCode\":\"BODY_TOO_LARGE\""), body)
+                assertTrue(body.contains("\"That was too much to send at once.\""), body)
+                assertTrue(!body.contains(Limits.MAX_HTTP_BODY_BYTES.toString()), body)
+            }
+        }
+
+    /** Spec 0118 (F-0118-B): exactly at the limit, the route reads it all and answers as usual. */
+    @Test
+    fun `a chunked body exactly at the limit is read whole`() =
+        testApplication {
+            probeApp()
+            for (path in listOf("/probe/caught", "/probe/uncaught")) {
+                val response = sendChunked(path, Limits.MAX_HTTP_BODY_BYTES)
+                assertEquals(HttpStatusCode.OK, response.status, path)
+                assertTrue(response.bodyAsText().contains("\"${Limits.MAX_HTTP_BODY_BYTES}\""), path)
+            }
+        }
+
+    /** Spec 0118: a declared length over the limit is still refused before the route runs. */
+    @Test
+    fun `a declared length over the limit is still refused first`() =
+        testApplication {
+            probeApp()
+            val response =
+                client.post("/probe/uncaught") { setBody("x".repeat((Limits.MAX_HTTP_BODY_BYTES + 1).toInt())) }
+            assertEquals(HttpStatusCode.PayloadTooLarge, response.status)
+            assertTrue(response.bodyAsText().contains("BODY_TOO_LARGE"))
+        }
+
+    /** Spec 0118: small bodies, chunked or not, are read as before. */
+    @Test
+    fun `small bodies are read as before`() =
+        testApplication {
+            probeApp()
+            assertTrue(client.post("/probe/caught") { setBody("hello") }.bodyAsText().contains("\"5\""))
+            assertTrue(sendChunked("/probe/uncaught", 300).bodyAsText().contains("\"300\""))
         }
 
     /**
