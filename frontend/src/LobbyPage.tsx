@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import { gameStarting } from "./early";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 import { EMPTY_LIBRARY, listDecks, type DeckLibrary } from "./decks";
 import { DECKS_KEY, useKept } from "./kept";
@@ -227,6 +228,9 @@ export default function LobbyPage() {
    */
   const startMatch = useCallback(async () => {
     if (!room) return;
+    // P11-E6: nothing more fetched ahead while the server starts the game
+    // (it would share a slow link with the start's own requests).
+    gameStarting();
     setStarting(true);
     refused(null);
     if (room.status !== "READY_FOR_MATCH") {

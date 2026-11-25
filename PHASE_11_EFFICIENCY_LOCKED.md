@@ -2966,3 +2966,214 @@ as it is the kit's and did not recur.
 **Left open.** WebKit's first-visit target (300 ms on slow 4G) for Admin
 and the Hall, and one quiet WebKit measure (above); Firefox (does not start
 on this PC; CI's `engines` job); E5's preload links in WebKit (above).
+
+## As built: P11-E6 (2026-11-25)
+
+The game's code before the game, and the mana pictures as files. Branch
+`p11-e6`, built in its own worktree against the second local stack (port
+8081), from d2dd5754. Nothing a player sees changes (the compare below) but
+the game's page opening sooner after Start match on a slow link.
+
+**What changed.**
+
+- **Mana pictures are files.** `vite.config.ts` `assetsInlineLimit` never
+  inlines a mana symbol (`earlyPages.ts` `isManaPicture`); everything else
+  keeps Vite's 4 KB rule. The 30 symbols under 4 KB were base64 text inside
+  the board's chunk: that chunk is 460.8 -> 312.5 KB (gzip 217.9 -> 107.5
+  KB), and the game page's code 488.8 -> 382 KB transferred. The glob moved
+  to its own module, `battlefield/manaPictures.ts` (`symbolUrl`,
+  `COMMON_SYMBOLS`, `commonPictures`); `ManaCost.tsx` re-exports `symbolUrl`.
+  The files are built files under hashed names, so the server serves them
+  as it serves every signed-in built file (`SignedInGate.kt`
+  `keepOnlySuccesses`: `private, max-age=31536000, immutable`; spec 0060 and
+  E3's rule). They are not made `public`: a stranger gets the sign-in files
+  only (owner 2026-10-24), and no mana symbol is on the sign-in page. No
+  server change.
+- **The game's code ahead, while sitting in a room.** `shell/Shell.tsx`
+  `GameAhead` / `useGameAhead`: on any signed-in page but the game's own
+  (`isGameRoute`), while the player's room is set, 3 s after the page's load
+  (`GAME_AHEAD_AFTER_MS`) it calls `early.ts` `preloadGame`: the game page's
+  built files (the build's `#pa-early` list, `aheadOf("/game")`), then the
+  15 common mana pictures (`COMMON_SYMBOLS`: the five colours, colourless,
+  1-7, X, tap; 55.6 KB), as E5/E7's preload links (modulepreload, style
+  preload, image preload without crossorigin, as the `<img>` asks), **one
+  file at a time** (`inTurn`), each link taken out once in, no file asked
+  twice in the page (`askedAhead`, which now also covers E7's
+  `preloadPages`). A failed file lets the rest go on.
+- **Start match pressed stops it** (`LobbyPage` `startMatch` ->
+  `early.ts` `gameStarting`): nothing more is fetched ahead; what is not in
+  by then comes with the game's page, as before.
+- **Measuring kit** (`tools/measure/loading.spec.ts`): a new test, "start
+  match: from the room to the game table". The host's room is readied on
+  setup pages, then the host's own new profile opens the lobby over the link
+  and either sits until its page has fetched all it fetches on its own
+  (`quiet`) or presses Start match as soon as the room is drawn. Rows:
+  `room sat` (what sitting fetched after the room was usable: the bytes a
+  player who never starts pays; Chromium's long tasks over it), `start sat`
+  and `start at-once` (usable = the press to the table drawn from its first
+  board, the life totals: right after Start match the hands are not dealt;
+  `screenMs` the press to the game's own page drawn, its code in; `boardMs`
+  the press to the first board on the match socket; `afterBoardMs`).
+
+**How it was built: three versions measured (RUN, 2026-11-25).**
+
+1. Fetched 1 s after load, all at once, and the code and pictures again on
+   the press. A slow-4G **room reload** got slower (Chromium 384 -> 751 ms,
+   WebKit 609 -> 1,451): the measure reloads about 2 s after arriving, the
+   aborted downloads still filled the link. And **Start match pressed at
+   once** got slower on slow 4G (first board 5,152 -> 6,255 ms in
+   Chromium).
+2. 3 s after load and one file at a time fixed the reload (WebKit slow 4G
+   632 -> 611). The press still fetched the code: at once on slow 4G, the
+   first board came 1.0-1.9 s later (Chromium 4,964 -> 6,634, WebKit 5,192
+   -> 6,933). Those downloads share the link with the start's own requests
+   (prepare, set-up, launch), so the game starts later.
+3. **Built:** the press stops the prefetch and fetches nothing.
+
+**Before and after (RUN, 2026-11-25; the owner's PC, 13th Gen i5-13600KF,
+32 GB; the second local stack built from d2dd5754, then from this branch;
+Playwright's bundled Chromium and WebKit; `node ci/measure.mjs loading
+--engines chromium,webkit --links local,slow4g,live --grep
+"[rs][ot][oa][mr][,t]"` (the room/game/spectate test and the new one), 3
+runs each, the before taken again on the same stack an hour before the
+after (an earlier before, 6 hours earlier, drifted: WebKit's local
+spectate reload was 743 then, 1,136 later on the same base build); medians,
+ms).**
+
+```text
+Start match -> the table      Chromium                         WebKit                           target
+(sat in the room: code ahead) local      slow 4G    live       local      slow 4G    live
+  table usable                4517->4567 5023->5294 4938->5182 4800->4884 5372->5532 5147->5481  <= 1000 (live)
+  game page drawn (screen)    2146->2152 4638->2732 3064->2670 2390->2447 4898->3036 3401->2991
+  first board                 4472->4541 4972->5270 4896->5156 4687->4823 5280->5472 5072->5400
+  board -> table                34->26     44->29     45->25     88->61     91->71     76->61
+  fetched after the press     524->151 KB, 19->9 requests (code: 320 -> 0 KB); WebKit 484->112 KB live
+(pressed at once: no code ahead)
+  table usable                4409->4643 4990->5117 4985->5160 4771->4959 5285->5414 5164->5613
+  game page drawn             2071->2230 4615->4133 3049->3086 2404->2508 4804->4366 3337->3535
+
+The game, by address        Chromium                         WebKit                           target
+  cold                        174->171   3985->3608 2044->2108  496->501   4227->3667 2241->2167  <= 2000 (live)
+  reload                       71->56     926->893   863->863   384->407   1105->1082 1020->1008
+  cold KB (live)              765.9 -> 647.0 (JS 488.8 -> 382.0), 50 -> 54 requests; WebKit 765.3 -> 665.4
+Spectate cold                 174->158   4028->3645 2060->2113  536->534   4313->3693 2279->2214
+Spectate reload                64->68     909->912   884->865  1136->717   1039->1036 1020->990
+
+The room                      Chromium                         WebKit
+  cold                        120->124   2086->1988 1458->1458  363->373   2162->2206 1627->1603
+  reload                       42->42     394->396   378->374   268->257    632->603   619->578
+  sitting, after usable:      36 -> 346 KB, 7 -> 29 requests (local); 36-69 -> 346-377 KB on the links
+  what it fetched             (+212 KB scripts, +33 KB styles, +64 KB pictures, +22 requests); Chromium long tasks 0 -> 0 ms
+  time to fetch it all        local 5.1 s, live-like 9.2 s, slow 4G 10.4 s (3 s wait, then one at a time;
+                              the measure's 2 s of quiet included)
+```
+
+- **Targets.**
+  - **Table usable <= 1.0 s after Start match, code ahead, live-like: not
+    met, and not reachable by the page (5,182 ms Chromium, 5,481 WebKit).**
+    The page learns there is a game only when the server has prepared,
+    set up and launched it: the game's page is drawn 2.1 s after the press
+    locally, with nothing to download (`screenMs`, local). The first board
+    comes when Forge has started: 4.5-5.4 s after the press on every link,
+    locally too. The page draws the table 25-71 ms after the board (was 34-91). What
+    E6 moves is the game's page itself: drawn 0.4 s sooner on the
+    live-like link (3,064 -> 2,670 Chromium, 3,401 -> 2,991 WebKit) and 1.9
+    s sooner on slow 4G (4,638 -> 2,732, 4,898 -> 3,036), with no code left
+    to fetch after the press (320 KB -> 0). The 1.0 s target needs the
+    server's start (prepare + launch, about 2.1 s) and Forge's start (about
+    2.4 s more) shortened: not E6's.
+  - **Cold <= 2.0 s (the game by address, live-like): not met** (Chromium
+    2,108, WebKit 2,167; were 2,044 and 2,241). On slow 4G both are 9-13%
+    faster (3,985 -> 3,608, 4,227 -> 3,667). What is left on the live-like
+    link is the code's download over the shared link (382 KB) and its
+    run (local cold 171 ms Chromium, 501 WebKit).
+  - "Mana pictures become files (cached, in parallel)": met; 0 of 68
+    inlined; the common 15 ahead.
+- **Slower (P11-R7).**
+  - **The first board after Start match, code ahead: 70-330 ms later** in
+    both engines on every link (above), while the game's page comes sooner.
+    Not the network: with the game page's swirl stilled (reduced motion),
+    the same measure (Chromium, 2 runs) gave first boards of 4,948 and 4,821
+    on slow 4G and 4,886 and 4,729 live-like, against 4,972 and 4,896
+    before: no later. The swirl (spec 0065's canvas, 60 frames a second) now
+    runs about 2 s longer, while the Forge worker starts on the same PC
+    (INFERENCE: CPU shared on one machine; live, the server is another box,
+    the Unraid server, and this cost would not be there; not measured
+    there).
+  - **Pressed at once: 50-450 ms later** (Chromium live 4,985 -> 5,160,
+    WebKit live 5,164 -> 5,613); the game's page comes at about the same
+    time (the code is not ahead), the same swirl cost after it.
+  - Chromium's cold game on the live-like link 2,044 -> 2,108 (+3%): the
+    mana pictures are now their own requests on a six-connection link
+    (50 -> 54 requests); WebKit's is 3% faster. Spectate cold likewise
+    (+2.6% Chromium live, -3% WebKit).
+  - A player who never starts a game pays +309 KB and 22 requests, once per
+    update, starting 3 s after sitting down (the item's risk). A page
+    reloaded or left while that runs shares the link with at most one file.
+- **WebKit's local spectate reload** 1,136 -> 717: not this change's. The
+  base build gave 1,109-1,188 at the time of the before, and 673-762 six
+  hours earlier, on the same stack (RUN, 2 probes); it is the stack's or
+  the machine's state, so it is left out of both directions.
+
+**Nothing a player sees changed (RUN).**
+- The 30 inlined pictures are the source files byte for byte (sha256 of
+  each base64 body taken from the served board chunk before, against
+  `src/assets/mana`: 30 of 30), and all 68 built files are the source files
+  byte for byte. The same bytes decode to the same pixels.
+- Screenshots: a real game on the second stack (green deck, a dealt hand
+  of Grizzly Bears, Centaur Courser, Thornhide Wolves, Colossal Dreadmaw,
+  Steel Leaf Champion, Llanowar Elves, Giant Growth), 1920x1080, before and
+  after, in **Chromium and WebKit** (WebKit at its device scale 2, so the
+  symbols at twice the pixels): every hand card's cost (7) and every cost
+  while the card is hovered and raised (7), 14 element shots per engine:
+  **identical, pixel for pixel, in both engines**; the 14 symbols drawn at
+  the same sizes (11.8-13.2 px), 4 of them inlined before, 0 after. The
+  reading view (the close-up) draws a cost only when Forge says it changed
+  (spec 0058), and its symbol is the same `ManaCost` with the same files. Not
+  compared: Firefox (does not start on this PC); the loading swirl (random
+  sparks; its five pictures are the same files).
+- **One visible timing difference, owed to the owner's eye:** in a game
+  opened without sitting in a room first (a reload, the first game after
+  an update pressed at once), a symbol that is not one of the common 15,
+  or not yet in, now arrives as its own file with the card pictures, as
+  W, B, R and G (over 4 KB, so files already) always have. The 30 small ones
+  used to come inside the code.
+
+**Tests.**
+- `early.test.ts` (5 new): sitting fetches the game's code then the common
+  pictures one at a time, each once, pictures without crossorigin, links
+  taken out; once Start match is pressed nothing more (mid-way or later);
+  pressed before the wait, nothing at all; a failed file does not stop the
+  rest; every common symbol has a file. `tools/bundle/manaFiles.test.ts`
+  (2): the build's own config never inlines a mana picture and keeps Vite's
+  rule for the rest; `isManaPicture` on either slash.
+- `e2e/match-game-ahead.spec.ts` (new, real clicks): a player in no room
+  fetches none of the game's own code and no mana picture; open a room,
+  invite, accept: both seats fetch the game's code (5 files) and the 15
+  pictures, each once, and the links are gone; choose decks, Ready, Start
+  match: the table is drawn and no game code is asked again. It is the
+  item's real-click game (TEST-012). At CI speed (`node ci/ci-speed.mjs`,
+  CPU 4x, after match-casting-dock, which skipped here: no deck): passed,
+  18.9 s. With the specs whose code was touched (lobby, match-setup, auth,
+  foundation, kept-data, hidden-tab) on the second stack, in Edge (the
+  config's default channel): 48 passed (2.2 min).
+- **Bites (TEST-004).** Each of these fails a test, restored after:
+  prefetch removed (`useGameAhead(false)`, the stack rebuilt): the spec
+  ("code 0, pictures 0"), and the measure (`room sat` 36 KB, `start sat`
+  fetches 212 KB of code again, the game's page drawn 3,067 not ~2,670 ms
+  live-like); mana inlining restored (stack rebuilt): `manaFiles.test.ts`
+  and the spec ("pictures 4": only W, B, R and G were files); pictures asked
+  with crossorigin: 1; all at once instead of one at a time: 3; no "never
+  twice": 1; no pictures ahead: 2; the press not stopping it: 2; a failed
+  file stopping the chain: 1.
+
+**Not done, left open.** The 1.0 s target (the server's and Forge's start,
+above); the cold 2.0 s (the code's size, E11/D-items' territory); Firefox
+(does not start on this PC; CI's `engines` job); the live site; the swirl's
+CPU while Forge starts, measured only on one machine.
+
+**Owner, 2026-11-25 (by prompt: "Ship it, accept as is"):** E6 ships with
+these numbers as its result. The 1.0 s and 2.0 s targets are recorded as
+missed, the later first board (70-330 ms) and the slower at-once and
+Chromium cold rows are accepted, and no follow-up item is added for the
+server's ~5 s game start.

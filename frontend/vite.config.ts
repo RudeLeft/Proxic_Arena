@@ -1,6 +1,7 @@
+/// <reference types="vitest/config" />
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { earlyFilesOf } from "./src/earlyPages";
+import { earlyFilesOf, isManaPicture } from "./src/earlyPages";
 
 /**
  * P11-E5 -- each signed-in page's built files, written into index.html (a
@@ -76,6 +77,10 @@ export default defineConfig({
     outDir: "dist",
     sourcemap: false,
     manifest: true,
+    // P11-E6: the mana symbols' pictures are files, never text inside the
+    // board's code (src/battlefield/manaPictures.ts). Everything else keeps
+    // Vite's own rule (inlined under 4 KB).
+    assetsInlineLimit: (file) => (isManaPicture(file) ? false : undefined),
     rollupOptions: {
       output: {
         entryFileNames: "assets/[hash].js",

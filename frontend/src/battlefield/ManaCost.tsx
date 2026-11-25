@@ -5,23 +5,16 @@
 // as a printed card shows it -- and it is the cost the cast would
 // actually take right now when Forge has said so (a reduction or a tax), the
 // printed cost otherwise. The symbol pictures are the Proxic Deck Builder's
-// (assets/mana), copied, not drawn here.
+// (assets/mana), copied, not drawn here; each is a file of its own
+// (manaPictures.ts, P11-E6).
 
 import { sameProps } from "./sameProps";
 import { memo } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { manaTextParts, manaWords } from "../words";
+import { symbolUrl } from "./manaPictures";
 
-const PICTURES = import.meta.glob<string>("../assets/mana/*.png", {
-  eager: true,
-  query: "?url",
-  import: "default",
-});
-
-/** One mana symbol's picture ("W", "2G"); undefined when there is none. */
-export function symbolUrl(symbol: string): string | undefined {
-  return PICTURES[`../assets/mana/sym_${symbol}.png`];
-}
+export { symbolUrl };
 
 /** The symbols of a cost, in order, as the picture names spell them ("1", "R", "WU", "2W", "RP"). */
 export function manaSymbols(cost: string | null | undefined): string[] {

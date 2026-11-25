@@ -12,7 +12,7 @@ import { logLine } from "../reportLog";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
-import { preloadPages, startVisit } from "../early";
+import { preloadGame, preloadPages, startVisit } from "../early";
 import { NoticeStack } from "../NoticeStack";
 import type { ConnectionState } from "../lobby";
 import { useSettled } from "../useSettled";
@@ -24,6 +24,16 @@ import "./app.css";
 
 /** How long after the page's load the header pages' code is fetched ahead. */
 const PRELOAD_AFTER_MS = 1_000;
+/**
+ * P11-E6 -- how long after the page's load (and after sitting down) the
+ * game's code is fetched ahead: later than the header pages', so a page
+ * reloaded or left in its first seconds is not sharing a slow link with it
+ * (measured: with one second, a slow-4G reload of the room 1-2 s after
+ * arriving took 384 -> 751 ms in Chromium, 609 -> 1,451 in WebKit). Players
+ * sit in a room far longer while they choose decks; once Start match is
+ * pressed nothing more is fetched ahead (early.ts `gameStarting`).
+ */
+const GAME_AHEAD_AFTER_MS = 3_000;
 
 function ConnectionState() {
   const { lobby } = useLobbyConnection();
@@ -63,6 +73,39 @@ function PageStack() {
   const { pathname } = useLocation();
   if (isGameRoute(pathname)) return null;
   return <NoticeStack notices={notices} place="page" />;
+}
+
+/**
+ * P11-E6 -- while the player sits in a room (on any page), the game's code
+ * and the common mana pictures are fetched ahead, one file at a time, a few
+ * seconds after the page's load, so "Start match" opens the game on what
+ * the browser already has. Once per page (early.ts `preloadGame`).
+ */
+export function useGameAhead(inRoom: boolean): void {
+  useEffect(() => {
+    if (!inRoom) return undefined;
+    let timer = 0;
+    const ahead = () => {
+      timer = window.setTimeout(() => void preloadGame(), GAME_AHEAD_AFTER_MS);
+    };
+    if (document.readyState === "complete") ahead();
+    else window.addEventListener("load", ahead, { once: true });
+    return () => {
+      window.removeEventListener("load", ahead);
+      window.clearTimeout(timer);
+    };
+  }, [inRoom]);
+}
+
+/**
+ * P11-E6 -- its own component, so the header is not drawn again on every
+ * lobby change. Not on the game's own pages: they have the code already.
+ */
+function GameAhead() {
+  const { lobby } = useLobbyConnection();
+  const { pathname } = useLocation();
+  useGameAhead(lobby.room !== null && !isGameRoute(pathname));
+  return null;
 }
 
 function Header() {
@@ -165,6 +208,7 @@ export function Shell() {
       <PageNoticesProvider>
         <div className="pa-app">
           <Header />
+          <GameAhead />
           <PageStack />
           <Outlet />
         </div>

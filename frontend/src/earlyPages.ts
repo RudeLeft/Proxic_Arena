@@ -198,3 +198,12 @@ export function earlyFilesOf(chunks: readonly BuiltChunk[]): EarlyFiles {
   }
   return { files, pages };
 }
+
+/**
+ * P11-E6 -- a mana symbol's picture (src/assets/mana): always its own built
+ * file (vite.config.ts `assetsInlineLimit`), never inlined into the board's
+ * code. [file] is the source path as the build names it, either slash.
+ */
+export function isManaPicture(file: string): boolean {
+  return /[\\/]src[\\/]assets[\\/]mana[\\/][^\\/]+\.png$/.test(file);
+}

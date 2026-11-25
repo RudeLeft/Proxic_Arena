@@ -129,15 +129,89 @@ export function startEarly(
  * once the file is in the browser's module map and cache.
  */
 export function preloadPages(paths: readonly string[]): void {
-  const built = earlyFiles();
-  if (!built) return;
   for (const path of paths)
-    for (const index of built.pages[path] ?? []) {
-      const file = built.files[index];
-      if (!file) continue;
-      if (file.endsWith(".css")) preload(`/${file}`, "preload", "style", true);
-      else preload(`/${file}`, "modulepreload", undefined, true);
-    }
+    for (const item of aheadOf(path)) preload(item.href, item.rel, item.as, true);
+}
+
+/** A built file the page fetches ahead: its address and how it is asked. */
+interface Ahead {
+  href: string;
+  rel: "modulepreload" | "preload";
+  as?: "style" | "image";
+}
+
+/** The files the build names for the page at [path], as preloads (above). */
+function aheadOf(path: string): Ahead[] {
+  const built = earlyFiles();
+  return (built?.pages[path] ?? []).flatMap((index): Ahead[] => {
+    const file = built?.files[index];
+    if (!file) return [];
+    return file.endsWith(".css")
+      ? [{ href: `/${file}`, rel: "preload", as: "style" }]
+      : [{ href: `/${file}`, rel: "modulepreload" }];
+  });
+}
+
+/** Each in turn: the next is asked once the one before is in (or failed). */
+function inTurn(items: readonly Ahead[], unless: () => boolean = () => false): Promise<void> {
+  return items.reduce<Promise<void>>(
+    (before, item) =>
+      before.then(() =>
+        unless()
+          ? undefined
+          : new Promise<void>((done) => preload(item.href, item.rel, item.as, true, done)),
+      ),
+    Promise.resolve(),
+  );
+}
+
+/**
+ * P11-E6 -- the game's code, then the common mana pictures, fetched ahead
+ * while the player sits in a room (shell/Shell.tsx `useGameAhead`), so
+ * "Start match" opens the game on what the browser already has. The same
+ * preloads as the header pages' (above): one download each, kept like any
+ * built file (a year), each link taken out once its file is in. One file at
+ * a time, so a page left (a reload, a click away) has at most one file under
+ * way, not the whole game's code sharing the link with the next page. Once
+ * per page; a player who never starts a game pays these bytes once per
+ * update. Resolves when every file is in, failed, or no longer wanted.
+ */
+let gameAhead: Promise<void> | null = null;
+/**
+ * Start match has been pressed on this page (`gameStarting`): nothing more
+ * is fetched ahead. Measured (2026-11-25, PHASE_11 "As built: P11-E6"): the
+ * game's code or pictures asked while the server starts the game share a
+ * slow link with the start's own requests, and the game's first board then
+ * came 1.0-1.9 s later on slow 4G. What is not in by then comes with the
+ * game's page, as before.
+ */
+let pressed = false;
+
+export function preloadGame(): Promise<void> {
+  const stop = () => pressed;
+  gameAhead ??= inTurn(aheadOf("/game"), stop)
+    .then(async () => {
+      if (pressed) return;
+      const mana = await import("./battlefield/manaPictures");
+      await inTurn(
+        mana.commonPictures().map((href): Ahead => ({ href, rel: "preload", as: "image" })),
+        stop,
+      );
+    })
+    .catch(() => undefined); // the pictures come with the game, as before
+  return gameAhead;
+}
+
+/** P11-E6 -- Start match pressed (LobbyPage): stop fetching the game ahead (`pressed`). */
+export function gameStarting(): void {
+  pressed = true;
+}
+
+/** Tests only: forget everything fetched ahead. */
+export function forgetAhead(): void {
+  gameAhead = null;
+  pressed = false;
+  askedAhead.clear();
 }
 
 /** The page's styles, held until the session is certain (above). */
@@ -148,15 +222,33 @@ function startStyles(): void {
   styles = [];
 }
 
-function preload(href: string, rel: string, as?: string, drop = false): void {
-  if (document.head.querySelector(`link[href="${href}"]`)) return;
+/** Every file this page has fetched ahead, its link since taken out (P11-E6): never asked twice. */
+const askedAhead = new Set<string>();
+
+function preload(href: string, rel: string, as?: string, drop = false, done?: () => void): void {
+  if (document.head.querySelector(`link[href="${href}"]`) || askedAhead.has(href)) {
+    done?.();
+    return;
+  }
   const link = document.createElement("link");
-  if (drop) link.addEventListener("load", () => link.remove(), { once: true });
+  if (drop) {
+    askedAhead.add(href);
+    link.addEventListener(
+      "load",
+      () => {
+        link.remove();
+        done?.();
+      },
+      { once: true },
+    );
+    link.addEventListener("error", () => done?.(), { once: true });
+  }
   link.rel = rel;
   if (as) link.as = as;
   // As the module scripts and Vite's style links ask (crossorigin), so the
-  // preload is the one they use.
-  link.crossOrigin = "anonymous";
+  // preload is the one they use. A picture is asked by a plain <img>, with
+  // no crossorigin: a preload that said one would not be the one it uses.
+  if (as !== "image") link.crossOrigin = "anonymous";
   link.href = href;
   document.head.append(link);
 }

@@ -38,11 +38,16 @@ import {
   secondUser,
   signIn,
   signInAs,
+  testUser,
 } from "../../e2e/helpers";
 import {
+  chooseDeck,
   clearEverything,
+  expectReady,
   inviteIn,
+  markReady,
   openRoom,
+  seatOf,
   sharedDeck,
   startAMatch,
 } from "../../e2e/match-helpers";
@@ -66,10 +71,21 @@ interface Req {
 /** Every request and socket message of [page], as Playwright sees it in any engine. */
 function recorder(page: Page) {
   const reqs = new Map<object, Req>();
+  // P11-E6: requests still open, and when the last one started or ended.
+  let open = 0;
+  let lastActivity = Date.now();
+  const settled = () => {
+    open = Math.max(0, open - 1);
+    lastActivity = Date.now();
+  };
+  page.on("requestfailed", settled);
   page.on("request", (rq) => {
+    open += 1;
+    lastActivity = Date.now();
     reqs.set(rq, { url: rq.url(), type: rq.resourceType(), bytes: 0, start: Date.now() });
   });
   page.on("requestfinished", (rq) => {
+    settled();
     const r = reqs.get(rq);
     if (!r) return;
     r.end = Date.now();
@@ -117,6 +133,18 @@ function recorder(page: Page) {
       ),
     /** For a page that keeps its connection (in the app): nothing new to wait for. */
     noNewSocket: () => heardPlayers(),
+    /**
+     * P11-E6: resolves once nothing has been asked or answered for [quietMs]
+     * (every request ended), or after [maxMs]: a page that has fetched all it
+     * fetches on its own (the code ahead among it).
+     */
+    async quiet(quietMs = 2_000, maxMs = 40_000): Promise<void> {
+      const until = Date.now() + maxMs;
+      while (Date.now() < until) {
+        if (open === 0 && Date.now() - lastActivity >= quietMs) return;
+        await new Promise((ok) => setTimeout(ok, 100));
+      }
+    },
   };
 }
 type Recorder = ReturnType<typeof recorder>;
@@ -367,6 +395,14 @@ const READY = `window.__ready = (() => {
     room: (name) => seen(q("article.pa-room-mine")) && q("article.pa-room-mine").textContent.includes(name),
     game: () => seen(q(".gs-life-n")) && !!q('.bf-cards [data-zone="viewer:hand"]'),
     spectate: () => seen(q(".gs-life-n")),
+    // P11-E6: the game's own page drawn (its code in): GamePage's screen, the
+    // loading ring's ground, before the first board.
+    gameScreen: () => seen(q("section.gs-screen")),
+    // P11-E6: the table drawn from its first board (the life totals). Right
+    // after Start match the hands are not dealt yet: the opening hand comes
+    // with the first pregame answer, so the game row's hand check waits on a
+    // player, not on the page.
+    table: () => seen(q(".gs-life-n")),
   };
 })();`;
 
@@ -424,8 +460,39 @@ async function fresh(browser: Browser, base: string, state?: string): Promise<Br
   });
   await ctx.addInitScript(READY);
   await ctx.addInitScript(AVATAR_PROBE);
+  await ctx.addInitScript(PRESS_AND_LONG_TASKS);
   return ctx;
 }
+
+/**
+ * P11-E6: when the player last pressed (performance.now, the moment a click
+ * starts, not when Playwright's `click()` returns), and the page's long tasks
+ * (Chromium only: WebKit and Firefox have no "longtask" entries).
+ */
+const PRESS_AND_LONG_TASKS = `(() => {
+  window.__pressed = null;
+  addEventListener("pointerdown", () => { window.__pressed = performance.now(); }, true);
+  window.__long = [];
+  try {
+    new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) window.__long.push([e.startTime, e.duration]);
+    }).observe({ type: "longtask", buffered: true });
+  } catch { /* not in this engine */ }
+})();`;
+
+/** Long-task milliseconds in [from, to] (performance.now), or null where the engine has none. */
+const longTaskMs = (p: Page, from: number, to: number) =>
+  p
+    .evaluate(
+      ([a, b]) => {
+        const supported = (PerformanceObserver.supportedEntryTypes ?? []).includes("longtask");
+        if (!supported) return null;
+        const all = (window as unknown as { __long: [number, number][] }).__long;
+        return Math.round(all.filter(([s]) => s >= a && s <= b).reduce((sum, [, d]) => sum + d, 0));
+      },
+      [from, to] as const,
+    )
+    .catch(() => null);
 
 const now = (p: Page) => p.evaluate(() => performance.now());
 
@@ -693,4 +760,128 @@ test("room, game and spectate: cold and reload, over each link", async ({
       `[loading ${browserName}] ${x.key}: usable ${x.usable} ms, ${x.requests} requests, ${x.kb} KB`,
     );
   writeResult(`loading-game-${browserName}`, "loading", browserName, rows, { links: LINK_NAMES });
+});
+
+/**
+ * P11-E6 -- from "Start match" to the game table. The host's room is made
+ * and both seats readied on the setup pages; then the host's own new profile
+ * opens the lobby over the link and either sits in the room until its page
+ * has fetched all it fetches on its own ("sat": the game's code ahead, once
+ * P11-E6 is built) or presses Start match as soon as the room is drawn ("at
+ * once": nothing ahead). Rows:
+ * - `<link> room sat`: what sitting in the room fetched after the room was
+ *   usable (the bytes a player who never starts pays), and its long tasks;
+ * - `<link> start sat` / `<link> start at-once`: usable = the press to the
+ *   table drawn from its first board (the life totals; the hands come with the
+ *   first pregame answer, a player's, not the page's); `screenMs` the
+ *   press to the game's own page drawn (its code in); `boardMs` the press to
+ *   the first board on the match socket (the server's and the worker's part,
+ *   which no code on the page can shorten); `afterBoardMs` the board to the
+ *   table.
+ */
+test("start match: from the room to the game table, over each link", async ({
+  browser,
+  browserName,
+}) => {
+  test.skip(process.env.PROXIC_LOAD_GAME === "0", "PROXIC_LOAD_GAME=0");
+  test.skip(!existsSync(pkg), "no green deck package");
+  test.setTimeout(90 * 60_000);
+  mkdirSync(OUT, { recursive: true });
+  const mk = () => fresh(browser, TARGET.origin);
+  const [hc, gc] = [await mk(), await mk()];
+  const [host, guest] = [await hc.newPage(), await gc.newPage()];
+  const rows: Row[] = [];
+  try {
+    await signIn(host);
+    await clearEverything(host);
+    await signInAs(guest, secondUser, secondPassword);
+    await clearEverything(guest);
+    const hostState = join(OUT, `state-start-${browserName}.json`);
+    await hc.storageState({ path: hostState });
+    const deck = await sharedDeck(host, guest, pkg);
+
+    for (const name of LINK_NAMES)
+      for (const mode of ["sat", "at-once"] as const) {
+        await host.goto("/play");
+        await guest.goto("/play");
+        await openRoom(host);
+        await inviteIn(host, guest, secondUser);
+        // As startAMatch readies them: each Ready only once that page has
+        // seen the seats already ready (a stale room revision is refused).
+        await chooseDeck(host, deck);
+        await markReady(host);
+        await chooseDeck(guest, deck, testUser);
+        await expectReady(seatOf(guest, testUser));
+        await markReady(guest);
+        await expectReady(seatOf(host, secondUser));
+        // The setup page goes, so the measured profile is the host's only page.
+        await host.goto("about:blank");
+        const { base, relay: r } = await over(name);
+        const ctx = await fresh(browser, base, hostState);
+        try {
+          const page = await ctx.newPage();
+          const rec = recorder(page);
+          let boardAt: number | null = null;
+          page.on("websocket", (ws) => {
+            if (!ws.url().includes("/ws/matches/")) return;
+            ws.on("framereceived", (f) => {
+              if (
+                boardAt === null &&
+                typeof f.payload === "string" &&
+                f.payload.includes('"MATCH_SNAPSHOT"')
+              )
+                boardAt = Date.now();
+            });
+          });
+          await page.goto("/play");
+          const roomUsable = await usableAt(page, "room", secondUser);
+          const start = page.getByRole("button", { name: "Start match" });
+          await expect(start).toBeEnabled();
+          if (mode === "sat") {
+            rec.reset();
+            const from = await now(page);
+            await rec.quiet();
+            const to = await now(page);
+            rows.push(
+              await row(`${name} room sat`, Math.round(to - from), null, null, rec, {
+                roomUsable: Math.round(roomUsable),
+                longTaskMs: await longTaskMs(page, from, to),
+              }),
+            );
+          }
+          rec.reset();
+          await start.click();
+          const pressed = await page.evaluate(
+            () => (window as unknown as { __pressed: number | null }).__pressed,
+          );
+          expect(pressed, "the press was seen").not.toBeNull();
+          const screenAt = await usableAt(page, "gameScreen");
+          const tableAt = await usableAt(page, "table");
+          const origin = await page.evaluate(() => performance.timeOrigin);
+          const board = boardAt === null ? null : (boardAt as number) - origin;
+          rows.push(
+            await row(`${name} start ${mode}`, tableAt - pressed!, null, null, rec, {
+              screenMs: Math.round(screenAt - pressed!),
+              boardMs: board === null ? null : Math.round(board - pressed!),
+              afterBoardMs: board === null ? null : Math.round(tableAt - board),
+            }),
+          );
+        } finally {
+          await ctx.close();
+          await r?.close();
+          await clearEverything(host);
+          await clearEverything(guest);
+        }
+      }
+  } finally {
+    await clearEverything(host).catch(() => undefined);
+    await clearEverything(guest).catch(() => undefined);
+    for (const c of [hc, gc]) await c.close();
+  }
+  for (const x of rows)
+    console.log(
+      `[loading ${browserName}] ${x.key}: usable ${x.usable} ms, ${x.requests} requests, ${x.kb} KB` +
+        (x.key.includes(" start ") ? `, screen ${x.screenMs}, board ${x.boardMs}` : ""),
+    );
+  writeResult(`loading-start-${browserName}`, "loading", browserName, rows, { links: LINK_NAMES });
 });

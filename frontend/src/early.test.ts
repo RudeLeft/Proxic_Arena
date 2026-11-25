@@ -13,7 +13,10 @@ import {
   TAKE_WITHIN_MS,
   WHO_AM_I,
   endEarly,
+  forgetAhead,
   lobbyUrl,
+  preloadGame,
+  gameStarting,
   preloadPages,
   primedFetch,
   startEarly,
@@ -28,6 +31,7 @@ import {
   earlyPageFor,
   type BuiltChunk,
 } from "./earlyPages";
+import { COMMON_SYMBOLS, commonPictures, symbolUrl } from "./battlefield/manaPictures";
 import { EMPTY_LOBBY, connectLobby, reduceLobby, type LobbyState, type RoomView } from "./lobby";
 import { avatarOf } from "./lobbyView";
 import type { AuthUser } from "./auth";
@@ -88,6 +92,7 @@ beforeEach(() => {
 
 afterEach(() => {
   endEarly();
+  forgetAhead();
   hint(false);
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -153,6 +158,102 @@ describe("with the hint", () => {
     for (const link of document.head.querySelectorAll("link"))
       link.dispatchEvent(new Event("load"));
     expect(document.head.querySelectorAll("link")).toHaveLength(0);
+  });
+
+  it("P11-E6: sitting in a room, the game's code then the common mana pictures go ahead one at a time, each once", async () => {
+    document.head.innerHTML = `<script type="application/json" id="pa-early">${JSON.stringify({
+      files: ["assets/shell.js", "assets/shell.css", "assets/game.js", "assets/board.css"],
+      pages: { "/game": [0, 1, 2, 3] },
+    })}</script>`;
+    const links = () => [...document.head.querySelectorAll("link")];
+    const said = (l: HTMLLinkElement) =>
+      `${l.rel}${l.as ? ` ${l.as}` : ""} ${l.getAttribute("href")}`;
+    const settle = () => new Promise((ok) => setTimeout(ok, 0));
+    const done = preloadGame();
+    const seen: string[] = [];
+    // One link at a time: the next is asked once the one before is in.
+    for (let step = 0; step < 4 + COMMON_SYMBOLS.length; step++) {
+      await settle();
+      expect(links(), `step ${step}: one file under way`).toHaveLength(1);
+      const link = links()[0]!;
+      seen.push(said(link));
+      if (link.as === "image") {
+        // A plain <img> asks with no crossorigin; a preload saying one
+        // would not be the one it uses (a second download).
+        expect(link.crossOrigin).toBeNull();
+        expect(link.getAttribute("href")).toMatch(/sym_[0-9A-Z]+\.png$/);
+      } else expect(link.crossOrigin).toBe("anonymous");
+      link.dispatchEvent(new Event("load"));
+      expect(links(), "taken out once in").toHaveLength(0);
+    }
+    await done;
+    expect(seen).toEqual([
+      "modulepreload /assets/shell.js",
+      "preload style /assets/shell.css",
+      "modulepreload /assets/game.js",
+      "preload style /assets/board.css",
+      ...COMMON_SYMBOLS.map((symbol) => `preload image ${symbolUrl(symbol)}`),
+    ]);
+    // Nothing is read: no data, only files.
+    expect(asked).toEqual([]);
+    // Once per page, and no file twice: sitting again, or the game's files
+    // asked again another way, asks for nothing more.
+    await preloadGame();
+    preloadPages(["/game"]);
+    expect(links()).toHaveLength(0);
+  });
+
+  it("P11-E6: once Start match is pressed nothing more is fetched ahead, mid-way or later", async () => {
+    document.head.innerHTML = `<script type="application/json" id="pa-early">${JSON.stringify({
+      files: ["assets/game.js", "assets/board.css", "assets/more.js"],
+      pages: { "/game": [0, 1, 2] },
+    })}</script>`;
+    const hrefs = () =>
+      [...document.head.querySelectorAll("link")].map((l) => l.getAttribute("href"));
+    const done = preloadGame();
+    await new Promise((ok) => setTimeout(ok, 0));
+    expect(hrefs()).toEqual(["/assets/game.js"]);
+    // Pressed while the first file is under way: it finishes; nothing follows
+    // it, neither the rest of the code nor the pictures (they would share a
+    // slow link with the start's own requests).
+    gameStarting();
+    document.head.querySelector("link")!.dispatchEvent(new Event("load"));
+    await done;
+    await new Promise((ok) => setTimeout(ok, 50));
+    expect(hrefs()).toEqual([]);
+    expect(asked).toEqual([]);
+  });
+
+  it("P11-E6: pressed before sitting long enough, nothing is fetched ahead at all", async () => {
+    gameStarting();
+    await preloadGame();
+    expect(document.head.querySelectorAll("link")).toHaveLength(0);
+  });
+
+  it("P11-E6: a file that fails does not stop the rest", async () => {
+    document.head.innerHTML = `<script type="application/json" id="pa-early">${JSON.stringify({
+      files: ["assets/game.js", "assets/more.js"],
+      pages: { "/game": [0, 1] },
+    })}</script>`;
+    const done = preloadGame();
+    await new Promise((ok) => setTimeout(ok, 0));
+    document.head.querySelector("link")!.dispatchEvent(new Event("error"));
+    await vi.waitFor(() =>
+      expect(document.head.querySelector('link[href="/assets/more.js"]')).not.toBeNull(),
+    );
+    document.head.querySelector('link[href="/assets/more.js"]')!.dispatchEvent(new Event("load"));
+    for (let step = 0; step < COMMON_SYMBOLS.length; step++) {
+      await vi.waitFor(() =>
+        expect(document.head.querySelectorAll('link[href$=".png"]')).toHaveLength(1),
+      );
+      document.head.querySelector('link[href$=".png"]')!.dispatchEvent(new Event("load"));
+    }
+    await done;
+  });
+
+  it("P11-E6: every common symbol has a picture file", () => {
+    for (const symbol of COMMON_SYMBOLS) expect(commonPictures()).toContain(symbolUrl(symbol));
+    expect(commonPictures()).toHaveLength(COMMON_SYMBOLS.length);
   });
 
   it("asks for no style when who am I says nobody", () => {
