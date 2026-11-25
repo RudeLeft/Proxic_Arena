@@ -22,6 +22,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 import { EMPTY_LIBRARY, listDecks, type DeckLibrary } from "./decks";
+import { DECKS_KEY, useKept } from "./kept";
 import {
   cancelPreparation,
   closeRoom,
@@ -92,7 +93,14 @@ export default function LobbyPage() {
   useEffect(() => {
     if (inGame) void navigate("/game");
   }, [inGame, navigate]);
-  const [library, setLibrary] = useState<DeckLibrary>(EMPTY_LIBRARY);
+  // P11-E8 — the deck list is kept for the tab (the Deck Depot's library,
+  // the same answer), drawn at once and read again on every visit. The room
+  // and the match you are in are never kept: they are asked afresh below,
+  // and the lobby's rooms come from its connection, kept up to date by it.
+  const decks = useKept(me?.userId ?? null, DECKS_KEY, listDecks);
+  const library: DeckLibrary = decks.value ?? EMPTY_LIBRARY;
+  const decksAgain = useRef(decks.refresh);
+  decksAgain.current = decks.refresh;
   const [busy, setBusy] = useState(false);
   const [starting, setStarting] = useState(false);
   const [needRoomFor, setNeedRoomFor] = useState<PlayerRow | null>(null);
@@ -115,9 +123,6 @@ export default function LobbyPage() {
       if (cancelled || !match) return;
       setLobby((previous) => (previous.match ? previous : { ...previous, match }));
     });
-    void listDecks().then((next) => {
-      if (!cancelled) setLibrary(next ?? EMPTY_LIBRARY);
-    });
     return () => {
       cancelled = true;
     };
@@ -133,7 +138,7 @@ export default function LobbyPage() {
   const listStale = !!listed && !!chosenName && listed.displayName !== chosenName;
   useEffect(() => {
     if (!listStale) return;
-    void listDecks().then((next) => setLibrary(next ?? EMPTY_LIBRARY));
+    void decksAgain.current();
   }, [listStale, chosenName]);
 
   /**

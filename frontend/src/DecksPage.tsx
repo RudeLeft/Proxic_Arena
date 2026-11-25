@@ -35,6 +35,8 @@ import { DeckIconPicker } from "./DeckIconPicker";
 import { Avatar } from "./avatars";
 import { ICON, avatarOf } from "./lobbyView";
 import { useLobbyConnection } from "./shell/LobbyConnection";
+import { useAuth } from "./AuthContext";
+import { DECKS_KEY, useKept } from "./kept";
 import { capital, countWords } from "./words";
 
 /** Spec 0008 — the narrow layout, where the open deck sits below the library. */
@@ -656,7 +658,16 @@ function TokensBand({ detail, size }: { detail: DeckDetail; size: CardSize }) {
 
 export default function DecksPage() {
   /** Null until the first answer; "failed" when the server did not give one. */
-  const [library, setLibrary] = useState<DeckLibrary | "failed" | null>(null);
+  // P11-E8 — the library is kept for the tab (with the lobby's deck list,
+  // the same answer): a revisit draws it at once and reads it again behind;
+  // every change made here reads it again (as it always did).
+  const { state: auth } = useAuth();
+  const kept = useKept(
+    auth.status === "authenticated" ? auth.user.userId : null,
+    DECKS_KEY,
+    listDecks,
+  );
+  const library: DeckLibrary | "failed" | null = kept.value ?? (kept.failed ? "failed" : null);
   const [open, setOpen] = useState<DeckDetail | null>(null);
   const [openFailed, setOpenFailed] = useState(false);
   /** Spec 0008 — on a phone the library folds while a deck is open. */
@@ -666,14 +677,7 @@ export default function DecksPage() {
   const asked = useRef<string | null>(null);
   const mainRef = useRef<HTMLDivElement | null>(null);
 
-  const refresh = useCallback(async () => {
-    const next = await listDecks();
-    setLibrary(next ?? "failed");
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  const refresh = kept.refresh;
 
   const view = useCallback((deckId: string) => {
     asked.current = deckId;

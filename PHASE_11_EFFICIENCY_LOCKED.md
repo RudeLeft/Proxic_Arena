@@ -2724,3 +2724,227 @@ The jump check over 17 traces with deltas and with whole boards: identical repor
 **Left for the owner.**
 - Spectator deltas switch on in a later release (decision 2).
 - Proposed for P11-R4's text, not made (a locked rule): name `check-hidden-information.py` among its hidden checks.
+
+## As built: P11-E7 and P11-E8 (2026-11-25)
+
+Admin opens at once, and pages keep their data. Branch `p11-e7`, built in
+its own worktree against the second local stack (port 8081), from f72c9c76.
+Nothing a player sees changes but pages being ready sooner (and two
+timings, below).
+
+**What changed.**
+
+- **Kept data** (`frontend/src/kept.ts`, new). The last answer a page read
+  is kept for the tab, in memory, and drawn at once on the next visit; the
+  page still reads again on every visit, and the fresh answer replaces the
+  kept one when it lands (`useKept`). The rules:
+  - filed under the user id that read it; another person's is never handed
+    out (`keptFor`);
+  - forgotten at sign-out, on an expired session and at every sign-in
+    (`forgetKept`, called from `AuthContext`), and a read still under way
+    then is dropped when it lands (the latest-read numbers are forgotten
+    too);
+  - memory only: a reload, another tab or a closed browser keeps nothing
+    (sessionStorage was not used, so nothing signed-in outlives the page);
+  - the latest read wins; an admin action supersedes reads already under
+    way (`supersede`), so a list read before the action can never land
+    after the action's own re-read;
+  - a failed read keeps what is shown; with nothing kept the page says it
+    failed, as before.
+- **Admin** (`AdminPage.tsx`):
+  - reads the open tab's lists and one small overview
+    (`GET /api/admin/overview?since=<the viewer's midnight>`, server
+    `AdminOverview.kt`: the five tiles' numbers, the tab counts, the
+    server's state and how long records are kept, counted from the same
+    lists by the same rules the page used, `overview` and
+    `signInsByPerson`), not all seven lists; each panel draws as its own
+    list lands (no `Promise.all`);
+  - once the open tab is in, the other tabs' lists are read ahead
+    (`readAhead`), so a tab click draws its list at once and reads it again
+    behind;
+  - re-reads the open tab and the overview every 30 s only while its
+    browser tab is seen; none while hidden, once on coming back if one was
+    missed. Update waiting's own poll (`AdminUpdate.tsx`) and the shell's
+    version check (`PageNotices.tsx`) also skip a hidden tab and read on
+    coming back;
+  - after an admin action, the open tab's list and the overview are read
+    again **before** the outcome is said, and every other tab's kept list
+    is forgotten (closing a room ends its game; any action may change any
+    list), so those wait for a fresh read when opened;
+  - the tab panel says `aria-busy` while its own list is first being read
+    (nothing kept) -- not visible; it is what the loading measure now waits
+    for;
+  - start-up (E5) primes the open tab's lists and the overview by address
+    (`earlyPages.ts` `adminOpening`), not all seven.
+- **A header link starts its page's data with the click**
+  (`early.ts` `startVisit`, from `Shell.tsx`), beside the page's code, not
+  after it; the page takes it as it opens (`primedFetch`, P11-E5's rule: an
+  answer never older than the player's last act).
+- **Hall, Deck Depot and the lobby's deck list** keep theirs (`HallPage`,
+  `DecksPage`, `LobbyPage`; the Deck Depot and the lobby share one kept
+  `/api/decks`).
+- The measuring kit (`loading.spec.ts` `READY`): Admin's "usable" waited
+  for any list item in the panel, and "Loading accounts…" is one, so it
+  timed the page's code, not its data. It now waits for the accounts
+  themselves, the tab counts and the panel not busy; a tab, for its own
+  list. The before was measured with the corrected check, on f72c9c76.
+- **The header pages' code is fetched ahead** (`early.ts` `preloadPages`,
+  from `Shell.tsx`): a second after a signed-in page's load event, the
+  lobby's, Hall's, Deck Depot's, Account's (and for an administrator
+  Admin's) built files go as `modulepreload` / style preload, the E5 links,
+  one download each, kept like any built file. So a first click on a header
+  page waits only for its data (which the click starts).
+
+**Which pages keep data, and which wait.**
+
+| Page | Kept and drawn at once, read again behind | Waits for a fresh read | Why |
+|---|---|---|---|
+| Hall | the Hall | -- | Changes only when a game ends; STANDINGS already re-reads it then (E16's rule kept). |
+| Deck Depot | the library | an open deck (as before) | The kept list is your own; every change made on the page re-reads it, as before. A deck sent or shared from elsewhere shows one read later. The server checks every use (`canUseDeck`), so a stale line can't be used wrongly. |
+| Lobby | the deck list (the Deck Depot's) | the room and the match you are in (`/api/rooms/current`, `/api/matches/current`) | Where you land must never be stale; those are read afresh on every visit and merged only when newer, as before. The rooms list and the players come from the lobby connection, which the shell keeps up to date across pages. |
+| Account | -- | the email address and the linked computers (as before) | Your own settings; the page is already drawn at once from "who am I" (in-app again 39-48 ms). |
+| Admin | each tab's list, the overview | after an admin action: every tab but the open one | The open tab and the numbers are re-read before the action's outcome is said; any action may change another tab's list, so those are read fresh when opened. |
+| Status, room, game, spectate | -- | everything (as before) | Live state; not in E8's row. |
+
+None of this shows kept data with a "refreshing" sign: a kept list is drawn
+as the page always drew a list, and the fresh one replaces it (E8's row).
+
+**Before and after (RUN, 2026-11-25; the owner's PC, 13th Gen i5-13600KF,
+32 GB; the second local stack built from f72c9c76, then from this branch;
+Playwright's bundled Chromium and WebKit; `node ci/measure.mjs loading
+--engines chromium,webkit --links local,slow4g --grep "every page"`, 3 runs
+each; medians, ms to usable; the corrected Admin check on both sides).**
+
+```text
+slow 4G                     Chromium            WebKit              target
+Admin, header first          685 -> 235          832 -> 415          <= 300
+Admin, header again          453 -> 42           560 -> 190          <= 100 (WebKit <= 300)
+Admin cold by address       2109 -> 1889        1824 -> 1802         <= 2.0 s
+Admin tabs cold by address  2102-2122 ->        1818-1850 ->         <= 2.0 s
+                            1825-1890           1770-1819
+Admin reload                 757 -> 599          818 -> 666          <= 900
+Admin tab click            12-19 -> 17-26      107-111 -> 137-184    <= 50 (WebKit <= 150, no worse)
+Hall, header first           458 -> 243          639 -> 378          <= 300
+Hall, header again           222 -> 48           361 -> 211          <= 100 (WebKit <= 300)
+Deck Depot, header first     449 -> 54           624 -> 191          <= 300
+Deck Depot, header again     227 -> 51           356 -> 172          <= 100 (WebKit <= 300)
+Account, header first        249 -> 75           394 -> 257          <= 300
+Account, header again         39 -> 44           128 -> 175          <= 100 (WebKit <= 300)
+lobby, header first / again  51/46 -> 46/42     127/126 -> 186/176   <= 300 / <= 100
+
+local                       Chromium            WebKit
+Admin first / again          89/87 -> 56/42     255/206 -> 232/162
+Admin tab click            16-25 -> 16-30      106-113 -> 125-153
+Hall again, Deck Depot again 48/53 -> 46/46     187/187 -> 206/156
+Admin cold / reload          126/65 -> 114/55   326/275 -> 334/290
+
+requests and bytes          Admin again: 8 API reads, 9.0 KB -> 3 reads, 3.3 KB (accounts, invitations,
+                            overview); Admin first: 26 KB -> 9.8 KB (the code was fetched ahead);
+                            a tab click: 0 -> 1 read (its list again, behind); a cold signed-in page:
+                            +7 to +10 requests and +1 to +46 KB once per update (the header pages'
+                            code ahead, after the page is usable)
+```
+
+- **Targets, Chromium: all met.** Admin first click 235 ms (<= 300),
+  revisit 42 ms (<= 100), cold by address 1,825-1,890 ms (<= 2.0 s), tab click
+  17-26 ms (<= 50); Hall, Deck Depot, Account and lobby revisits 42-51 ms
+  (<= 100 on slow 4G); every first in-app visit 46-243 ms (<= 300).
+- **WebKit: revisits within its allowance (<= 300), first visits not.**
+  Admin first 415 ms and Hall first 378 ms on slow 4G are over the 300 that
+  stands in every engine (were 832 and 639). WebKit's tab click
+  (107-111 -> 137-184 slow 4G, 106-113 -> 125-153 local) and its lobby and
+  Account revisits (126-128 -> 175-176) came out slower; Account's and the
+  lobby's code didn't change. **These WebKit runs overlapped the other
+  builder's measures on the same PC** (`p11-d4`'s `ci/measure.mjs redraw`,
+  real games, seen running from 08:03): each WebKit number in them is
+  bimodal (one run at the before's value, the others 20-80 ms later), and a
+  single WebKit run of the same build while that machine was quiet
+  (`exp2`, below) gave the before's values: tab clicks 107-113 (one 129),
+  Account and lobby revisits 127-130, Admin first 359, Hall first 372. So
+  the WebKit in-app numbers here are not clean; they are owed one quiet
+  3-run WebKit measure. Chromium's (2.5-8x lighter here) were steady.
+- **Found on the way: preload links left in the page may slow WebKit.**
+  With the header pages' code fetched ahead and the `<link>`s left in the
+  head, a 3-run WebKit measure gave tab clicks 117-209 and revisits
+  126-204; with each link taken out once its file is in (`preloadPages`),
+  one run gave 107-130. The 3-run may have overlapped the other builder's
+  load too, so how much was the links is not separated (INFERENCE); taking
+  them out costs nothing (the file stays in the browser's module map and
+  cache). E5's start-up links stay in the head for the page's life; if the
+  links are the cause, the same cost is in WebKit's in-app numbers since E5.
+- **Slower (P11-R7).** A tab click now reads its list again behind: 1
+  request, 0.6-3.3 KB, where it read none (the list is drawn first, so the
+  click itself is not slower in Chromium). A cold signed-in page fetches the
+  header pages' code ahead after it is usable: +7 to +10 requests, +1 to
+  +46 KB, once per update (then kept by the browser for a year); the cold
+  load's usable time is unchanged within the spread. Chromium local Deck
+  Depot reload 32 -> 72 ms (median; runs 33/72/101, the other builder's load
+  again; slow 4G reload 388 -> 384).
+- **What a player (an administrator) could notice.** After an admin action
+  the outcome line now appears together with the list that shows it (one
+  read later than before, when it came first and the list caught up after
+  re-reading all eight). Nothing else changes but timing.
+- **Not built, with reasons.** Paging Sign-ins and Games (E7's row): Games
+  is already the newest 50 (`AdminMatches.RECENT`) behind "Show all", and
+  the Sign-ins list is 1.1-1.5 KB gzipped since E4; paging a list grouped by
+  name would need a pager, a new look (P11-R1), for a saving of about 1 KB.
+  An ETag on the admin lists (E17's note): the reads are now one list of
+  0.6-3.3 KB at a time; not worth a validator.
+
+**Two people in one tab, and signing out (proof, RUN).**
+- `kept-data.spec.ts` "a revisit draws the kept lists at once; signing out
+  forgets them, so the next person in the tab waits for their own":
+  RudeLeft visits the Deck Depot, Hall and Admin; revisits them with every
+  read held at the server's door and sees his lists at once (Admin's Games
+  tab drawn, not busy; each page did ask again). He signs out; Pat signs in
+  on the same page (no reload, so the tab's memory is the same) with her
+  own reads held: the Deck Depot shows no deck at all and none of
+  RudeLeft's names, the Hall says "Loading…"; released, Pat's own Hall
+  draws. Pat asks no `/api/admin/` address on /admin.
+  **Bite:** against a build with both safeguards removed (`keptFor`
+  ignoring the person, sign-out not forgetting), Pat's Deck Depot drew
+  RudeLeft's library ("Expected: 0, Received: 1"); restored, it passes.
+- `kept.test.tsx` (7): each safeguard alone bites -- `keptFor` ignoring the
+  person fails "one person's kept data is never handed to another";
+  sign-out not dropping reads under way fails "signing out forgets
+  everything, and a read still under way is not kept after it"; no
+  latest-read check fails 4 (with E16's Hall tests).
+- E17's server rule is unchanged: every `/api` answer, the overview
+  included, is `private, no-store`; kept data is the page's memory only,
+  never storage, never a shared cache.
+
+**Admin asks nothing while hidden (proof, RUN).** `kept-data.spec.ts`
+"Admin asks nothing while its browser tab is hidden, and reads again on
+coming back": the page hidden, its clock run ten minutes a minute at a time:
+0 requests (it re-read 8 lists every 30 s before, about 9 MB an hour live);
+shown again: the accounts and the overview at once. `adminKept.test.tsx`
+proves the same with fake timers; without the hidden check it fails.
+
+**Tests.** `adminKept.test.tsx` (6): opening reads only the open tab and
+the overview, then the rest ahead; a tab click draws the read-ahead list;
+a revisit draws the kept accounts and numbers before any answer; hidden;
+after an action the list is re-read before the outcome is said and the
+other tabs are forgotten; a player reads no admin list. Bites: reading all
+seven at once fails 5, saying the outcome before the re-read fails 1,
+not forgetting the other tabs fails 1, the hidden check removed fails 1.
+`early.test.ts`: the Admin address primes its tab and the overview (all
+seven primed fails 3), a header link primes its page's data, the header
+pages' code goes as preloads that leave once in. `AdminOverviewTest`
+(server): the overview counts what the lists hold from the viewer's day,
+and refuses a missing or bad `since`; `AdminApiTest`'s every-route test
+covers it for a player (403) and nobody (401). Browser specs on the second
+stack: admin, auth, lobby, belt-records, decks, sharing, notices,
+kept-data, hidden-tab, foundation and device-link, 76 passed (3.9 min); at CI
+speed (`node ci/ci-speed.mjs`, CPU 4x, the "other" machine's run), 82
+passed (6.4 min).
+
+**The loading measure itself (TEST-013).** One after-run of the measure
+stalled with no output for over ten minutes in its local pass and was
+stopped; the next three-run measure of the same build, and every run since,
+finished. Its cause was not found (the stall left no Playwright result; the
+server's log shows nothing for it); recorded here, not in the Flakes table,
+as it is the kit's and did not recur.
+
+**Left open.** WebKit's first-visit target (300 ms on slow 4G) for Admin
+and the Hall, and one quiet WebKit measure (above); Firefox (does not start
+on this PC; CI's `engines` job); E5's preload links in WebKit (above).

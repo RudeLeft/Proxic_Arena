@@ -14,12 +14,20 @@ import {
   WHO_AM_I,
   endEarly,
   lobbyUrl,
+  preloadPages,
   primedFetch,
   startEarly,
+  startVisit,
   takeEarlySocket,
   whoAnswered,
 } from "./early";
-import { EARLY_PAGES, earlyFilesOf, earlyPageFor, type BuiltChunk } from "./earlyPages";
+import {
+  EARLY_PAGES,
+  adminOverviewAddress,
+  earlyFilesOf,
+  earlyPageFor,
+  type BuiltChunk,
+} from "./earlyPages";
 import { EMPTY_LOBBY, connectLobby, reduceLobby, type LobbyState, type RoomView } from "./lobby";
 import { avatarOf } from "./lobbyView";
 import type { AuthUser } from "./auth";
@@ -127,6 +135,26 @@ describe("with the hint", () => {
     ]);
   });
 
+  it("P11-E7/E8: the header pages' code is fetched ahead as preloads, each file once, no data", () => {
+    preloadPages(["/play", "/hall"]);
+    preloadPages(["/hall"]);
+    const links = [...document.head.querySelectorAll("link")].map(
+      (l) => `${l.rel} ${l.getAttribute("href")}`,
+    );
+    expect(links).toEqual([
+      "modulepreload /assets/shell.js",
+      "preload /assets/shell.css",
+      "modulepreload /assets/lobby.js",
+      "modulepreload /assets/hall.js",
+    ]);
+    expect(asked).toEqual([]);
+    // Each link leaves once its file is in (WebKit measured slower on later
+    // clicks while they stayed: PHASE_11 "As built: P11-E7 and P11-E8").
+    for (const link of document.head.querySelectorAll("link"))
+      link.dispatchEvent(new Event("load"));
+    expect(document.head.querySelectorAll("link")).toHaveLength(0);
+  });
+
   it("asks for no style when who am I says nobody", () => {
     hint(true);
     startEarly("/play", { who: true });
@@ -175,7 +203,31 @@ describe("with the hint", () => {
     whoAnswered(user("PLAYER"), "/admin");
     expect(asked.some((a) => a.startsWith("/api/admin/"))).toBe(false);
     whoAnswered(user("ADMIN"), "/admin");
-    expect(asked.filter((a) => a.startsWith("/api/admin/"))).toHaveLength(7);
+    // P11-E7: the open tab's lists and the overview, not all seven.
+    expect(asked.filter((a) => a.startsWith("/api/admin/"))).toEqual([
+      "/api/admin/accounts",
+      "/api/admin/invites",
+      adminOverviewAddress(),
+    ]);
+  });
+
+  it("P11-E7: an Admin tab by its address asks that tab's list and the overview", () => {
+    hint(true);
+    whoAnswered(user("ADMIN"), "/admin", "?tab=games");
+    expect(asked.filter((a) => a.startsWith("/api/admin/"))).toEqual([
+      "/api/admin/matches",
+      adminOverviewAddress(),
+    ]);
+  });
+
+  it("P11-E7/E8: a header link asks its page's data with the click, an administrator's only for one", () => {
+    hint(true);
+    window.dispatchEvent(new Event("pointerdown"));
+    startVisit("/hall", "", user("PLAYER"));
+    startVisit("/admin", "", user("PLAYER"));
+    expect(asked).toEqual(["/api/hall"]);
+    startVisit("/admin", "", user("ADMIN"));
+    expect(asked.filter((a) => a.startsWith("/api/admin/"))).toHaveLength(3);
   });
 
   it("a page outside the shell holds no lobby connection", () => {

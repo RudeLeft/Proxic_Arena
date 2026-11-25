@@ -9,6 +9,7 @@
 // whenever a game ends (the lobby's STANDINGS message says so).
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useKept } from "./kept";
 import trophyBronze from "./assets/trophies/trophy-bronze.webp";
 import trophyGold from "./assets/trophies/trophy-gold.webp";
 import trophyLast from "./assets/trophies/trophy-last.webp";
@@ -67,37 +68,31 @@ export default function HallPage() {
   const { lobby } = useLobbyConnection();
   const { state: auth } = useAuth();
   const me = auth.status === "authenticated" ? auth.user.userId : null;
-  const [hall, setHall] = useState<Hall | null>(null);
-  const [failed, setFailed] = useState(false);
+  // P11-E8 — the Hall is kept for the tab: a revisit draws it at once and
+  // reads it again behind (the latest read wins; none lands after the page
+  // has gone: kept.ts).
+  const kept = useKept(me, "hall", fetchHall);
+  const hall = kept.value ?? null;
+  const failed = kept.failed;
   const [scope, setScope] = useState<"season" | "all">("season");
   const [tab, setTab] = useState<Tab>("Records");
   const now = Date.now();
 
-  // Fetched on opening, and again whenever a finished game moves the
+  // Read on opening (useKept), and again whenever a finished game moves the
   // standings (the server sends STANDINGS to everybody then). Not again for
   // the socket's first STANDINGS after the page opened (P11-E16): that is
   // the list as it stands on joining, which the Hall just read.
   const standings = lobby.standings;
   const readWith = useRef<{ standings: typeof standings } | null>(null);
-  // The latest read wins; none lands after the page has gone.
-  const reads = useRef(0);
+  const again = useRef(kept.refresh);
+  again.current = kept.refresh;
   useEffect(() => {
     const before = readWith.current;
     readWith.current = { standings };
-    if (before !== null && before.standings === null && standings !== null) return;
-    const read = (reads.current += 1);
-    void fetchHall().then((next) => {
-      if (read !== reads.current) return;
-      setFailed(next === null);
-      if (next) setHall(next);
-    });
+    if (before === null) return;
+    if (before.standings === null && standings !== null) return;
+    void again.current();
   }, [standings]);
-  useEffect(
-    () => () => {
-      reads.current += 1;
-    },
-    [],
-  );
 
   const name = (userId: string | null | undefined) => nameIn(lobby, userId);
 

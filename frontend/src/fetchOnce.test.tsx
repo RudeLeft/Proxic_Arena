@@ -12,6 +12,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Hall } from "./hall";
 import { EMPTY_LOBBY, type LobbyState, type Standings } from "./lobby";
+import { forgetKept } from "./kept";
 
 const held = vi.hoisted(() => ({ lobby: {} as LobbyState }));
 
@@ -55,6 +56,7 @@ let answers: (() => void)[] = [];
 let reads = 0;
 
 beforeEach(() => {
+  forgetKept();
   held.lobby = EMPTY_LOBBY;
   answers = [];
   reads = 0;

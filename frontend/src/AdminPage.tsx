@@ -12,7 +12,7 @@
 // administrator can change accounts; that was decided, not missed.
 
 import { AdminOnlyNotice } from "./AdminOnly";
-import { ReportsPanel, fetchReports, type ReportsList } from "./AdminReports";
+import { ReportsPanel, fetchReports } from "./AdminReports";
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "./AuthContext";
@@ -22,13 +22,14 @@ import {
   fetchAdminMatches,
   fetchAdminRooms,
   fetchComputers,
-  fetchServerState,
   fetchSignIns,
   forceClose,
   forceClosedText,
   idleText,
   outcomeText,
-  overview,
+  fetchInvites,
+  fetchOverview,
+  overviewNumbers,
   recordUrl,
   sendPasswordReset,
   setAccountEmail,
@@ -42,7 +43,6 @@ import {
   versionParts,
   workerText,
   type AdminAccount,
-  type AdminComputer,
   type AdminMatches,
   type AdminOutcome,
   type AdminRoom,
@@ -58,8 +58,10 @@ import { ICON, avatarOf, presenceOf, roomStatus, statusOf } from "./lobbyView";
 import { Avatar } from "./avatars";
 import { CheckRule, CheckedInput, MAX_DISPLAY_NAME, displayNameOk } from "./fieldChecks";
 import { useLobbyConnection } from "./shell/LobbyConnection";
+import { ADMIN_TAB_LISTS, type AdminList } from "./earlyPages";
+import { forgetKept, keptFor, readAhead, supersede, useKept, type KeptData } from "./kept";
 
-/** How often the rooms, server and sign-ins re-read themselves. */
+/** How often the open tab's list and the numbers re-read themselves, while the page is seen. */
 const REFRESH_MS = 30_000;
 
 type Message = { ok: boolean; text: string } | null;
@@ -81,17 +83,35 @@ const TABS = [
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
+// P11-E7 — each list is kept for the tab (kept.ts) under its own key, read
+// when its tab is open, and drawn from what was kept until the read lands.
+const KEY: Record<AdminList | "overview", string> = {
+  accounts: "admin/accounts",
+  invites: "admin/invites",
+  rooms: "admin/rooms",
+  matches: "admin/matches",
+  reports: "admin/reports",
+  signIns: "admin/sign-ins",
+  computers: "admin/computers",
+  overview: "admin/overview",
+};
+/** The keys the page reads itself (the invitations' list is Invitations' own). */
+const pageKeys = Object.values(KEY).filter((key) => key !== KEY.invites);
+const READ: Record<AdminList, () => Promise<unknown>> = {
+  accounts: () => fetchAccounts(),
+  invites: () => fetchInvites(),
+  rooms: () => fetchAdminRooms(),
+  matches: () => fetchAdminMatches(),
+  reports: () => fetchReports(),
+  signIns: () => fetchSignIns(),
+  computers: () => fetchComputers(),
+};
+
 export default function AdminPage() {
   const { state } = useAuth();
   const me = state.status === "authenticated" ? state.user : null;
+  const user = me?.role === "ADMIN" ? me.userId : null;
   const { lobby } = useLobbyConnection();
-  const [accounts, setAccounts] = useState<AdminAccount[] | null>(null);
-  const [rooms, setRooms] = useState<AdminRoom[]>([]);
-  const [server, setServer] = useState<ServerState | null>(null);
-  const [signIns, setSignIns] = useState<SignInEvent[]>([]);
-  const [computers, setComputers] = useState<AdminComputer[]>([]);
-  const [reports, setReports] = useState<ReportsList | null>(null);
-  const [matches, setMatches] = useState<AdminMatches | null>(null);
   const [message, setMessage] = useState<Message>(null);
   const [now, setNow] = useState(() => Date.now());
   // The open tab lives in the address, so a reload or a link lands there.
@@ -100,42 +120,88 @@ export default function AdminPage() {
   const tab: TabId = TABS.some((t) => t.id === asked) ? (asked as TabId) : "accounts";
   const tabsId = useId();
 
+  // P11-E7 — the open tab's lists and the numbers; nothing else is read
+  // until they are in (`readAhead`, below).
+  const needs = new Set<AdminList>(ADMIN_TAB_LISTS[tab]);
+  const keyIf = (list: AdminList) => (needs.has(list) ? KEY[list] : null);
+  const accountsData = useKept(user, keyIf("accounts"), fetchAccounts);
+  const roomsData = useKept(user, keyIf("rooms"), fetchAdminRooms);
+  const matchesData = useKept(user, keyIf("matches"), fetchAdminMatches);
+  const reportsData = useKept(user, keyIf("reports"), fetchReports);
+  const signInsData = useKept(user, keyIf("signIns"), fetchSignIns);
+  const computersData = useKept(user, keyIf("computers"), fetchComputers);
+  const overviewData = useKept(user, KEY.overview, fetchOverview);
+  const counted = overviewData.value;
+  const accounts = accountsData.value ?? null;
+  const rooms = roomsData.value ?? [];
+  const matches = matchesData.value ?? null;
+  const reports = reportsData.value ?? null;
+  const signIns = signInsData.value ?? [];
+  const computers = computersData.value ?? [];
+  const server = counted?.server ?? null;
+
+  const lists = [accountsData, roomsData, matchesData, reportsData, signInsData, computersData];
+  const latest = useRef({ lists, overviewData });
+  latest.current = { lists, overviewData };
+  /** Read the open tab's lists and the numbers again; resolves when they are in. */
   const refresh = useCallback(async () => {
-    const [a, r, s, e, m, c, b] = await Promise.all([
-      fetchAccounts(),
-      fetchAdminRooms(),
-      fetchServerState(),
-      fetchSignIns(),
-      fetchAdminMatches(),
-      fetchComputers(),
-      fetchReports(),
-    ]);
-    setReports(b);
-    setAccounts(a);
-    setRooms(r ?? []);
-    setServer(s);
-    setSignIns(e ?? []);
-    setMatches(m);
-    setComputers(c ?? []);
+    const { lists: open, overviewData: numbers } = latest.current;
+    await Promise.all([...open.map((d) => d.refresh()), numbers.refresh()]);
     setNow(Date.now());
   }, []);
 
+  // Read again every REFRESH_MS while the page is seen; nothing while its
+  // browser tab is hidden, and once on coming back if a read was missed.
+  const lastRead = useRef(Date.now());
   useEffect(() => {
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), REFRESH_MS);
-    return () => window.clearInterval(timer);
+    const again = () => {
+      lastRead.current = Date.now();
+      void refresh();
+    };
+    const timer = window.setInterval(() => {
+      if (!document.hidden) again();
+    }, REFRESH_MS);
+    const shown = () => {
+      if (!document.hidden && Date.now() - lastRead.current >= REFRESH_MS) again();
+    };
+    document.addEventListener("visibilitychange", shown);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", shown);
+    };
   }, [refresh]);
 
-  /** Run one admin action, say how it went, and re-read everything. */
+  // Once the open tab's lists and the numbers are in, the other tabs' lists
+  // are read ahead (those not kept), so a tab click shows its list at once.
+  const opened = [...needs].every((list) => keptFor(user, KEY[list]) !== undefined) && !!counted;
+  useEffect(() => {
+    if (!user || !opened) return;
+    for (const list of Object.keys(READ) as AdminList[])
+      if (keptFor(user, KEY[list]) === undefined) void readAhead(user, KEY[list], READ[list]);
+  }, [user, opened]);
+
+  const openKeys = useRef(new Set<string>());
+  openKeys.current = new Set([KEY.overview, ...[...needs].map((list) => KEY[list])]);
+
+  /**
+   * Run one admin action, re-read, and say how it went. Reads already under
+   * way are dropped (they may have started before the action); the open
+   * tab's list and the numbers are read again before the outcome is said,
+   * so the list never shows what was there before the action as if it were
+   * now. Every other tab's kept list is forgotten (an action can change any
+   * of them: closing a room ends its game) and is read afresh when opened.
+   */
   const run = useCallback(
     async (what: () => Promise<AdminOutcome>, done: (detail: string) => string) => {
+      supersede(pageKeys);
       const outcome = await what();
+      forgetKept((key) => pageKeys.includes(key) && !openKeys.current.has(key));
+      await refresh();
       setMessage(
         outcome.ok
           ? { ok: true, text: done(outcome.detail) }
           : { ok: false, text: outcome.message },
       );
-      await refresh();
       return outcome.ok;
     },
     [refresh],
@@ -144,17 +210,21 @@ export default function AdminPage() {
   if (!me) return null;
   if (me.role !== "ADMIN") return <AdminOnlyNotice title="Admin" />;
 
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const numbers = overview({
-    online: lobby.presence.length,
-    away: lobby.presence.filter((p) => p.awaySince).length,
-    accounts: accounts ?? [],
-    rooms,
-    matches: matches?.matches ?? [],
-    signIns,
-    today: today.getTime(),
-  });
+  const byList: Partial<Record<AdminList, KeptData<unknown>>> = {
+    accounts: accountsData,
+    rooms: roomsData,
+    matches: matchesData,
+    reports: reportsData,
+    signIns: signInsData,
+    computers: computersData,
+  };
+  const waiting = (d: KeptData<unknown> | undefined) => !!d && d.value === undefined && !d.failed;
+  const busy = [...needs].some((list) => waiting(byList[list])) || waiting(overviewData);
+  const numbers = overviewNumbers(
+    counted,
+    lobby.presence.length,
+    lobby.presence.filter((p) => p.awaySince).length,
+  );
   const tiles = [
     {
       key: "Online now",
@@ -185,10 +255,10 @@ export default function AdminPage() {
   const counts: Record<TabId, string> = {
     accounts: String(numbers.active),
     rooms: String(numbers.rooms),
-    games: String(matches?.matches.length ?? 0),
-    reports: String(reports?.reports.length ?? 0),
-    "sign-ins": String(signInsByPerson(signIns).length),
-    computers: String(computers.length),
+    games: String(counted?.games ?? 0),
+    reports: String(counted?.reports ?? 0),
+    "sign-ins": String(counted?.signInNames ?? 0),
+    computers: String(counted?.computers ?? 0),
     email: "",
     records: "",
     server: "",
@@ -243,8 +313,8 @@ export default function AdminPage() {
               {t.label}
               {counts[t.id] && <span className="pa-admin-tab-count">{counts[t.id]}</span>}
               {/* Spec 0039 — new reports, in red, from every tab. */}
-              {t.id === "reports" && (reports?.newCount ?? 0) > 0 && (
-                <span className="pa-admin-tab-new">{reports!.newCount} new</span>
+              {t.id === "reports" && (counted?.newReports ?? 0) > 0 && (
+                <span className="pa-admin-tab-new">{counted!.newReports} new</span>
               )}
               {/* A problem shows from every tab (spec 0020). */}
               {t.id === "server" && server && !serverHealthy(server) && (
@@ -254,7 +324,14 @@ export default function AdminPage() {
           ))}
         </div>
 
-        <div role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${tab}`}>
+        {/* P11-E7: busy while the open tab's own list is first being read
+            (nothing kept yet); a kept list is shown, not busy. */}
+        <div
+          role="tabpanel"
+          id={`${tabsId}-panel`}
+          aria-labelledby={`${tabsId}-${tab}`}
+          aria-busy={busy}
+        >
           {tab === "accounts" && (
             <AccountsPanel accounts={accounts} me={me.userId} now={now} run={run} />
           )}
@@ -288,7 +365,7 @@ export default function AdminPage() {
           )}
           {tab === "server" && (
             <>
-              <ServerPanel server={server} keepDays={matches?.keepDays ?? null} />
+              <ServerPanel server={server} keepDays={counted?.keepDays ?? null} />
               {/* Spec 0056 — an update waits for games to finish. */}
               <UpdateWaitingPanel />
             </>

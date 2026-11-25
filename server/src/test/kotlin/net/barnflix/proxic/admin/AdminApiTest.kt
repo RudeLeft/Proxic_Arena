@@ -165,6 +165,8 @@ class AdminApiTest {
             "GET" to "/api/admin/computers",
             "POST" to "/api/admin/computers/{room}/remove",
             "GET" to "/api/admin/server",
+            // P11-E7 — the tiles' and tabs' numbers.
+            "GET" to "/api/admin/overview?since=2026-01-01T00:00:00Z",
             "GET" to "/api/admin/sign-ins",
             "GET" to "/api/admin/matches",
             "GET" to "/api/admin/matches/{room}/record",

@@ -340,6 +340,9 @@ const READY = `window.__ready = (() => {
       if (re.test(n.nodeValue || "") && seen(n.parentElement)) return true;
     return false;
   };
+  const adminData = () =>
+    q("[role=tabpanel]")?.getAttribute("aria-busy") !== "true" &&
+    (q('[role=tab] .pa-admin-tab-count')?.textContent || "0") !== "0";
   return {
     signin: () => seen(q('input[autocomplete="username"]')),
     lobby: () =>
@@ -353,9 +356,14 @@ const READY = `window.__ready = (() => {
       return seen(h?.closest("section")?.querySelector("li"));
     },
     account: () => seen(q("#avatar-head")),
-    admin: () => seen(q("#accounts-heading")) && seen(q("[role=tabpanel] li, [role=tabpanel] tr")),
+    // P11-E7: the accounts themselves, not "Loading accounts…" (an li too,
+    // which the check took for the list until 2026-11-25), and the open
+    // tab's data in: the tab counts (0 until a read lands) and the panel not
+    // busy (aria-busy while the open tab's own list is being read).
+    admin: () =>
+      seen(q("#accounts-heading")) && seen(q("li.pa-admin-account")) && adminData(),
     status: () => anyText(/Ready/),
-    tab: () => (q("[role=tabpanel]")?.textContent || "").trim().length > 20,
+    tab: () => (q("[role=tabpanel]")?.textContent || "").trim().length > 20 && adminData(),
     room: (name) => seen(q("article.pa-room-mine")) && q("article.pa-room-mine").textContent.includes(name),
     game: () => seen(q(".gs-life-n")) && !!q('.bf-cards [data-zone="viewer:hand"]'),
     spectate: () => seen(q(".gs-life-n")),

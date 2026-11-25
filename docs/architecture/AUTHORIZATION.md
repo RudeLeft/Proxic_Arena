@@ -113,7 +113,9 @@ page's way to add someone is an invitation (spec 0014):
   rooms with **force close** (a running match ends with no winner, as
   Abandon), the server's state, and the last day of **sign-in
   activity** with each attempt's address (`sign_in_event`, Amendment
-  9). Every admin action is written to the server log and to
+  9). Its tiles and tab counts come from one small read,
+  `GET /api/admin/overview?since=<the viewer's midnight>` (P11-E7,
+  `AdminOverview.kt`), under the same `requireAdmin`. Every admin action is written to the server log and to
   `admin_action` (who, what, to which account or room, when); never a
   password.
 

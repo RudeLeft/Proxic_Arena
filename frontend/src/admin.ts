@@ -6,6 +6,7 @@
 
 import { apiFetch } from "./auth";
 import { primedFetch } from "./early";
+import { adminOverviewAddress, dayStart } from "./earlyPages";
 import { learnAvatars } from "./knownAvatars";
 import type { DirectoryRoom } from "./lobby";
 
@@ -102,6 +103,33 @@ export const fetchAccounts = (fetchFn: typeof fetch = primedFetch) =>
 
 export const fetchAdminRooms = (fetchFn: typeof fetch = primedFetch) =>
   read("/api/admin/rooms", (b) => (b["rooms"] as AdminRoom[]) ?? [], fetchFn);
+
+/**
+ * P11-E7 — the five tiles' and the tab counts' numbers, counted by the
+ * server from the same lists by the same rules as `overview` and
+ * `signInsByPerson` (server `AdminOverview.kt`), with the server's state.
+ */
+export interface AdminOverview {
+  accounts: number;
+  disabled: number;
+  rooms: number;
+  playing: number;
+  games: number;
+  gamesToday: number;
+  didNotStart: number;
+  signInNames: number;
+  signedInToday: number;
+  failedToday: number;
+  reports: number;
+  newReports: number;
+  computers: number;
+  keepDays: number;
+  server: ServerState;
+}
+
+/** The overview for the day that began at [since] (the viewer's midnight). */
+export const fetchOverview = (since = dayStart(), fetchFn: typeof fetch = primedFetch) =>
+  read(adminOverviewAddress(since), (b) => b as unknown as AdminOverview, fetchFn);
 
 export const fetchServerState = (fetchFn: typeof fetch = primedFetch) =>
   read("/api/admin/server", (b) => b as unknown as ServerState, fetchFn);
@@ -284,7 +312,7 @@ export interface InviteSent {
 
 export type InviteOutcome = { ok: true; sent: InviteSent } | { ok: false; message: string };
 
-export const fetchInvites = (fetchFn: typeof fetch = fetch) =>
+export const fetchInvites = (fetchFn: typeof fetch = primedFetch) =>
   read(
     "/api/admin/invites",
     (b) => ({ invites: (b["invites"] as Invite[]) ?? [], emailReady: b["emailReady"] === true }),
@@ -601,6 +629,29 @@ export function signInsByPerson(events: SignInEvent[]): SignInPerson[] {
       Number(b.signedIn === 0) - Number(a.signedIn === 0) ||
       Date.parse(b.last) - Date.parse(a.last),
   );
+}
+
+/**
+ * P11-E7 — the five tiles' numbers from the server's overview (none yet: all
+ * nought, as the page drew them before its lists arrived).
+ */
+export function overviewNumbers(
+  counted: AdminOverview | undefined,
+  online: number,
+  away: number,
+): ReturnType<typeof overview> {
+  return {
+    online,
+    away,
+    active: counted?.accounts ?? 0,
+    disabled: counted?.disabled ?? 0,
+    rooms: counted?.rooms ?? 0,
+    playing: counted?.playing ?? 0,
+    gamesToday: counted?.gamesToday ?? 0,
+    didNotStart: counted?.didNotStart ?? 0,
+    signedIn: counted?.signedInToday ?? 0,
+    failed: counted?.failedToday ?? 0,
+  };
 }
 
 /** The five tiles' numbers (spec 0010). [today] is the start of the viewer's day. */

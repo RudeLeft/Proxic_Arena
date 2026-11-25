@@ -20,6 +20,7 @@ import {
   type LoginFailure,
 } from "./auth";
 import { forgetAvatars } from "./knownAvatars";
+import { forgetKept } from "./kept";
 import { endEarly, primedFetch, startEarly, whoAnswered } from "./early";
 
 interface AuthContextValue {
@@ -45,7 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     void fetchAuthState(primedFetch).then((next) => {
       // P11-E5 — an administrator's lists now; a stranger drops what the hint started.
-      whoAnswered(next.status === "authenticated" ? next.user : null, location.pathname);
+      whoAnswered(
+        next.status === "authenticated" ? next.user : null,
+        location.pathname,
+        location.search,
+      );
       if (!cancelled) setState(next);
     });
     return () => {
@@ -56,6 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (username: string, password: string) => {
     const result = await loginRequest(username, password);
     if (result.ok) {
+      // P11-E8 — whoever signs in starts with nothing kept.
+      forgetKept();
       // P11-E5 — signed in, everybody lands in the lobby: its code, data
       // and connection start now, beside the shell's.
       startEarly("/play", { certain: true });
@@ -69,6 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await logoutRequest();
     forgetAvatars();
+    // P11-E7/E8 — the pages' kept data goes with the person.
+    forgetKept();
     endEarly();
     setState({ status: "anonymous" });
   }, []);
@@ -83,6 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sessionExpired = useCallback(() => {
     forgetAvatars();
+    // P11-E7/E8 — the pages' kept data goes with the person.
+    forgetKept();
     endEarly();
     setState({ status: "anonymous", reason: "expired" });
   }, []);

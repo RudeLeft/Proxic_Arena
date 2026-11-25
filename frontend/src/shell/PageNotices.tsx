@@ -85,13 +85,22 @@ function useNewVersion(): boolean {
       else if (isNewBuild(loadedWith.current, now)) setStale(true);
     };
     if (servedBy === null) void check();
-    const timer = window.setInterval(() => void check(), VERSION_CHECK_MS);
+    // P11-E7: not while the tab is hidden (nobody sees the notice); on
+    // coming back, at once.
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void check();
+    }, VERSION_CHECK_MS);
     const onFocus = () => void check();
+    const onShown = () => {
+      if (!document.hidden) void check();
+    };
     window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onShown);
     return () => {
       alive = false;
       window.clearInterval(timer);
       window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onShown);
     };
   }, []);
   return stale;

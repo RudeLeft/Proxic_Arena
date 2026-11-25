@@ -69,7 +69,8 @@ function earlyFiles(): EarlyFiles | null {
 let watching = false;
 
 function prime(path: string): void {
-  if (primed.has(path)) return;
+  const already = primed.get(path);
+  if (already && Date.now() - already.at <= FRESH_MS) return;
   if (!watching) {
     watching = true;
     // The player's first act ends every primed answer (above).
@@ -117,6 +118,28 @@ export function startEarly(
   if (opts.certain) startStyles();
 }
 
+/**
+ * P11-E7/E8 -- the code of the pages at [paths] (the header's), fetched
+ * ahead once the page in hand is drawn, so a first click on one waits only
+ * for its data. The same preload links as above, one download each, kept by
+ * the browser like any built file; called only inside the shell, where the
+ * session is certain, so the styles go too. Each link is taken out once its
+ * file is in: with them left in the page, WebKit measured slower on later
+ * clicks (PHASE_11 "As built: P11-E7 and P11-E8"), and nothing needs them
+ * once the file is in the browser's module map and cache.
+ */
+export function preloadPages(paths: readonly string[]): void {
+  const built = earlyFiles();
+  if (!built) return;
+  for (const path of paths)
+    for (const index of built.pages[path] ?? []) {
+      const file = built.files[index];
+      if (!file) continue;
+      if (file.endsWith(".css")) preload(`/${file}`, "preload", "style", true);
+      else preload(`/${file}`, "modulepreload", undefined, true);
+    }
+}
+
 /** The page's styles, held until the session is certain (above). */
 let styles: string[] = [];
 
@@ -125,9 +148,10 @@ function startStyles(): void {
   styles = [];
 }
 
-function preload(href: string, rel: string, as?: string): void {
+function preload(href: string, rel: string, as?: string, drop = false): void {
   if (document.head.querySelector(`link[href="${href}"]`)) return;
   const link = document.createElement("link");
+  if (drop) link.addEventListener("load", () => link.remove(), { once: true });
   link.rel = rel;
   if (as) link.as = as;
   // As the module scripts and Vite's style links ask (crossorigin), so the
@@ -142,14 +166,28 @@ function preload(href: string, rel: string, as?: string): void {
  * (they are refused to a player, so never on the hint alone); somebody not
  * signed in drops everything started.
  */
-export function whoAnswered(user: AuthUser | null, path: string): void {
+export function whoAnswered(user: AuthUser | null, path: string, search = ""): void {
   if (!user) {
     endEarly();
     return;
   }
   startStyles();
   const page = earlyPageFor(path);
-  if (user.role === "ADMIN") for (const address of page?.adminData ?? []) prime(address);
+  if (user.role === "ADMIN") for (const address of page?.adminData?.(search) ?? []) prime(address);
+}
+
+/**
+ * P11-E7/E8 -- a move inside the app (a header link): the page's data is
+ * asked now, beside its code, not after the code has arrived. The click
+ * that made the move came before this, so the answers follow it (the rule
+ * above: never one read before the player's last act), and the page takes
+ * them as it opens (`primedFetch`). [user] is the one signed in.
+ */
+export function startVisit(path: string, search: string, user: AuthUser): void {
+  const page = earlyPageFor(path);
+  if (!page) return;
+  for (const address of page.data(path)) prime(address);
+  if (user.role === "ADMIN") for (const address of page.adminData?.(search) ?? []) prime(address);
 }
 
 /** Drop every early start: signed out, or nobody to take it. */

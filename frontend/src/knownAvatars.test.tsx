@@ -15,6 +15,7 @@ import { avatarUrl } from "./avatars";
 import { listShares } from "./decks";
 import { fetchHall, type Hall } from "./hall";
 import { forgetAvatars, knownAvatar, learnAvatars } from "./knownAvatars";
+import { forgetKept } from "./kept";
 import { EMPTY_LOBBY, type LobbyState } from "./lobby";
 import { avatarOf } from "./lobbyView";
 
@@ -63,6 +64,7 @@ const hall = (avatars: Record<string, string | null>): Hall => ({
 });
 
 beforeEach(() => {
+  forgetKept();
   forgetAvatars();
   held.lobby = EMPTY_LOBBY;
 });

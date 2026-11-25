@@ -31,10 +31,23 @@ export function UpdateWaitingPanel() {
   }, []);
 
   const on = state?.on === true;
+  // P11-E7 — not while the browser tab is hidden; at once on coming back.
   useEffect(() => {
     void read();
-    const timer = window.setInterval(() => void read(), on ? WAITING_MS : IDLE_MS);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(
+      () => {
+        if (!document.hidden) void read();
+      },
+      on ? WAITING_MS : IDLE_MS,
+    );
+    const shown = () => {
+      if (!document.hidden) void read();
+    };
+    document.addEventListener("visibilitychange", shown);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", shown);
+    };
   }, [read, on]);
 
   const toggle = async () => {

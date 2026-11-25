@@ -5,7 +5,7 @@
 // once, with Copy, so a link that did not arrive can be sent by hand. The
 // list says who has not answered yet, with Send again and Cancel.
 
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import {
   cancelInvite,
   fetchInvites,
@@ -16,6 +16,8 @@ import {
   type InviteSent,
 } from "./admin";
 import { agoText } from "./lobbyView";
+import { useAuth } from "./AuthContext";
+import { useKept } from "./kept";
 
 /** "in 46 h", "in 40 min". */
 function untilText(at: string, now: number): string {
@@ -47,17 +49,14 @@ export function Invitations({
   open: boolean;
   onClosed: () => void;
 }) {
-  const [list, setList] = useState<{ invites: Invite[]; emailReady: boolean } | null>(null);
+  // P11-E7 — kept for the tab, drawn at once on a revisit and read again.
+  const { state } = useAuth();
+  const user = state.status === "authenticated" ? state.user.userId : null;
+  const { value, refresh } = useKept(user, "admin/invites", fetchInvites);
+  const list = value ?? null;
   /** The link just made (by Invite or Send again), shown once. */
   const [sent, setSent] = useState<InviteSent | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-
-  const refresh = useCallback(async () => {
-    setList(await fetchInvites());
-  }, []);
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
 
   const answered = async (outcome: InviteOutcome) => {
     if (outcome.ok) {

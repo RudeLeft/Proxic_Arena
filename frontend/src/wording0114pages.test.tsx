@@ -11,6 +11,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthState } from "./auth";
 import { EMPTY_LOBBY, type LobbyState, type RoomView } from "./lobby";
+import { forgetKept } from "./kept";
 
 interface Held {
   auth: AuthState;
@@ -91,6 +92,7 @@ const settle = () =>
   });
 
 beforeEach(() => {
+  forgetKept();
   held.auth = { status: "authenticated", user: me };
   held.lobby = EMPTY_LOBBY;
   vi.stubGlobal("matchMedia", () => ({

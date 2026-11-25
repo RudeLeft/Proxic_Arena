@@ -23,8 +23,63 @@ export interface EarlyPage {
   shell: boolean;
   /** What it reads on opening, for anybody signed in: GET addresses. */
   data: (path: string) => readonly string[];
-  /** What it reads on opening for an administrator only: asked once "who am I" says so. */
-  adminData?: readonly string[];
+  /**
+   * What it reads on opening for an administrator only, for the address's
+   * query ([search], "?tab=games"): asked once "who am I" says so.
+   */
+  adminData?: (search: string) => readonly string[];
+}
+
+/**
+ * P11-E7 -- the Admin page's lists, and which each tab reads on opening (the
+ * page reads the open tab's and the overview, not all seven: AdminPage.tsx).
+ */
+export const ADMIN_LISTS = {
+  accounts: "/api/admin/accounts",
+  invites: "/api/admin/invites",
+  rooms: "/api/admin/rooms",
+  matches: "/api/admin/matches",
+  reports: "/api/admin/reports",
+  signIns: "/api/admin/sign-ins",
+  computers: "/api/admin/computers",
+} as const;
+export type AdminList = keyof typeof ADMIN_LISTS;
+
+export const ADMIN_TAB_LISTS: Record<string, readonly AdminList[]> = {
+  accounts: ["accounts", "invites"],
+  rooms: ["rooms"],
+  games: ["matches"],
+  reports: ["reports"],
+  "sign-ins": ["signIns"],
+  computers: ["computers"],
+  email: [],
+  records: ["accounts"],
+  server: [],
+};
+
+/** The start of the viewer's day, as the overview's `since` says it. */
+export function dayStart(now = new Date()): string {
+  const day = new Date(now);
+  day.setHours(0, 0, 0, 0);
+  return day.toISOString();
+}
+
+/** The tiles' and tab counts' numbers (server `AdminOverview.kt`), counted from [since]. */
+export const adminOverviewAddress = (since = dayStart()) =>
+  `/api/admin/overview?since=${encodeURIComponent(since)}`;
+
+/** The tab an Admin address opens: its `tab`, or Accounts. */
+export function adminTabOf(search: string): string {
+  const asked = new URLSearchParams(search).get("tab");
+  return asked !== null && asked in ADMIN_TAB_LISTS ? asked : "accounts";
+}
+
+/** What the Admin page at [search] reads on opening: the open tab's lists and the overview. */
+export function adminOpening(search: string): string[] {
+  return [
+    ...ADMIN_TAB_LISTS[adminTabOf(search)]!.map((list) => ADMIN_LISTS[list]),
+    adminOverviewAddress(),
+  ];
 }
 
 const SHELL = "shell/Shell.tsx";
@@ -47,16 +102,9 @@ export const EARLY_PAGES: readonly EarlyPage[] = [
     modules: [SHELL, "AdminPage.tsx"],
     shell: true,
     data: none,
-    // AdminPage `refresh`: refused to a player, so asked only for an administrator.
-    adminData: [
-      "/api/admin/accounts",
-      "/api/admin/rooms",
-      "/api/admin/server",
-      "/api/admin/sign-ins",
-      "/api/admin/matches",
-      "/api/admin/computers",
-      "/api/admin/reports",
-    ],
+    // AdminPage's opening reads: refused to a player, so asked only for an
+    // administrator; the open tab's lists and the overview (P11-E7).
+    adminData: adminOpening,
   },
   {
     path: "/game",
@@ -80,7 +128,7 @@ export const EARLY_PAGES: readonly EarlyPage[] = [
     shell: false,
     data: none,
     // App `fetchStatus`; the page is the administrators' (spec 0114).
-    adminData: ["/api/version", "/api/system/status"],
+    adminData: () => ["/api/version", "/api/system/status"],
   },
 ];
 

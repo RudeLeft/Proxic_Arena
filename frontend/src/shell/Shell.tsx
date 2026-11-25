@@ -12,6 +12,7 @@ import { logLine } from "../reportLog";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
+import { preloadPages, startVisit } from "../early";
 import { NoticeStack } from "../NoticeStack";
 import type { ConnectionState } from "../lobby";
 import { useSettled } from "../useSettled";
@@ -20,6 +21,9 @@ import { PageNoticesProvider, isGameRoute, usePageNotices } from "./PageNotices"
 import logo from "../assets/logo-header.webp";
 import "./base.css";
 import "./app.css";
+
+/** How long after the page's load the header pages' code is fetched ahead. */
+const PRELOAD_AFTER_MS = 1_000;
 
 function ConnectionState() {
   const { lobby } = useLobbyConnection();
@@ -71,11 +75,39 @@ function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { pathname } = useLocation();
   useEffect(() => setMenuOpen(false), [pathname]);
+  // P11-E7/E8 — a header link starts its page's data with the click, beside
+  // its code (early.ts `startVisit`); not for the page already open.
+  const visit = (to: string) => () => {
+    if (state.status === "authenticated" && to !== pathname) startVisit(to, "", state.user);
+  };
+  // P11-E7/E8 — once this page has loaded, the header pages' code is
+  // fetched ahead (a second after the browser's load event), so a first
+  // click on one waits only for its data, which the click starts.
+  useEffect(() => {
+    let timer = 0;
+    const ahead = () => {
+      timer = window.setTimeout(
+        () => preloadPages(["/play", "/hall", "/decks", "/account", ...(admin ? ["/admin"] : [])]),
+        PRELOAD_AFTER_MS,
+      );
+    };
+    if (document.readyState === "complete") ahead();
+    else window.addEventListener("load", ahead, { once: true });
+    return () => {
+      window.removeEventListener("load", ahead);
+      window.clearTimeout(timer);
+    };
+  }, [admin]);
   // Spec 0039 — a page change is a line in the page's log.
   useEffect(() => logLine("page", `went to ${pathname}`), [pathname]);
   return (
     <header className={`pa-header${menuOpen ? " pa-header-open" : ""}`}>
-      <NavLink to="/play" className="pa-logo" aria-label="Proxic Arena lobby">
+      <NavLink
+        to="/play"
+        className="pa-logo"
+        aria-label="Proxic Arena lobby"
+        onClick={visit("/play")}
+      >
         <img src={logo} alt="Proxic Arena" width={156} height={52} />
       </NavLink>
       <button
@@ -91,21 +123,21 @@ function Header() {
         </svg>
       </button>
       <nav className="pa-nav" id="pa-pages" aria-label="Pages">
-        <NavLink to="/play" className={tab}>
+        <NavLink to="/play" className={tab} onClick={visit("/play")}>
           Lobby
         </NavLink>
         {/* Spec 0018 — the trophies' own page. */}
-        <NavLink to="/hall" className={tab}>
+        <NavLink to="/hall" className={tab} onClick={visit("/hall")}>
           Hall of Champions
         </NavLink>
-        <NavLink to="/decks" className={tab}>
+        <NavLink to="/decks" className={tab} onClick={visit("/decks")}>
           Deck Depot
         </NavLink>
-        <NavLink to="/account" className={tab}>
+        <NavLink to="/account" className={tab} onClick={visit("/account")}>
           Account
         </NavLink>
         {admin && (
-          <NavLink to="/admin" className={tab}>
+          <NavLink to="/admin" className={tab} onClick={visit("/admin")}>
             Admin
           </NavLink>
         )}

@@ -10,9 +10,19 @@ import DecksPage from "./DecksPage";
 import { CardZoom } from "./CardZoom";
 import type { DeckDetail, DeckEntryView } from "./decks";
 import { EMPTY_LOBBY } from "./lobby";
+import { forgetKept } from "./kept";
 
 // The page reads avatars from the shell's lobby connection; no socket here.
 vi.mock("./shell/LobbyConnection", () => ({ useLobbyConnection: () => ({ lobby: EMPTY_LOBBY }) }));
+// P11-E8: the library is kept per person.
+vi.mock("./AuthContext", () => ({
+  useAuth: () => ({
+    state: {
+      status: "authenticated",
+      user: { userId: "u-pat", username: "pat", displayName: "Pat" },
+    },
+  }),
+}));
 
 const entry = (
   lineNumber: number,
@@ -46,6 +56,7 @@ const json = (body: unknown, status = 200) =>
   );
 
 afterEach(() => {
+  forgetKept();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
 });

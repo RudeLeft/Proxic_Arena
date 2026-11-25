@@ -139,6 +139,9 @@ fun Route.adminRoutes(admin: AdminServices) {
         // Spec 0056 — an update waits for games to finish.
         adminUpdateRoutes(admin)
 
+        // P11-E7 — the tiles' and tabs' numbers in one small answer.
+        adminOverviewRoute(admin)
+
         get("/server") {
             call.asAdmin(admin) ?: return@get
             call.respond(admin.serverState())
