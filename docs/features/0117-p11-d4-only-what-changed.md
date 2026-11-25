@@ -295,6 +295,87 @@ This should only happen through a bug. Example: Bob's page gets an update that b
 - B. A quiet "Catching up…" in the act button for that moment, like the catch-up sign the owner chose for a stall (decision 5, Q3). It needs a canvas (P11-R1).
 - C. A short report window saying the table was refreshed.
 
+## As built (2026-11-25)
+
+Built on branch `p11-d4` (worktree `p11-d4`), rebased on main c3b32be5 (1.76.0 plus the worker test fix). Labels: SOURCE (read in the code), RUN (run here, this build), INFERENCE.
+
+### What changed
+
+- **Server** (`server/.../match/`): `BoardDelta.kt` (new, pure: `diff`, `apply`, `keyedBy`) is the rule. `BoardStream.kt` (new, moved out of `BoardHistory.kt`) keeps per connection, under the one lock, D3's history held, the newest revision sent and the **base** (the last whole board sent, after pictures and the whole play log, before trimming), and makes each board a `Step`: a whole `MATCH_SNAPSHOT` (why: `first`, `epoch`, `turn`, `resync`, `size`, `older`, `off`) or a `MATCH_DELTA`. `DiffMemo` shares one diff between connections holding the same base object (two tabs); `BoardDeltaTest` sees one diff made for two tabs. `MatchSocket.kt` reads `?deltas=1`, answers `MATCH_RESYNC` (players and spectators; at most once a second; `Resyncs`), and logs each connection's boards as it closes (`boards sent: delta 63, first 1, turn 7`). `DeltaSettings` and `matchHubFor` carry the switches from `ServerConfig` (`PROXIC_MATCH_DELTAS` default true, `PROXIC_SPECTATOR_DELTAS` default false, `PROXIC_TEST_DELTA_CHECK` default false).
+- **Page** (`frontend/src/`): `delta.ts` (new): `applyDelta` (unchanged items stay the base's objects), `deltaOf`, `DeltaStream` (the server's stream, for tools), `firstDifference`/`sameJson`, and `WholeBoards` (moved here from `history.ts`; it now rebuilds deltas too). `match.ts`: `base` and `resync` in the state; `MATCH_DELTA` case; `takeBoard` shared with `MATCH_SNAPSHOT`; `connectMatch` sends `MATCH_RESYNC` once per socket and closes after `MATCH_RESYNC_WAIT_MS` (3 s) without a full board. `matchText.tsx` `matchUrl` adds `?deltas=1` (the game page and the spectate page share it).
+- **Lab gate**: `scripts/check-deltas.py` (new, with `--self-test` and `--plant`), the Python model in `scripts/measure-wire.py` (`diff`, `apply`, `Stream`, `PageModel`; its "delta" columns are now this format), `scripts/as-sent-traces.py`'s two hooks (`sent_board`, `page_board`) on the same model. CI (`.github/workflows/ci.yml`): the self-test in `checks`; on each Lab machine `check-deltas.py` over its games, then every hidden check over the rebuilt boards, required to print exactly what it printed over the worker's (`same`). B4's as-sent pass is replaced by it (the hidden checks read `MATCH_SNAPSHOT` boards, so a stream of deltas would have shown them almost nothing).
+- **Shared fixtures** `protocol/fixtures/delta/`: `big-combat` (game-flow-poison, seat 1, 15 boards to the attack), `karn-restart` (karn, seat 2, 10 boards across the new game), `hand-bounce` (coin-flip-krark, seat 2, 15 boards across Krark's bounce, where card:60's id is stripped from the payments). Each holds the boards, every diff and every message one connection is sent. Kotlin (`BoardDeltaTest`), vitest (`delta.test.ts`) and `check-deltas.py --self-test` each make and apply them identically.
+- **Tests and tools**: `e2e/match-helpers.ts` `watchDeltas` (every game `startAMatch` begins: a `DELTA_MISMATCH` or an unasked `MATCH_RESYNC` fails the test; each page's deltas printed; `deltaSwitches`, `serverLog`); `match-deltas.spec.ts` (new); `match-watching` (spectator deltas per the server's logged switch); `match-dice`, `match-modes-doing`, `notices`, `match-status-list` hand the page whole boards (`WholeBoards`); `match-ability-menu`, `production` read through it; `match-history` counts deltas; `tools/jumps` `JUMPS_DELTAS=1`; `tools/measure` `wire.ts`, `timeline.ts`, `timeline-probe.ts`, `redraw.spec.ts` count `MATCH_DELTA` as an update; `check-test-switch.py` knows `PROXIC_TEST_DELTA_CHECK`; compose overrides set it (local `${PROXIC_TEST_DELTA_CHECK:-true}`, CI `"true"`); CI also sets `PROXIC_SPECTATOR_DELTAS: "true"` so the browser gate covers spectators (production stays off).
+- **Docs**: `protocol/README.md` "Only what changed" and the envelope note; `MATCH_PROTOCOL.md` (socket address, both tables, viewer snapshots, reconnect); `MATCH_STATE_VISIBILITY.md` (one paragraph); `ROADMAP.md` (0117 built; a flake row).
+
+Decisions taken in the build (STUB-005):
+- Empty `set`/`unset`/`lists`/`put`/`drop` are left out of the message.
+- The size rule compares the two messages as sent: the delta's text plus 92 against the board's plus 105 (the envelopes).
+- The checkpoint and a new game also forget D3's history held, so their lists come whole (spec); with deltas off nothing is forgotten, so "off" is exactly P11-D3.
+- `MATCH_RESYNC`'s answer reads the stored board under the connection's lock, so no live board can pass it.
+- Spectators may send `MATCH_RESYNC` (the one message read from them).
+
+### Proof
+
+All RUN on the owner's PC, the first local stack built from this branch; Playwright's bundled Chromium for the measures, Edge for the browser specs and headed Edge for the jump check.
+
+- **Lab gate (F-0117-D)**, over the 1.75.0 release run's 432 traces (109,275 boards; every seat, and the public view in the 7 games that have one): `check-deltas.py` found 0 boards rebuilt differently from the worker's, every id a delta names in its base or its board, every checkpoint whole, and deltas in every game with boards (102,540 boards sent as deltas). Then each hidden check over the rebuilt boards printed exactly what it printed over the worker's traces: `check-snapshot-first` (45,659 questions), `check-hidden-hands` (11,818 hand-card sightings), `check-hidden-log` (22,806 play log lines, 19,282 cards named), `check-hidden-tops`, `check-hidden-mulligans` (6,078 opening moves), `check-hidden-information` (109,275 boards, 1,317,227 cards, 342 the viewer may not see), `check-kinds` (243 permanents, 635,110 sightings), `check-wording --res` (369,905 strings). `as-sent-traces.py --rebuilt`: every rebuilt board equals the worker's.
+- **Shared fixtures (F-0117-B):** Kotlin, vitest and `check-deltas.py --self-test` each make the same diffs and the same messages from the three sequences, and rebuild every board.
+- **Unit (F-0117-A, F-0117-C):** `BoardDeltaTest`, 19 tests: the fixtures; 300 random pairs from the fixtures' boards; one test per whole-board rule; an older board left out of the memory; a resync forgetting both memories; one diff for two tabs; per-seat and spectator streams through the hub; the switches; the resync's rate and parsing. `BoardHistoryTest` (D3's 9) unchanged. `delta.test.ts`, 15 tests: the fixtures through `reduceMatch`; 300 random pairs; unchanged items the same objects; `MATCH_STEP` never touching the base; a misfit asking once and dropping deltas; a malformed delta; drop and order; a full board at any time; `whole` compared and `DELTA_MISMATCH` logged while the rebuilt board is drawn; the socket's one `MATCH_RESYNC` and its 3 s close.
+- **Browser (F-0117-E to F-0117-I):** every game `startAMatch` begins now fails on a `DELTA_MISMATCH` or an unasked `MATCH_RESYNC`. `match-deltas` passed three times: taps, Giant Growth on a creature, an attack; then the host's reload, the guest's cut, the host's second tab, at least 12 checkpoints, and a delta dropped on the guest's way (one `MATCH_RESYNC`, answered on the same connection with the whole board and its whole play log, deltas after). About 110 deltas a seat, every one compared with the server's whole board, 0 different. The server's log: "connection mconn-4 asked for a full board (had 1/118, sent 1/120)". A page without `?deltas=1` is sent boards and never a delta. With `PROXIC_MATCH_DELTAS=false` (F-0117-I) it played to the end on whole boards only (718 a seat, 0 deltas). `match-karn` (F-0117-G) passed with the send-both switch (88 deltas a seat; an epoch board in the server's log). `match-watching` passed with spectator deltas off (0 deltas to the spectator) and on (F-0117-H: 60 deltas to the spectator, 0 mismatches). `match-history`, `match-dice`, `match-modes-doing`, `match-status-list`, `match-ability-menu`, `match-session` and `notices` (2) passed. `match-history` failed once when run after `match-dice`: an earlier game's socket was read as the host's (ROADMAP's flakes table). It is fixed and then passed in that same order.
+- **Looks identical (F-0117-J):** the jump check over 17 traces (D3's 15 with history and moves, plus `wipes-wrath` and `blocks-menace`, the two traces with the most moves that are a reasonable length), both seats, on this build, with whole boards and with `JUMPS_DELTAS=1`. `check-jumps.py`'s two reports are identical, byte for byte (27 lines), and no page asked for a whole board. The normal-speed clip of a big combat was **not filmed**. The rebuilt board is the whole board (0 mismatches above), so what is drawn cannot change; the jump check is the evidence instead.
+- **Bites (TEST-004, HID-004):**
+  - **Server** (each one line, each failing `BoardDeltaTest`): `from` written as the new board's revision; the epoch rule removed; the turn rule removed; the checkpoint keeping the history held; one base shared by every connection (the stored board, whichever seat's); an older board remembered; `drop` keeping a moved item; the size rule removed; spectators given deltas regardless of the switch (caught only after a test of `DeltaSettings.asked` was added). **Not caught:** a resync that does not forget the base. It is an equivalent mutant: the "resync" reason already sends the board whole and makes it the base.
+  - **Page** (each failing `delta.test.ts`): the `from` check removed; `MATCH_STEP` editing the base; a dropped item left in place; `order` ignored; a waiting page taking deltas; an older board made the base; unchanged items copied.
+  - **Hidden information** (planted in `check-deltas.py` over the 432 real traces, each failing the gate): a seat's base taken from the other seat's board of the same round ("the delta names ['card:108', ...], in neither its base nor its board"); the public view's base taken from seat 1's (the same, in `soulbond-face-down`); `drop` keeping a moved item (a board rebuilt wrong); the checkpoint's memory reset removed ("a turn board relies on history the page held"). The same four on made-up streams in `--self-test`.
+  - **Mutant image:** a server that ignores `MATCH_RESYNC` fails `match-deltas` at the forced resync ("the whole board came back": the page closed and reconnected). It first passed that step, because a turn's checkpoint ended the wait by chance; the step now requires the answer itself (whole, within 2 s, with the whole play log).
+
+### Measuring
+
+Before is 247212b9 (P11-B4, the build just before this spec); after is this branch at 513c0d8c, whose server and page are this commit's. Each was built from its own worktree onto the first local stack with `PROXIC_TEST_DELTA_CHECK=false`. The redraw measure's real game at 1x, 3 runs each, bundled Chromium. Medians of 3, with the range.
+
+```text
+Lab, scripts/measure-wire.py over the 1.75.0 run's traces (players' boards; the model is deterministic, one run)
+                 board median   as sent before (D3)   as sent now: median / p95 / largest   streamed (deflated as sent): median, share
+fixed 16         5,674          4,088                 152 (2.7%) / 2,844 / 17,660            70 (1.5%) -> 22 (0.7%)
+all 432          3,384          3,111                 143 (4.2%) / 2,568 / 17,660            59 (2.1%) -> 20 (1.1%)
+whole boards sent, all 432: first 860, turn 5,820, epoch 2, size 0; deltas 101,578; 0 rebuilt wrong
+
+real game, per seat (seat 1 / seat 2)          before                  after                   change
+  bytes per update read, whole game, median    9,074 / 8,596           256 / 256               2.8% / 3.0% of before
+  the same, p95                                13,113 / 12,258         11,856 / 10,941         the turn's whole board
+  bytes read, whole game                       2.92 / 2.71 MB          0.74 / 0.70 MB          -75% / -74%
+  on the wire (compressed, D2), whole game     125 / 121 KB            96 / 90 KB              -23% / -25%
+  on the wire, the combat (9 s)                15.8 / 15.6 KB          11.8 / 11.7 KB          -25%
+  on the wire, the cast (6 s)                  7.1 / 6.1 KB            3.5 / 2.9 KB            the moment differs run to run
+  boards per game                              298 (290-309)           327 (300-368)           the deal differs (as D1 found)
+  Arena Server CPU per board, whole game       3.38 ms (2.23-5.22)     3.88 ms (2.50-4.38)     within the spread
+  whole boards per connection, by reason       (all whole)             first 1, turn 29-31, size 0, resync 0, epoch 0
+```
+
+- **Target: median bytes per update per seat at most 10% of today's full board. Met.**
+  - Lab: 152 against a target of 567 (fixed set) and 143 against 338 (all 432).
+  - Real game: 256 bytes. That is 2.1% of D1's whole-game median board (11.8-12.2 KB), and 2.8-3.0% of today's board (8.6-9.1 KB in this before; 9.3-9.7 KB in D3's As built).
+  - The p95 is the turn's checkpoint, which is a whole board.
+- **On the wire: not worse, and a quarter less** over a whole game and in the combat. Deflate's window had already removed most of the repetition, as expected.
+- **Messages: unchanged.** One message per board, and the same match messages; the before and after games differ in length.
+- **Server CPU per board: not worse.** Within the runs' spread (D3: 2.6-5.2 ms).
+- **Server memory per connection** (RUN once, a JVM reading over 2,000 `BoardStream`s each holding a 6.3 KB Lab board):
+  - about 0.8 KB when the base is the stored board itself, which is the usual case: the base is the very object the hub stored and sent;
+  - about 77 KB when the base is the connection's own copy of the board. In production a joining connection's first board is such a copy only in its top-level map, so this is the bound, not the case.
+  - INFERENCE: a real board of 10-17 KB costs about twice that.
+- **Not measured:**
+  - 4x;
+  - the page's handler time and the redraw measure. The page does one shallow rebuild per delta, then the same work on the same whole board as before; D0 put parsing and the handler under 1 ms a moment;
+  - Firefox and WebKit (the same page code);
+  - a live link.
+
+### For the owner
+
+- **What a player could notice: nothing** (RUN: the jump check identical, the gate's 0 mismatches). A resync, which only a bug can cause, shows nothing (decision 3); at worst one move arrives without its glide.
+- **Spectators stay on whole boards** in production until `PROXIC_SPECTATOR_DELTAS` defaults to true (decision 2): when the players' deltas have shipped, CI has stayed green, and the live server's log shows no "asked for a full board" lines over the owner's games in that release. The Unraid compose file needs nothing.
+- **Proposed edit to a locked rule (P11-R4), for the owner to approve, not made:** P11-R4's gate lists five hidden checks; it should also name `check-hidden-information.py` (P11-B4's board-shape check), which CI now runs over the rebuilt boards with the other five. Suggested text: "...the existing hidden checks (`check-hidden-hands.py`, `check-hidden-log.py`, `check-hidden-tops.py`, `check-hidden-mulligans.py`, `check-snapshot-first.py`, `check-hidden-information.py`) must pass over it."
+
 ## Amendments
 
 None.

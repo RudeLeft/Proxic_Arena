@@ -2686,3 +2686,41 @@ whose game code is main's: only P11-D0's timing marks were added since, 554875dc
   `semantic-choices` given the first type (Pilot) while it recorded Goblin
   fails on both seats ("the Automaton is not a Goblin ... the Raging Goblin
   is 1/1").
+
+## As built: P11-D4 (2026-11-25)
+
+Spec 0117, its As built in full (`docs/features/0117-p11-d4-only-what-changed.md`). Built on branch `p11-d4`; not yet released.
+
+**What changed.** A page that asks (`?deltas=1`: the game page and the spectate page) is sent each board as a `MATCH_DELTA`: what changed since the board that connection was last sent. That is top-level keys set and unset, plus id- or seat-keyed lists patched by item; P11-D3's history fields ride along. A whole board still goes:
+- on a connection's first board;
+- for a new game;
+- at every new turn (owner decision 1's checkpoint);
+- on `MATCH_RESYNC`;
+- when the delta would not be shorter;
+- whenever deltas are off.
+
+The page rebuilds the whole board from its own base before anything reads it (`delta.ts`, `match.ts`), keeping every unchanged item as the same object, which is for P11-C2. Switches: `PROXIC_MATCH_DELTAS` (on), `PROXIC_SPECTATOR_DELTAS` (off until decision 2), and test-only `PROXIC_TEST_DELTA_CHECK`. Nothing a player sees changes (P11-R1).
+
+**P11-R4's gate, in CI.**
+- **Lab:** `scripts/check-deltas.py` replays every seat's stream and the public one as the server sends them (the Python model in `measure-wire.py`, held to the Kotlin and the page by `protocol/fixtures/delta/`). It requires 0 boards rebuilt wrong, the id rule, and checkpoints whole. Then every hidden check runs over the rebuilt boards and must print what it printed over the worker's traces. This replaces B4's as-sent pass.
+- **Browser:** every game: a delta's test-only `whole` against the page's rebuild (`DELTA_MISMATCH`), and no unasked `MATCH_RESYNC`.
+
+Over the 1.75.0 run's 432 traces it passed with the same counts (11,818 hand-card sightings, 22,806 play log lines, 109,275 boards).
+
+**Numbers** (RUN, the owner's PC, before 247212b9 against after, 3 runs of the redraw measure's real game at 1x):
+
+| Measure | Before | After |
+|---|---|---|
+| Median bytes per update per seat, real game | 8.6-9.1 KB | 256 bytes (2.1% of D1's board) |
+| Median bytes per update, Lab (all 432) | 3,384 | 143 |
+| Median bytes per update, Lab (fixed 16) | 5,674 | 152 |
+| On the wire, whole game | 121-125 KB | 90-96 KB (-23% to -25%) |
+| On the wire, combat | | -25% |
+| Messages | | unchanged |
+| Server CPU per board | 3.38 ms (2.23-5.22) | 3.88 ms (2.50-4.38): within the spread |
+
+The jump check over 17 traces with deltas and with whole boards: identical reports.
+
+**Left for the owner.**
+- Spectator deltas switch on in a later release (decision 2).
+- Proposed for P11-R4's text, not made (a locked rule): name `check-hidden-information.py` among its hidden checks.
