@@ -58,6 +58,13 @@ type Socket = {
   afterResync: number;
   /** Deltas after the answer to a resync. */
   deltasAfterResync: number;
+  /**
+   * The first board after the page asked: its type, how long after the ask,
+   * and the oldest turn its play log names (the answer carries the WHOLE log,
+   * as to a new connection; a turn's checkpoint carries only that round's).
+   */
+  answer: { type: string; ms: number; oldestTurn: number | null; turn: unknown } | null;
+  askedAt: number;
 };
 
 /** Every match socket a page opens: its boards rebuilt (WholeBoards) and checked against `whole`. */
@@ -78,10 +85,15 @@ function sockets(page: Page) {
       resyncsSent: 0,
       afterResync: 0,
       deltasAfterResync: 0,
+      answer: null,
+      askedAt: 0,
     };
     opened.push(s);
     ws.on("framesent", (event) => {
-      if (String(event.payload).includes('"MATCH_RESYNC"')) s.resyncsSent += 1;
+      if (String(event.payload).includes('"MATCH_RESYNC"')) {
+        s.resyncsSent += 1;
+        s.askedAt = Date.now();
+      }
     });
     ws.on("framereceived", (event) => {
       const text = String(event.payload);
@@ -91,6 +103,17 @@ function sockets(page: Page) {
       const message = JSON.parse(text) as Board;
       const before = s.whole.last;
       const rebuilt = (JSON.parse(s.whole.take(text)) as { state: Board }).state;
+      if (s.resyncsSent > 0 && !s.answer) {
+        const turns = ((message["state"] as Board | undefined)?.["playLog"] as Board[] | undefined)
+          ?.map((l) => l["turn"])
+          .filter((t): t is number => typeof t === "number");
+        s.answer = {
+          type: String(message["type"]),
+          ms: Date.now() - s.askedAt,
+          oldestTurn: turns && turns.length ? Math.min(...turns) : null,
+          turn: rebuilt["turn"],
+        };
+      }
       if (message["type"] === "MATCH_DELTA") {
         s.deltas += 1;
         if (s.afterResync > 0) s.deltasAfterResync += 1;
@@ -318,6 +341,14 @@ test("only what changed: taps, a targeted cast, combat, reload, a cut, a second 
         .poll(() => guest2.afterResync, { timeout: 30_000, message: "the whole board came back" })
         .toBeGreaterThan(0);
       expect(guestSockets.opened.length, "on the same connection: no reconnect").toBe(sockets0);
+      // The answer, not a checkpoint that happened by: whole, at once, with the whole play log.
+      const answer = guest2.answer!;
+      expect(answer.type, "the first board after asking is a whole board").toBe("MATCH_SNAPSHOT");
+      expect(answer.ms, "and it came at once").toBeLessThan(2_000);
+      expect(
+        answer.oldestTurn !== null && answer.oldestTurn < Number(answer.turn),
+        `and it carries the whole play log, as a new connection's board does (${JSON.stringify(answer)})`,
+      ).toBe(true);
       const end = Date.now() + 120_000;
       while (Date.now() < end && guest2.deltasAfterResync === 0) await playOn(3_000);
       expect(guest2.deltasAfterResync, "deltas resumed after the whole board").toBeGreaterThan(0);
