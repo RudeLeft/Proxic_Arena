@@ -3177,3 +3177,196 @@ these numbers as its result. The 1.0 s and 2.0 s targets are recorded as
 missed, the later first board (70-330 ms) and the slower at-once and
 Chromium cold rows are accepted, and no follow-up item is added for the
 server's ~5 s game start.
+
+## As built: P11-C2 (2026-11-25)
+
+Branch `p11-c2`, built in its own worktree against the first local stack
+(port 8080), from d2dd5754. Goal work: nothing a player sees changes
+(P11-R1), no protocol change.
+
+**What changed.** A card nothing happened to is the same object from the
+socket onward, so it is read once, drawn once and never compared again:
+
+- **The delta step** (`delta.ts`): P11-D4's rebuild already kept every row a
+  delta does not name. Now the common patch -- items put back in their own
+  places, none new, none dropped, the order kept -- is applied in time with
+  what changed (`patchedInPlace`): a list this page rebuilt remembers each
+  item's key and place (`listKeys`), so the next delta to it reads only the
+  items it puts. Anything else (a drop, a new item, a new order, a list never
+  rebuilt here, a delta that does not fit) takes the full rule as before,
+  with the same checks and the same `DeltaError`.
+- **Reading the board** (`match.ts`): the table, the hands, the graveyards and
+  exile are read card by card through `keptCards`: a row is read once
+  (`readRows`, by the row object), so an unchanged card is the very
+  `SnapshotCard` it was. The small lists (`casting`, the library's top, the
+  reports' cards) are read afresh as before: GameScreen's `lastCasting`
+  effect keys on the casting card's object, and reading it afresh keeps that
+  effect running on every board as it did.
+- **Drawing it** (`fromSnapshot.ts`): `tableCards` derives each table card
+  once and keeps its drawing by card object while the other things it reads
+  are the same objects too (its prepared spell and held cards in exile,
+  whether it is in combat); a "prevent the next N" used up on this board is
+  drawn afresh and never kept. The outcome fields are added once
+  (`withOutcomes`, no second copy of every card). Hand cards and the other
+  hand's shown cards are drawn once each (`keptHandCard`); a soulbond
+  partner's words are kept while its partner's name is (`withPartners`).
+- **Comparing** (`keepCards`): an unchanged list is the same objects in the
+  same order, so it is the list before with nothing compared; within a list
+  only a card drawn afresh is compared by contents (`sameContent` starts with
+  identity). `sizeTicks.ts` `sizeChanges` skips the very same card at a
+  glance. `tileMovesOf` reads nothing when there are no moves.
+- **What reads two boards is unchanged:** the departures, arrivals, merges,
+  returns and tile moves still read the board before and this one, and
+  `carryMoments` still carries a skipped board's one-time moments; they just
+  meet shared card objects now.
+- **The kit:** the redraw measure's bench now sends its boards as the server
+  does since D4 (a whole board, then `MATCH_DELTA`s, `DeltaStream`), so the
+  page meets kept rows as in a game (`PROXIC_MEASURE_WHOLE=1` sends every
+  board whole, as before), and it also times the land tap on tables of 10 and
+  100 permanents a side (`tap-one-land-10`, `tap-one-land-100`). Before and
+  after below both ran this bench.
+
+**The page's read of one update (BENCHMARK, the owner's PC, Node 24, 2026-11-25).**
+From the socket's parsed message to the board's data (`reduceMatch`:
+`applyDelta`, `withHistory`, `asSnapshot`; then `carryMoments`,
+`boardFromSnapshot`, `keepCards`), one Forest tapping per update, the same
+`MATCH_DELTA`s to both, median of 7 rounds of 400 updates (a scratch tool
+bundling d2dd5754's page code beside this branch's):
+
+```text
+permanents a side   cards   before us/update   after us/update   after/before
+       10             20          64-68             21               0.31
+       40             80         184-218            29               0.16
+      100            200         433-497            47               0.11
+      200            400         913-936            85               0.09
+```
+
+Before, the read grew by about 2.3 us per card on the table; after, about
+0.17 us (one weak-map look-up, a few set and identity checks per card): what
+is left per card is a pointer walk, the rest follows what changed.
+
+**In the browser (RUN, `node ci/measure.mjs redraw`, 3 runs each, the owner's
+PC as C1, Playwright's bundled Chromium; the first local stack built from the
+worktree, before at d2dd5754, after at this branch; stack B was in use by
+another builder throughout, so the CPU was shared).** Medians of 3; "!" a
+number whose runs are not all within ±10%. Per update.
+
+```text
+moment               table  renders      app ms           all JS ms        frames p95/worst
+                            before>after before > after   before > after   before      after
+the replayed table (boards sent as deltas)
+1x tap-one-land        87   18 > 18      2.95 > 2.93      3.76 > 3.94!     16.7/16.8   16.8/16.8
+1x bench-40            87   20.2 > 21.4  2.67 > 2.94!     3.67 > 4.35!     16.7/16.8   16.7/16.8
+1x tap-one-land-10     27   14 > 14      2.09 > 2.57!     2.69 > 3.25!     16.8/16.8   16.8/33.3!
+1x tap-one-land-100   207   44.3 > 44.3  4.40! > 4.77     5.48! > 5.59!    16.8/83.3   16.7/100!
+4x tap-one-land        87   18 > 18      16.9 > 15.0!     18.4! > 19.1!    16.8/83.3!  16.8/83.3!
+4x bench-40            87   20.2 > 21.4  14.9! > 15.2!    20.3! > 19.5!    16.7/50!    16.7/66.7!
+4x tap-one-land-10     27   14 > 14      10.2! > 11.6!    12.0 > 13.2!     16.8/83.3!  16.8/83.3!
+4x tap-one-land-100   207   27.4! > 27!  24.7! > 23.1     26.0! > 26.2     16.8/133!   16.8/83.3!
+the real game (a cross-check)
+1x cast                30   31.1! > 31.2 1.59 > 1.69      1.94! > 2.00     16.7/16.8!  16.7/16.8!
+1x combat              34   20.5! > 21.8 1.42 > 1.34      1.84 > 1.55      33.4!/50!   33.3/50!
+4x cast                30   29.3! > 22.4! 10.8! > 10.2!   11.3! > 10.0!    33.4!/83.4! 16.8!/100!
+4x combat              34   18.2! > 17.9! 7.71! > 8.06    7.54! > 7.87     33.4!/200!  33.4/117!
+```
+
+- **No change the browser measure can see.** Every per-update number moved
+  within its own runs' spread, both ways (run by run, 4x tap-one-land's app
+  ms 16.2-18.0 before, 14.5-22.4 after; 1x tap-one-land 2.84-3.06 before,
+  2.88-3.40 after). The bench was steadier in C1's and C3's runs than today's
+  (the CPU was shared with the other stack today). Renders per update are
+  the same, as they should be: C2 changes what the board's data is made of,
+  not what React draws.
+- **Why:** the read above is 0.2 ms of a land tap at 1x on the 40-a-side
+  table before (about 0.8 ms at 4x, by the 4x slowdown: INFERENCE) and 0.03
+  ms after; the page's own JavaScript per update is about 3 ms at 1x and 15 ms
+  at 4x, nearly all of it React drawing the board and its layout and the
+  glide pass (C3, C4, C5). So C2 removes its own slice (by its own measure,
+  above) without moving the total beyond the spread.
+- **How the work scales with the table, in the browser:** the land tap costs
+  about 2.1 ms (10 a side), 2.9 (40) and 4.4-4.8 (100) at 1x, before and
+  after alike: what still grows with the table is the drawing (renders 14,
+  18 and 44 per update), not the read.
+- **Slower (P11-R7):** none beyond the spread. Bytes on the wire are not
+  touched (the protocol is the same).
+
+**The target.** "Work grows with what changed, not the table's size": **met
+for the read** (the socket to the board's data: 0.17 us a card left, against
+2.3, above). "A card nothing happened to is the same object from the socket
+onward, so nothing re-derives or re-compares it": **met** -- tested end to end
+(below), and over the Lab: 164,574 boards drawn from the 1.75.0 release run's
+432 traces, every seat and the public view, an average table of 5.9 cards of
+which 0.52 a board (8.9%) were drawn afresh, the rest the same objects; hand
+cards 5.8 a board, 0.55 read afresh. "Each card derived once per update":
+**met** (one drawing per changed card, none for the rest; before, every card
+was copied twice, by `toBoardCard` and the old `withOutcomes`).
+
+**Proof.**
+
+- **Equivalence over the Lab (RUN, a scratch tool):** for every board of the
+  432 traces, both seats and the public view, the board's data made by
+  d2dd5754's code from whole boards and by this branch's from the same boards
+  sent as `DeltaStream` sends them are the same, value for value (every Map
+  and Set too), and so are the parsed boards; kept-or-not is the same for
+  every list and every card; twice over, once drawing every board and once
+  skipping every other board (its moments carried, `carry.ts`): 0 mismatches,
+  no resync.
+- **Page tests:** `keptCards.test.ts`, 15 tests: one land tapping leaves every
+  other card the same object from the parsed board to the drawing and the
+  hand the very list; an unchanged card's drawing is reused before any
+  compare; a whole board is read afresh and still kept by contents; the
+  delta and whole paths draw alike; departures and arrivals; a skipped
+  board's survivor carried onto a kept card; a size change still ticks; a
+  drawing made again when combat, a prepared spell, a held card, a used-up
+  count or a partner's name changes; a changed row read again; the in-place
+  patch over 300 random changes rebuilds exactly what was sent, keeping every
+  untouched row; a delta that puts one card twice still asks for the whole
+  board.
+- **Bites (TEST-004), each mutant with the page tests of `src/battlefield`,
+  `match.test.ts` and `delta.test.ts`, all caught (16 of 16):** the drawing
+  kept although combat (3 failing), the prepared spell (1) or the held cards
+  (1) changed; a used-up count kept (1); rows read once per id instead of per
+  row (46); a list kept by its length (14); sizes skipped by id (10); a
+  partner kept whatever its name (1); no tile moves at all (3); never soaked
+  (1); blocker candidates not in combat (2); a hand drawing kept by the first
+  card (16); the in-place patch taking a repeated key (1, after its test was
+  added: it was not caught at first), patching a list with drops (3),
+  ignoring the order (1), or putting at the first place (3).
+
+**Looks identical.** The jump check (RUN, 2026-11-25, headed Edge -- the
+bundled Chromium's headed browser no longer starts on this PC: "side-by-side
+configuration is incorrect", as Firefox's -- the first local stack) over the
+30 Lab traces C3 chose (combat, moves and piles, copies, forms and sides,
+tokens, the plates, Karn's restart; the 1.75.0 run's), both seats, with
+`JUMPS_DELTAS=1` so the page builds each board on the one it holds and meets
+kept rows: before (d2dd5754) and after, 41.8 and 41.5 minutes:
+`check-jumps.py`'s reports are identical, line for line (the known flags
+only: the restart's cards "not shown at all", in-place flips "changed form,
+no animation").
+
+**The clip** (RUN): `board-data-combat`, seat 1, boards 50-61 (two attackers,
+a block, first-strike and regular damage, a death), sent as deltas at normal
+speed into a real game page and filmed with Chrome's screencast (1,126 and
+1,197 frames), before and after. Side by side at the same moments after each
+board they are the same picture, seen by eye: the stack card with its motes,
+the attack, the blocks, the hits, the death's fade, the card leaving; each
+board's settled frame differs in 0-171 of 518,400 pixels (at most 0.033%), the
+drifting motes and a few milliseconds' timing. Files: the session's
+scratchpad, `c2-clip-before/`, `c2-clip-after/`, `c2-clip-sheet.jpg`.
+
+**Checks.** Browser specs on the first stack built from this branch, bundled
+Chromium (RUN): `match` (the real-click game: two players reach a real game
+and the asked one acts), `match-board-motion`, `match-lands-stay-put`,
+`match-big-combat`, `match-state`, `match-history`, `match-watching` (2),
+`match-stack-rests`, `notices` (2): 11 passed, 1 skipped (`match`'s abandon
+test, skipped in the spec). `node ci/ci-speed.mjs` (CPU 4x, each with its CI
+neighbour): `match-board-motion`, `match-lands-stay-put`: 3 passed, 2
+skipped. No browser spec was added or changed (the measure is the kit's).
+Gates in the worktree: `npm ci`, `tsc -b`, `tsc -p tsconfig.e2e.json`,
+eslint, prettier, vitest (1913/1913, 136 files), `vite build`,
+`check-doc-refs.py`.
+
+**Left open.** The rest of each update's JavaScript is the drawing (React,
+the layout, the glide pass): C3, C4 and C5's. The browser measure could not
+show C2's saving through today's spread; a quieter PC (no second stack
+running) would show whether the replayed table's 4x land tap moves at all.

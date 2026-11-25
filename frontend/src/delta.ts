@@ -140,8 +140,59 @@ export function deltaOf(base: Board, board: Board): Board {
   return out;
 }
 
+/**
+ * P11-C2 (2026-11-25) -- a list this page rebuilt, and the key of each item
+ * in it, so the next delta to that list need not read every item again.
+ */
+interface ListKeys {
+  by: "id" | "seat";
+  at: ReadonlyMap<string, number>;
+}
+const listKeys = new WeakMap<readonly Json[], ListKeys>();
+
+/**
+ * P11-C2 -- the common patch, in time with what changed: items put in their
+ * own places (none new, none dropped, the order kept) on a list rebuilt here
+ * before. Returns null for anything else (the full rule below). The same
+ * answer as the full rule: the same checks on `put` (objects, keyed the same
+ * way, each key once), each put item at its key's place, every other item the
+ * same object.
+ */
+function patchedInPlace(old: readonly Json[], patch: Record<string, Json>): Json[] | null {
+  const held = listKeys.get(old);
+  if (!held || patch["drop"] !== undefined || patch["order"] !== undefined) return null;
+  const put = Array.isArray(patch["put"]) ? (patch["put"] as Json[]) : [];
+  const seen = new Set<string>();
+  const places: number[] = [];
+  for (const x of put) {
+    if (!isObject(x)) return null;
+    if (held.by === "id" ? !("id" in x) : "id" in x || !("seat" in x)) return null;
+    const k = canon(x[held.by]);
+    const at = held.at.get(k);
+    if (at === undefined || seen.has(k)) return null;
+    seen.add(k);
+    places.push(at);
+  }
+  const out = old.slice();
+  put.forEach((x, i) => (out[places[i]!] = x));
+  listKeys.set(out, held);
+  return out;
+}
+
 function applyList(old: readonly Json[], patch: Json): Json[] {
   if (!isObject(patch)) throw new DeltaError("a list patch that is not an object");
+  const quick = patchedInPlace(old, patch);
+  if (quick) return quick;
+  const out = applyListFully(old, patch);
+  const by = keyedBy(out, []);
+  if (by && out.length > 0) {
+    const keys = out.map((x) => canon((x as Record<string, Json>)[by]));
+    listKeys.set(out, { by, at: new Map(keys.map((k, i) => [k, i])) });
+  }
+  return out;
+}
+
+function applyListFully(old: readonly Json[], patch: Record<string, Json>): Json[] {
   const put = Array.isArray(patch["put"]) ? (patch["put"] as Json[]) : [];
   const by = keyedBy(old, put);
   if (by === null) throw new DeltaError("a list that is not keyed");

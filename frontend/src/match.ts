@@ -1654,15 +1654,15 @@ function asSnapshot(value: unknown): Snapshot | null {
     notices: asNotices(row["notices"]),
     noticesTotal: asNumber(row["noticesTotal"]),
     passing: asPassing(row["passing"]),
-    battlefield: asCards(row["battlefield"]),
+    battlefield: keptCards(row["battlefield"]),
     rolls: asRolls(row["rolls"]),
     payments: asPayments(row["payments"]),
     moves: asMoves(row["moves"]),
-    hand: asCards(row["hand"]),
-    otherHands: asCards(row["otherHands"]),
+    hand: keptCards(row["hand"]),
+    otherHands: keptCards(row["otherHands"]),
     casting: asCards(row["casting"]),
-    graveyard: asCards(row["graveyard"]),
-    exile: asCards(row["exile"]),
+    graveyard: keptCards(row["graveyard"]),
+    exile: keptCards(row["exile"]),
     stack: asStack(row["stack"]),
     copying: asStack(row["copying"]),
     combat: asCombat(row["combat"]),
@@ -1960,90 +1960,128 @@ function asCards(value: unknown): SnapshotCard[] {
   const cards: SnapshotCard[] = [];
   for (const entry of value) {
     if (typeof entry !== "object" || entry === null) continue;
-    const row = entry as Record<string, unknown>;
-    const id = asString(row["id"]);
-    const seat = asNumber(row["seat"]);
-    if (!id || seat === null) continue;
-    cards.push({
-      id,
-      seat,
-      owner: asNumber(row["owner"]) ?? undefined,
-      name: asString(row["name"]) ?? "Face-down",
-      tapped: row["tapped"] === true,
-      faceDown: row["faceDown"] === true,
-      // Only an explicit true counts. Anything else is treated
-      // as "not identified", which errs toward showing less.
-      known: row["known"] === true,
-      kind: asString(row["kind"]) ?? "unknown",
-      types: asString(row["types"]) ?? "",
-      manaCost: asString(row["manaCost"]),
-      power: asNumber(row["power"]),
-      toughness: asNumber(row["toughness"]),
-      damage: asNumber(row["damage"]) ?? 0,
-      sick: row["sick"] === true,
-      attacking: row["attacking"] === true,
-      blocking: row["blocking"] === true,
-      counters: asCounters(row["counters"]),
-      keywords: asNotices(row["keywords"]),
-      attachedTo: asString(row["attachedTo"]),
-      attachedToPlayer: asNumber(row["attachedToPlayer"]),
-      ringBearer: row["ringBearer"] === true,
-      pairedWith: asString(row["pairedWith"]) ?? undefined,
-      sector: asString(row["sector"]),
-      sprocket: typeof row["sprocket"] === "number" ? row["sprocket"] : null,
-      // §6.123 — a content hash or nothing.
-      //
-      // Validated to the same shape the server validates, so a
-      // value that is not one cannot become part of a request
-      // URL. This parser copies named fields rather than
-      // spreading the row, which is the right discipline and is
-      // also why artwork did not appear the first time: the
-      // server was sending `art` and this dropped it.
-      art: asHash(row["art"]),
-      crop: asHash(row["crop"]),
-      enteredAt: asNumber(row["enteredAt"]),
-      token: row["token"] === true,
-      counterFrom: asOrigins(row["counterFrom"]),
-      makes: Array.isArray(row["makes"])
-        ? (row["makes"] as unknown[]).filter(
-            (s): s is string => typeof s === "string" && /^[WUBRGC]$/.test(s),
-          )
-        : undefined,
-      to: asString(row["to"]),
-      basePower: asNumber(row["basePower"]) ?? undefined,
-      baseToughness: asNumber(row["baseToughness"]) ?? undefined,
-      exiledBy: asString(row["exiledBy"]) ?? undefined,
-      playable: row["playable"] === true ? true : undefined,
-      uses: asUses(row["uses"]),
-      foretold: row["foretold"] === true ? true : undefined,
-      plotted: row["plotted"] === true ? true : undefined,
-      costNow: asString(row["costNow"]) ?? undefined,
-      costWhy: asString(row["costWhy"]) ?? undefined,
-      merged: asMerged(row["merged"]),
-      seen: row["seen"] === true ? true : undefined,
-      copy: row["copy"] === true ? true : undefined,
-      copyOf: asString(row["copyOf"]) ?? undefined,
-      prepared: asString(row["prepared"]) ?? undefined,
-      toSaid: asString(row["toSaid"]) ?? undefined,
-      table: /^card:\d+$/.test(asString(row["table"]) ?? "") ? asString(row["table"])! : undefined,
-      phasedOut: row["phasedOut"] === true ? true : undefined,
-      shields: (asNumber(row["shields"]) ?? 0) > 0 ? asNumber(row["shields"])! : undefined,
-      indestructible: row["indestructible"] === true ? true : undefined,
-      preventNext:
-        (asNumber(row["preventNext"]) ?? 0) > 0 ? asNumber(row["preventNext"])! : undefined,
-      // Spec 0085 -- gained keywords, given "can't be blocked", lost abilities, held cards.
-      gained: Array.isArray(row["gained"]) ? onlyStrings(row["gained"]) : undefined,
-      unblockable: row["unblockable"] === true ? true : undefined,
-      lostAbilities: row["lostAbilities"] === true ? true : undefined,
-      holds: Array.isArray(row["holds"])
-        ? onlyStrings(row["holds"]).filter((id) => /^card:\d+$/.test(id))
-        : undefined,
-      // Spec 0083 (15 A) -- a Room: its faces, and its doors still locked.
-      faces: Array.isArray(row["faces"]) ? onlyStrings(row["faces"]) : undefined,
-      locked: Array.isArray(row["locked"]) ? onlyStrings(row["locked"]) : undefined,
-    });
+    const card = asCard(entry as Record<string, unknown>);
+    if (card) cards.push(card);
   }
   return cards;
+}
+
+/**
+ * P11-C2 (2026-11-25) -- each card row the page has read once, as it read it.
+ * A MATCH_DELTA's rebuild keeps every card nothing happened to as the base's
+ * own row object (`delta.ts` `applyDelta`), and a row is never changed after
+ * it arrives, so the card read from it last time is the card it is now: the
+ * same object, from the socket onward (fromSnapshot's `keptBoardCard` and
+ * GameScreen's `keepCards` then see it at a glance). A whole board brings new
+ * rows, which are read afresh.
+ */
+const readRows = new WeakMap<object, SnapshotCard | null>();
+
+/**
+ * The table, the hands, the graveyards and exile (the lists that grow with
+ * the table), each card kept by its row (above). The small lists (`casting`,
+ * the library's top, the reports' cards) are read afresh every board, as
+ * before: hooks on the page key on the casting card's object (GameScreen's
+ * `lastCasting`).
+ */
+export function keptCards(value: unknown): SnapshotCard[] {
+  if (!Array.isArray(value)) return [];
+  const cards: SnapshotCard[] = [];
+  for (const entry of value as unknown[]) {
+    if (typeof entry !== "object" || entry === null) continue;
+    let card = readRows.get(entry);
+    if (card === undefined) {
+      card = asCard(entry as Record<string, unknown>);
+      readRows.set(entry, card);
+    }
+    if (card) cards.push(card);
+  }
+  return cards;
+}
+
+/** One card row as the page reads it, or null when it is not one (no id or seat). */
+function asCard(row: Record<string, unknown>): SnapshotCard | null {
+  const id = asString(row["id"]);
+  const seat = asNumber(row["seat"]);
+  if (!id || seat === null) return null;
+  return {
+    id,
+    seat,
+    owner: asNumber(row["owner"]) ?? undefined,
+    name: asString(row["name"]) ?? "Face-down",
+    tapped: row["tapped"] === true,
+    faceDown: row["faceDown"] === true,
+    // Only an explicit true counts. Anything else is treated
+    // as "not identified", which errs toward showing less.
+    known: row["known"] === true,
+    kind: asString(row["kind"]) ?? "unknown",
+    types: asString(row["types"]) ?? "",
+    manaCost: asString(row["manaCost"]),
+    power: asNumber(row["power"]),
+    toughness: asNumber(row["toughness"]),
+    damage: asNumber(row["damage"]) ?? 0,
+    sick: row["sick"] === true,
+    attacking: row["attacking"] === true,
+    blocking: row["blocking"] === true,
+    counters: asCounters(row["counters"]),
+    keywords: asNotices(row["keywords"]),
+    attachedTo: asString(row["attachedTo"]),
+    attachedToPlayer: asNumber(row["attachedToPlayer"]),
+    ringBearer: row["ringBearer"] === true,
+    pairedWith: asString(row["pairedWith"]) ?? undefined,
+    sector: asString(row["sector"]),
+    sprocket: typeof row["sprocket"] === "number" ? row["sprocket"] : null,
+    // §6.123 — a content hash or nothing.
+    //
+    // Validated to the same shape the server validates, so a
+    // value that is not one cannot become part of a request
+    // URL. This parser copies named fields rather than
+    // spreading the row, which is the right discipline and is
+    // also why artwork did not appear the first time: the
+    // server was sending `art` and this dropped it.
+    art: asHash(row["art"]),
+    crop: asHash(row["crop"]),
+    enteredAt: asNumber(row["enteredAt"]),
+    token: row["token"] === true,
+    counterFrom: asOrigins(row["counterFrom"]),
+    makes: Array.isArray(row["makes"])
+      ? (row["makes"] as unknown[]).filter(
+          (s): s is string => typeof s === "string" && /^[WUBRGC]$/.test(s),
+        )
+      : undefined,
+    to: asString(row["to"]),
+    basePower: asNumber(row["basePower"]) ?? undefined,
+    baseToughness: asNumber(row["baseToughness"]) ?? undefined,
+    exiledBy: asString(row["exiledBy"]) ?? undefined,
+    playable: row["playable"] === true ? true : undefined,
+    uses: asUses(row["uses"]),
+    foretold: row["foretold"] === true ? true : undefined,
+    plotted: row["plotted"] === true ? true : undefined,
+    costNow: asString(row["costNow"]) ?? undefined,
+    costWhy: asString(row["costWhy"]) ?? undefined,
+    merged: asMerged(row["merged"]),
+    seen: row["seen"] === true ? true : undefined,
+    copy: row["copy"] === true ? true : undefined,
+    copyOf: asString(row["copyOf"]) ?? undefined,
+    prepared: asString(row["prepared"]) ?? undefined,
+    toSaid: asString(row["toSaid"]) ?? undefined,
+    table: /^card:\d+$/.test(asString(row["table"]) ?? "") ? asString(row["table"])! : undefined,
+    phasedOut: row["phasedOut"] === true ? true : undefined,
+    shields: (asNumber(row["shields"]) ?? 0) > 0 ? asNumber(row["shields"])! : undefined,
+    indestructible: row["indestructible"] === true ? true : undefined,
+    preventNext:
+      (asNumber(row["preventNext"]) ?? 0) > 0 ? asNumber(row["preventNext"])! : undefined,
+    // Spec 0085 -- gained keywords, given "can't be blocked", lost abilities, held cards.
+    gained: Array.isArray(row["gained"]) ? onlyStrings(row["gained"]) : undefined,
+    unblockable: row["unblockable"] === true ? true : undefined,
+    lostAbilities: row["lostAbilities"] === true ? true : undefined,
+    holds: Array.isArray(row["holds"])
+      ? onlyStrings(row["holds"]).filter((id) => /^card:\d+$/.test(id))
+      : undefined,
+    // Spec 0083 (15 A) -- a Room: its faces, and its doors still locked.
+    faces: Array.isArray(row["faces"]) ? onlyStrings(row["faces"]) : undefined,
+    locked: Array.isArray(row["locked"]) ? onlyStrings(row["locked"]) : undefined,
+  };
 }
 
 /** Spec 0058, item 8 -- a mutated creature's cards; undefined for anything else. */

@@ -112,6 +112,8 @@ export function sizeChanges(
   const out: SizeChange[] = [];
   for (const card of now) {
     const old = was.get(card.id);
+    // P11-C2 -- the very same card (nothing happened to it): nothing changed.
+    if (old === card) continue;
     // A card that changed what it is (flipped, turned face up) is A-09's.
     if (!old || old.faceDown !== card.faceDown || old.name !== card.name) continue;
     const from = sizeOf(old);

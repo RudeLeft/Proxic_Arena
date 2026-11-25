@@ -326,7 +326,8 @@ function tileMovesOf(
   previous: Snapshot | null,
   moves: NonNullable<Snapshot["moves"]>,
 ): TileMove[] {
-  if (!previous || previous.gameEpoch !== snapshot.gameEpoch) return [];
+  // P11-C2 -- no moves, nothing to pair: the table is not read.
+  if (!previous || previous.gameEpoch !== snapshot.gameEpoch || moves.length === 0) return [];
   const viewer = snapshot.seat;
   const side = (seat: number) => (seat === viewer ? "viewer" : "opponent");
   const seenNow = new Set(
@@ -430,10 +431,11 @@ export function lockedHalves(
  * Spec 0085 (4 A) -- what a permanent holds: each id in its `holds` (the
  * game's link, never a name) that is in exile, as this viewer may know it
  * (a face-down card the viewer may not see is a back: no name, no picture).
+ * [found] is each of its `holds` as found in exile (undefined: not there);
+ * P11-C2's `tableCards` looks them up once per board.
  */
-export function heldCards(card: SnapshotCard, exile: readonly SnapshotCard[]): HeldCard[] {
-  return (card.holds ?? []).flatMap((id) => {
-    const c = exile.find((e) => e.id === id);
+function heldOf(found: readonly (SnapshotCard | undefined)[]): HeldCard[] {
+  return found.flatMap((c) => {
     if (!c) return [];
     const known = c.known && c.name !== "Face-down";
     return [
@@ -459,31 +461,85 @@ const COMBAT_STEPS = new Set([
 ]);
 
 /**
- * Spec 0101 -- what a permanent shows of this board's outcomes: in combat
- * (item 3: an attacker, a blocker, or a creature the game offers as a
- * blocker, `blockerCandidates`, while the step is a combat one), and its
- * "prevent the next N" (row 7) -- used up on this board when a hit on it was
- * stopped by it (`by` "prevent-next"): the count it had, to tick away.
+ * P11-C2 -- what each table card was drawn as, by its card object, and what
+ * else that drawing read: its prepared spell and held cards (exile's card
+ * objects) and whether it was in combat. A card the update did not touch is
+ * the same object (match.ts `keptCards`), so while those are the same too its
+ * drawing is the one made before: derived once, then kept, never compared.
+ */
+interface Derived {
+  prepared: SnapshotCard | undefined;
+  held: readonly (SnapshotCard | undefined)[];
+  inCombat: boolean;
+  out: BoardCard;
+}
+const derived = new WeakMap<SnapshotCard, Derived>();
+
+function sameRefs<T>(a: readonly T[], b: readonly T[]): boolean {
+  return a.length === b.length && a.every((x, i) => x === b[i]);
+}
+
+/**
+ * The table's cards as the board draws them, each derived once (above), with
+ * spec 0101's outcomes: in combat (item 3: an attacker, a blocker, or a
+ * creature the game offers as a blocker, `blockerCandidates`, while the step
+ * is a combat one), and its "prevent the next N" (row 7) -- used up on this
+ * board when a hit on it was stopped by it (`by` "prevent-next"): the count it
+ * had, to tick away. A card with a count used up is drawn afresh (it reads the
+ * board before), and not kept.
+ */
+export function tableCards(snapshot: Snapshot, previous: Snapshot | null): BoardCard[] {
+  const prepared = preparedSpells(snapshot);
+  const fighting = COMBAT_STEPS.has(snapshot.phase ?? "");
+  const candidates = new Set(fighting ? (snapshot.blockerCandidates ?? []) : []);
+  const soaked = new Set(
+    (snapshot.damage?.hits ?? []).flatMap((h) =>
+      h.by === "prevent-next" && "object" in h.target ? [h.target.object] : [],
+    ),
+  );
+  let exile: Map<string, SnapshotCard> | null = null;
+  const inExile = (id: string) => {
+    exile ??= new Map(snapshot.exile.map((c) => [c.id, c]));
+    return exile.get(id);
+  };
+  return snapshot.battlefield.map((card) => {
+    const prep = prepared.get(card.id);
+    const held = card.holds?.length ? card.holds.map(inExile) : [];
+    const inCombat = fighting && (card.attacking || card.blocking || candidates.has(card.id));
+    let used: BoardCard["preventUsed"];
+    if (soaked.has(card.id)) {
+      const had = previous?.battlefield.find((c) => c.id === card.id)?.preventNext ?? 0;
+      if (had > (card.preventNext ?? 0)) used = { from: had, to: card.preventNext ?? 0 };
+    }
+    const was = derived.get(card);
+    if (
+      !used &&
+      was &&
+      was.prepared === prep &&
+      was.inCombat === inCombat &&
+      sameRefs(was.held, held)
+    )
+      return was.out;
+    const out = withOutcomes(toBoardCard(card, prep, heldOf(held)), card, inCombat, used);
+    if (!used) derived.set(card, { prepared: prep, held, inCombat, out });
+    return out;
+  });
+}
+
+/**
+ * Spec 0101 -- what a permanent shows of this board's outcomes (worked out by
+ * `tableCards`, above), added to [out], its drawing just made: in combat, its
+ * "prevent the next N", and that count used up on this board.
  */
 function withOutcomes(
-  board: BoardCard,
+  out: BoardCard,
   card: SnapshotCard,
-  snapshot: Snapshot,
-  previous: Snapshot | null | undefined,
+  inCombat: boolean,
+  used: BoardCard["preventUsed"],
 ): BoardCard {
-  const out: BoardCard = { ...board };
-  if (
-    COMBAT_STEPS.has(snapshot.phase ?? "") &&
-    (card.attacking || card.blocking || (snapshot.blockerCandidates ?? []).includes(card.id))
-  )
-    out.inCombat = true;
+  if (inCombat) out.inCombat = true;
   if (card.preventNext) out.preventNext = card.preventNext;
-  const had = previous?.battlefield.find((c) => c.id === card.id)?.preventNext ?? 0;
-  const soaked = (snapshot.damage?.hits ?? []).some(
-    (h) => h.by === "prevent-next" && "object" in h.target && h.target.object === card.id,
-  );
-  if (had > (card.preventNext ?? 0) && soaked)
-    out.preventUsed = { from: had, to: card.preventNext ?? 0 };
+  if (used) out.preventUsed = used;
   return out;
 }
 
@@ -499,14 +555,23 @@ export function withPartners<C extends BoardCard>(cards: C[]): C[] {
   return cards.map((c) => {
     if (!c.pairedWith) return c;
     const partner = byId.get(c.pairedWith);
+    // P11-C2 -- kept while the card and its partner's name are (one drawing per card).
+    const name = partner ? partnerName(partner) : null;
+    const was = partnered.get(c);
+    if (was && was.name === name) return was.out as C;
+    let out: C;
     if (!partner) {
       const { pairedWith, ...rest } = c;
       void pairedWith;
-      return rest as C;
-    }
-    return { ...c, pairedName: partnerName(partner) };
+      out = rest as C;
+    } else out = { ...c, pairedName: name! };
+    partnered.set(c, { name, out });
+    return out;
   });
 }
+
+/** P11-C2 -- each paired card's drawing with its partner's name (null: no partner here). */
+const partnered = new WeakMap<BoardCard, { name: string | null; out: BoardCard }>();
 
 /** Spec 0111 -- a partner's name as the viewer may know it. */
 export function partnerName(card: { name: string; faceDown: boolean; known: boolean }): string {
@@ -618,6 +683,18 @@ function toHandCard(card: SnapshotCard): BoardHandCard {
   };
 }
 
+/** P11-C2 -- each hand card's drawing, by its card object (kept from the socket on: match.ts `keptCards`). */
+const handDrawn = new WeakMap<SnapshotCard, BoardHandCard>();
+
+function keptHandCard(card: SnapshotCard): BoardHandCard {
+  let out = handDrawn.get(card);
+  if (!out) {
+    out = toHandCard(card);
+    handDrawn.set(card, out);
+  }
+  return out;
+}
+
 /** Spec 0031 — what the viewer may see of the opponent's hand. */
 function opponentHandOf(snapshot: Snapshot): OpponentHandCard[] {
   const them = snapshot.players.find((p) => p.seat !== snapshot.seat);
@@ -629,7 +706,7 @@ function opponentHandOf(snapshot: Snapshot): OpponentHandCard[] {
       id: `hidden-hand:${them.seat}:${i}`,
       shown: null,
     })),
-    ...shown.map((card) => ({ id: card.id, shown: toHandCard(card) })),
+    ...shown.map((card) => ({ id: card.id, shown: keptHandCard(card) })),
   ];
 }
 
@@ -1059,19 +1136,9 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
       ? { key: `${snapshot.gameEpoch}:${snapshot.stateRevision}`, spent, shuffles, crewed }
       : null;
 
-  const prepared = preparedSpells(snapshot);
   return {
-    battlefield: withPartners(
-      snapshot.battlefield.map((c) =>
-        withOutcomes(
-          toBoardCard(c, prepared.get(c.id), heldCards(c, snapshot.exile)),
-          c,
-          snapshot,
-          previous,
-        ),
-      ),
-    ),
-    hand: snapshot.hand.map(toHandCard),
+    battlefield: withPartners(tableCards(snapshot, previous)),
+    hand: snapshot.hand.map(keptHandCard),
     opponentHand: opponentHandOf(snapshot),
     combat: snapshot.combat,
     stack,
@@ -1142,6 +1209,11 @@ export function keepCards(next: BoardData, before: BoardData | null): BoardData 
 }
 
 function keptList<C extends { id: string }>(next: C[], before: C[]): C[] {
+  // P11-C2 -- a card nothing happened to is already the object drawn before
+  // (`tableCards`, `keptHandCard`): the same list, in the same order, is the
+  // list before, with nothing compared. `sameContent` below starts with the
+  // same identity test, so only a card drawn afresh is compared by contents.
+  if (sameRefs(next, before)) return before;
   const was = new Map(before.map((card) => [card.id, card]));
   let changed = next.length !== before.length;
   const out = next.map((card, i) => {

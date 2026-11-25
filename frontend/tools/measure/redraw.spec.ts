@@ -17,7 +17,11 @@
 //    - "bench-idle": 4 s with nothing sent (a still table does no work);
 //    - "tap-one-land": 20 boards, each tapping or untapping one Forest;
 //    - "bench-40": 20 boards of a busy table (a land taps, a creature enters,
-//      one attacks, life drops, one dies), one a second.
+//      one attacks, life drops, one dies), one a second;
+//    - "tap-one-land-10", "tap-one-land-100" (P11-C2): the land tap again on
+//      a table of 10 and of 100 permanents a side, for how the work scales.
+//    The boards go as the server sends them (P11-C2: a whole board, then
+//    MATCH_DELTAs, delta.ts DeltaStream); PROXIC_MEASURE_WHOLE=1 sends each whole.
 // 2. "game": match-speed's real game (speed-kit's bot, the mono-green deck)
 //    over its fixed moments (idle, hover, cast, combat, end), timed on the
 //    host's page; the test's own JavaScript is reported apart ("testMs").
@@ -57,13 +61,17 @@ import {
   step,
   theirLife,
 } from "../../e2e/speed-kit";
-import { WholeBoards } from "../../src/delta";
+import { DeltaStream, WholeBoards } from "../../src/delta";
 import { perUpdate, timer, type Timer } from "./probes";
 import { serverCpuMs, writeResult, type Row } from "./results";
 import { boardMakeup, countBytes, tap, wireBytesIn, wireNumbers, type Counter } from "./wire";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "green-deck.zip");
 const CPUS = (process.env.PROXIC_MEASURE_CPU ?? "1,4").split(",").map(Number);
+/** P11-C2: the bench sends every board whole (as before P11-D4's deltas reached it). */
+const WHOLE = process.env.PROXIC_MEASURE_WHOLE === "1";
+/** P11-C2: the table sizes (permanents a side) the land tap is also timed on, beside 40. */
+const SIDES = [10, 100];
 
 test.skip(({ browserName }) => browserName !== "chromium", "Chrome's DevTools protocol only");
 test.beforeEach(() => test.skip(!existsSync(pkg), "no green deck package"));
@@ -121,8 +129,11 @@ type State = Record<string, unknown> & {
   stateRevision: number;
 };
 
-/** 40 permanents a side: 16 Forests, 24 Grizzly Bears, made from the deck's own cards. */
-function bigTable(base: State): State {
+/**
+ * [side] permanents a side (40: 16 Forests, 24 Grizzly Bears; two fifths
+ * Forests at any size), made from the deck's own cards.
+ */
+function bigTable(base: State, side = 40): State {
   const forest = base.hand.find((c) => c["name"] === "Forest") ?? base.hand[0]!;
   const bear = base.hand.find((c) => c["kind"] === "creature") ?? {
     ...forest,
@@ -134,8 +145,8 @@ function bigTable(base: State): State {
   const battlefield: Card[] = [];
   let id = 9000;
   for (const seat of seats)
-    for (let i = 0; i < 40; i++) {
-      const land = i < 16;
+    for (let i = 0; i < side; i++) {
+      const land = i < Math.round(side * 0.4);
       const from = land ? forest : bear;
       battlefield.push({
         ...from,
@@ -248,9 +259,41 @@ test("bench: a 40-a-side table and one land tapping, replayed", async ({ browser
       const b = base!;
       let rev = b.state.stateRevision + 1_000;
       let now = bigTable(b.state);
+      // P11-C2: the boards go as the server sends them (P11-D4): a whole board
+      // first, then only what changed (`DeltaStream`, the server's rule), so the
+      // page builds each on the one it holds and an unchanged card stays the
+      // same object. PROXIC_MEASURE_WHOLE=1 sends every board whole, as before.
+      const stream = new DeltaStream();
       const send = (s: State) => {
         now = { ...s, stateRevision: ++rev };
-        client!.send(JSON.stringify({ ...b.message, state: now }));
+        const out = WHOLE ? { type: "MATCH_SNAPSHOT", body: now } : stream.step(now);
+        client!.send(
+          JSON.stringify(
+            out.type === "MATCH_SNAPSHOT"
+              ? { ...b.message, state: out.body }
+              : {
+                  protocolVersion: b.message["protocolVersion"],
+                  messageId: b.message["messageId"],
+                  type: out.type,
+                  ...out.body,
+                },
+          ),
+        );
+      };
+      /** Twenty boards, each tapping or untapping one of the viewer's Forests, 0.7 s apart. */
+      const tapOneLand = () => {
+        const land = now.battlefield.find((c) => c["seat"] === now.seat && c["kind"] === "land")!;
+        return t.time(async () => {
+          for (let k = 0; k < 20; k++) {
+            send({
+              ...now,
+              battlefield: now.battlefield.map((c) =>
+                c.id === land.id ? { ...c, tapped: !c["tapped"] } : c,
+              ),
+            });
+            await host.waitForTimeout(700);
+          }
+        });
       };
       send(now);
       await expect(host.locator(".bf-cards [data-zone^='viewer:']").first()).toBeVisible();
@@ -264,18 +307,7 @@ test("bench: a 40-a-side table and one land tapping, replayed", async ({ browser
       rows.push({ key: `${cpu}x bench-idle`, table, ...perUpdate(idle, 0) });
 
       await still(host);
-      const land = now.battlefield.find((c) => c["seat"] === now.seat && c["kind"] === "land")!;
-      const tap = await t.time(async () => {
-        for (let k = 0; k < 20; k++) {
-          send({
-            ...now,
-            battlefield: now.battlefield.map((c) =>
-              c.id === land.id ? { ...c, tapped: !c["tapped"] } : c,
-            ),
-          });
-          await host.waitForTimeout(700);
-        }
-      });
+      const tap = await tapOneLand();
       rows.push({ key: `${cpu}x tap-one-land`, table, ...perUpdate(tap, 20) });
 
       await still(host);
@@ -286,6 +318,18 @@ test("bench: a 40-a-side table and one land tapping, replayed", async ({ browser
         }
       });
       rows.push({ key: `${cpu}x bench-40`, table, ...perUpdate(busy, 20) });
+
+      // P11-C2 -- how the work scales with the table: the same land tap on a
+      // table of 10 and of 100 permanents a side.
+      for (const side of SIDES) {
+        send(bigTable(b.state, side));
+        await still(host);
+        const cards =
+          (await cardCount(boardCards(host, "viewer"))) +
+          (await cardCount(boardCards(host, "opponent")));
+        const scaled = await tapOneLand();
+        rows.push({ key: `${cpu}x tap-one-land-${side}`, table: cards, ...perUpdate(scaled, 20) });
+      }
       for (const r of rows) console.log(`[redraw] ${JSON.stringify(r)}`);
       writeResult(`redraw-bench-${cpu}x`, "redraw", "chromium", rows);
     } finally {
