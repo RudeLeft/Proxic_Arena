@@ -145,6 +145,10 @@ test on the owner's machine, and the glow on an exiled Bolt.
   it. A delta may name a card id only if the seat's previous view or its
   new view names it. A format change without this gate passing doesn't
   ship.
+  **Amendment, owner 2026-11-25 (by prompt: "Add it"):** the hidden
+  checks this gate requires also include `check-hidden-information.py`
+  (P11-B4's board-shape check, already run over the rebuilt boards since
+  P11-D4). The list above is kept as first written.
 - **P11-R5: every efficiency change is measured before and after, on the
   same machine and the same scenario.** This covers redraw and network
   alike: renders, layout time, repaints, frame times, JavaScript time,
@@ -876,6 +880,20 @@ INFERENCE = reasoned.
 **Owner answers, 2026-11-22 (after P11-D0):** the deliberate pauses (0061's 400 ms per passed step, 0105's stack rest) stay as they are; Phase 11 works on real slowness only. **C3 and C4 move up to run beside step 3** (the browser's React commit and next frame are the biggest slice of the system's own time in a tap, a cast and a combat); C2 stays after D4.
 
 **Owner answers, 2026-11-22 (after P11-E2):** while an avatar is unknown the **default face stays** (no empty circle; no look change). The last swap — a freshly opened room's other seat — is fixed by **adding the avatar to the room data, done with E5** (the start-up chain), not separately.
+
+**Owner answers, 2026-11-25 (after P11-D4, E7 and E8), by prompt:**
+- **Admin's outcome line waits for the re-read list** (E7): "Keep new order".
+  After an admin action the outcome line and the updated list appear
+  together, about one read later than before, so the list is never stale
+  beside it.
+- **P11-R4 names `check-hidden-information.py`**: "Add it" (amendment
+  under P11-R4).
+- **WebKit allowance for two first visits** (E7/E8 targets, slow 4G):
+  "Accept the exception". Measured quietly on a3aa4020, 3 runs, WebKit:
+  Admin in-app first 368 ms (was 832), Hall in-app first 382 ms (was 639),
+  against the 300 ms target; Chromium meets it (235, 243). Every other
+  E7/E8 number met its target in that run (tab clicks 107-114 ms, revisits
+  127-145 ms, cold by address 1,701-1,797 ms).
 
 ## As built: P11-B5 (2026-11-21)
 
