@@ -176,6 +176,16 @@ Asked as prompts (ESC-001), each with a game example and the canvas section that
 6. **Spectators: the dim too?** D11 says spectators see "the same act-button words and plate sign". Example: Carol is watching when Bob drops. Recommended: words and sign only, no dim and no window (she can't act, so "nothing will happen" needs no emphasis). Canvas: none draws a spectator; this would need a small addition to "Q1".
 7. **"Bob's connection dropped" or "Connection dropped" when the game was waiting for Bob anyway?** The canvas's awkward-moments table says Alice sees "Bob's connection dropped" instead of "Bob's move"; its "Q1" scene shows "Connection dropped / Bob · game paused · 0:04". Recommended: the "Q1" look always (one look for every pause). Canvas: "Q1" and "The awkward moments", "A drop while the game is asking Bob".
 
+## Owner answers, 2026-11-26 (by prompt, canvas `Proxic canvases/questions-0119-0120.html`)
+
+1. **"The game is paused until Bob is back."** The player's name, never a pronoun.
+2. **The pause window shows for every drop**; at 10 minutes the away window replaces it in the same place.
+3. **A click during "Bob is back" only ends the look** and shows the player's own act button, without acting; cards on the table work at once.
+4. **The plate says "Dropped" for the first minute, then "Away · N min".**
+5. **A refresh starts fresh** (no catch-up for a reloaded page).
+6. **Spectators get the act button's words and the plate sign only**: no dim, no window.
+7. **One standard pause look, always** (owner: "we need the drop to be standardized so it always looks the same and has the same behavior regardless of which player drops"). Every drop shows the same dim, act button words ("Connection dropped / <name> · game paused · 0:04"), plate sign and window, whatever the game was doing and whichever seat dropped; no special wording for any case. The returning player's catch-up is the only difference, because their screen could not receive anything while down.
+
 ## Where the plan and the owner's answers differ (the answer wins)
 
 - **Q1:** the plan recommended A (no window); the owner chose **B** (plus a window). Built: B.

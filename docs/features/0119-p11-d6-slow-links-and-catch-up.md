@@ -201,6 +201,15 @@ Asked as prompts (ESC-001), each with a game example and the canvas section that
 5. **After a refresh, a "While you were away" window?** A refresh starts fresh (both plans agree it is not a replay). But the tab could remember the last board it drew, so the fresh page could list the moves made while it reloaded. Example: you press F5 while Bob plays a land; the land is on your table when the page comes back, and nothing says it was just played. Recommended: no window after a refresh (the land is in the play log; a refresh takes 1-3 s). Canvas: "The awkward moments", "A refresh". Spec 0120's question 5 is the same choice from the other side.
 6. **Measure a shorter message id?** Every match message carries a 36-character random id, and a model says these ids may be a third to a half of a game's bytes on the wire. Example: Bob taps a Forest; the "tapped" change is about 20 bytes, its id about 35. Option A: leave it (recommended for now: D5 closed, nothing changed). Option B: a follow-up spec that measures it on a real game and, if it holds, proposes a short per-connection number, keeping the duplicate and stale checks. Nothing on screen changes either way.
 
+## Owner answers, 2026-11-26 (by prompt, canvas `Proxic canvases/questions-0119-0120.html`)
+
+1. **The away window lists the play log's own lines** ("Play log lines"), nothing made up by the page.
+2. **One move per line listed** ("Every line"): "You missed 8 moves" counts every line shown.
+3. **A short stall while being asked shows no sign** ("No sign"): the question stays put; nothing under 5 s.
+4. **"Reconnecting to the game…" after about 6.5 s** of silence on an open connection (5 s plus the usual 1.5 s settle).
+5. **No away window after a refresh** ("No window"): the page starts fresh; the moves are in the play log.
+6. **Message ids stay as they are** ("Leave it", after an explanation): no follow-up spec.
+
 ## Where the plan and the owner's answers differ (the answer wins)
 
 - None of decision 5's answers differ from the plan's recommendations (3×, 20 updates and 6 s, the act button, every move numbered).
