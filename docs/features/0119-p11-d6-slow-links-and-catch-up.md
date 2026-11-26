@@ -225,3 +225,172 @@ M on the server (the queue, `SeatReplay`, resume, the beat), L on the page (the 
 ## Amendments
 
 None.
+
+## As built: the per-connection queue (2026-11-26)
+
+Approved alone by the owner on 2026-11-26 ("Build it now"); the rest of this
+spec is still a draft and none of it is built. Nothing a player sees changes:
+no new message, no new word, no `protocolVersion` bump.
+
+**What was built** (server only; SOURCE):
+
+- `server/.../match/SendQueue.kt` (new): `SendQueue`, one per connection. `offer`
+  puts a message at the back and returns at once (never suspends, never
+  blocks); one coroutine per connection takes them in order and writes each
+  on Ktor's `outgoing`. `Outgoing` is what goes in it: a hub message (a board
+  goes through the connection's `BoardStream` as it leaves), a resync's whole
+  board, a close.
+- `MatchHub.kt` `Connection` owns the queue; `MatchHub.sendTo` and `spectate`
+  queue (`Connection.offer`) instead of sending in turn, so neither the
+  worker's pump thread (`MatchDecisions.tell`) nor the next connection ever
+  waits on one socket. `MatchWatchers.open` starts the queue in the socket's
+  own session (`scope`) and says who is told it fell behind (`behind`).
+- `MatchSocket.kt`: everything the socket sends itself (`WATCHING`, the hello,
+  the stored board, the waiting question, `MATCH_ASKING`, the receipts, a
+  resync's answer) goes through the same queue, so their order with live
+  messages is the queue's. A resync's board is read when it is queued
+  (`Outgoing.Resend`), so every live board queued after it is the same or
+  newer. `fellBehind` closes a connection that fell behind with **4002
+  "behind"** if that close can be written within 2 s, and ends the session
+  either way (a page that stopped reading cannot take the close). Players and
+  spectators alike. Every connection's close line now says how its queue went
+  (`queue: most waiting <n>, longest wait <ms> ms`).
+- `Spectating.kt` `SpectatorEndings`: the ending and the normal close go
+  through the queue, after the boards before them.
+- `BoardStream.kt`: unchanged in rule; `DiffMemo.diff` is synchronized (two
+  connections of one send can now reach it at once).
+- The page is unchanged: it already treats any close but 1008 as a lost
+  connection and reconnects (`match.ts` `connectMatch`), and a new
+  connection's first board is whole.
+- Exact memory (P11-D3/D4): a board moves a connection's `BoardStream` only as
+  it leaves the queue. A connection found behind drops what it had queued and
+  writes nothing more; the board being written when it was cut is the last
+  its stream moved for, and the connection is closed, so the page's next board
+  is a new connection's whole one. No connection's delta base can be left
+  wrong by a dropped message.
+
+**The "far behind" rule (`QueueLimits`) and why.** A connection is behind
+when, as a message is queued for it, **its oldest unsent message has waited
+more than 10 s**, or **1,000 messages are waiting**. A message waits in the
+queue only once the socket's own buffers are full (Ktor's 8 frames, the
+kernel's, Docker's), so time is the measure that means "this page is not
+keeping up", whatever the messages' sizes:
+
+- the poor link (decision 4: 1 Mbit/s, 300 ms each way, a 3 s stall) never
+  came near it: on the browser test's poor link (RUN, below) the server's
+  queue held at most 5 messages and the longest any waited was **6 ms**
+  (1,371 messages, 153 KB compressed on the wire for the whole stretch,
+  against the link's 125 KB a second);
+- a whole game is 90-96 KB a seat on the wire (P11-D4 As built), so a healthy
+  link that is slow falls behind by seconds only if it stops for seconds;
+  10 s is longer than D6's "short drops" and the silence after which the
+  rest of this spec has the page give up on its own connection (10 s);
+- it is well inside Ktor's ping timeout (45 s after a connection stops
+  answering), which is what closed a stuck connection before;
+- 1,000 messages is a memory backstop, never the usual cut: the most a
+  player's connection was sent in any 10 s of the spike's bot-driven game was
+  193 messages (RUN, both seats); 1,000 is five times that. The queue holds
+  references to messages the hub already made, not copies.
+
+**Evidence** (local, the owner's PC, stack A on :8080; RUN 2026-11-26):
+
+```text
+server StuckSocketWireTest (real Netty server, two raw sockets; Alice's never reads, 4 KB
+receive buffer; the pump sends each 400 messages, Alice 64 KB each)
+  at 7a802a7a (the file run in a checkout of it)   FAILED: one round waited 10,004 ms
+                                                   on Alice's socket (400 rounds 10,073 ms)
+  with the queue                                   passed: 400 rounds in 47 ms, slowest 5 ms;
+                                                   Bob got all 400, in order
+server FellBehindWireTest (the same, wired as MatchSocket: session scope, fellBehind; limit 1 s)
+                                                   passed: Alice cut off and her session ended
+                                                   3,638 ms after the sending began (most 32
+                                                   waiting); her client then read the end of
+                                                   the connection; Bob never cut, got all 52
+server SendQueueTest (8)                           order across 500; the 10 s cut (told once,
+                                                   nothing queued after); the 1,000 backstop;
+                                                   a slow socket never cut; nothing after a
+                                                   close; the pump (MatchDecisions) with a
+                                                   stuck player AND a stuck spectator: 300
+                                                   steps, slowest well under 50 ms, Bob all
+                                                   300 in order; a cut connection's stream
+                                                   moved only for what left; a resync whole,
+                                                   in its place
+```
+
+The browser test `frontend/e2e/match-slow-link.spec.ts` (new; relay
+`frontend/e2e/slow-link.ts`, new): a real game (green deck, the bot
+`drive`); the guest's page on the poor link (a relay in front of its match
+socket, pacing the compressed bytes at 125,000 a second, 300 ms each way, a
+64 KB link buffer, one 3 s stall); a second guest tab on a plain link that
+reads nothing for 50 s while asking for the whole board once a second.
+
+```text
+with the queue, run 1        passed (2.4 min). Longest gap in 50 s: host 1,253 ms, guest
+                             (poor link) 1,256 ms; 663 host messages meanwhile. The stuck
+                             tab's queue: most 119 waiting, longest wait 7,945 ms (its
+                             socket did fill, late); closed by Ktor's ping timeout at 50.6 s;
+                             the tab reconnected and, with the host's and the guest's pages,
+                             ended on the server's board exactly (revision and board, a
+                             fresh connection's). The poor link: one connection all game,
+                             never cut, its server queue's longest wait 6 ms.
+ci-speed (4x CPU, with its   run 1 failed on the first freeze measure (the longest gap
+CI neighbour)                between two messages, 5.7 s, while every queue waited at most
+                             4 ms: the bot's own pace at 4x, a question waiting on a page).
+                             The freeze is now measured as the spike measured it: the game's
+                             reply to each of the host's answers. Run 2 failed only on the
+                             stuck tab's close code (1011, Ktor's ping timeout: now allowed);
+                             run 3 passed (2.6 min, both specs): 32 host answers, the slowest
+                             reply 18 ms; the poor link 1,108 messages, 118 KB compressed,
+                             held at most 316 ms in the link, its server queue's longest wait
+                             3 ms; never cut; every board exact.
+at 7a802a7a (3 runs)         the test did NOT reliably fail: twice the stuck tab's socket
+                             never filled in 40 s (155 and 157 whole boards: Docker
+                             Desktop's port forwarding holds megabytes), so nothing froze
+                             (longest gaps 1.25 s); once the longest gap was 5.9 s, which
+                             the ci-speed run shows is the bot's pace, not a freeze.
+```
+
+So the before/after proof of the freeze is the server wire test, on a real
+socket whose buffer is small; the browser test proves the real game, the
+poor link (never cut off, exact boards), the stuck tab's close and the
+page's reconnect to the exact board, and that nothing waits. How large a
+socket's buffers are is the machine's: on Linux (CI, the live server) they
+fill far sooner than on this PC (INFERENCE from the spike, which froze on
+the same stack after ~1.5 MB). The 4002 close itself is seen only where the
+close can still be written (a slow page); a page that stopped reading gets
+the session ended (FellBehindWireTest reads the end), which the page treats
+the same.
+
+**Bites (TEST-004)**, each restored after:
+
+```text
+the hub sends directly again (7a802a7a's MatchHub.sendTo)  SendQueueTest's pump test fails; StuckSocketWireTest fails
+spectators sent directly again (MatchHub.spectate)         SendQueueTest's pump test fails (the stuck spectator)
+no 10 s rule                                               the 10 s cut test and the exact-memory test fail
+no 1,000 backstop                                          the 1,000 test fails
+the queue taken from the back                              5 tests fail (order, pump, slow socket, close, memory)
+a cut connection keeps writing what it had queued          the exact-memory and 10 s tests fail
+fellBehind does not end the session (no `cancel`)          SURVIVED: FellBehindWireTest still passed (the close
+                                                           got out and Ktor ended the session itself); the
+                                                           cancel is kept for a close that cannot be written
+```
+
+**Hidden information (P11-R4):** nothing a seat is sent changes; the queue
+only changes WHEN. Each connection's deltas are still made by its own
+`BoardStream` from its own last board. The Lab gate is unchanged and was run
+(RUN, three scenarios with Arena's worker jar: spectator, karn, numbers, all
+OK): `check-deltas.py` rebuilt 2,702 boards (2,539 sent as deltas) equal to
+the worker's, and `check-snapshot-first`, `check-hidden-hands`,
+`check-hidden-log`, `check-hidden-tops`, `check-hidden-mulligans` and
+`check-hidden-information` each said the same over the worker's traces and
+the rebuilt ones (2,702 boards, 31,195 cards, 8 the viewer may not see).
+
+**Measures (P11-R5):** a healthy connection's messages leave as soon as its
+socket takes them: the queues of every connection in the browser run waited
+at most 6 ms (players) and the pump's rounds in the wire test took 0.1 ms
+each on average. `MatchTiming.out` (test only) now marks a message queued,
+not written; the time to the wire is in the page's arrival.
+
+**Not built (draft, waiting for the owner):** catch-up, `sentAt`, the beat,
+kept boards and resume, the sign, the window, A1, spectators' catch-up, and
+all of spec 0120.

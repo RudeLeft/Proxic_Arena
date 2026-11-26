@@ -439,6 +439,15 @@ snapshot is a new connection's first board, so its history lists come
 whole (P11-D3) and it is never a delta (P11-D4). A page that gets a delta
 it cannot build on asks for the whole board on the same connection
 (`MATCH_RESYNC`), and only if none comes in 3 s closes it and reconnects.
+
+**A connection that falls behind (P11-D6, spec 0119).** Each connection
+has its own queue on the server (`SendQueue.kt`): the game and every other
+connection never wait on one page's socket. When a connection's oldest
+message has waited more than 10 s to go out (or 1,000 are waiting,
+`QueueLimits`), the server closes it with `4002` "behind" (or ends it
+outright if even that close cannot be written in 2 s) and logs `match <id>:
+connection <c> fell behind (...): closed`. The page reconnects as from any
+dropped connection and is sent the whole board.
 Refresh, two tabs and a closed browser are covered by P6-R/S/T/BB;
 on the live site a page reloaded mid-game was back in the same match
 (P6-BK).

@@ -42,7 +42,10 @@ import kotlinx.serialization.json.longOrNull
 // so a seat's deltas are made from that seat's stripped boards (HiddenIds)
 // and a spectator's from public views only; nothing else is an input.
 // Board and memory move together under one lock, so a joining connection's
-// stored board and a live one cannot cross.
+// stored board and a live one cannot cross. P11-D6: every board reaches a
+// connection through its own queue (SendQueue.kt) and is stepped here only as
+// it leaves, so a message still queued (or never sent, on a connection closed
+// for falling behind) has moved no memory.
 
 /**
  * What one connection's page holds, and how its next board goes. [deltas]:
@@ -232,6 +235,9 @@ internal class DiffMemo {
     var made = 0
         private set
 
+    // P11-D6 -- each connection's queue empties on its own coroutine, so two
+    // connections of one send can reach the same memo at once.
+    @Synchronized
     fun diff(
         base: JsonObject,
         board: JsonObject,
@@ -245,7 +251,8 @@ internal class DiffMemo {
 /**
  * P11-D3 -- one message to one connection: a MATCH_SNAPSHOT through the
  * connection's [BoardStream] (trimmed to what the page lacks, or, P11-D4, a
- * delta; the messageId unchanged), anything else as [text].
+ * delta; the messageId unchanged), anything else as [text]. P11-D6: called
+ * as the message leaves the connection's queue ([Connection.offer] queues it).
  */
 internal suspend fun Connection.deliver(
     message: JsonObject,

@@ -6,6 +6,9 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -84,15 +87,20 @@ fun Route.matchSocket(
                 outgoing,
                 deltas = asks.players,
                 check = hub.deltas.check,
+                // P11-D6 -- emptied on this socket's own coroutine; closed if it falls behind.
+                scope = this,
+                behind = { stuck, waiting, oldest -> fellBehind(matchId, stuck, waiting, oldest) },
             )
 
+        // P11-D6 -- everything below goes through the connection's queue too,
+        // behind whatever live message reached it first, in order.
         try {
             // Spec 0047 — how many are watching, from the start (spec 0067: and who).
             hub.spectators.people(matchId).takeIf { it > 0 }?.let {
-                send(Frame.Text(watchingNow(matchId, hub).toString()))
+                connection.offer(Outgoing.Message(watchingNow(matchId, hub)))
             }
             // §6.110 — hello first, and NOT a decision before it.
-            send(Frame.Text(matchHelloMessage(matchId, seat).toString()))
+            connection.offer(Outgoing.Message(matchHelloMessage(matchId, seat)))
 
             // §6.110, §6.48 — STATE FIRST. A decision references
             // objects by id, so the board has to arrive before
@@ -101,7 +109,7 @@ fun Route.matchSocket(
             // board that reached the connection first cannot cross; the
             // first board on a connection carries every list whole.
             runtime.snapshotFor(matchId, userId)?.let { state ->
-                connection.board.send(outgoing, snapshotMessage(state))
+                connection.offer(Outgoing.Message(snapshotMessage(state)))
             }
 
             // §6.111, §6.112 — whatever Forge is still waiting for,
@@ -112,16 +120,17 @@ fun Route.matchSocket(
             // this user may not answer, so a reconnecting opponent
             // learns nothing about what you are being asked.
             runtime.pendingFor(matchId, userId)?.let { question ->
-                send(Frame.Text(decisionMessage(question).toString()))
+                connection.offer(Outgoing.Message(decisionMessage(question)))
             }
             // Spec 0002 — and who is being asked, so a returning player's
             // screen does not guess it from priority.
-            askingFor(runtime, matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
+            askingFor(runtime, matchId)?.let { asking -> connection.offer(Outgoing.Message(asking)) }
 
             listen(connection, runtime, matchId, userId, presence)
         } finally {
+            connection.queue.stop()
             hub.watchers.close(matchId, userId, connectionId)
-            boardsSent(matchId, connectionId, connection.board)
+            boardsSent(matchId, connection)
         }
     }
 }
@@ -148,7 +157,7 @@ private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.liste
         val read = MatchTiming.now()
         handle(text, matchId, userId, runtime, presence)?.let { reply ->
             val start = MatchTiming.now()
-            send(Frame.Text(reply.toString()))
+            connection.offer(Outgoing.Message(reply))
             MatchTiming.out(matchId, userId, reply, start, 1)
         }
         MatchTiming.answerRead(matchId, userId, text, read)
@@ -159,20 +168,56 @@ private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.liste
  * P11-D4 -- MATCH_RESYNC answered as a new connection is (without the hello):
  * the stored board whole, with the whole play log (the connection's memory
  * forgotten first), then the question still waiting for this user, then who
- * is asked. State first (PROTO-002, §6.110).
+ * is asked. State first (PROTO-002, §6.110). P11-D6: queued in that order,
+ * each read now (the board first: the pump stores a board before it queues
+ * it, and before the question that names it).
  */
-private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.resync(
+private fun resync(
     connection: Connection,
     runtime: MatchRuntime,
     matchId: UUID,
     userId: UUID,
 ) {
-    connection.board.resend(outgoing) { runtime.snapshotFor(matchId, userId) }
+    connection.offer(Outgoing.Resend(runtime.snapshotFor(matchId, userId)))
     runtime.pendingFor(matchId, userId)?.let { question ->
-        send(Frame.Text(decisionMessage(question).toString()))
+        connection.offer(Outgoing.Message(decisionMessage(question)))
     }
-    askingFor(runtime, matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
+    askingFor(runtime, matchId)?.let { asking -> connection.offer(Outgoing.Message(asking)) }
 }
+
+/**
+ * P11-D6 -- [connection]'s queue fell behind (SendQueue.kt, QueueLimits):
+ * nothing more is queued for it. Closed with 4002 "behind" if the close can
+ * still be written within [BEHIND_CLOSE_MS], and the session ended either way,
+ * so a page that stopped reading cannot hold it open. The page reconnects as
+ * from any lost connection and is sent the whole board.
+ */
+internal fun io.ktor.server.websocket.DefaultWebSocketServerSession.fellBehind(
+    matchId: UUID,
+    connection: Connection,
+    waiting: Int,
+    oldestMillis: Long,
+) {
+    socketLog.warn(
+        "match $matchId: connection ${connection.connectionId} fell behind " +
+            "($waiting waiting, the oldest for $oldestMillis ms): closed",
+    )
+    val session = this
+    launch {
+        connection.queue.stop()
+        withTimeoutOrNull(BEHIND_CLOSE_MS) {
+            session.close(CloseReason(BEHIND_CODE, "behind"))
+            session.closeReason.await()
+        }
+        session.cancel()
+    }
+}
+
+/** P11-D6 -- the close code of a connection that fell behind (protocol/README.md). */
+const val BEHIND_CODE: Short = 4002
+
+/** P11-D6 -- how long the close of a connection that fell behind may take to be written and answered. */
+private const val BEHIND_CLOSE_MS = 2_000L
 
 /**
  * P11-D4 -- MATCH_RESYNC on one connection. Nothing in it is acted on (§6.100):
@@ -213,16 +258,24 @@ internal class Resyncs(
 
 private const val RESYNC_GAP_MS = 1_000L
 
-/** P11-D4 -- one line per connection as it closes: its boards, as deltas and whole by why (the measure counts them). */
+/**
+ * P11-D4 -- one line per connection as it closes: its boards, as deltas and
+ * whole by why (the measure counts them). P11-D6 -- and its queue: the most
+ * messages waiting at once and the longest one waited (spec 0119's numbers).
+ */
 private fun boardsSent(
     matchId: UUID,
-    connectionId: String,
-    board: BoardStream,
+    connection: Connection,
 ) {
-    val counts = board.counts.toSortedMap()
+    val queue = connection.queue.summary()
+    socketLog.info(
+        "match $matchId: connection ${connection.connectionId} queue: most waiting ${queue.most}, " +
+            "longest wait ${queue.longestMillis} ms${if (queue.behind) ", fell behind" else ""}",
+    )
+    val counts = connection.board.counts.toSortedMap()
     if (counts.isEmpty()) return
     val told = counts.entries.joinToString { "${it.key} ${it.value}" }
-    socketLog.info("match $matchId: connection $connectionId boards sent: $told")
+    socketLog.info("match $matchId: connection ${connection.connectionId} boards sent: $told")
 }
 
 /**
@@ -240,29 +293,41 @@ private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.spect
     val userId = user.userId
     val connectionId = "mwatch-${connectionSequence.incrementAndGet()}"
     hub.spectatorNames[userId] = user.displayName
-    val connection = hub.spectators.open(matchId, userId, connectionId, outgoing, deltas, hub.deltas.check)
+    // P11-D6 -- a spectator's connection has its own queue too: nothing waits on it.
+    val connection =
+        hub.spectators.open(
+            matchId,
+            userId,
+            connectionId,
+            outgoing,
+            deltas,
+            hub.deltas.check,
+            scope = this,
+            behind = { stuck, waiting, oldest -> fellBehind(matchId, stuck, waiting, oldest) },
+        )
     val resyncs = Resyncs(matchId, connectionId)
     watching(runtime, matchId, userId, on = true, anyoneLeft = true)
     tellPlayers(matchId, runtime, hub)
     try {
-        send(Frame.Text(matchHelloMessage(matchId, PUBLIC_SEAT).toString()))
+        connection.offer(Outgoing.Message(matchHelloMessage(matchId, PUBLIC_SEAT)))
         // Spec 0067 — with the public play log so far.
         runtime.liveMatch(matchId)?.publicSnapshotWithLog()?.let { state ->
-            connection.board.send(outgoing, snapshotMessage(state))
+            connection.offer(Outgoing.Message(snapshotMessage(state)))
         }
-        askingFor(runtime, matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
+        askingFor(runtime, matchId)?.let { asking -> connection.offer(Outgoing.Message(asking)) }
         for (frame in incoming) {
             // A spectator changes nothing: whatever arrives is dropped, but for
             // P11-D4's MATCH_RESYNC (the public view again, whole).
             val text = (frame as? Frame.Text)?.readText() ?: continue
             if (resyncs.asked(text, connection)) {
-                connection.board.resend(outgoing) { runtime.liveMatch(matchId)?.publicSnapshotWithLog() }
-                askingFor(runtime, matchId)?.let { asking -> send(Frame.Text(asking.toString())) }
+                connection.offer(Outgoing.Resend(runtime.liveMatch(matchId)?.publicSnapshotWithLog()))
+                askingFor(runtime, matchId)?.let { asking -> connection.offer(Outgoing.Message(asking)) }
             }
         }
     } finally {
+        connection.queue.stop()
         hub.spectators.close(matchId, userId, connectionId)
-        boardsSent(matchId, connectionId, connection.board)
+        boardsSent(matchId, connection)
         val stillWatching = hub.spectators.of(matchId, userId).isNotEmpty()
         watching(runtime, matchId, userId, on = stillWatching, anyoneLeft = hub.spectators.people(matchId) > 0)
         tellPlayers(matchId, runtime, hub)

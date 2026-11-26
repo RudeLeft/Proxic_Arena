@@ -29,9 +29,33 @@ internal class Connection(
     deltas: Boolean = false,
     /** P11-D4 (TEST ONLY, PROXIC_TEST_DELTA_CHECK) -- each delta carries the whole board too. */
     check: Boolean = false,
+    limits: QueueLimits = QueueLimits(),
+    clock: () -> Long = System::currentTimeMillis,
 ) {
     /** P11-D3 -- the history this connection's page holds; P11-D4 -- and the last board it was sent. */
     val board = BoardStream(deltas, check)
+
+    /**
+     * P11-D6 -- everything this connection is sent, in order, emptied by its
+     * own coroutine (SendQueue.kt): nobody who sends to it ever waits on its
+     * socket. Each board goes through [board] as it leaves.
+     */
+    val queue = SendQueue<Outgoing>(limits, clock) { write(it) }
+
+    /** Queue [item] for this connection. Never suspends; false if the connection is behind or closing. */
+    fun offer(item: Outgoing): Boolean = queue.offer(item)
+
+    private suspend fun write(item: Outgoing): Boolean {
+        when (item) {
+            is Outgoing.Message -> deliver(item.message, item.text, item.memo)
+            is Outgoing.Resend -> board.resend(outgoing) { item.stored }
+            is Outgoing.Close -> {
+                outgoing.send(Frame.Close(item.reason))
+                return false
+            }
+        }
+        return true
+    }
 }
 
 /** The connections watching each match, by user. */
@@ -46,8 +70,14 @@ class MatchWatchers {
         outgoing: SendChannel<Frame>,
         deltas: Boolean = false,
         check: Boolean = false,
+        // P11-D6 -- where the connection's queue is emptied (MatchSocket: the
+        // socket's own session) and who is told it fell behind.
+        scope: kotlinx.coroutines.CoroutineScope = SendQueue.DIRECT,
+        behind: (Connection, Int, Long) -> Unit = { _, _, _ -> },
+        limits: QueueLimits = QueueLimits(),
     ): Connection {
-        val connection = Connection(connectionId, outgoing, deltas, check)
+        val connection = Connection(connectionId, outgoing, deltas, check, limits)
+        connection.queue.start(scope) { waiting, oldest -> behind(connection, waiting, oldest) }
         watchers
             .computeIfAbsent(matchId) { ConcurrentHashMap() }
             .computeIfAbsent(userId) { java.util.concurrent.ConcurrentHashMap.newKeySet() }
@@ -113,8 +143,10 @@ class MatchHub(
         connections.forEach { connection ->
             // P11-D3 -- a board through the connection's history (BoardStream).
             // P11-D4 -- or as a delta from the board this connection was last sent.
-            runCatching { connection.deliver(message, text, memo) }
-                .onFailure { log.debug("match $matchId: a spectator connection would not take a frame") }
+            // P11-D6 -- into the connection's own queue: never waits on its socket.
+            if (!connection.offer(Outgoing.Message(message, text, memo))) {
+                log.debug("match $matchId: a spectator connection is closing: not queued")
+            }
         }
         MatchTiming.out(matchId, null, message, start, connections.size)
     }
@@ -141,8 +173,11 @@ class MatchHub(
             // P11-D3 -- and a board goes through the connection's
             // history: each page is sent only the entries it lacks.
             // P11-D4 -- and only what changed since its own last board.
-            runCatching { connection.deliver(message, text, memo) }
-                .onFailure { log.debug("match $matchId: a connection would not take a frame") }
+            // P11-D6 -- and into the connection's own queue, so neither the
+            // worker's pump nor the next connection waits on this one's socket.
+            if (!connection.offer(Outgoing.Message(message, text, memo))) {
+                log.debug("match $matchId: a connection is closing: not queued")
+            }
         }
         MatchTiming.out(matchId, userId, message, start, connections.size)
     }

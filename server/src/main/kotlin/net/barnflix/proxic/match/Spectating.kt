@@ -144,13 +144,14 @@ class SpectatorEndings(private val spectators: MatchWatchers) : SpectatorsTold {
     ) {
         val message = matchEndedMessage(match, failureCode, outcome)
         kept[match.matchId] = message
-        val text = message.toString()
+        val text = lazy { message.toString() }
         spectators.all(match.matchId).forEach { connection ->
-            runCatching {
-                connection.outgoing.send(Frame.Text(text))
-                // Closed cleanly, so the page does not report a lost connection.
-                connection.outgoing.send(Frame.Close(gameOverClose()))
-            }.onFailure { log.debug("match ${match.matchId}: a spectator connection would not take the ending") }
+            // P11-D6 -- through the connection's queue, after the boards before it.
+            val queued =
+                connection.offer(Outgoing.Message(message, text)) &&
+                    // Closed cleanly, so the page does not report a lost connection.
+                    connection.offer(Outgoing.Close(gameOverClose()))
+            if (!queued) log.debug("match ${match.matchId}: a spectator connection would not take the ending")
         }
     }
 }

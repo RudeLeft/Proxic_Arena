@@ -1282,6 +1282,30 @@ MATCH_RESYNC  browser -> server: {have?: {gameEpoch, stateRevision}}
   what it rebuilt and logs `DELTA_MISMATCH` on a difference, which fails any
   browser test (`frontend/e2e/match-helpers.ts`).
 
+## A connection that falls behind (Phase 11 P11-D6, spec 0119, 2026-11-26)
+
+Each match connection (players' and spectators') has its own queue on the
+server: whatever the game says is put in it at once, and the connection's own
+coroutine sends it in order, each board through the connection's stream (the
+D3/D4 memory above moves only as a board actually leaves). So no page's socket
+ever holds up the game or another page.
+
+```text
+(close 4002 "behind")   server -> browser: this connection's oldest message
+                        waited more than 10 s to go out (or 1,000 waited at
+                        once); nothing more is sent on it
+```
+
+- Nothing else on the wire changes: no new message, no `protocolVersion` bump.
+  The page treats 4002 as any lost connection (not 1008): it reconnects
+  (`MATCH_RECONNECT_DELAYS`) and its new connection's first board is whole.
+- If even the close cannot be written within 2 s (a page that stopped
+  reading), the server ends the connection without it; the page sees a
+  dropped connection (1006) and reconnects the same way.
+- Logged as `match <id>: connection <c> fell behind (<n> waiting, the oldest
+  for <ms> ms): closed`, and every connection's close line says how its queue
+  went (`queue: most waiting <n>, longest wait <ms> ms`).
+
 ## Test-only: the Lab's deal (worker START_GAME, 2026-11-08)
 
 **Never in a real game.** The Mechanics Lab (`scripts/lab.py`) may give

@@ -4031,3 +4031,16 @@ a combat's time or bytes). 0119's per-connection queue is approved alone and
 built first ("Build it now"): a stuck connection froze both players' boards
 for 28.7 s in a RUN; the rest of 0119 and all of 0120 wait for the owner's
 answers to their questions.
+
+## As built: P11-D6, the per-connection queue (2026-11-26)
+
+Spec 0119's first part, approved alone by the owner ("Build it now"): each
+match connection (players' and spectators') has its own send queue on the
+server (SendQueue.kt), so the worker's pump and every other page never wait
+on one socket; a connection whose oldest message has waited more than 10 s
+(or with 1,000 waiting) is closed (4002 "behind", or ended outright) and the
+page reconnects to the whole board as today. Nothing a player sees changed.
+Evidence, the rule's numbers, bites and the browser test
+(match-slow-link.spec.ts, the poor link and a stuck tab) are in spec 0119's
+"As built: the per-connection queue". The rest of 0119 and spec 0120 wait for
+the owner.
