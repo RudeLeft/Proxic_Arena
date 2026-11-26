@@ -158,7 +158,15 @@ test.describe("Phase 10's moments, timed (spec 0090)", () => {
           .filter((a) => a.playState === "running")
           .map((a) => {
             const t = a.effect!.getComputedTiming();
-            return (Number(t.endTime) - Number(a.currentTime ?? 0)) / Math.abs(a.playbackRate || 1);
+            const left =
+              (Number(t.endTime) - Number(a.currentTime ?? 0)) / Math.abs(a.playbackRate || 1);
+            // Named, so a failure says whether the key sped it up (rate) and
+            // where its clock stood (CI run 45900514138 gave only "28.3").
+            const name =
+              (a as CSSAnimation).animationName ??
+              ((a.effect as KeyframeEffect | null)?.target as Element | null)?.className ??
+              "?";
+            return { left, name: String(name), rate: a.playbackRate, at: a.currentTime };
           }),
       );
     // When in each moment to press: while its busiest part plays.
@@ -184,11 +192,23 @@ test.describe("Phase 10's moments, timed (spec 0090)", () => {
       expect(n, `${scene}: something is moving when the key is pressed`).toBeGreaterThan(0);
       await page.keyboard.press("Shift");
       await page.waitForTimeout(160);
+      // An animation's time moves only when a frame is drawn: on a busy CI
+      // machine the last frame can be older than the 160 ms just waited, so
+      // its clock (and `left`) would still read the moment before. Two frames
+      // bring every clock up to now first (CI run 45896843614: wash, two
+      // animations "28.2 ms left" each, identical; the same code passed an
+      // hour before on d08294d6).
+      await page.evaluate(
+        () =>
+          new Promise<void>((done) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => done())),
+          ),
+      );
       const still = await left();
       hurried[scene] = { moving: n, stillRunningAfter160ms: still.length };
       // Each finished (or within a frame of it) a tenth of a second later.
       expect(
-        still.filter((ms) => ms > 20),
+        still.filter((a) => a.left > 20),
         `${scene}: animations a key did not hurry`,
       ).toEqual([]);
     }
