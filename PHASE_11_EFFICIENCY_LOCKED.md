@@ -3969,3 +3969,57 @@ neighbour's spec skipped itself); 4x cast 7.43 and combat 5.57 ms per update.
 slowest frame is timed in a headed browser window using the PC's graphics
 chip, as a player sees it; the 200 ms limit stays. It runs on the fixed
 machine only (CI's machines have no screen). Built as a second C6 follow-up.
+
+## As built: P11-C6 second follow-up (2026-11-26)
+
+The owner's "Time it in a window", built in `frontend/e2e/match-speed.spec.ts`
+(test only). **The game end's slowest frame (200 ms at 1x and 4x) is judged
+only when the spec runs headed**: `npx playwright test
+e2e/match-speed.spec.ts --headed`, Edge in a window on the fixed machine.
+`misses` takes whether the run is headed (Playwright's `headless` option,
+which `--headed` sets). Headless runs, CI's among them, still print the
+number ("judged only in a window (--headed), not here") but do not fail on
+it. Nothing else changed: every other budget is judged as before, headed or
+headless, and timings stay off on CI (`TIMINGS_ENFORCED`).
+
+**Correction to the first follow-up.** It said headless draws the end
+banner "in software". WebGL names the same renderer headless and headed
+(ANGLE on the PC's NVIDIA GeForce RTX 3060 Ti, D3D11; RUN, a scratch page in
+Edge). So both use the graphics chip. Headless still took 250 ms in the GPU
+process to finish that frame; why is not known. The spec's comments say so.
+
+**Runs (RUN, 2026-11-26, stack A from 5b4e9e75's page, stack B stopped).** A
+PC game (`relink-game`) was started during headed run 2 and ran from then on
+(about 0.3 of a core when sampled, and the graphics chip).
+
+```text
+run              end worst 1x / 4x   4x cast / combat page JS ms/upd   result
+headed 1         50.2 / 116.7        5.71 / 5.53                       passed
+headed 2         150.0 / 133.4       11.95 / 7.62                      passed
+headed 3         50.1 / 150.0        7.28 / 7.21                       1x combat frames (p95 49.9 > 40, worst 249.9 > 120)
+headless         133.4 / 133.3       15.49 / 10.41                     4x page JS over (cast > 12, combat > 8.5)
+ci-speed         (end within 200)    7.85 / 7.94                       2 passed (with match-ring, 1 skipped)
+bite, headed     283.3 / 300.0       (not read)                        1x and 4x end over 200
+```
+
+- **The end's limit passes in 3 headed runs in a row**, at 1x (50.1-150.0)
+  and 4x (116.7-150.0). The whole spec passed headed in runs 1 and 2. Run 3
+  failed on the 1x combat's frames with the PC game running; that is not the
+  end.
+- **The headless run failed on the per-update budget** (cast 15.49, combat
+  10.41) with the PC game running. The first follow-up's quiet runs read cast
+  6.5-10.5 and combat 5.0-7.5. `node ci/ci-speed.mjs match-speed` (headless,
+  every page slowed 4x, timings enforced, the game still running) passed both
+  tests: cast 7.85, combat 7.94. INFERENCE: the headless failure is the PC
+  game's load, not this change, which touches only the end's frame check. A
+  quiet re-run is owed.
+- **Bite (TEST-004).** The page's own `GameScreen.tsx` `ResultBanner` was
+  built with a 300 ms busy loop when it mounts (the end banner). Headed, both
+  tests failed only on "1x end: slowest frame 283.3 > 200" and "4x end:
+  slowest frame 300 > 200". Reverted; the stack rebuilt from the clean tree.
+- The headed windows open on the owner's screen while the spec runs (the jump
+  check's precedent).
+
+**Checks.** Gates in the worktree: `npm ci`, `tsc -b`, `tsc -p
+tsconfig.e2e.json`, eslint, prettier, vitest (1941/1941, 141 files), `vite
+build`, `check-doc-refs.py`; `ci-speed` above.

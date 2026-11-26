@@ -115,8 +115,11 @@ const TRACE_CATEGORIES = (process.env.PROXIC_SPEED_TRACE_CATEGORIES ?? "")
  *   timed with the other page paused (guestPaused). With it paused, the
  *   GPU process still spent 250 ms finishing one of THIS page's frames as
  *   its end banner came (SkiaOutputSurfaceImplOnGpu::FinishPaintRenderPass,
- *   headless software drawing; trace, 1x); in headed Edge with the PC's GPU
- *   the end's slowest frame was 66.7. The 200 stays (owner).
+ *   headless; trace, 1x); in headed Edge the end's slowest frame was 66.7.
+ *   (Both use the PC's graphics chip: WebGL names the same NVIDIA renderer
+ *   headless and headed; why headless finishes that frame so slowly is not
+ *   known.) The 200 stays (owner), judged only
+ *   in a window (owner 2026-11-26: misses' [headed], below).
  * - Spec 0096 (the board keeps its cards): JavaScript at 4x 100 for a cast
  *   and 88 for a combat -- not the spec's 80 and 70, which were not met:
  *   after, a cast 65-87 and a combat 78-84 over three runs (before, 81-126
@@ -705,7 +708,16 @@ async function playAndTime(
 // the machine and are enforced everywhere.
 const TIMINGS_ENFORCED = !process.env.CI;
 
-function misses(rows: Row[], cpu: 1 | 4): string[] {
+/**
+ * P11-C6 second follow-up (owner 2026-11-26, "Time it in a window"): the
+ * game end's slowest frame is judged only in a window ([headed]: `npx
+ * playwright test e2e/match-speed.spec.ts --headed`, Edge on the fixed
+ * machine's graphics chip, as a player sees it). Headless, the GPU process
+ * took 250 ms to finish the end banner's frame (As built: P11-C6 follow-up),
+ * so there it is printed, not judged. CI has no screen: its runs
+ * are headless, and its timings are printed anyway (TIMINGS_ENFORCED).
+ */
+function misses(rows: Row[], cpu: 1 | 4, headed: boolean): string[] {
   const out: string[] = [];
   const timed: string[] = [];
   const frames = SPEED_BUDGETS.frames[cpu];
@@ -714,7 +726,12 @@ function misses(rows: Row[], cpu: 1 | 4): string[] {
     const p95 = row.scene === "end" ? frames.endP95 : frames.p95;
     if (row.frames.p95 > p95) timed.push(`${at}: frame p95 ${row.frames.p95} > ${p95}`);
     const worst = row.scene === "end" ? frames.endWorst : frames.worst;
-    if (row.frames.worst > worst) timed.push(`${at}: slowest frame ${row.frames.worst} > ${worst}`);
+    if (row.frames.worst > worst) {
+      const miss = `${at}: slowest frame ${row.frames.worst} > ${worst}`;
+      if (row.scene === "end" && !headed)
+        console.log(`[speed] judged only in a window (--headed), not here: ${miss}`);
+      else timed.push(miss);
+    }
     if (cpu === 4 && (row.scene === "combat" || row.scene === "cast")) {
       const limit = SPEED_BUDGETS.pageMsPerUpdate4x[row.scene];
       const ms = row.pageMsPerUpdate;
@@ -761,9 +778,10 @@ test.describe("a real game's speed (spec 0095)", () => {
 
   test("F-0095-A, F-0095-B · at real speed: frames, re-renders, idle repaints; the plate's glow as it was", async ({
     browser,
+    headless,
   }) => {
     const { rows, glow } = await playAndTime(browser, 1);
-    expect(misses(rows, 1)).toEqual([]);
+    expect(misses(rows, 1, !headless)).toEqual([]);
     expect(glow, "the waiting plate's glow was compared").toBeDefined();
     console.log(`[speed] plate glow ${JSON.stringify(glow)}`);
     expect(glow!.props).toEqual([
@@ -782,8 +800,9 @@ test.describe("a real game's speed (spec 0095)", () => {
 
   test("F-0095-A · with the CPU slowed 4x: frames, JavaScript, re-renders, idle repaints", async ({
     browser,
+    headless,
   }) => {
     const { rows } = await playAndTime(browser, 4);
-    expect(misses(rows, 4)).toEqual([]);
+    expect(misses(rows, 4, !headless)).toEqual([]);
   });
 });
