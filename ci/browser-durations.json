@@ -2,6 +2,7 @@
   "_comment": "Seconds each game spec file takes in CI (median over the green match jobs of runs 45652305487, 45656729144 and 45663695699, from their logs, 2026-11-25; the cancelled job left out). Used ONLY to balance the game-spec machines; a spec missing here still runs, weighted as defaultSeconds. Refresh when a spec's time changes a lot.",
   "defaultSeconds": 120,
   "seconds": {
+    "match-slow-link.spec.ts": 155,
     "match-speed.spec.ts": 420,
     "match-small-fixes.spec.ts": 202,
     "match-watching.spec.ts": 195,
