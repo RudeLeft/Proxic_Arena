@@ -4023,3 +4023,11 @@ bite, headed     283.3 / 300.0       (not read)                        1x and 4x
 **Checks.** Gates in the worktree: `npm ci`, `tsc -b`, `tsc -p
 tsconfig.e2e.json`, eslint, prettier, vitest (1941/1941, 141 files), `vite
 build`, `check-doc-refs.py`; `ci-speed` above.
+
+**Owner, 2026-11-26 (by prompt, spec 0119):** P11-D5 is **closed as measured**
+("Close it": no page work or time to gain, about 15% of small-message bytes,
+real risk; reopen only if a measure shows bundling would cut more than 10% of
+a combat's time or bytes). 0119's per-connection queue is approved alone and
+built first ("Build it now"): a stuck connection froze both players' boards
+for 28.7 s in a RUN; the rest of 0119 and all of 0120 wait for the owner's
+answers to their questions.
