@@ -66,15 +66,14 @@ import { ChatPanel } from "./LobbyChat";
 import { BeltMark } from "./BeltMark";
 import { remindHolder, shortDate } from "./hall";
 import { capitalNumber, countWords, numberWord } from "./words";
+import { everyWhileShown } from "./shownTimer";
 
 /** Spec 0009 — the clock for "Away 7 min" and "last seen"; every 15 s so
- * spec 0054's "closes in 5 minutes" warning is on time. */
+ * spec 0054's "closes in 5 minutes" warning is on time. P11-E15: resting
+ * while the tab is hidden, and read again the moment it is shown. */
 function useMinute(): number {
   const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
-    return () => window.clearInterval(timer);
-  }, []);
+  useEffect(() => everyWhileShown(() => setNow(Date.now()), 15_000), []);
   return now;
 }
 

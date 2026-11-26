@@ -20,6 +20,7 @@ import {
   type Snapshot,
 } from "./status";
 import { fitCanvas, liveRendererCount, mountRenderer } from "./renderer";
+import { everyWhileShown } from "./shownTimer";
 
 const LABEL: Record<ServiceState, string> = {
   loading: "Checking…",
@@ -238,10 +239,11 @@ export default function App() {
     // setInterval expects a void callback. Handing it an async
     // function means a rejection becomes an unhandled rejection in
     // the page, and the status panel silently stops updating.
-    const id = setInterval(() => void poll(), 5000);
+    // P11-E15: not while the tab is hidden; at once when it is shown.
+    const stop = everyWhileShown(() => void poll(), 5000);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      stop();
     };
   }, []);
 

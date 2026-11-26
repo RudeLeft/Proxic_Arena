@@ -4212,3 +4212,160 @@ skips); `check-doc-refs.py`; the browser specs that read the Hall and the
 standings (lobby, belt-records, kept-data) on the second stack built from
 this branch: 22 passed. `node ci/ci-speed.mjs` not needed: no browser spec
 changed. No page changed in this item (the frontend gates ran for P11-E15).
+
+## As built: P11-E15 (2026-11-26)
+
+Long sessions: the heap measured, and the page's clocks rest in a hidden tab.
+Branch `p11-e10`, after P11-E10, against the second local stack (port 8081).
+Nothing a player sees changes.
+
+**The measure** (`frontend/tools/measure/session.spec.ts`, new; `node
+ci/measure.mjs session`, one run by default: heap and timers are counts, not
+timings). RudeLeft sits in the lobby for 30 minutes (Pat beside him, saying
+something in the lobby chat every two minutes), then they play three games in
+a row (each driven for 90 s by the kit's `drive`, then conceded, both back in
+the room). The host's page:
+
+- **heap through CDP** after two full collections (`HeapProfiler.collectGarbage`,
+  `Runtime.getHeapUsage` usedSize: exact, where `performance.memory` rounds to
+  10 MB), with `Memory.getDOMCounters` (nodes, listeners, documents), at the
+  start, every 5 minutes, in the first game, and back in the lobby after each
+  game;
+- **every timer**: an init script wraps `setInterval` and each `setTimeout`
+  of a second or more, so each reading lists what is running (delay, the
+  built file and position that set it, times fired);
+- **hidden**: a headless page is never hidden by the browser, so the page is
+  told it is (`document.hidden`, `visibilityState`, `visibilitychange`), as a
+  hidden tab's code sees it, for 2 minutes in the lobby before and after the
+  games, 30 s mid-game while Pat plays on, and a minute each on Status,
+  Admin and the Hall. It counts the timers that fired, the requests made and
+  the page changes (a MutationObserver) while hidden. The browser's own
+  slowing of hidden tabs is not in it (E13 covers that): this lists what our
+  code does.
+- the lobby connection's messages by type over the session (P11-E10's
+  question).
+
+**Heap (RUN, 2026-11-26, the owner's PC; Playwright's bundled Chromium,
+headless; KB after a full collection).** "Before" is this branch with
+P11-E10 and none of the changes below: its 30-minute lobby from the first run
+(which stopped after game 1 on the measure's own fault: the next game's room
+was not cleared; fixed, `clearEverything` between games), and its three games
+from a second run with a 2-minute lobby. "After" is one full run of the final
+measure on the code below except the version check's change (the last one,
+re-checked by a short run, beneath).
+
+```text
+                         before                       after
+                         heap KB  nodes  listeners    heap KB  nodes  listeners
+lobby 0 min                3,122    153     197         3,135    154     199
+lobby 10 min               3,617    193     211         3,626    194     213
+lobby 20 min               3,665    218     221         3,674    219     223
+lobby 30 min               3,712    243     231         3,720    244     233
+in game 1                 10,955    570     319        11,476    607     328
+after game 1              10,692    343     222        10,406    344     224
+after game 2              10,572    343     222        10,554    344     224
+after game 3              10,711    343     222        10,629    344     224
+end (2 min more, hidden)  10,753    343     222        10,640    344     224
+DOM documents: 1 in the lobby, 6 from the first game on, the same 6 after every game, in both.
+```
+
+- **The margin, set here: after the first game, the heap stays within 5% of
+  its size after game 1, and the DOM's nodes and listeners come back to the
+  same counts after every game.** Met before and after: game 1 to game 3
+  +0.2% before, +2.1% after (10,406 -> 10,629: which cards a game deals
+  differ, so a few hundred KB either way is the game, not the code; INFERENCE
+  from two runs); nodes and listeners identical after every game; documents
+  the same 6 after every game.
+- **The first game adds about 7 MB that stays:** the game's own code and its
+  pictures in memory (loaded once, as E6 intends), not a leak: it does not
+  grow with the second and third games.
+- **The lobby grows about 20 KB a minute for the first five minutes, then
+  under 10 KB a minute** (3,122 -> 3,712 KB over 30 minutes), and its nodes
+  by about 6 per chat line (15 lines from Pat): the lobby chat, which keeps
+  its last 200 lines (`lobby.ts` `MAX_CHAT_LINES`), so it is bounded.
+
+**Timers (RUN, the same runs).** What our code still did while the tab was
+told it is hidden:
+
+```text
+                                   before                              after
+lobby, 2 min hidden (x2)           5 timers, 32 calls, 0 requests      2 timers, 8 calls, 0 requests
+                                   (the 15 s clock x2, the away look,  (the lobby's liveness beat; the version
+                                   the liveness beat, the version      check, which did nothing hidden; the
+                                   check)                              short run below: the beat alone)
+a game, 30 s hidden (Pat playing)  3 timers, 5 calls                   2 timers, 3 calls (beat, version check)
+Status page, 1 min hidden          1 timer, 12 calls, 24 requests      0 timers, 0 calls, 0 requests
+Admin page, 1 min hidden           4 timers, 10 calls, 0 requests      3 timers, 6 calls, 0 requests
+Hall page, 1 min hidden            3 timers, 8 calls                   2 timers, 4 calls
+page changes while hidden          0 in the lobby and on the pages; the game's board is drawn as Pat's
+                                   moves arrive (157 changes in 30 s in the first before run, 0 in the
+                                   others, where Pat had nothing to do meanwhile): that is the game, not
+                                   a timer, and stays (a hidden player's board is current when shown)
+```
+
+**The final code, re-checked (RUN, a short run: 2 minutes in the lobby, one
+game).** Hidden lobby, before and after the game: **one timer, the lobby's
+liveness beat** (6 calls in 2 minutes, 0 requests). Hidden in a game: the
+beat alone (and one picture fetched as Pat played a card: the board, not a
+timer). Status: nothing. Hall: the beat alone. Admin: the beat and Admin's own
+30 s refresh, which reads nothing while hidden. Heap after the game 10,664 KB,
+end 10,675; nodes 344, listeners 224, as in the full run.
+
+**What changed** (page only; nothing a player sees but timing in a hidden
+tab):
+
+- `frontend/src/shownTimer.ts` `everyWhileShown` (new): an interval that
+  stops when the tab is hidden and, shown again, runs once at once and starts
+  again. Used by the lobby's 15 s clock ("Away 7 min", "last seen", the room
+  closing warning: `LobbyPage.tsx` `useMinute`), the Status page's 5 s poll
+  (`App.tsx`: it asked the server twice every 5 s while hidden), the game's
+  "gone N min" clock (`GameScreen.tsx`), a spectator's look for the players'
+  next game (`WatchPage.tsx`), the popped-out game chat's check
+  (`GameChat.tsx`) and the version check (`PageNotices.tsx`, which did nothing
+  hidden already but kept firing).
+- `activity.ts` `watchActivity`: a hidden tab gets no moves, so instead of
+  looking every 15 s it sets one timer for the moment it would go away (none
+  once away); shown again is a move, and the 15 s look comes back. A hidden
+  tab now goes away exactly 5 minutes after the last move; before, at the
+  first 15 s look after that (up to 15 s later). The other players see
+  "Away" up to 15 s sooner for a hidden tab; the rule (spec 0009: 5 minutes)
+  is the same. A game asking you still holds you active while hidden.
+- **Kept running, with the reason:** the lobby's liveness beat (`lobby.ts`,
+  P11-E13 settled it: it must ask while hidden, and the browser slows it);
+  a question's answer window (`GameScreen.tsx`, 100 ms while counting: it
+  answers for you when the time is up, and the browser slows it to once a
+  second while hidden); the Admin page's 30 s refresh and Update waiting's
+  poll (`AdminPage.tsx`, `AdminUpdate.tsx`, P11-E7): they fire but read
+  nothing while hidden, and moving them to `everyWhileShown` would add a read
+  on every return (their own rule reads on return only when one was missed).
+- So the exit gate's "no timer runs in a hidden tab except the socket's"
+  (6a) holds for every page but Admin, where two timers fire and do nothing;
+  making those two rest as well is a small follow-up if wanted.
+
+**Tests.** `shownTimer.test.ts` (5): runs on its beat; nothing at all while
+hidden, the interval itself stopped; once at once when shown; a page opened
+hidden waits; stopped, nothing. Bites: no stop when hidden fails 2, no run
+on shown fails 3, starting while hidden fails 2. `presence.test.ts`, two new:
+a hidden tab sets one timer for the moment it goes away (and none once
+away), goes away exactly at 5 minutes, looks every 15 s again when shown;
+a game asking holds a hidden tab active. Against the old `activity.ts` the
+first fails (the second guards that the change keeps the old rule). The
+session measure is the real-app proof that production calls them (TEST-010):
+the lobby's and Status's timers stop firing hidden in the real page.
+
+**Checks.** Frontend gates in the worktree: `npm ci`, `tsc -b`, `tsc -p
+tsconfig.e2e.json`, `eslint . --max-warnings=0`, `prettier --check src e2e
+tools`, vitest (1948/1948, 142 files), `vite build`; `check-doc-refs.py`.
+Browser specs on the second stack built from this branch (the pages whose
+timers changed): lobby, foundation (Status), hidden-tab (E13's two tests),
+notices (the version check), match-away (the "gone" clock), match-watching
+(spectate): 31 passed, 1 skipped (match-watching's goblin game: no goblin deck
+in this worktree). No browser spec changed, so no `ci-speed` run; the session
+measure is a measure, not part of the suite.
+- **Slower (P11-R7):** none measured. The heap in game 1 and the lobby's
+  first minutes read a few hundred KB more in the after run in places and
+  less in others (the table): the games dealt differ. Measured in Chromium
+  only: CDP's heap and the hidden-page count need Chrome's DevTools protocol;
+  the change is the page's own code, the same in every engine. The browser's
+  own hidden-tab slowing in Firefox and WebKit is E13's (CI's engines job).
+

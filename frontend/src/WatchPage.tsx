@@ -18,6 +18,7 @@ import { GameScreen, SPECTATE_LOADING_WORDS } from "./battlefield/GameScreen";
 import { LoadingRing } from "./battlefield/LoadingRing";
 import { watchRoomAnswer, type MatchView } from "./lobby";
 import { useLobbyConnection } from "./shell/LobbyConnection";
+import { everyWhileShown } from "./shownTimer";
 
 /**
  * How often the page asks which game the room is playing: to follow the
@@ -52,10 +53,11 @@ export default function WatchPage() {
         // "unknown": no answer (a hiccup) -- ask again next time.
       });
     look();
-    const timer = window.setInterval(look, ROOM_LOOK_MS);
+    // P11-E15: not while the tab is hidden; at once when it is shown.
+    const stop = everyWhileShown(look, ROOM_LOOK_MS);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      stop();
     };
   }, [roomId]);
 

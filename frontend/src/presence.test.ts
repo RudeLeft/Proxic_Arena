@@ -56,6 +56,54 @@ describe("away after 5 minutes (A2)", () => {
   });
 });
 
+describe("a hidden tab (P11-E15)", () => {
+  let state: DocumentVisibilityState = "visible";
+  const show = (to: DocumentVisibilityState) => {
+    state = to;
+    document.dispatchEvent(new Event("visibilitychange"));
+  };
+  afterEach(() => show("visible"));
+
+  it("sets one timer for the moment it goes away, not a look every 15 s, and none once away", () => {
+    vi.useFakeTimers({ now: NOW });
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => state });
+    const said: boolean[] = [];
+    const stop = watchActivity((away) => said.push(away));
+    vi.advanceTimersByTime(60_000);
+    const look = vi.spyOn(Date, "now");
+    show("hidden");
+    expect(vi.getTimerCount(), "one timer: the moment it goes away").toBe(1);
+    look.mockClear();
+    vi.advanceTimersByTime(IDLE_MS - 60_000 - 1);
+    expect(said).toEqual([]);
+    expect(look, "nothing looked at the clock meanwhile").not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(said, "away exactly 5 minutes after the last move").toEqual([true]);
+    expect(vi.getTimerCount(), "away: no timer at all").toBe(0);
+    look.mockRestore();
+
+    show("visible");
+    expect(said, "shown again is a move").toEqual([true, false]);
+    vi.advanceTimersByTime(IDLE_MS + 15_000);
+    expect(said, "and the 15 s look is back").toEqual([true, false, true]);
+    stop();
+  });
+
+  it("a game asking while hidden still holds it active, and lets go when it stops", () => {
+    vi.useFakeTimers({ now: NOW });
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => state });
+    const said: boolean[] = [];
+    const stop = watchActivity((away) => said.push(away));
+    holdActive(true);
+    show("hidden");
+    vi.advanceTimersByTime(IDLE_MS * 2);
+    expect(said).toEqual([]);
+    holdActive(false);
+    expect(said).toEqual([true]);
+    stop();
+  });
+});
+
 describe("the words (A1)", () => {
   it("says how long ago, roughly", () => {
     expect(agoText(minutesAgo(0), NOW)).toBe("just now");

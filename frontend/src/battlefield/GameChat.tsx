@@ -26,6 +26,7 @@ import { createPortal } from "react-dom";
 import { useLobbyConnection } from "../shell/LobbyConnection";
 import { ChatPanel } from "../LobbyChat";
 import { SharpCard, closeUpOf, pictureUrl } from "../closeUp";
+import { everyWhileShown } from "../shownTimer";
 import type { PlayLogCard, PlayLogLine, SnapshotPlayer } from "../match";
 import {
   clampTo,
@@ -292,10 +293,10 @@ export function GameChat({
   // Closed by its own close button: back into the game.
   useEffect(() => {
     if (mode !== "popped") return undefined;
-    const timer = window.setInterval(() => {
+    // P11-E15: resting while this tab is hidden; looked at once when shown.
+    return everyWhileShown(() => {
       if (!popWin.current || popWin.current.closed) comeBack();
     }, 500);
-    return () => window.clearInterval(timer);
   }, [mode, comeBack]);
   // Refreshing (or leaving) the game closes it: it is this page's window.
   useEffect(() => {

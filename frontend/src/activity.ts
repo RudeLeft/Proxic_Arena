@@ -66,22 +66,51 @@ export function watchActivity(
     at = here;
     moved();
   };
+  // P11-E15: a hidden tab gets no moves, so instead of looking every 15 s
+  // it sets one timer for the moment it would go away (and none once it
+  // is away). Shown again, it is a move, and the 15 s look starts again.
+  let timer: number | null = null;
+  let due: number | null = null;
+  const rest = () => {
+    if (timer !== null) window.clearInterval(timer);
+    timer = null;
+    if (due !== null) window.clearTimeout(due);
+    due = null;
+  };
+  const watch = () => {
+    rest();
+    if (document.visibilityState === "visible") {
+      timer = window.setInterval(check, CHECK_MS);
+      return;
+    }
+    check();
+    if (away) return;
+    const left = activity.lastMove + IDLE_MS - clock();
+    due = window.setTimeout(
+      () => {
+        due = null;
+        check();
+      },
+      Math.max(0, left),
+    );
+  };
   const shown = () => {
     if (document.visibilityState === "visible") moved();
+    watch();
   };
 
   const events = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
   for (const name of events) window.addEventListener(name, moved, { passive: true });
   window.addEventListener("pointermove", pointed, { passive: true });
   document.addEventListener("visibilitychange", shown);
-  const timer = window.setInterval(check, CHECK_MS);
+  watch();
   nudge = check;
 
   return () => {
     for (const name of events) window.removeEventListener(name, moved);
     window.removeEventListener("pointermove", pointed);
     document.removeEventListener("visibilitychange", shown);
-    window.clearInterval(timer);
+    rest();
     if (nudge === check) nudge = null;
   };
 }

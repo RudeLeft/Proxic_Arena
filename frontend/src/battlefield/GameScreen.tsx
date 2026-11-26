@@ -252,6 +252,7 @@ import { abilityParts } from "./abilities";
 import { useBiggerText } from "./biggerText";
 import { ThisTurnCounts } from "./thisTurn";
 import { KnownTop } from "./knownTop";
+import { everyWhileShown } from "../shownTimer";
 import { ReplayLayer, replayPairOf, type ReplayPair } from "./replay";
 import {
   DECLARE_KINDS,
@@ -887,8 +888,8 @@ export function GameScreen({
   useEffect(() => {
     if (goneSince === null) return undefined;
     setAwayNow(Date.now());
-    const timer = window.setInterval(() => setAwayNow(Date.now()), 15_000);
-    return () => window.clearInterval(timer);
+    // P11-E15: resting while this tab is hidden; read again when it is shown.
+    return everyWhileShown(() => setAwayNow(Date.now()), 15_000);
   }, [goneSince]);
   const [keptWaiting, setKeptWaiting] = useState<number | null>(null);
   // W-26 -- how long they have been gone, on their plate from the moment they drop.

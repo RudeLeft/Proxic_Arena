@@ -15,6 +15,7 @@
 //                               [--links local,slow4g,live,poor] [--grep RE]
 //   (any of them) --pw-output DIR   Playwright's own results under DIR, not frontend/test-results
 //   node ci/measure.mjs timeline [--runs 3] [--out DIR] [--cpu 1,4]
+//   node ci/measure.mjs session [--runs 1] [--out DIR]   (P11-E15: half an hour, then three games)
 //   node ci/measure.mjs timeline-chart DIR
 //   node ci/measure.mjs compare DIR [--against BEFORE_DIR]
 //
@@ -47,7 +48,7 @@ const opt = (name, fallback) => {
 
 function usage() {
     console.error(
-        "usage: node ci/measure.mjs redraw|repaint|loading|timeline [--runs N] [--out DIR] ... | timeline-chart DIR | compare DIR [--against DIR]",
+        "usage: node ci/measure.mjs redraw|repaint|loading|timeline|session [--runs N] [--out DIR] ... | timeline-chart DIR | compare DIR [--against DIR]",
     );
     process.exit(2);
 }
@@ -186,6 +187,10 @@ if (what === "compare") {
     const dir = args[0];
     if (!dir || !existsSync(dir)) usage();
     timelineChart(resolve(dir));
+} else if (what === "session") {
+    // P11-E15: one long session (heap and timers are counts, not timings): one run by default.
+    const out = resolve(opt("out", join(frontend, "test-results", "measure", `session-${stamp}`)));
+    run("session.spec.ts", Number(opt("runs", "1")), out, {}, ["chromium"], opt("grep"));
 } else if (what === "redraw" || what === "repaint" || what === "loading" || what === "timeline") {
     const runs = Number(opt("runs", "3"));
     const out = resolve(opt("out", join(frontend, "test-results", "measure", `${what}-${stamp}`)));

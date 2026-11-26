@@ -38,6 +38,7 @@ import {
 } from "../notices";
 import { playChime, soundsOn } from "../sounds";
 import { setTitleCount } from "../tabTitle";
+import { everyWhileShown } from "../shownTimer";
 
 /** How often an open page asks whether the server has been updated. */
 const VERSION_CHECK_MS = 60_000;
@@ -86,21 +87,14 @@ function useNewVersion(): boolean {
     };
     if (servedBy === null) void check();
     // P11-E7: not while the tab is hidden (nobody sees the notice); on
-    // coming back, at once.
-    const timer = window.setInterval(() => {
-      if (!document.hidden) void check();
-    }, VERSION_CHECK_MS);
+    // coming back, at once. P11-E15: the timer itself rests while hidden.
+    const stop = everyWhileShown(() => void check(), VERSION_CHECK_MS);
     const onFocus = () => void check();
-    const onShown = () => {
-      if (!document.hidden) void check();
-    };
     window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onShown);
     return () => {
       alive = false;
-      window.clearInterval(timer);
+      stop();
       window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onShown);
     };
   }, []);
   return stale;
