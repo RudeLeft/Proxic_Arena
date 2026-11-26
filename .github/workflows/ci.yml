@@ -135,7 +135,19 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-          cache: gradle
+      # The server's downloaded libraries, kept between runs (owner
+      # 2026-11-26, after Maven Central's 429 "Too Many Requests" twice in
+      # two days: runs 45656729144 and 45887592156). Keyed on the locked
+      # versions; when they change, the newest older copy is restored, so
+      # a run downloads only what changed instead of everything.
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('server/gradle.lockfile', 'gradle.properties', 'gradle/wrapper/gradle-wrapper.properties', 'build.gradle.kts', 'settings.gradle.kts') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
       - uses: actions/setup-node@v5.0.0
         with:
           node-version: "24.22.1"
@@ -216,7 +228,19 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-          cache: gradle
+      # The server's downloaded libraries, kept between runs (owner
+      # 2026-11-26, after Maven Central's 429 "Too Many Requests" twice in
+      # two days: runs 45656729144 and 45887592156). Keyed on the locked
+      # versions; when they change, the newest older copy is restored, so
+      # a run downloads only what changed instead of everything.
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('server/gradle.lockfile', 'gradle.properties', 'gradle/wrapper/gradle-wrapper.properties', 'build.gradle.kts', 'settings.gradle.kts') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
       - uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
