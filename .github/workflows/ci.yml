@@ -238,8 +238,13 @@ jobs:
           path: |
             ~/.gradle/caches/modules-2
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('server/gradle.lockfile', 'gradle.properties', 'gradle/wrapper/gradle-wrapper.properties', 'build.gradle.kts', 'settings.gradle.kts') }}
+          # The server tests resolve far more than the checks job (the whole
+          # compile and test classpaths), so they keep their own copy; a
+          # first run starts from the checks job's (CI run 45906524872: the
+          # shared copy lacked kotlin-stdlib's and Ktor's POMs, and 429s).
+          key: gradle-server-${{ runner.os }}-${{ hashFiles('server/gradle.lockfile', 'gradle.properties', 'gradle/wrapper/gradle-wrapper.properties', 'build.gradle.kts', 'settings.gradle.kts') }}
           restore-keys: |
+            gradle-server-${{ runner.os }}-
             gradle-${{ runner.os }}-
       - uses: docker/login-action@v4.6.0
         with:
@@ -268,12 +273,16 @@ jobs:
       # part 3 everything else (server/build.gradle.kts).
       # Maven Central sometimes answers "Could not find" for every server
       # dependency on one shard (runs 44680332209, 44683038214, 44819307009;
-      # ROADMAP Flakes). The dependencies are resolved first, retried once
-      # with a fresh lookup, so a download failure never reads as a test
-      # failure; the tests then run once.
-      - name: Resolve server dependencies (one retry)
+      # ROADMAP Flakes). The dependencies are resolved first, retried twice
+      # after a wait, so a download failure never reads as a test failure;
+      # the tests then run once.
+      - name: Resolve server dependencies (two retries)
         run: |
-          ./gradlew :server:dependencies --configuration testRuntimeClasspath --no-daemon -q > /dev/null             || { sleep 30; ./gradlew :server:dependencies --configuration testRuntimeClasspath --no-daemon -q --refresh-dependencies > /dev/null; }
+          # Both classpaths the tests compile and run with. A retry waits and
+          # asks again for what is missing only: --refresh-dependencies made
+          # one 429 into hundreds of requests (CI run 45906524872).
+          resolve() { for c in compileClasspath testRuntimeClasspath; do ./gradlew :server:dependencies --configuration "$c" --no-daemon -q > /dev/null || return 1; done; }
+          resolve || { sleep 60; resolve; } || { sleep 120; resolve; }
       - run: ./gradlew :server:test -PtestShard=${{ matrix.shard }} --no-daemon
 
       # A test that skips itself is not a test that passed. Phase 1
