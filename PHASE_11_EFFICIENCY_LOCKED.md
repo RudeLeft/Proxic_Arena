@@ -3675,3 +3675,179 @@ config); `node ci/ci-speed.mjs` for `match-board-motion` and
 - The repaint measure runs in Chromium only (CDP's layer trees); WebKit and
   Firefox have no such account (P11-R7's "every browser" rests on the
   change being a compositing hint that both honour or ignore).
+
+## As built: P11-C6 (2026-11-25)
+
+Branch `p11-c6`, built in its own worktree against the first local stack
+(port 8080), from dd945ab9 (after C2-C5). Stack B was stopped throughout. No
+look changes (P11-R1); no protocol change. **The target is not met; the
+budgets are left where they pass (cast 100, combat 88), raised for the owner
+below, not loosened.**
+
+**Before and after: `match-speed.spec.ts`, 3 runs each (RUN, 2026-11-25, the
+owner's PC (13th Gen Intel Core i5-13600KF x20 / 32 GB), headless Edge (the
+spec's default channel, as 0095 and 0096 set its budgets), 1920x1080; before
+at dd945ab9, after with this change; nothing else measuring).** JS is the host
+page's ScriptDuration per second of the moment (it includes the test's own
+work in that page); "JS/upd" is the same total per game update; frames in ms.
+Each cell lists runs 1, 2, 3.
+
+```text
+4x              JS ms/s              JS ms per update   frames p95          frames worst        updates
+cast   before   101.8  96.1  85.6    9.5  8.3  7.3      16.8 16.8 16.9      66.8 50.0 51.0      71  75  75
+(80)   after     86.7  45.3  80.1    7.9  9.1  6.8      16.8 16.8 16.8      33.7 33.5 50.2      71  33  75
+combat before    97.6  92.7  80.8    5.9  5.5  4.7      16.8 16.8 16.8      84.1 50.1 83.5     163 162 167
+(70)   after     84.4  88.0  88.5    5.1  5.6  4.8      16.8 16.9 16.8      50.0 33.5 83.6     158 150 183
+
+1x              JS ms/s              frames p95          frames worst
+cast   before    26.3  12.6  24.4    17.3 17.1 18.1      59.2 34.5 50.0
+       after     24.5  25.1  28.3    17.4 17.7 17.3      39.7 53.2 49.9
+combat before    33.6  30.3  28.3    24.0 19.8 18.0      62.9 66.7 71.1
+       after     30.0  32.9  32.0    18.2 26.5 22.4      66.7 66.8 99.8
+```
+
+GameScreen per update at 4x: cast 0.9-1.0 before, 1.0-1.3 after; combat 0.8
+before, 0.7-0.8 after. Plates 0.3-0.5 per update in both (life, priority and
+counts really change in a game).
+
+- **The target, per scene (after, 3 runs):** cast 80 ms/s: **not met** (86.7,
+  45.3, 80.1; the 45.3 run's cast moment caught only 33 updates). Combat 70:
+  **not met** (84.4, 88.0, 88.5). Frames at 4x p95 ≤ 16.8: **cast met** (3 of
+  3; before, 16.9 once), **combat met in 2 of 3** (16.9 once). Worst ≤ 50:
+  **not met** for either (cast 50.2 once, combat 83.6 once).
+- **No change the measure can see.** Per update the 4x combat is 4.7-5.9 ms
+  before and 4.8-5.6 after, the cast 7.3-9.5 and 6.8-9.1: inside the runs'
+  spread. The per-second figure follows how many updates a moment catches,
+  as C1 found (the cast caught 33-75).
+- **The pace matters as much as the page:** a first try that let the bot ask
+  for combat once instead of waiting 200 ms for it (reverted) made the game
+  move faster: 196-264 updates in the cast moment instead of 71-75, and 4x
+  JavaScript 146-168 ms/s, with nothing changed in the page's work per update.
+  The per-second budget measures the bot's rhythm as much as the page.
+- **The whole spec did not pass 3 in a row, before or after, on budgets that
+  have nothing to do with C6:** the game end's slowest frame went over its
+  200 ms budget in 5 of the 6 runs (199.9-235.3 ms, at 1x or 4x; 0096's
+  finding: the other page's raster flush in the shared GPU process), and
+  once after "4x combat: JavaScript 88.5 ms/s > 88" (the open flake, ROADMAP).
+
+**Where the time goes (RUN, CPU profiles of the 4x cast and combat, 250 us
+samples, before; mapped to the source through a local build with hidden
+source maps whose file names matched the served build's).** Combat, 9.9 s:
+the page's own code 871 ms, the test's 255 ms, GC 113 ms (cast: 477, 112, 43).
+
+- **The test's own JavaScript is about a fifth of the measured page's**
+  (CSS locator queries 126 ms in the combat; the recorder's frame clock 23
+  ms). **50 ms of it, and the combat's longest stretch (a 123 ms task), was
+  Playwright working out the whole page's accessibility tree**
+  (`ariaSnapshotForExpectFailure`), which an `expect` does each time it asks
+  and the answer is not there yet: `speed-kit.ts` `attackWithAll` and
+  `attackLeavingThemAlive` waited for "Attack with" that way.
+- **The page's own time is spread thin, no slice above a fifth of it**
+  (inclusive, combat): React's work in all about 750 ms, of which the Board's
+  render 153 (its items 53, layout 40, the kept-drawing compares `same` 41 and
+  `sameContent` 22), GameScreen's render 116 (the board's data 30), the
+  movement `useLayoutEffect` (the glide pass) 104 with its `getAnimations`
+  53 (C3: the style the frame needs anyway), the glow layers' follow
+  (`breathMotion.ts` `followStarted`) 36, reading the socket (`match.ts`
+  `reduceMatch`, `parse`, `delta.ts`) about 45, and `matchMedia` 9 (a new
+  query list on every `reducedMotion()` call, several per card and update).
+  The stretches over 50 ms are mostly the browser's own style, layout and
+  paint ("(program)", 65-74 ms of a 120 ms stretch), not JavaScript.
+- **The flyers' restyle (C5's note) is not in this scene:** the mono-green
+  deck has no flyers, so it costs match-speed nothing. On C5's busy board it
+  is style time (about 30 ms a second at 4x); calming it means animating the
+  bob another way, a look question (P11-R1), so it was not touched.
+
+**Built (nothing a player sees changes):**
+
+1. **The bot waits without an `expect`** (`speed-kit.ts` `present`, used by
+   `attackWithAll` and `attackLeavingThemAlive`): one plain query every 100
+   ms until the element is there, the same 5 s and 30 s limits, then an
+   error naming what was awaited. The measured page no longer works out its
+   accessibility tree while an attack is declared. The bot's rhythm is
+   otherwise unchanged (the 200 ms combat wait in `step` is kept, above).
+2. **One live query list for "less motion"** (`reducedMotion.ts`, used by
+   `Board.tsx`): the browser's own `MediaQueryList` is kept and its
+   `matches` read each time (it follows the setting live); a stand-in that
+   is not one (the page tests') is asked each time, as before; a replaced
+   `matchMedia` is asked again.
+
+**The replayed table (the owner's yardstick, 2026-11-21; RUN, `node
+ci/measure.mjs redraw --grep bench`, 3 runs each, bundled Chromium, the same
+PC and stack, before at dd945ab9, after with change 2; change 1 does not run
+there).** Medians per update; "!" a number whose runs are not all within ±10%.
+
+```text
+moment               renders      app ms          all JS ms        style ms         frames p95/worst
+                     before>after before > after  before > after   before > after   before      after
+1x tap-one-land      18 > 18      2.55 > 2.56     3.52 > 3.39      3.48! > 3.16     16.8/16.8   16.7/16.8
+1x bench-40          20.2 > 20.2  2.40 > 2.31     3.63 > 3.43      5.22! > 4.61     16.7/16.8   16.8/16.8
+1x tap-one-land-10   14 > 14      1.90 > 1.79     2.60 > 2.48      3.20! > 2.80     16.7/16.8   16.8/16.8
+1x tap-one-land-100  44.3 > 44.3  4.04 > 3.59     4.66 > 4.54      4.65! > 4.18     16.7/83.3!  16.8/83.3
+4x tap-one-land      18! > 18     14.73 > 13.79   16.18 > 14.91    16.59 > 15.69!   16.7/66.5!  16.8/50!
+4x bench-40          20.3 > 21.4  12.74 > 12.50   15.40 > 15.12    25.76 > 23.04!   16.8/66.7   16.7/66.7
+4x tap-one-land-10   14 > 14      10.47 > 9.89    11.41! > 11.59   14.50 > 13.39!   16.8/83.4   16.8/83.3!
+4x tap-one-land-100  44.3! > 44.3 20.86 > 19.41   22.10 > 20.36    20.32 > 19.92!   16.8/100!   16.7/100!
+```
+
+- The page's own JavaScript per update is 2-11% lower on most rows, within
+  their runs' spread (4x tap-one-land app ms before 14.0-15.4, after
+  13.3-14.3). INFERENCE: change 2's share; the profile put `matchMedia` at
+  about 1% of the combat.
+- **Slower (P11-R7), both numbers:** 1x tap-one-land app 2.55 > 2.56; 4x
+  tap-one-land-10 all JS 11.41 > 11.59 (+1.6%; before 11.0-12.7); 4x bench-40
+  renders 20.25 > 21.35 (every run reads 20.15, 20.25 or 21.35, before and
+  after: the busy table's life drop lands in one commit or two); 4x
+  bench-idle (4 s, no update; totals) all JS 7.4 > 14.2 ms (before 7.4-12.3)
+  and app 0.05 > 0.19. In match-speed: 4x combat JS ms/s runs 80.8-97.6 >
+  84.4-88.5 (medians 92.7 > 88.0), 1x combat 28.3-33.6 > 30.0-32.9, 1x cast
+  12.6-26.3 > 24.5-28.3; 4x combat p95 16.8 > 16.9 once; 1x combat worst
+  71.1 > 99.8 once. All inside the run-to-run spread. Bytes and messages are
+  not touched.
+- Chromium only (CDP). The fix asks the browser for a query list less often,
+  which each engine answers the same way (P11-R7 rests on that, INFERENCE).
+
+**Looks identical.** Change 1 is the test's; change 2 gives the same answer as
+before on every call (the browser's list is live; the tests below). It draws
+and moves nothing itself, so no clip, pixel compare or jump check was run
+(the owner's targeted-check rule, 2026-11-21).
+
+**Checks.** `reducedMotion.test.ts` (4 tests): the browser is asked once and
+its live list then read (a change of setting seen at once); a replaced
+`matchMedia` is asked again; a stand-in is asked every time; true with no
+`matchMedia`. **Bites (TEST-004), 4 of 4 caught** with the page tests of
+`src/battlefield` (1278 tests): nothing kept (1 failing), a stand-in kept (3),
+no check that `matchMedia` is the same (1), the first answer kept instead of
+the live list (1). Browser specs on the first stack built from this branch,
+bundled Chromium: `match-deltas`, `match-history` (the speed kit's other
+users), `match` (the real-click game), `match-board-motion`,
+`match-lands-stay-put`; `node ci/ci-speed.mjs match-deltas match-history`.
+Gates in the worktree: `npm ci`, `tsc -b`, `tsc -p tsconfig.e2e.json`,
+eslint, prettier, vitest (1935/1935, 140 files), `vite build`,
+`check-doc-refs.py`.
+
+**For the owner (raised 2026-11-25, not decided).**
+
+1. **80/70 is not met, and C2-C5 did not move it.** What is left is spread
+   over React's drawing of the parts that change, the glide pass and reading
+   each update, none over a fifth. The named next steps are bigger and touch
+   how cards move: the board's ghosts kept outside its own state and the
+   flights and mana balls fed only what they read (C4's), and the slot's
+   settle handled without a style query (C3's); each needs the jump check
+   over all Lab games. Or the budget is judged as the owner set C6's
+   yardstick on 2026-11-21: per update on the replayed table (numbers above),
+   which has no number of its own yet.
+2. **The per-second figure measures the bot's pace too** (above: a faster bot,
+   double the JavaScript per second, the same page). If it stays the gate, it
+   could be per update (as the kit's), with the test's own work taken out (the
+   kit's profile split).
+3. **The game end's frame budget (200 ms) fails most runs on this PC** (5 of
+   6 today), so no run of the whole spec passes 3 in a row whatever C6 does.
+
+**Owner, 2026-11-25 (by prompt):** (1) "Work per update": the 4x speed
+budget becomes the page's own JavaScript per board update, with the test's own
+work taken out, its limit set from today's numbers to catch a future slowdown;
+the per-second cast 80 / combat 70 is retired, and the bigger card-motion
+changes are not built for it. (2) "Measure one page": the game end's slowest
+frame is measured with the other player's page paused, as a player sees it;
+the 200 ms limit stays. Both are built as a follow-up to C6.

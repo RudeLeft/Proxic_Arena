@@ -6,7 +6,7 @@
 // every frame interval, and every React commit with how many components
 // rendered and whether the game screen and each plate were among them.
 
-import { expect, type CDPSession, type Page } from "@playwright/test";
+import { type CDPSession, type Locator, type Page } from "@playwright/test";
 import { clickNow, clickUnlessCombat, handCards, passOrAct } from "./match-helpers";
 
 /** The table is "big" from this many permanents (both sides). */
@@ -155,12 +155,33 @@ export async function attackWithAll(page: Page): Promise<boolean> {
   if ((await all.count()) === 0) return false;
   await clickNow(all);
   const life = page.locator('.gs-seat-opponent .gs-life[data-choosable="true"]');
-  await expect(life, "the other player can be pointed at").toBeVisible({ timeout: 5_000 });
+  await present(life, 5_000, "the other player can be pointed at");
   await clickNow(life);
-  await expect(panel.locator("button.gs-act-combat:not([disabled])")).toContainText("Attack with", {
-    timeout: 30_000,
-  });
+  await present(attackReady(page), 30_000, "the attack can be declared");
   return true;
+}
+
+/** The act button that declares the attack, once it can. */
+const attackReady = (page: Page) =>
+  matchPanel(page)
+    .locator("button.gs-act-combat:not([disabled])")
+    .filter({ hasText: "Attack with" });
+
+/**
+ * P11-C6 -- waits until [target] is on the page, asking it a few times a
+ * second with one plain query each time. An `expect` that does not hold
+ * yet works out the whole page's accessibility tree for its message every
+ * time it asks (Playwright's `ariaSnapshotForExpectFailure`): about 50 ms
+ * of the measured page's JavaScript at 4x in one combat, and its slowest
+ * frame, timed as the game's own work.
+ */
+export async function present(target: Locator, timeout: number, what: string): Promise<void> {
+  const page = target.page();
+  const end = Date.now() + timeout;
+  while ((await target.count()) === 0) {
+    if (Date.now() > end) throw new Error(`not on the page in ${timeout} ms: ${what}`);
+    await page.waitForTimeout(100);
+  }
 }
 
 /** One pass for one page: a land, a creature, a pass; never an attack. */
@@ -281,11 +302,8 @@ export async function attackLeavingThemAlive(host: Page, life: number): Promise<
   }
   if (picked === 0) return false;
   const target = host.locator('.gs-seat-opponent .gs-life[data-choosable="true"]');
-  await expect(target).toBeVisible({ timeout: 5_000 });
+  await present(target, 5_000, "the other player can be pointed at");
   await clickNow(target);
-  await expect(matchPanel(host).locator("button.gs-act-combat:not([disabled])")).toContainText(
-    "Attack with",
-    { timeout: 30_000 },
-  );
+  await present(attackReady(host), 30_000, "the attack can be declared");
   return true;
 }

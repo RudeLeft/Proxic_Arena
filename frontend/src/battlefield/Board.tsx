@@ -28,6 +28,7 @@
 // B2-B4, B13, and the damage wave's fights); none of it is inferred here.
 
 import { sameContent, sameProps } from "./sameProps";
+import { reducedMotion } from "./reducedMotion";
 import {
   memo,
   Fragment,
@@ -2957,12 +2958,6 @@ function keyboardFocus(element: Element): boolean {
   } catch {
     return true;
   }
-}
-
-function reducedMotion(): boolean {
-  return typeof window !== "undefined" && typeof window.matchMedia === "function"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : true;
 }
 
 /** Spec 0069 -- an id for a line's own gradient. */
