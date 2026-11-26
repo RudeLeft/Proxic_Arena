@@ -52,6 +52,7 @@ import {
 } from "../words";
 import {
   EMPTY_MATCH,
+  settleCatchUp,
   concessionText,
   awayEndText,
   connectMatch,
@@ -193,6 +194,8 @@ import {
 } from "./gameEnd";
 import { lifeLanded, useLifeLanded } from "./lifeTicks";
 import { AwayWindow } from "./AwayWindow";
+import { MissedWindow } from "./MissedWindow";
+import { CATCH_UP_RATE, quicken, useCatchUp } from "./catchUp";
 import {
   CrankWindow,
   DICE_KINDS,
@@ -348,7 +351,12 @@ export function GameScreen({
   // Spec 0103, item 6 (Q7 A) -- "Bigger text", from this browser (proxic.biggerText).
   const [bigger, setBigger] = useBiggerText();
   // Shown only when it lasts: a refresh or a blip is not news (owner 2026-10-24).
-  const reconnecting = useSettled(game.connection === "reconnecting", 1500);
+  // P11-D6 (spec 0119; owner answer 4) -- or an open connection silent for
+  // 5 s (match.ts SILENCE_MS): the notice after the same settle, ~6.5 s.
+  const reconnecting = useSettled(
+    game.connection === "reconnecting" || game.stalled === true,
+    1500,
+  );
   // Spec 0050 — the page's notices and the game's own, top right of the table.
   const pageNotices = usePageNotices();
   const said = useGameMessages(game.board);
@@ -395,7 +403,42 @@ export function GameScreen({
   // A board that shows it on the stack is held THEIR_SPELL_HOLD_MS before the next is
   // drawn, unless a question for you arrives first (then you see it on
   // the question's board anyway).
-  const latest = game.board;
+  // P11-D6 (spec 0119) -- after a stall, the boards missed are replayed at
+  // 3x (or the table goes straight to now past the limit): the board drawn
+  // meanwhile. `game.board` stays the newest for everything that answers.
+  const catchUp = useCatchUp(game.catchUp, game.playLog, game.board, {
+    motionOff,
+    settled: (count, jumped) => setGame((previous) => settleCatchUp(previous, count, jumped)),
+    live: () => socketRef.current?.caughtUp(),
+  });
+  const catching = catchUp.catching;
+  const catchingRef = useRef(catching);
+  catchingRef.current = catching;
+  const latest = catchUp.shown ?? game.board;
+  const screenRef = useRef<HTMLElement>(null);
+  // P11-D6 (spec 0119, Q3 A) -- a click on the table or the act button skips
+  // to now (the Board hurries whatever is moving on the same click).
+  const skipCatchUp = catchUp.skip;
+  useEffect(() => {
+    const root = screenRef.current;
+    if (!catching || !root) return undefined;
+    const skip = () => skipCatchUp();
+    root.addEventListener("pointerdown", skip, true);
+    return () => root.removeEventListener("pointerdown", skip, true);
+  }, [catching, skipCatchUp]);
+  // P11-D6 -- every animation started while catching up plays at 3x.
+  useEffect(() => {
+    const root = screenRef.current;
+    if (!catching || !root || typeof requestAnimationFrame !== "function") return undefined;
+    const seen = new WeakSet<Animation>();
+    let frame = 0;
+    const step = () => {
+      quicken(root, seen);
+      frame = requestAnimationFrame(step);
+    };
+    step();
+    return () => cancelAnimationFrame(frame);
+  }, [catching]);
   // Spec 0015 — the close-ups of the cards in view, fetched ahead so a
   // zoom is sharp at once. Each picture is fetched once per tab -- and,
   // at its one address (spec 0052), once per browser across games.
@@ -405,7 +448,8 @@ export function GameScreen({
     fetchAhead(cards.flatMap((card) => (card.art ? [closeUpOf(pictureUrl(card.art))] : [])));
   }, [latest]);
   const [held, setHeld] = useState<Snapshot | null>(null);
-  const askedNow = !finished && game.decision !== null;
+  // P11-D6 -- a question waits until the table is live again (spec 0119).
+  const askedNow = !finished && game.decision !== null && !catching;
   // Spec 0009 — a player the game is asking is not away.
   useEffect(() => {
     holdActive(askedNow);
@@ -416,8 +460,12 @@ export function GameScreen({
   askedRef.current = askedNow;
   useEffect(() => {
     // Only when you are not asked: a question shows the stack itself.
-    if (spotlight && !askedRef.current) setHeld(spotlight);
+    // P11-D6 -- nor while catching up: the replay holds each board itself.
+    if (spotlight && !askedRef.current && !catchingRef.current) setHeld(spotlight);
   }, [spotlight]);
+  useEffect(() => {
+    if (catching) setHeld(null);
+  }, [catching]);
   useEffect(() => {
     if (askedNow) setHeld(null);
   }, [askedNow]);
@@ -459,7 +507,7 @@ export function GameScreen({
   useEffect(() => {
     const was = lastLatest.current;
     lastLatest.current = latest;
-    if (was && latest && !motionOff() && retargeted(was, latest)) {
+    if (was && latest && !motionOff() && !catchingRef.current && retargeted(was, latest)) {
       // It is newer than any board still held for a spell to be seen.
       setHeld(null);
       setSwingHeld(latest);
@@ -784,7 +832,9 @@ export function GameScreen({
   // Spec 0102, item 1 -- no question over a held or sweeping table: game 2's
   // first questions (the mulligan) wait for its board and deal (PROTO-002 is
   // kept: the state is there, only drawn late).
-  const decision = finished || restarting ? null : game.decision;
+  // P11-D6 (spec 0119) -- set aside while the table catches up; shown (and
+  // any countdown started) once it is live.
+  const decision = finished || restarting || catching ? null : game.decision;
   const question = useMemo(
     () => (decision ? questionOf(decision, visible) : null),
     [decision, visible],
@@ -2540,9 +2590,14 @@ export function GameScreen({
   return (
     <SeatsContext.Provider value={match.participants}>
       <section
+        ref={screenRef}
         className={`gs-screen${bigger ? " gs-bigger" : ""}`}
         // Spec 0106 -- the style sheets' movements read the table's pace from here.
-        style={{ ["--pa-pace" as string]: String(PACE) }}
+        // P11-D6 (spec 0119) -- three times as fast while catching up.
+        style={{ ["--pa-pace" as string]: String(catching ? PACE / CATCH_UP_RATE : PACE) }}
+        data-catching-up={catching ? "true" : undefined}
+        // P11-D6 -- the board drawn now, by revision (tests read what a replay has reached).
+        data-drawn={board ? `${board.gameEpoch}.${board.stateRevision}` : undefined}
         aria-label={watching ? "The match" : "Your match"}
       >
         <h1 className="pa-visually-hidden">{watching ? "The match" : "Your match"}</h1>
@@ -2687,6 +2742,7 @@ export function GameScreen({
             }
             rail={
               <Rail
+                catchingUp={catching ? { progress: catchUp.progress, onSkip: catchUp.skip } : null}
                 stackFocus={stackFocusId}
                 theirAway={theirAway}
                 end={end}
@@ -2912,7 +2968,21 @@ export function GameScreen({
                       onDone={() => setReplaying(null)}
                     />
                   )}
-                  {reveal && (
+                  {/* P11-D6 (spec 0119) -- past the limit: what you missed, in the report window's place. */}
+                  {catchUp.away && (
+                    <MissedWindow
+                      lines={catchUp.away}
+                      geometry={geometry}
+                      nameOf={(seat) =>
+                        board?.players.find((p) => p.seat === seat)?.name ?? `Seat ${seat}`
+                      }
+                      mySeat={board?.seat ?? 0}
+                      artUrl={artUrl}
+                      onClose={catchUp.closeAway}
+                    />
+                  )}
+                  {/* P11-D6 -- reports gather while the table catches up, and open once it is live. */}
+                  {reveal && !catching && !catchUp.away && (
                     <RevealTray
                       viewerSeat={board?.seat ?? 0}
                       replay={
@@ -4303,6 +4373,41 @@ function useResolving(asking: { seat: number | null } | null): boolean {
   return nobody && quiet;
 }
 
+/**
+ * P11-D6 (spec 0119, owner decision 5 Q3 A) -- the act button while the table
+ * catches up: "Catching up… / Tap to skip", a fast-forward sign with a gold
+ * ring turning round it, a thin gold bar filling (canvas catchup-1119.html,
+ * "Q3" option A). The button itself skips, as a click on the table does.
+ */
+function CatchUpAct({ progress, onSkip }: { progress: number; onSkip: () => void }) {
+  return (
+    <button
+      type="button"
+      className="gs-waiting gs-catchup"
+      role="status"
+      aria-label="Catching up. Tap to skip"
+      data-catching-up="true"
+      onClick={onSkip}
+    >
+      <span className="gs-coin" aria-hidden="true">
+        <svg className="gs-catchup-ff" viewBox="0 0 24 24" width="26" height="26">
+          <path d="M3.5 6.2 L11.5 12 L3.5 17.8 Z M12 6.2 L20 12 L12 17.8 Z" />
+        </svg>
+        <svg className="gs-catchup-ring" viewBox="0 0 56 56">
+          <circle cx="28" cy="28" r="25" />
+        </svg>
+      </span>
+      <span className="gs-act-text">
+        <span className="gs-waiting-name">Catching up…</span>
+        <span className="gs-waiting-sub">Tap to skip</span>
+      </span>
+      <span className="gs-catchup-bar" aria-hidden="true">
+        <i style={{ width: `${Math.round(progress * 100)}%` }} />
+      </span>
+    </button>
+  );
+}
+
 /** Spec 0058, item 5 -- how long the act button holds its last state when nothing is asked. */
 export const STEADY_MS = 400; // not paced: a wait (spec 0106)
 /** Spec 0058, item 5 -- while triggers go on the stack, the gaps between their questions. */
@@ -4435,6 +4540,7 @@ function useLastAsked(asking: { seat: number | null } | null): number | null {
 }
 
 function Rail({
+  catchingUp = null,
   theirAway = null,
   end = null,
   board,
@@ -4464,6 +4570,8 @@ function Rail({
   stackFocus = null,
   resting = false,
 }: {
+  /** P11-D6 (spec 0119, Q3 A) -- catching up after a stall: the sign, how far, and a skip. */
+  catchingUp?: { progress: number; onSkip: () => void } | null;
   /** Spec 0105 -- the top of the stack is resting (nobody can answer it), its card landed here. */
   resting?: boolean;
   /** Spec 0100, item 9 -- the stack entry whose beams show (the Board's focus). */
@@ -4806,7 +4914,11 @@ function Rail({
       {/* The act button keeps its canvas place. The stack is drawn as cards
           on the board (owner 2026-10-22: the column's Stack box is gone).
           Spec 0058, item 5: held steady between questions. */}
-      {steadyAct}
+      {catchingUp ? (
+        <CatchUpAct progress={catchingUp.progress} onSkip={catchingUp.onSkip} />
+      ) : (
+        steadyAct
+      )}
 
       {me && (
         <SeatBlock

@@ -47,6 +47,8 @@ function sockets(page: Page) {
     opened.push(s);
     socket.on("framereceived", (event) => {
       const text = String(event.payload);
+      // P11-D6 (spec 0119) -- a quiet line's beat is not the game moving.
+      if (text.slice(0, 80).includes('"MATCH_BEAT"')) return;
       lastFrame = Date.now();
       // P11-D4: a delta is a board too (rebuilt by WholeBoards); a connection's
       // first board is always a whole MATCH_SNAPSHOT.
@@ -60,6 +62,20 @@ function sockets(page: Page) {
 }
 
 type Watched = ReturnType<typeof sockets>;
+
+/**
+ * P11-D6 (spec 0119) -- a page whose connection was cut comes back naming the
+ * board it holds (`resume`); holding the newest (the game still), it is sent
+ * no board at all: it keeps the board it rebuilt.
+ */
+function resumedOnNewest(name: string, watched: Watched, from: number) {
+  const last = watched.opened[from - 1]!.whole.last!;
+  const after = watched.opened[from]!;
+  expect(after.url, `${name}: came back naming the board it holds`).toContain(
+    `resume=${String(last["gameEpoch"])}.${String(last["stateRevision"])}`,
+  );
+  expect(after.first, `${name}: holding the newest board, it was sent none`).toBeNull();
+}
 
 /** The lists a board carries, absent as empty. */
 const lists = (board: Board | null) =>
@@ -208,8 +224,11 @@ test("history sent once: reload, a cut connection, a spectator and a second tab 
     await still();
     expect(cut, "the guest's socket is routed").not.toBeNull();
     cut!();
-    await reopened(guestSockets, 2);
-    sameAcrossConnections("guest, reconnected", guestSockets, 1);
+    await expect
+      .poll(() => guestSockets.opened.length, { timeout: 60_000 })
+      .toBeGreaterThanOrEqual(2);
+    await guest.waitForTimeout(3_000);
+    resumedOnNewest("guest, reconnected", guestSockets, 1);
 
     // The spectator reloads.
     await still();

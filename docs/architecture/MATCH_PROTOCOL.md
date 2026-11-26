@@ -51,6 +51,8 @@ back in the match (§6.114).
 ```text
 /ws/matches/{matchId}            every board whole (a tool, a test, an older page)
 /ws/matches/{matchId}?deltas=1   the game page: only what changed (P11-D4)
+...&resume=<gameEpoch>.<stateRevision>
+                                 P11-D6: a page coming back, the board it holds
 ```
 
 Authenticated by the session cookie, like every request (§3.78). A
@@ -115,6 +117,14 @@ MATCH_DELTA             P11-D4, `?deltas=1` only: gameEpoch, from, to, set?,
 MATCH_STEP              state: the step bar's state -- a step nobody is asked
                         at; public, the cards stay as the last board has them
                         (PHASE_07 Amendment 13)
+                        P11-D6: MATCH_SNAPSHOT, MATCH_DELTA and MATCH_STEP
+                        carry sentAt (when first sent to the seat, ms)
+MATCH_BEAT              P11-D6, players: gameEpoch?, stateRevision? -- nothing
+                        else sent for 2 s; the board this connection was
+                        sent last
+MATCH_CATCHUP           P11-D6, a resume: from {gameEpoch, stateRevision},
+                        count -- the next `count` boards and steps are the
+                        ones missed, oldest first
 WATCHING                count: people watching (spec 0047), to the players;
                         names: who, by display name (spec 0067)
 MATCH_ENDED             spec 0067, to spectators only: the game is over --
@@ -208,6 +218,8 @@ MATCH_RESYNC        have? {gameEpoch,        P11-D4: a delta did not fit; answer
                     stateRevision}           new connection is (board, question, asking),
                                              at most once a second; `have` only logged.
                                              Spectators may send it too
+CAUGHT_UP           (nothing)                P11-D6: the page's table is live again
+                                             after a catch-up; noted, nothing else. No reply
 ```
 
 **Spec 0088 — reports that stay and gather.** A report window is no longer
@@ -447,7 +459,27 @@ message has waited more than 10 s to go out (or 1,000 are waiting,
 `QueueLimits`), the server closes it with `4002` "behind" (or ends it
 outright if even that close cannot be written in 2 s) and logs `match <id>:
 connection <c> fell behind (...): closed`. The page reconnects as from any
-dropped connection and is sent the whole board.
+dropped connection.
+
+**Catch-up after a stall (P11-D6, spec 0119).** A page coming back names the
+board it holds (`resume=<gameEpoch>.<stateRevision>`, its delta base; a
+fresh page or a refresh never does). The server keeps each seat's last 40
+boards and the steps between them as sent (`SeatReplay.kt`, the public
+view's for spectators) and answers from the seat's OWN list: the messages
+after that board, announced by `MATCH_CATCHUP` (the first board whole, then
+deltas through the new connection's stream); nothing at all when the page
+holds the newest; today's whole board otherwise. A connection that stays
+open but goes quiet is noticed by the page: the server's `MATCH_BEAT` every
+2 s of quiet keeps a healthy line audible, 5 s with nothing heard shows
+"Reconnecting to the game…" (after its 1.5 s settle) and 10 s closes it
+(`4001` "silent") to come back with `resume`; the check starts once the
+connection has been heard beating (players only), and one that runs late (a
+hidden or frozen tab) judges nothing. Boards that arrive late (their
+`sentAt` against their arrival) or missed are replayed at 3x on the page,
+or, past 20 updates or 6 s of replay, the table goes straight to now and
+"While you were away" lists the play log's lines (`catchUp.ts`). The
+question for the returning player is shown once the table is live; the
+page then sends `CAUGHT_UP`. The other player's game never waits.
 Refresh, two tabs and a closed browser are covered by P6-R/S/T/BB;
 on the live site a page reloaded mid-game was back in the same match
 (P6-BK).

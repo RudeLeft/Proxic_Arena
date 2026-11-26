@@ -280,6 +280,20 @@ hand or a library is never listed, so the list says nothing the board
 does not. The names and type lines a search returns are Forge's card
 data for every card in Magic, not game state.
 
+## Kept boards and catch-up (P11-D6, spec 0119)
+
+A page that comes back after a stall is sent the boards it missed from the
+server's kept boards (`SeatReplay.kt`). They are that seat's OWN boards as the
+server already sent them (after the worker's `HiddenIds` and the pictures),
+never rebuilt from the whole game or another seat's view; a resume reads only
+the seat's own list (the seat is the session's, never the page's word), and a
+spectator's only the public view's. They go through the new connection's own
+stream, so every delta is made from two of the seat's own boards. The page
+learns exactly what it would have if the line had never stalled, only later.
+The "While you were away" window lists only the seat's own play log lines, up
+to the board on the table (HID-005). The gate: `check-deltas.py`'s resume
+pass, then the hidden checks over its rebuilt traces.
+
 ## The play log (spec 0064)
 
 The game chat's Play log tab is written **per seat by the worker**

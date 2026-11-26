@@ -53,9 +53,18 @@ internal class Connection(
                 outgoing.send(Frame.Close(item.reason))
                 return false
             }
+            is Outgoing.Beat -> outgoing.send(Frame.Text(beatMessage(board.lastSent()).toString()))
         }
         return true
     }
+
+    /**
+     * P11-D6 (spec 0119) -- this connection's page said its table is live
+     * again (CAUGHT_UP), at this time (ms); null before it said so. Read by
+     * nothing yet: spec 0120's resume rule is its only use.
+     */
+    @Volatile
+    var caughtUpAt: Long? = null
 }
 
 /** The connections watching each match, by user. */
@@ -214,12 +223,13 @@ class MatchHub(
         sendTo(matchId, userId, refusalMessage(decisionId, reason))
     }
 
-    override suspend fun step(
+    // P11-D6 -- the message as made (and kept for a resume): its id and time kept.
+    override suspend fun deliver(
         matchId: UUID,
         userId: UUID,
-        state: JsonObject,
+        message: JsonObject,
     ) {
-        sendTo(matchId, userId, stepMessage(state))
+        sendTo(matchId, userId, message)
     }
 
     override suspend fun concedeRefused(
@@ -351,8 +361,15 @@ fun refusalMessage(
  * viewer may not see before serialising it (§6.42); re-deriving
  * anything here would be a second opinion about visibility.
  */
-fun snapshotMessage(state: JsonObject): JsonObject =
+fun snapshotMessage(
+    state: JsonObject,
+    sentAt: Long? = null,
+): JsonObject =
     envelope("MATCH_SNAPSHOT") {
+        // P11-D6 (spec 0119) -- when this board was first sent to the seat
+        // (ms, the server's clock): kept with it, so a board resent on a
+        // resume carries the time it really happened. A time, nothing else.
+        sentAt?.let { put("sentAt", it) }
         put("state", state)
     }
 

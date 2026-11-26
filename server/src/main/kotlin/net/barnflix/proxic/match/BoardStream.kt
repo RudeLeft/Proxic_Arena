@@ -120,6 +120,14 @@ internal class BoardStream(
         base = null
     }
 
+    /** P11-D6 -- the last board sent on this connection (the page's base), for MATCH_BEAT; null before one. */
+    fun lastSent(): ResumePoint? {
+        val board = base ?: return null
+        val epoch = (board["gameEpoch"] as? JsonPrimitive)?.longOrNull ?: return null
+        val rev = revision ?: return null
+        return ResumePoint(epoch, rev)
+    }
+
     /** The base's game and revision, for the resync's log line. */
     fun sent(): String = base?.let { "${it["gameEpoch"]}/${it["stateRevision"]}" } ?: "none"
 
@@ -209,6 +217,8 @@ internal class BoardStream(
                 message["protocolVersion"]?.let { put("protocolVersion", it) }
                 put("type", JsonPrimitive(DELTA_TYPE))
                 message["messageId"]?.let { put("messageId", it) }
+                // P11-D6 -- the board's first-sent time, as the snapshot carries it.
+                message["sentAt"]?.let { put("sentAt", it) }
                 step.body.forEach { (key, value) -> put(key, value) }
             }.toString()
         }
@@ -277,6 +287,12 @@ data class DeltaSettings(
     val players: Boolean = true,
     val spectators: Boolean = false,
     val check: Boolean = false,
+    /**
+     * P11-D6 (spec 0119, PROXIC_SPECTATOR_CATCHUP, default OFF until owner
+     * decision 2 turns it on): a spectator's page that comes back is caught
+     * up from the public view's kept boards, as a player's is.
+     */
+    val spectatorCatchup: Boolean = false,
 ) {
     /** Who gets deltas on a connection whose page said [deltas] (`?deltas=1`): a format choice, nothing else. */
     fun asked(deltas: String?): DeltaSettings {
@@ -299,6 +315,7 @@ fun matchHubFor(
             players = config.matchDeltas,
             spectators = config.spectatorDeltas,
             check = config.testDeltaCheck,
+            spectatorCatchup = config.spectatorCatchup,
         ),
     )
 }

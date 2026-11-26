@@ -103,7 +103,9 @@ export async function probe(page: Page, cpu: number): Promise<Probe> {
 export function countUpdates(page: Page, into: () => Probe | undefined) {
   page.on("websocket", (ws) => {
     if (!ws.url().includes("/ws/matches/")) return;
-    ws.on("framereceived", () => {
+    ws.on("framereceived", (event) => {
+      // P11-D6 (spec 0119) -- a quiet line's beat is not a game update.
+      if (String(event.payload).slice(0, 80).includes('"MATCH_BEAT"')) return;
       const p = into();
       if (p) p.updates++;
     });

@@ -61,6 +61,8 @@ function sockets(page: Page, answers?: Answers) {
     });
     ws.on("framereceived", (event) => {
       const text = String(event.payload);
+      // P11-D6 (spec 0119) -- a quiet line's beat is not the game moving.
+      if (text.slice(0, 80).includes('"MATCH_BEAT"')) return;
       s.at.push(Date.now());
       if (GAME_SAYS.test(text.slice(0, 80))) answers?.game.push(Date.now());
       if (text.slice(0, 80).includes('"DECISION_REFUSED"')) answers?.refused.push(Date.now());

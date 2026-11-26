@@ -266,6 +266,8 @@ test("record every Lab board, frame by frame", async ({ browser }) => {
         }
         // P11-D4: the real game's deltas never reach the page; this tool sends the boards.
         if (typeof m === "string" && m.includes('"MATCH_DELTA"')) return;
+        // P11-D6 (spec 0119): nor the real game's beat (it names the real game's boards).
+        if (typeof m === "string" && m.includes('"MATCH_BEAT"')) return;
         if (typeof m === "string" && (m.includes('"DECISION_') || m.includes('"MATCH_ASKING"')))
           return;
         ws.send(m);

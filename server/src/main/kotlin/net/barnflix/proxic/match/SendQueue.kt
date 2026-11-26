@@ -76,6 +76,12 @@ internal sealed interface Outgoing {
 
     /** The socket closed with [reason], after everything before it; nothing after it is sent. */
     class Close(val reason: CloseReason) : Outgoing
+
+    /**
+     * P11-D6 (spec 0119) -- MATCH_BEAT: nothing else went out for a while.
+     * Made as it leaves, from the board this connection was sent last.
+     */
+    data object Beat : Outgoing
 }
 
 /** How one connection's queue went, for the line logged as it closes. */
@@ -117,6 +123,11 @@ internal class SendQueue<T : Any>(
 
     @Volatile
     private var behind: (Int, Long) -> Unit = { _, _ -> }
+
+    /** P11-D6 -- when the last item was written (or the queue made): MATCH_BEAT's quiet is measured from it. */
+    @Volatile
+    var lastWritten: Long = clock()
+        private set
 
     /** True once the connection was found behind: nothing more goes on it. */
     val isBehind: Boolean get() = synchronized(pending) { behindNow }
@@ -174,6 +185,7 @@ internal class SendQueue<T : Any>(
             }
             // runCatching: a socket that is gone ends this connection's sending, never the session.
             val more = runCatching { write(next.item) }.getOrDefault(false)
+            lastWritten = clock()
             synchronized(pending) {
                 if (behindNow) return
                 pending.removeFirst()

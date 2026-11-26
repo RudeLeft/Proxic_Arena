@@ -111,6 +111,13 @@ class LiveMatch(
     /** Spec 0064 — each seat's play log for the match ([SeatPlayLogs]). */
     val playLogs = SeatPlayLogs()
 
+    /**
+     * P11-D6 (spec 0119) -- each seat's last boards and steps as sent, for a
+     * page that comes back to resume from ([SeatReplay]); the public view's
+     * for spectators. Dies with the match.
+     */
+    val replay = SeatReplay()
+
     /** Spec 0056 — the turn the game is on, from the latest board any seat was sent; null before one. */
     val turn: Int?
         get() =

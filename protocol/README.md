@@ -1306,6 +1306,68 @@ ever holds up the game or another page.
   for <ms> ms): closed`, and every connection's close line says how its queue
   went (`queue: most waiting <n>, longest wait <ms> ms`).
 
+## Catch-up after a stall (Phase 11 P11-D6, spec 0119, 2026-11-26)
+
+A page whose line stalls (open, but nothing gets through) or drops and comes
+back is caught up on the moments it missed instead of jumping to now.
+
+```text
+MATCH_SNAPSHOT, MATCH_DELTA, MATCH_STEP
+              + sentAt          server -> browser: when this board or step was
+                                FIRST sent to the seat (ms, the server's clock);
+                                kept with it, so a board resent on a resume
+                                carries the time it really happened
+MATCH_BEAT    gameEpoch?, stateRevision?
+                                server -> browser (players only): nothing else
+                                was sent on this connection for 2 s; the board
+                                this connection was sent last (absent before one)
+/ws/matches/{matchId}?deltas=1&resume=<gameEpoch>.<stateRevision>
+                                browser -> server, on a RECONNECT only: the
+                                board the page holds (its delta base)
+MATCH_CATCHUP from {gameEpoch, stateRevision}, count
+                                server -> browser: the next `count` board and
+                                step messages are the ones missed after `from`,
+                                oldest first, each with its own sentAt
+CAUGHT_UP     (nothing)         browser -> server: the page's table is live
+                                again (spec 0120 reads it); no reply
+```
+
+- **Late.** The page keeps `skew` = the smallest (arrival - sentAt) over the
+  connection, reset on each new connection. A board whose (arrival -
+  sentAt) - skew is over 1,500 ms is late, and joins the catch-up instead of
+  being drawn at once. A time, no card and no seat.
+- **The beat** keeps a quiet line audible: the page's silence check (5 s with
+  nothing heard marks the connection stalled, "Reconnecting to the game…"
+  after its 1.5 s settle; 10 s closes it, `4001` "silent", and comes back
+  with `resume`) never fires on a healthy quiet game. The check starts only
+  once the connection has been heard beating (a spectator's connection,
+  which is not sent beats, and an older server's are never judged), and a
+  check that runs more than 2 s late (a hidden or frozen tab's timer) judges
+  nothing. Giving up, the page treats the line as gone at once: it does not
+  wait for a frozen line's close. The page
+  does not answer the beat; a beat naming a board newer than the one the page
+  holds (a board lost on the way) makes it ask for the whole board
+  (`MATCH_RESYNC`); the same or an older one is nothing.
+- **Resume.** The server keeps each seat's last 40 boards and the steps
+  between them as they were sent (`SeatReplay.kt`), and the public view's.
+  A player connection whose address names `resume=e.r`:
+  - a kept board of this seat with newer messages after it: `MATCH_HELLO`,
+    `MATCH_CATCHUP`, those messages (the first board whole: a new
+    connection has no base; then deltas), then the question and
+    `MATCH_ASKING` as on any connection;
+  - this seat's newest board: `MATCH_HELLO`, the question, `MATCH_ASKING`,
+    no board at all (the page sends `CAUGHT_UP` at once);
+  - anything else (older than the kept boards, another game, a number this
+    seat was never sent, malformed): today's whole board with the whole
+    play log (the page goes straight to now).
+  The numbers only ever choose among the seat's OWN kept boards (§6.100;
+  the seat is the session's): a wrong one costs the page a whole board.
+- A fresh page (a load or a refresh) never sends `resume`.
+- Spectators: the same, from the public view's kept boards, only while
+  `PROXIC_SPECTATOR_CATCHUP` is on (default off, owner decision 2).
+- No `protocolVersion` bump: an older page ignores `sentAt`, `MATCH_BEAT` and
+  `MATCH_CATCHUP` and never sends `resume` or `CAUGHT_UP`.
+
 ## Test-only: the Lab's deal (worker START_GAME, 2026-11-08)
 
 **Never in a real game.** The Mechanics Lab (`scripts/lab.py`) may give

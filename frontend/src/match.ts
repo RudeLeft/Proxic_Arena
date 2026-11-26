@@ -1295,7 +1295,44 @@ export interface MatchState {
    * comes. The table stays as it is meanwhile (owner decision 3: nothing shown).
    */
   resync?: boolean;
+  /**
+   * P11-D6 (spec 0119) -- boards that came late (a stall) or were sent again
+   * on a resume (MATCH_CATCHUP), not yet drawn: the screen replays them or
+   * jumps to now (battlefield/catchUp.ts). `board` is the newest meanwhile.
+   */
+  catchUp?: CatchUp | null;
+  /**
+   * P11-D6 (spec 0119; owner answer 4) -- nothing heard on an open
+   * connection for SILENCE_MS: the screen says "Reconnecting to the game…"
+   * after its usual settle (about 6.5 s in all).
+   */
+  stalled?: boolean;
 }
+
+/** P11-D6 (spec 0119) -- what the page is catching up on (match.ts `arrive`, catchUp.ts). */
+export interface CatchUp {
+  /** The boards not yet drawn, oldest first. */
+  boards: Snapshot[];
+  /** Updates (boards and steps) still to come from a MATCH_CATCHUP. */
+  missed: number;
+  /** Every update queued so far (boards and steps): the limit counts them. */
+  updates: number;
+  /** The last play log line's number when the table stopped: the away window lists the ones after it. */
+  logFrom: number;
+  /** The board on the table when it stopped. */
+  from: Snapshot | null;
+  /** No replay: the page was sent today's whole board on its return (not among the kept ones). */
+  jump?: boolean;
+  /**
+   * The table just went straight to now (past the limit): until this time
+   * (ms), late boards still arriving from the same stall go straight to now
+   * too, and the away window grows, rather than starting a replay of their own.
+   */
+  tail?: number;
+}
+
+/** P11-D6 -- how long after a jump the rest of the same stall's late boards follow it. */
+export const CATCH_UP_TAIL_MS = 3_000;
 
 /** Spec 0067 -- how a game ended, told to a spectator (MATCH_ENDED). */
 export interface MatchEnding {
@@ -1374,6 +1411,9 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
       return {
         ...state,
         connection: "open",
+        stalled: false,
+        // P11-D6 -- a new connection: nothing more comes from the last one's catch-up.
+        ...(state.catchUp ? { catchUp: { ...state.catchUp, missed: 0 } } : {}),
         seat,
         ...(away !== null && away > 0 ? { awayMinutes: away } : {}),
       };
@@ -1447,6 +1487,28 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
           console.error(`DELTA_MISMATCH at ${at} (revision ${String(message["to"])})`);
       }
       return takeBoard(state, whole.state, whole.history);
+    }
+
+    // P11-D6 (spec 0119) -- a resume: the next `count` updates are the ones missed.
+    case "MATCH_CATCHUP": {
+      const count = asNumber(message["count"]);
+      if (count === null || count <= 0) return state;
+      const now = state.catchUp ?? beginCatchUp(state);
+      return { ...state, catchUp: { ...now, missed: now.missed + count } };
+    }
+
+    // P11-D6 (spec 0119) -- a quiet line's beat: the board this connection
+    // was sent last. A page holding an older one (a board lost on the way)
+    // asks for the whole board (D4's way back); otherwise nothing.
+    case "MATCH_BEAT": {
+      const base = state.base;
+      const epoch = message["gameEpoch"];
+      const rev = message["stateRevision"];
+      if (state.resync || !base || typeof epoch !== "number" || typeof rev !== "number")
+        return state;
+      const held = [Number(base["gameEpoch"]), Number(base["stateRevision"])] as const;
+      const ahead = epoch > held[0] || (epoch === held[0] && rev > held[1]);
+      return ahead ? { ...state, resync: true } : state;
     }
 
     case "MATCH_STEP": {
@@ -1559,6 +1621,104 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
     default:
       return state;
   }
+}
+
+/** P11-D6 (spec 0119) -- a catch-up starting now: from the board on the table and the log as it is. */
+function beginCatchUp(state: MatchState): CatchUp {
+  const log = state.playLog ?? [];
+  return {
+    boards: [],
+    missed: 0,
+    updates: 0,
+    logFrom: log.length > 0 ? log[log.length - 1]!.n : 0,
+    from: state.board,
+  };
+}
+
+/**
+ * P11-D6 (spec 0119) -- how a message arrived: [late] (a board well behind
+ * the line's usual: a stall on an open connection) or [jump] (the whole
+ * board a returning page is sent when its own was not kept).
+ */
+export interface Arrival {
+  late?: boolean;
+  jump?: boolean;
+}
+
+/**
+ * Apply one server message as it arrived (connectMatch): reduceMatch, then,
+ * P11-D6 (spec 0119), a board that came late, or was missed, or any board
+ * while a catch-up is under way, joins the catch-up queue for the screen to
+ * replay (battlefield/catchUp.ts). Every message is still reduced in order,
+ * so `board` is always the newest.
+ */
+export function arrive(
+  state: MatchState,
+  message: Record<string, unknown>,
+  how: Arrival = {},
+): MatchState {
+  const next = reduceMatch(state, message);
+  const type = message["type"];
+  const queued = next.catchUp ?? null;
+  if (type === "MATCH_SNAPSHOT" || type === "MATCH_DELTA") {
+    // Not taken (an older board, a delta that did not fit): nothing to draw.
+    if (!next.board || next.board === state.board) return next;
+    const active = queued !== null && queued.boards.length + queued.missed > 0;
+    const tail = queued?.tail !== undefined && Date.now() < queued.tail ? queued : null;
+    // Live again: a jump's tail is over.
+    if (!active && !how.late && !how.jump) return queued?.tail ? { ...next, catchUp: null } : next;
+    const now = active ? queued : (tail ?? beginCatchUp(state));
+    return {
+      ...next,
+      catchUp: {
+        ...now,
+        boards: [...now.boards, next.board],
+        missed: Math.max(0, now.missed - 1),
+        updates: now.updates + 1,
+        ...(how.jump || tail ? { jump: true } : {}),
+      },
+    };
+  }
+  if (type === "MATCH_STEP" && queued && queued.missed > 0)
+    return {
+      ...next,
+      catchUp: { ...queued, missed: queued.missed - 1, updates: queued.updates + 1 },
+    };
+  return next;
+}
+
+/**
+ * P11-D6 (spec 0119) -- the screen drew or passed the first [count] queued
+ * boards: they leave the queue; a queue with nothing left or to come is over.
+ */
+export function settleCatchUp(state: MatchState, count: number, jumped = false): MatchState {
+  const queued = state.catchUp;
+  if (!queued) return state;
+  const boards = queued.boards.slice(count);
+  if (boards.length === 0 && queued.missed === 0) {
+    // After a jump, the same stall's late boards still on their way follow it (CATCH_UP_TAIL_MS).
+    return jumped
+      ? {
+          ...state,
+          catchUp: {
+            ...queued,
+            boards: [],
+            updates: 0,
+            from: state.board,
+            tail: Date.now() + CATCH_UP_TAIL_MS,
+          },
+        }
+      : { ...state, catchUp: null };
+  }
+  return {
+    ...state,
+    catchUp: {
+      ...queued,
+      boards,
+      from: queued.boards[count - 1] ?? queued.from,
+      updates: boards.length,
+    },
+  };
 }
 
 /** §7.55 — where a concession stands, in words; null when there is none. */
@@ -2915,6 +3075,31 @@ function asString(value: unknown): string | null {
  */
 export const MATCH_RESYNC_WAIT_MS = 3_000;
 
+/**
+ * P11-D6 (spec 0119) -- a board this much later than the line's usual (its
+ * `sentAt` against its arrival, less the connection's smallest gap) is late:
+ * the page fell behind, and it is caught up rather than drawn at once.
+ */
+export const LATE_MS = 1_500;
+
+/**
+ * P11-D6 (spec 0119; owner answer 4) -- nothing heard on an open connection
+ * for this long: the page says it is reconnecting (after the notice's own
+ * 1.5 s settle: about 6.5 s). The server's beat (MATCH_BEAT, every 2 s of
+ * quiet) keeps a healthy quiet line from ever reaching it.
+ */
+export const SILENCE_MS = 5_000;
+/** P11-D6 -- and for this long: the page closes the connection and comes back with `resume`. */
+export const SILENCE_CLOSE_MS = 10_000;
+/** P11-D6 -- how often the silence is looked at. */
+export const SILENCE_LOOK_MS = 1_000;
+/**
+ * P11-D6 (decision 7, P11-E13) -- a look that runs this much later than
+ * asked judges nothing and starts again: a hidden tab's timers run once a
+ * minute and a frozen tab's not at all, while its messages still arrive.
+ */
+export const SILENCE_LATE_MS = 2_000;
+
 /** Waits before each try to reconnect to a game, in milliseconds; the last one repeats. */
 export const MATCH_RECONNECT_DELAYS: readonly number[] = [500, 1000, 2000, 4000, 8000];
 
@@ -2933,7 +3118,20 @@ export interface MatchSocket {
    * window it was is the session's.
    */
   reportsClosed(upTo: number): void;
+  /**
+   * P11-D6 (spec 0119) -- the table is live again after a catch-up (CAUGHT_UP).
+   * Nothing else is said; the server only notes it (spec 0120 reads it).
+   */
+  caughtUp(): void;
   close(): void;
+}
+
+/** P11-D6 (spec 0119) -- [url] with the board the page holds, for the server to resume from. */
+export function resumeUrl(url: string, base: Record<string, unknown> | null | undefined): string {
+  const epoch = base?.["gameEpoch"];
+  const rev = base?.["stateRevision"];
+  if (typeof epoch !== "number" || typeof rev !== "number") return url;
+  return `${url}${url.includes("?") ? "&" : "?"}resume=${epoch}.${rev}`;
 }
 
 /**
@@ -2959,11 +3157,59 @@ export function connectMatch(
   let attempt = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let over = false;
+  // P11-D6 (spec 0119) -- the board this page holds (its delta base), for a resume.
+  let held: Record<string, unknown> | null = null;
+  let opened = 0;
 
   const open = () => {
-    const current = factory(url);
+    // P11-D6 -- a fresh page asks for nothing (a refresh starts fresh: owner
+    // answer 5); a page coming back says which board it holds.
+    const current = factory(opened > 0 ? resumeUrl(url, held) : url);
+    const resuming = opened > 0 && held !== null;
+    opened += 1;
     socket = current;
     let dropped = false;
+    // P11-D6 -- this connection's smallest gap between a message's sentAt and
+    // its arrival (the clocks' difference and the line's usual delay).
+    let skew: number | null = null;
+    // P11-D6 -- the updates of a MATCH_CATCHUP still to come (their sentAt is old: not late).
+    let catchingUp = 0;
+    // P11-D6 -- a resumed connection that has not yet said what it needs.
+    let unsure = resuming;
+    let caughtUpSent = false;
+    const sayCaughtUp = () => {
+      if (caughtUpSent || current.readyState !== WebSocket.OPEN) return;
+      caughtUpSent = true;
+      current.send(JSON.stringify({ type: "CAUGHT_UP" }));
+    };
+    // P11-D6 -- the silence check (owner answer 4; decision 7's late rule).
+    let heard = Date.now();
+    let looked = Date.now();
+    let stalled = false;
+    // Only once this server has been heard beating (MATCH_BEAT): an older
+    // server, and a spectator's connection (no beat), are never judged silent.
+    let beating = false;
+    const silence = setInterval(() => {
+      const now = Date.now();
+      const late = now - looked > SILENCE_LOOK_MS + SILENCE_LATE_MS;
+      looked = now;
+      if (late) {
+        // A hidden or frozen tab's timer: it judges nothing, and starts again.
+        heard = now;
+        return;
+      }
+      if (!beating || current.readyState !== WebSocket.OPEN || closedByUs) return;
+      const quiet = now - heard;
+      if (quiet >= SILENCE_CLOSE_MS) {
+        logLine("connection", "game connection silent: reconnecting");
+        current.close(4001, "silent");
+        lost(4001);
+      } else if (quiet >= SILENCE_MS && !stalled) {
+        stalled = true;
+        onState((previous) => ({ ...previous, stalled: true }));
+      }
+    }, SILENCE_LOOK_MS);
+    current.addEventListener?.("close", () => clearInterval(silence));
     // P11-D4 -- this socket asked for a full board; the timer that closes it
     // (the reconnect then brings one) if none has come in time.
     let resyncAsked = false;
@@ -2987,8 +3233,37 @@ export function connectMatch(
       attempt = 0;
     };
     current.onmessage = (event) => {
+      // P11-D6 -- a connection given up as silent says nothing more.
+      if (dropped) return;
+      heard = Date.now();
+      if (stalled) {
+        stalled = false;
+        onState((previous) => ({ ...previous, stalled: false }));
+      }
       const parsed = parse(event.data);
       if (!parsed) return;
+      const type = parsed["type"];
+      if (type === "MATCH_BEAT") beating = true;
+      // P11-D6 (spec 0119) -- late, missed, or the whole board after a resume.
+      const how: Arrival = {};
+      const isBoard = type === "MATCH_SNAPSHOT" || type === "MATCH_DELTA";
+      if (type === "MATCH_CATCHUP") {
+        unsure = false;
+        catchingUp = Math.max(0, Number(parsed["count"]) || 0);
+      } else if (isBoard || type === "MATCH_STEP") {
+        if (catchingUp > 0) catchingUp -= 1;
+        else if (typeof parsed["sentAt"] === "number") {
+          const gap = Date.now() - parsed["sentAt"];
+          skew = skew === null ? gap : Math.min(skew, gap);
+          if (isBoard && gap - skew > LATE_MS) how.late = true;
+        }
+        if (unsure && isBoard) how.jump = true;
+        unsure = false;
+      } else if (unsure && type !== "MATCH_HELLO" && type !== "WATCHING") {
+        // Back, and holding the newest board already: live at once.
+        unsure = false;
+        sayCaughtUp();
+      }
       // Spec 0067 -- the game is over: the server closes this socket next,
       // and there is nothing to come back to.
       if (parsed["type"] === "MATCH_ENDED") over = true;
@@ -3000,18 +3275,24 @@ export function connectMatch(
       }
       logLine("game", summarise("in", parsed)); // spec 0039
       onState((previous) => {
-        const next = reduceMatch(previous, parsed);
+        const next = arrive(previous, parsed, how);
         // P11-D4 -- a delta that does not fit: ask once for the whole board.
         if (next.resync && !previous.resync) askForBoard(previous.base);
+        held = next.base ?? held;
         return next;
       });
+      // A resumed page sent today's whole board: it is drawn at once (no replay).
+      if (how.jump) sayCaughtUp();
     };
-    current.onclose = (event) => {
+    // P11-D6 -- the connection is gone: closed by either side, or given up
+    // as silent (a browser may wait a long time for a frozen line's close).
+    const lost = (code: number) => {
+      clearInterval(silence);
       if (resyncTimer !== null) clearTimeout(resyncTimer);
       resyncTimer = null;
       if (dropped || closedByUs) return;
       dropped = true;
-      logLine("connection", `game connection closed (${event.code})`);
+      logLine("connection", `game connection closed (${code})`);
       // Spec 0067 -- closed after the game ended (a spectator's): no retry,
       // and nothing to report.
       if (over) {
@@ -3023,13 +3304,14 @@ export function connectMatch(
       if (pageIsLeaving()) return;
       // 1008: not signed in, or not a player in this match. A retry
       // cannot fix either.
-      if (event.code === 1008) {
+      if (code === 1008) {
         onState((previous) => ({ ...previous, connection: "closed" }));
         return;
       }
       onState((previous) => ({
         ...previous,
         connection: "reconnecting",
+        stalled: false,
         decision: null,
         awaiting: null,
         // Spec 0002 — told again on reconnect; stale meanwhile.
@@ -3042,6 +3324,7 @@ export function connectMatch(
         if (!closedByUs) open();
       }, wait);
     };
+    current.onclose = (event) => lost(event.code);
   };
   open();
   // Back from the browser's back/forward cache with the connection gone.
@@ -3074,6 +3357,10 @@ export function connectMatch(
     reportsClosed(upTo) {
       if (socket.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify({ type: "REPORTS_CLOSED", upTo }));
+    },
+    caughtUp() {
+      if (socket.readyState !== WebSocket.OPEN) return;
+      socket.send(JSON.stringify({ type: "CAUGHT_UP" }));
     },
     close() {
       closedByUs = true;

@@ -102,11 +102,22 @@ private fun concedeMessage(
         reason?.let { put("reason", it) }
     }
 
-/** AMENDMENT 13 — a step nobody is asked at, for the step bar (public). */
-fun stepMessage(state: JsonObject): JsonObject =
+/**
+ * AMENDMENT 13 — a step nobody is asked at, for the step bar (public).
+ * P11-D6 -- [sentAt]: when it was first sent (ms, the server's clock), kept
+ * with it for a resume (protocol/README.md).
+ */
+fun stepMessage(
+    state: JsonObject,
+    sentAt: Long? = null,
+): JsonObject =
     buildJsonObject {
         put("protocolVersion", BuildInfo.PROTOCOL_VERSION)
-        put("type", "MATCH_STEP")
+        put("type", STEP_TYPE)
         put("messageId", UUID.randomUUID().toString())
+        sentAt?.let { put("sentAt", it) }
         put("state", state)
     }
+
+/** AMENDMENT 13 -- the step message's type. */
+const val STEP_TYPE = "MATCH_STEP"

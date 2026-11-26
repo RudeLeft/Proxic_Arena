@@ -167,10 +167,12 @@ export class Link {
         this.options.delayMs ?? 0,
       );
     });
-    this.route.onClose(() => {
+    this.route.onClose((code, reason) => {
       this.done = true;
       if (this.spam) clearInterval(this.spam);
       socket.destroy();
+      // The page closed it: closed for the page too (a handler set here replaces Playwright's own).
+      void this.route.close({ code: code ?? 1000, reason: reason ?? "" }).catch(() => undefined);
     });
   }
 
@@ -268,8 +270,9 @@ export class Link {
     if (this.done) return;
     this.toPage += 1;
     const text = data.toString("utf8");
-    this.at.push(Date.now());
     const head = text.slice(0, 80);
+    // P11-D6 (spec 0119) -- a quiet line's beat is not a game message (it still reaches the page).
+    if (!head.includes('"MATCH_BEAT"')) this.at.push(Date.now());
     if (head.includes('"MATCH_SNAPSHOT"') || head.includes('"MATCH_DELTA"')) {
       this.whole.take(text);
       this.boards += 1;
@@ -347,6 +350,8 @@ export async function serverBoard(
 ): Promise<Record<string, unknown>> {
   const target = new URL(url);
   target.searchParams.delete("deltas");
+  // P11-D6 (spec 0119) -- a fresh connection, never a resume (that may send no board at all).
+  target.searchParams.delete("resume");
   const origin = `http://${target.host}`;
   const cookie = (await context.cookies(origin)).map((c) => `${c.name}=${c.value}`).join("; ");
   return new Promise((resolve, reject) => {

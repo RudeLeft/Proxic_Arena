@@ -4369,3 +4369,16 @@ measure is a measure, not part of the suite.
   the change is the page's own code, the same in every engine. The browser's
   own hidden-tab slowing in Firefox and WebKit is E13's (CI's engines job).
 
+## As built: P11-D6 catch-up and P11-A1 (2026-11-26)
+
+The rest of spec 0119 (owner, "Approve both", with the answers to its
+questions): each seat's last 40 boards kept as sent (SeatReplay.kt), a page
+coming back resumes from the board it holds (`resume`, MATCH_CATCHUP), a quiet
+line beats (MATCH_BEAT), boards carry `sentAt`; the page replays late or
+missed boards at 3x with "Catching up… / Tap to skip" in the act button, and
+past 20 updates or 6 s goes straight to now with "While you were away"
+(catchUp.ts, MissedWindow.tsx); the silence check (5 s marks, ~6.5 s shows
+the notice, 10 s gives up and resumes; a late check judges nothing, E13).
+P11-A1: a board skipped during a hold gives its moves to the board drawn
+(carry.ts). Evidence, bites, the gate's resume pass and the browser run are in
+spec 0119's "As built: catch-up after a stall, and A1". Spec 0120 is next.

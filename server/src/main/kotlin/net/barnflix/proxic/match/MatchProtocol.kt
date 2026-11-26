@@ -424,6 +424,24 @@ interface DecisionAnnouncer {
         found: WorkerEvent.Options,
     ) = Unit
 
+    /**
+     * P11-D6 (spec 0119) -- a board or step message already made (stamped
+     * `sentAt`, kept for a resume: SeatReplay), to that viewer alone. A
+     * default that sends it as [snapshot] or [step] would (the tests'
+     * announcers); the hub sends the message itself, its id and time kept.
+     */
+    suspend fun deliver(
+        matchId: java.util.UUID,
+        userId: java.util.UUID,
+        message: kotlinx.serialization.json.JsonObject,
+    ) {
+        val state = message["state"] as? kotlinx.serialization.json.JsonObject ?: return
+        when ((message["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content) {
+            SNAPSHOT_TYPE -> snapshot(matchId, userId, state)
+            STEP_TYPE -> step(matchId, userId, state)
+        }
+    }
+
     /** AMENDMENT 13 — a step change, to every participant. A default, like [options]. */
     suspend fun step(
         matchId: java.util.UUID,

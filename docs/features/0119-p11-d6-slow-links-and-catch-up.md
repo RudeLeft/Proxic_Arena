@@ -394,3 +394,190 @@ not written; the time to the wire is in the page's arrival.
 **Not built (draft, waiting for the owner):** catch-up, `sentAt`, the beat,
 kept boards and resume, the sign, the window, A1, spectators' catch-up, and
 all of spec 0120.
+
+## As built: catch-up after a stall, and A1 (2026-11-26)
+
+The rest of this spec, approved by the owner on 2026-11-26 ("Approve both")
+with the answers above. Built in two commits: A1 alone, then the catch-up.
+Spec 0120 (the hard pause) is not built; nothing here blocks it (`CAUGHT_UP`
+is read and noted on the connection, `Connection.caughtUpAt`, for its resume
+rule).
+
+**What was built** (SOURCE):
+
+- **A1** (`battlefield/carry.ts` `movesCarried`): a board skipped during a
+  hold gives its moves to the board drawn: each named card's LAST move in the
+  skipped boards, unless the drawn board moves it itself or has it somewhere
+  other than where that move put it; unnamed moves into a hand or a library
+  kept (fromSnapshot pairs them with the board drawn before). Only boards this
+  seat was sent and never drew. `match.ts` `RECENT_KEPT` 30 -> 50 (a jump
+  carries over up to the server's 40 kept boards). Found building it (RUN, the
+  screen test): a creature that DIED inside the hold already left with a
+  death (the board pair sends a card gone to the graveyard there by default);
+  the moves actually lost were the tile moves -- a card discarded, milled or
+  exiled from a hand inside the hold faded out where it was, and the pile's
+  number changed on its own clock. Now it streams into the tile and the
+  number waits for it to land.
+- **Server** (`server/.../match/`): `SeatReplay.kt` (new): each seat's last
+  40 boards and the steps between them, as sent (the hub's own messages: one
+  messageId, `sentAt` stamped once), and the public view's; in `LiveMatch`
+  (`replay`), so it dies with the match, kept across Karn's restart.
+  `MatchDecisions` stamps each board and step (`snapshotMessage(state,
+  sentAt)`, `stepMessage`), keeps it, and queues it for the seat under the
+  replay's lock (`DecisionAnnouncer.deliver`); `MatchSocket` opens a
+  connection, greets it and gives it its first boards under the same lock, so
+  no live board falls between what a resume reads and what follows it.
+  `MatchResume.kt` (new): `firstBoards` (MATCH_CATCHUP and the kept messages
+  after the page's board, the first whole through the new connection's
+  BoardStream; nothing when the page holds the newest; today's whole board
+  otherwise), `playerResume` (the seat's own list) and `spectatorResume` (the
+  public view's, only while `PROXIC_SPECTATOR_CATCHUP` is on: off by default,
+  decision 2), `beats` (MATCH_BEAT after 2 s with nothing written and nothing
+  waiting, from the connection's own coroutine: players only), `caughtUp`.
+  `BoardStream` carries `sentAt` onto a delta; `SendQueue` notes when it last
+  wrote. The resume point is parsed as two whole numbers or nothing
+  (`ResumePoint.parse`).
+- **Page** (`frontend/src/`): `match.ts`: `arrive` (a board late by more than
+  1,500 ms against the connection's smallest gap, or missed after a
+  MATCH_CATCHUP, or any board while a catch-up is under way, joins
+  `catchUp`); `settleCatchUp` (after a jump, the same stall's late boards
+  still on their way follow it straight to now for 3 s: found in the unit
+  test of a 6 s replay, where the tenth late board would otherwise have
+  started a replay of its own); MATCH_BEAT naming a NEWER board (one lost on the way) asks for the
+  whole board; `connectMatch`: `skew` per connection, `resume` on every
+  reconnect and never on a fresh page, CAUGHT_UP at once when a return needs
+  nothing, the silence check (5 s: `stalled`; 10 s: close `4001` "silent" and
+  reconnect; a check run more than 2 s late judges nothing). `battlefield/
+  catchUp.ts` (new): the replay (each board held max(moment, 120 ms) / 3, its
+  moment estimated from the board: the other player's spell hold, a move's
+  glide, damage, life, a new turn), the limit (more than 20 updates, or the
+  estimate or the real run over 6 s), the jump, the away lines (the play log's
+  lines after the last one the page had when the table stopped, up to the
+  board drawn), `quicken` (every animation started meanwhile at 3x).
+  `GameScreen`: the board drawn is the replay's while catching up; the
+  question, the spell and swing holds and the report window wait; a click
+  anywhere on the table skips; `--pa-pace` a third; "Reconnecting to the
+  game…" also for a stalled connection (after its usual 1.5 s); `data-drawn`
+  on the screen (the board drawn, by game and revision: the browser test's
+  check). `CatchUpAct` (the act button's sign, canvas "Q3" A) and
+  `MissedWindow.tsx` (new, the report window's look, canvas "Q4" A).
+
+**Found by the browser test (RUN) and fixed:** a page that gives up on a
+silent line called `close()` and waited for the socket's close event to
+reconnect; on a frozen line that event never came (the relay never answered
+the close, as a frozen link would not), so the page sat on "Reconnecting to
+the game…" without reconnecting. Now the page treats the line as gone as it
+closes it, and ignores anything the old socket still says. Unit test: the
+10 s case with a socket whose close never completes (bitten: without the fix
+it fails). Found by the browser runs too: a spectator's connection (no beat:
+the server beats players only) and an older server's would have been judged
+silent on a quiet game; the silence check now starts only once the
+connection has been heard beating (unit test, bitten). The browser specs that
+wait for a quiet socket (match-slow-link, match-deltas, match-history) and the
+speed kit's update count now skip MATCH_BEAT; match-deltas' and
+match-history's cut connection now comes back naming its board and, holding
+the newest, is sent no board (`resumedOnNewest`), by design. Found by the
+jump check: a beat naming ANY other board made the page ask for a whole
+board, so the tools that replay their own boards over a real game's socket
+(the jump check, the bench) saw a resync on every beat; the rule is now
+"newer than the board held" (the spec's word: "ahead"), and those tools drop
+the real game's beat as they drop its deltas. And `quicken` leaves the style
+sheets' own animations alone (they are already a third as long through
+`--pa-pace`; unit test `catchUpQuicken`).
+
+**What a player sees** (RUN, the browser test, 1920x1080; screenshots in the
+session's scratchpad `catchup/shots/`): a 3 s stall on the other player's
+turn: six boards arrive late, the table steps through them from where it
+stopped, the act button showing the fast-forward coin with its turning gold
+ring, "Catching up…" and "Tap to skip" and the gold bar, for 0.8 s, then the
+table is live on the newest board. A click on the button: the sign is gone
+within 61-74 ms and the table is at the newest board. An 18 s stall while the
+game goes on: "Reconnecting to the game…" shows, at 10 s the page comes back
+naming its board (`resume=1.58`), the server's catch-up is past the limit, the
+table goes straight to now and "While you were away" opens above the hand:
+the clock medallion, "You missed 19 moves. Your table is up to date.", "in
+order", nineteen numbered play log lines (a turn's line in gold, each card's
+picture), ten shown and the rest scrolling, "The play log has them too." and
+CLOSE. A refresh: no window, and the fresh page names no board. Matched by
+eye against the canvases (`compare-sign.png`, `compare-away-window.png`).
+One wording difference, by the owner's answer 1 (the play log's own lines):
+a turn's line reads as the play log's heading, "Turn 12, Pat (your turn)",
+where the canvas drew "Your turn 8".
+
+**Tests and bites (TEST-004)** (RUN):
+
+```text
+server SeatReplayTest (11)   40 kept per seat with their steps, the oldest going first; kept across
+                             Karn's restart; every resume path (kept, newest, too old, another game,
+                             never sent to this seat, none, malformed); the public list apart; a
+                             player from their own list, a spectator from the public one; the catch-up
+                             MATCH_CATCHUP then the first board whole, then deltas, each with its own
+                             sentAt; the pump stamps, keeps and delivers each board and step for its
+                             seat; MATCH_BEAT after quiet, never while boards flow; CAUGHT_UP by type
+server bites (6, each caught) a resume reading the other seat's list (7 tests fail); a spectator from
+                             seat 1's list; a number found in another seat's list; the catch-up's
+                             first board a delta; a beat while boards flow; steps not kept
+page catchUpSocket (12),     late vs on time; skew reset on a new connection; resume on a reconnect
+catchUpScreen (9),           only; MATCH_CATCHUP's updates; CAUGHT_UP at once / a whole board's jump;
+carryA1screen (3)            the beat; the silence check (5 s, 10 s with a close that never
+                             completes, a beat every 2 s, a late check judging nothing); the queue's
+                             tail; on the real game screen: a late burst at 3x with the sign and bar,
+                             a MATCH_CATCHUP replayed with the question held until live, a click on
+                             the table and on the button skipping, 21 updates and a 6 s estimate
+                             jumping with the window (rows and count), motion down jumping, a
+                             whole board on return jumping with the window, boards on time
+                             unchanged; A1's discard stream and its number, the carry's rules
+page bites (13, each caught)  the replay at 1x; the question shown during it; the late check judging;
+                             skew not reset; no limit; motion down replaying; a click not skipping;
+                             the window listing the whole log; no silence check; the give-up not
+                             reconnecting (the fix above); a connection never heard beating judged
+                             silent; A1: the carried moves dropped (2 tests fail), the last-move
+                             rule dropped
+```
+
+**Hidden information (P11-R4)** (RUN): `check-deltas.py` gained the resume
+pass (its docstring): every stream is cut at every 7th board, misses 3 boards
+and resumes from that seat's own kept list through a new stream. Three Lab
+scenarios with the worker jar of the first stack (spectator, karn, numbers:
+9 traces): 2,640 boards, 1,450 deltas, **369 resumes (1,098 catch-up
+boards)**, on every stream including the public one, every board rebuilt
+equal to the worker's; then `check-snapshot-first`, `check-hidden-hands`,
+`check-hidden-log`, `check-hidden-tops`, `check-hidden-mulligans`,
+`check-hidden-information`, `check-kinds` and `check-wording` said exactly
+the same over the rebuilt traces as over the worker's (2,640 boards, 30,871
+cards, 8 the viewer may not see). Planted on the same traces, each fails the
+gate: a resume reading the other seat's list (1,064 problems), a spectator
+resumed from seat 1's list (30), the catch-up's first board a delta (344);
+in `--self-test` also a resume point found in any seat's list.
+`as-sent-traces.py --self-test` unchanged and passing.
+
+**Browser** (RUN, the first stack built from this worktree, Edge):
+`frontend/e2e/match-catchup.spec.ts` (new) as above, passed;
+six runs in all (the last four in a row passed: 6/6/6 boards late, the
+sign 0.8 s, the skip 62-119 ms after the click, the jump's windows 16-19
+lines). `node ci/ci-speed.mjs` (4x CPU, with each spec's CI neighbour):
+match-catchup passed (1.2 min); match-slow-link passed after its quiet
+measure learned to skip the beat (2.3 min; it had waited for 7 s with no
+message, which a beating line never gives); match-deltas and match-history
+passed after their cut connection learned `resume` (2.8 and 1.8 min). One
+neighbour, match-damage-tray, timed out once in its pregame (no catch-up in
+its trace) and passed alone: in ROADMAP's flake list. A filmed replay
+(Chrome's screencast, 109 frames, `CATCHUP_CLIP`): "RudeLeft's move", then
+"Catching up…" while the turn passes to the guest and its draw flies in,
+then "Next" and the question, live.
+
+**The jump check** (RUN, targeted, owner rule: never the full run): headed
+Edge, the first stack built from this commit, C3's 30 Lab traces, both
+seats, `JUMPS_DELTAS=1`, 41.5 minutes: `check-jumps.py`'s report is
+identical, line for line, to the last one on main (P11-C5's after-run,
+2026-11-25: the known flags only). A first run had failed on the beat rule
+above (a resync on every beat: the tool's own boards against the real
+game's beat); fixed, then run again in full.
+
+**Not done here (proportionate, owner's lean brief), owed:** F-0119-G
+(Karn's restart during a stall, browser), F-0119-I (the 10-minute hidden-tab
+run on the game page: the late check is unit-tested and bitten), F-0119-K
+(spectators with the switch on, browser: server unit-tested only), F-0119-L's
+measures (bytes per reconnect, memory for the kept boards), and a clip of
+A1's death in a real game (the screen test shows the death already played;
+the discard's stream is what changed).

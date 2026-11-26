@@ -848,6 +848,18 @@ const PACE_TABLE: Record<string, Record<string, PaceClass>> = {
     KEEP_MS: "move",
   },
   "payPicks.ts": { PAY_HOLD_MS: "wait" },
+  // P11-D6 (spec 0119): the catch-up's limit, its floor, and its estimate of a board's moment.
+  "catchUp.ts": {
+    CATCH_UP_LIMIT_MS: "limit",
+    MOMENT_FLOOR_MS: "wait",
+    LANDING_MS: "wait",
+    SPELL_MS: "derived",
+    MOVES_MS: "derived",
+    MORE_MOVE_MS: "wait",
+    DAMAGE_MS: "wait",
+    LIFE_MS: "wait",
+    TURN_MS: "wait",
+  },
   "piles.ts": {
     PEEL_MS: "move",
     TOKEN_GROW_MS: "move",
@@ -1010,6 +1022,7 @@ const UNPACED: [string, string, number][] = [
   ["Board.tsx", "SPELL_WAIT_MS", 6500],
   ["GameScreen.tsx", "RESPONSE_WINDOW_MS", 5000],
   ["GameScreen.tsx", "SWING_HOLD_MS", 1500],
+  ["catchUp.ts", "CATCH_UP_LIMIT_MS", 6000],
 ];
 
 const here = resolve(__dirname);

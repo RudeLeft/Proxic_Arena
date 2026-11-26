@@ -6155,3 +6155,196 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-reveal-card[tabindex] {
   cursor: pointer;
 }
+
+/* P11-D6 (spec 0119, owner decision 5 Q3 A) -- the act button while the
+   page catches up after a stall: "Catching up… / Tap to skip", a
+   fast-forward sign in the coin with a gold ring turning round it, and a
+   thin gold bar filling as the replay goes (canvas catchup-1119.html, "Q3"
+   option A: .rt-act.ff). The button itself skips. */
+.gs-waiting.gs-catchup {
+  margin: 0;
+  border-color: #8a7440;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  box-shadow:
+    0 0 0 1px rgb(201 163 90 / 30%),
+    0 0 18px rgb(240 190 90 / 18%),
+    0 3px 8px rgb(0 0 0 / 60%),
+    inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+.gs-catchup .gs-coin svg.gs-catchup-ff path {
+  fill: #e0a44a;
+  stroke: none;
+}
+.gs-catchup-ring {
+  position: absolute;
+  inset: -4px;
+  width: 54px;
+  height: 54px;
+  pointer-events: none;
+  animation: gs-catchup-turn 1.2s linear infinite;
+}
+.gs-catchup-ring circle {
+  fill: none;
+  stroke: #e0a44a;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 38 120;
+}
+@keyframes gs-catchup-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-catchup-ring {
+    animation: none;
+  }
+}
+.gs-catchup .gs-waiting-name {
+  color: #f2e6c8;
+}
+.gs-catchup .gs-waiting-sub {
+  color: #d9b26a;
+}
+.gs-catchup-bar {
+  position: absolute;
+  left: 36px;
+  right: 36px;
+  bottom: 6px;
+  height: 4px;
+  border-radius: 2px;
+  background: #232b35;
+  overflow: hidden;
+  pointer-events: none;
+}
+.gs-catchup-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #c9973f, #f2c95c);
+  box-shadow: 0 0 6px #f2c95c;
+  transition: width 120ms linear;
+}
+
+/* P11-D6 (spec 0119, Q4 A; owner answers 1 and 2) -- "While you were away":
+   the report window's look (spec 0071/0075), the canvas's rows: a clock
+   medallion, the count, "in order", each play log line numbered with its
+   first card's picture, a turn's line in gold, a longer list scrolling. */
+.gs-missed-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 48px;
+}
+.gs-missed-med {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 40% 35%, #f2d48a, #a8730f);
+  box-shadow:
+    0 0 0 2px #121a17,
+    0 0 0 3.5px #c9a35a;
+}
+.gs-missed-med svg {
+  width: 26px;
+  height: 26px;
+}
+.gs-missed-med svg circle,
+.gs-missed-med svg path {
+  fill: none;
+  stroke: #1a1206;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+.gs-missed-tx {
+  flex: 1;
+  min-width: 0;
+}
+.gs-missed-tx .gs-reveal-by {
+  margin-top: 5px;
+}
+.gs-missed-tx .gs-reveal-said {
+  margin: 5px 0 0;
+}
+.gs-missed-order {
+  flex: none;
+  margin-top: 4px;
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+  color: #9fb0a6;
+  white-space: nowrap;
+}
+.gs-missed-list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 370px;
+  overflow-y: auto;
+}
+.gs-missed-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 37px;
+  border-bottom: 1px solid #26332d;
+}
+.gs-missed-num {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #2a3340;
+  color: #c9d0da;
+  font-weight: 700;
+  font-size: var(--pa-size-sm);
+  line-height: 24px;
+  text-align: center;
+}
+.gs-missed-row p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--pa-card);
+  font-weight: 700;
+  font-size: var(--pa-size-base);
+  line-height: 1.2;
+  color: #e9e4da;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gs-missed-row p small {
+  margin-left: 6px;
+  font-family: var(--pa-text);
+  font-weight: 500;
+  font-size: var(--pa-size-xs);
+  color: #9fb0a6;
+}
+.gs-missed-turn p {
+  color: #e0c47a;
+}
+.gs-missed-pic {
+  flex: none;
+  width: 23px;
+  height: 32px;
+  border-radius: 2px;
+  border: 1px solid #3a4a42;
+  object-fit: cover;
+}
+.gs-missed-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.gs-missed-hold {
+  font-size: var(--pa-size-xs);
+  color: #8d9a92;
+}
+.gs-missed-foot .gs-reveal-close {
+  margin-left: auto;
+}

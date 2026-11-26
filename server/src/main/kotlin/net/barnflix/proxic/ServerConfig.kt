@@ -102,6 +102,13 @@ data class ServerConfig(
      */
     val spectatorDeltas: Boolean = false,
     /**
+     * Phase 11 P11-D6 (spec 0119) -- PROXIC_SPECTATOR_CATCHUP, default FALSE:
+     * a spectator's page that comes back is caught up from the public view's
+     * kept boards, as a player's is; switched on in a later release once the
+     * players' catch-up is proven (owner decision 2).
+     */
+    val spectatorCatchup: Boolean = false,
+    /**
      * TEST ONLY -- P11-D4 (PROXIC_TEST_DELTA_CHECK=true). Every delta also
      * carries the whole board, which the page compares with what it rebuilt
      * (DELTA_MISMATCH in its console). Set only by the local and CI compose
@@ -155,6 +162,7 @@ data class ServerConfig(
             "forgeWorkerJar=$forgeWorkerJar, dataRoot=$dataRoot, " +
             "staticRoot=$staticRoot, testDeals=$testDeals, " +
             "matchDeltas=$matchDeltas, spectatorDeltas=$spectatorDeltas, testDeltaCheck=$testDeltaCheck, " +
+            "spectatorCatchup=$spectatorCatchup, " +
             "sessionSecret=${mask(sessionSecretValue)}, " +
             "databasePassword=${mask(databasePasswordValue)})"
 
@@ -188,6 +196,7 @@ data class ServerConfig(
                 testTiming = getenv("PROXIC_TEST_TIMING")?.toBooleanStrictOrNull() ?: false,
                 matchDeltas = getenv("PROXIC_MATCH_DELTAS")?.toBooleanStrictOrNull() ?: true,
                 spectatorDeltas = getenv("PROXIC_SPECTATOR_DELTAS")?.toBooleanStrictOrNull() ?: false,
+                spectatorCatchup = getenv("PROXIC_SPECTATOR_CATCHUP")?.toBooleanStrictOrNull() ?: false,
                 testDeltaCheck = getenv("PROXIC_TEST_DELTA_CHECK")?.toBooleanStrictOrNull() ?: false,
                 matchRecordDays =
                     getenv("PROXIC_MATCH_RECORD_DAYS")?.toLongOrNull()?.takeIf { it > 0 }

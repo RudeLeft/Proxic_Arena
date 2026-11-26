@@ -200,7 +200,10 @@ export async function takeOver(
       if (
         takenOver &&
         typeof m === "string" &&
-        (m.includes('"DECISION_') || m.includes('"MATCH_ASKING"'))
+        (m.includes('"DECISION_') ||
+          m.includes('"MATCH_ASKING"') ||
+          // P11-D6 (spec 0119): the real game's beat names the real game's boards.
+          m.includes('"MATCH_BEAT"'))
       )
         return;
       ws.send(m);

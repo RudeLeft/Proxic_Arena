@@ -68,7 +68,11 @@ fun Route.matchSocket(
         // P11-D4 -- the page takes deltas (`?deltas=1`): a format choice, nothing else.
         val asks = hub.deltas.asked(call.request.queryParameters["deltas"])
         if (match != null && seat == null && mayWatch(match, runtime)) {
-            spectate(matchId!!, principal.user, runtime, hub, asks.spectators)
+            // P11-D6 -- a spectator coming back resumes too, only while the switch is on (decision 2).
+            val back =
+                ResumePoint.parse(call.request.queryParameters["resume"])
+                    .takeIf { hub.deltas.spectatorCatchup }
+            spectate(matchId!!, principal.user, runtime, hub, asks.spectators, back)
             return@webSocket
         }
         // Spec 0067 — a spectator back after the game ended here.
@@ -79,39 +83,54 @@ fun Route.matchSocket(
         }
 
         val connectionId = "mconn-${connectionSequence.incrementAndGet()}"
+        // P11-D6 (spec 0119) -- the board this page holds, when it came back
+        // (`?resume=<gameEpoch>.<stateRevision>`): only ever used to choose
+        // among this seat's OWN kept boards (§6.100).
+        val resumeFrom = ResumePoint.parse(call.request.queryParameters["resume"])
+        val live = runtime.liveMatch(matchId)
+        // P11-D6 -- opened and given its first messages under the replay's
+        // lock: the pump keeps and queues each board under it too
+        // (MatchDecisions), so a live board cannot fall between what a resume
+        // reads and what reaches this connection after it.
         val connection =
-            hub.watchers.open(
-                matchId,
-                userId,
-                connectionId,
-                outgoing,
-                deltas = asks.players,
-                check = hub.deltas.check,
-                // P11-D6 -- emptied on this socket's own coroutine; closed if it falls behind.
-                scope = this,
-                behind = { stuck, waiting, oldest -> fellBehind(matchId, stuck, waiting, oldest) },
-            )
+            synchronized(live?.replay ?: Any()) {
+                val opened =
+                    hub.watchers.open(
+                        matchId,
+                        userId,
+                        connectionId,
+                        outgoing,
+                        deltas = asks.players,
+                        check = hub.deltas.check,
+                        // P11-D6 -- emptied on this socket's own coroutine; closed if it falls behind.
+                        scope = this,
+                        behind = { stuck, waiting, oldest -> fellBehind(matchId, stuck, waiting, oldest) },
+                    )
+                // P11-D6 -- everything below goes through the connection's queue too,
+                // behind whatever live message reached it first, in order.
+                // Spec 0047 — how many are watching, from the start (spec 0067: and who).
+                hub.spectators.people(matchId).takeIf { it > 0 }?.let {
+                    opened.offer(Outgoing.Message(watchingNow(matchId, hub)))
+                }
+                // §6.110 — hello first, and NOT a decision before it.
+                opened.offer(Outgoing.Message(matchHelloMessage(matchId, seat)))
 
-        // P11-D6 -- everything below goes through the connection's queue too,
-        // behind whatever live message reached it first, in order.
+                // §6.110, §6.48 — STATE FIRST. A decision references
+                // objects by id, so the board has to arrive before
+                // the question that names them.
+                // P11-D3: through this connection's history, so it and a live
+                // board that reached the connection first cannot cross; the
+                // first board on a connection carries every list whole.
+                // P11-D6: or, coming back, the boards it missed (SeatReplay).
+                firstBoards(opened, playerResume(live, seat, resumeFrom)) {
+                    runtime.snapshotFor(matchId, userId)
+                }
+                opened
+            }
+        // P11-D6 -- MATCH_BEAT on a quiet line, from this connection's own coroutine.
+        val beating = launch { beats(connection) }
+
         try {
-            // Spec 0047 — how many are watching, from the start (spec 0067: and who).
-            hub.spectators.people(matchId).takeIf { it > 0 }?.let {
-                connection.offer(Outgoing.Message(watchingNow(matchId, hub)))
-            }
-            // §6.110 — hello first, and NOT a decision before it.
-            connection.offer(Outgoing.Message(matchHelloMessage(matchId, seat)))
-
-            // §6.110, §6.48 — STATE FIRST. A decision references
-            // objects by id, so the board has to arrive before
-            // the question that names them.
-            // P11-D3: through this connection's history, so it and a live
-            // board that reached the connection first cannot cross; the
-            // first board on a connection carries every list whole.
-            runtime.snapshotFor(matchId, userId)?.let { state ->
-                connection.offer(Outgoing.Message(snapshotMessage(state)))
-            }
-
             // §6.111, §6.112 — whatever Forge is still waiting for,
             // re-sent to the connection that just arrived. The
             // decision stayed pending while nobody was listening:
@@ -128,6 +147,7 @@ fun Route.matchSocket(
 
             listen(connection, runtime, matchId, userId, presence)
         } finally {
+            beating.cancel()
             connection.queue.stop()
             hub.watchers.close(matchId, userId, connectionId)
             boardsSent(matchId, connection)
@@ -155,6 +175,11 @@ private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.liste
         }
         // P11-D0 (test only): when the player's message was read; 0 while off.
         val read = MatchTiming.now()
+        // P11-D6 (spec 0119) -- the page's table is live again: noted, nothing else.
+        if (caughtUp(text)) {
+            connection.caughtUpAt = System.currentTimeMillis()
+            continue
+        }
         handle(text, matchId, userId, runtime, presence)?.let { reply ->
             val start = MatchTiming.now()
             connection.offer(Outgoing.Message(reply))
@@ -289,31 +314,39 @@ private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.spect
     runtime: MatchRuntime,
     hub: MatchHub,
     deltas: Boolean,
+    /** P11-D6 -- the public board this page holds, when it came back and the switch is on; else null. */
+    resumeFrom: ResumePoint? = null,
 ) {
     val userId = user.userId
     val connectionId = "mwatch-${connectionSequence.incrementAndGet()}"
     hub.spectatorNames[userId] = user.displayName
+    val live = runtime.liveMatch(matchId)
     // P11-D6 -- a spectator's connection has its own queue too: nothing waits on it.
+    // Opened, greeted and given its first boards under the replay's lock (as a player's).
     val connection =
-        hub.spectators.open(
-            matchId,
-            userId,
-            connectionId,
-            outgoing,
-            deltas,
-            hub.deltas.check,
-            scope = this,
-            behind = { stuck, waiting, oldest -> fellBehind(matchId, stuck, waiting, oldest) },
-        )
+        synchronized(live?.replay ?: Any()) {
+            val opened =
+                hub.spectators.open(
+                    matchId,
+                    userId,
+                    connectionId,
+                    outgoing,
+                    deltas,
+                    hub.deltas.check,
+                    scope = this,
+                    behind = { stuck, waiting, oldest -> fellBehind(matchId, stuck, waiting, oldest) },
+                )
+            opened.offer(Outgoing.Message(matchHelloMessage(matchId, PUBLIC_SEAT)))
+            // Spec 0067 — with the public play log so far. P11-D6: or, coming
+            // back (the switch on), the public boards missed: the public view's
+            // own kept list, never a seat's.
+            firstBoards(opened, spectatorResume(live, resumeFrom)) { live?.publicSnapshotWithLog() }
+            opened
+        }
     val resyncs = Resyncs(matchId, connectionId)
     watching(runtime, matchId, userId, on = true, anyoneLeft = true)
     tellPlayers(matchId, runtime, hub)
     try {
-        connection.offer(Outgoing.Message(matchHelloMessage(matchId, PUBLIC_SEAT)))
-        // Spec 0067 — with the public play log so far.
-        runtime.liveMatch(matchId)?.publicSnapshotWithLog()?.let { state ->
-            connection.offer(Outgoing.Message(snapshotMessage(state)))
-        }
         askingFor(runtime, matchId)?.let { asking -> connection.offer(Outgoing.Message(asking)) }
         for (frame in incoming) {
             // A spectator changes nothing: whatever arrives is dropped, but for

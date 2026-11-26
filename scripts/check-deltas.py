@@ -24,6 +24,19 @@ history trimming) and the page's (`PageModel`), and for every board:
   (d) HID-004: a game with boards and no delta fails (a gate that compared
       nothing would pass). The deltas per stream are printed.
 
+P11-D6 (spec 0119) adds a RESUME pass: on every stream, at every
+RESUME_EVERY-th board, the page's line dies and it misses the next MISSED
+boards (the server still sent them: they are in that seat's kept boards,
+the last REPLAY_KEPT, SeatReplay.kt); then it comes back naming the board it
+holds, exactly as the server would answer: found in the seat's OWN kept list,
+the boards after it through a NEW connection's stream (the first whole, then
+deltas), or, not found, today's whole board. Every board the page rebuilds
+from a catch-up must equal the worker's board for that seat (a), every id a
+catch-up delta names must be in its base or its board (b), and the first
+catch-up board must go whole. HID-004 again: the resumes and catch-up boards
+per stream are printed, and a stream long enough to be cut that never was
+fails.
+
 It writes every trace again to <out folder> with each board AS THE PAGE
 REBUILT IT, and the hidden checks then run over that folder exactly as over
 the Lab's (check-snapshot-first, check-hidden-hands, check-hidden-log,
@@ -52,6 +65,9 @@ ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "protocol" / "fixtures" / "delta"
 TYPED = re.compile(r"^(card|stack|known|copying):")
 WHOLE_REASONS = ("first", "epoch", "turn")
+RESUME_EVERY = 7   # spec 0119: the line dies at every 7th board of a stream
+MISSED = 3         # and the page misses this many boards before it comes back
+REPLAY_KEPT = 40   # SeatReplay.kt: the boards each seat keeps
 
 
 def ids(value, out=None):
@@ -75,6 +91,11 @@ class Plants:
     public_from_seat1 = False   # the public view's delta made from seat 1's board
     drop_moved = False          # `drop` keeps the id of an item that only moved
     no_checkpoint_reset = False  # the checkpoint keeps the history the page held
+    resume_other_seat = False    # spec 0119: a resume reads the other seat's kept boards
+    resume_public_seat1 = False  # spec 0119: a spectator resumed from seat 1's list
+    resume_any_seat = False      # spec 0119: a resume point found in any seat's list
+    catchup_first_delta = False  # spec 0119: the catch-up's first board sent as a delta
+    seat1_short = False          # (not a fault) seat 1 keeps one board: its resume finds nothing
 
 
 def stream_for(seat):
@@ -96,11 +117,73 @@ def planted_diff(base, board):
     return d
 
 
-def rewrite(lines):
-    """Trace lines -> (lines with each board as the page rebuilt it, problems, deltas per stream, boards)."""
+def point(board):
+    return (board or {}).get("gameEpoch"), (board or {}).get("stateRevision")
+
+
+def kept_for(rings, seat):
+    """The kept list a resume of [seat] reads: its own (planted: another's)."""
+    if Plants.resume_other_seat and seat in (1, 2):
+        return rings.get(3 - seat, [])
+    if Plants.resume_public_seat1 and seat == 0:
+        return rings.get(1, [])
+    return rings.get(seat, [])
+
+
+def resume(seat, page, rings, pending, streams, problems, counts):
+    """The page of [seat] comes back holding page.base: SeatReplay's answer, sent through a new stream."""
+    held = point(page.base)
+    kept = kept_for(rings, seat)
+    at = max((i for i, b in enumerate(kept) if point(b) == held), default=-1)
+    if at < 0 and Plants.resume_any_seat:
+        for other in sorted(rings):
+            found = max((i for i, b in enumerate(rings[other]) if point(b) == held), default=-1)
+            if found >= 0:
+                kept, at = rings[other], found
+                break
+    stream = streams[seat] = stream_for(seat)
+    counts["resumes"][seat] = counts["resumes"].get(seat, 0) + 1
+    after = kept[at + 1:] if at >= 0 else kept[-1:]
+    if at < 0:
+        # Not kept: today's whole board, the newest; the boards between are never drawn.
+        counts["whole"][seat] = counts["whole"].get(seat, 0) + 1
+        pending = pending[-1:]
+    if Plants.catchup_first_delta and at >= 0:
+        stream.base = kept[at]
+    for i, (o, sent) in enumerate(zip(pending, after)):
+        frame = o["frame"]
+        state = frame.get("state") or {}
+        rev = state.get("stateRevision")
+        base = stream.base
+        kind, body, why = stream.step(sent)
+        if i == 0 and kind != "MATCH_SNAPSHOT":
+            problems.append(f"seat {seat} rev {rev}: a catch-up's first board went as a delta")
+        if kind == "MATCH_DELTA":
+            extra = sorted(ids({k: v for k, v in body.items() if k != "whole"}) - (ids(base) | ids(sent)))
+            if extra:
+                problems.append(f"seat {seat} rev {rev}: a catch-up delta names {extra[:3]}, in neither its base nor its board")
+        rebuilt = page.take(kind, body)
+        if rebuilt != state:
+            problems.append(f"seat {seat} rev {rev}: the catch-up rebuilt a board that is not the worker's")
+        counts["caught"][seat] = counts["caught"].get(seat, 0) + 1
+        frame["state"] = rebuilt if rebuilt is not None else state
+    if len(after) < len(pending):
+        # Not kept (today's whole board): the boards between are never drawn; as the worker made them.
+        pass
+
+
+def rewrite(lines, resume_every=None):
+    """Trace lines -> (lines with each board as the page rebuilt it, problems, deltas per stream, boards).
+
+    [resume_every] (spec 0119): every so many boards a stream's page misses MISSED
+    and comes back (`resume`); the counts are in rewrite.counts after a run.
+    """
     streams, pages, last_any = {}, {}, {}
     out, problems = [], []
     deltas, boards = {}, 0
+    rings, seen, missing, pending = {}, {}, {}, {}
+    counts = {"resumes": {}, "caught": {}, "whole": {}}
+    rewrite.counts = counts
     mw.diff = planted_diff
     try:
         for line in lines:
@@ -118,6 +201,23 @@ def rewrite(lines):
             boards += 1
             stream = streams.setdefault(seat, stream_for(seat))
             page = pages.setdefault(seat, mw.PageModel())
+            if resume_every:
+                # SeatReplay: every board this seat is sent is kept (the last REPLAY_KEPT).
+                ring = rings.setdefault(seat, [])
+                ring.append(state)
+                del ring[:-(1 if seat == 1 and Plants.seat1_short else REPLAY_KEPT)]
+                seen[seat] = seen.get(seat, 0) + 1
+                if not missing.get(seat) and seen[seat] % resume_every == 0 and page.base is not None:
+                    missing[seat] = MISSED
+                if missing.get(seat):
+                    # The line is dead: sent, kept, never read. Filled in when the page comes back.
+                    missing[seat] -= 1
+                    pending.setdefault(seat, []).append(o)
+                    out.append(o)
+                    continue
+                if pending.get(seat):
+                    resume(seat, page, rings, pending.pop(seat), streams, problems, counts)
+                    stream = streams[seat]
             # The stream's own last board: what this viewer was really sent before.
             base = stream.base
             # Planted: the base taken from another stream's board of the same round
@@ -149,9 +249,12 @@ def rewrite(lines):
                 kept.pop(r, None)
             frame["state"] = rebuilt if rebuilt is not None else state
             out.append(json.dumps(o))
+        # The trace ended with a page still away: it comes back now.
+        for seat in list(pending):
+            resume(seat, pages[seat], rings, pending.pop(seat), streams, problems, counts)
     finally:
         mw.diff = _diff
-    return out, problems, deltas, boards
+    return [x if isinstance(x, str) else json.dumps(x) for x in out], problems, deltas, boards
 
 
 def main(argv):
@@ -161,18 +264,38 @@ def main(argv):
     dst.mkdir(parents=True, exist_ok=True)
     files = sorted(src.glob("*.jsonl"))
     total, total_deltas, bad = 0, 0, []
+    total_resumes, total_caught = 0, 0
     for f in files:
-        out, problems, deltas, boards = rewrite(f.read_text(encoding="utf-8").splitlines())
+        lines = f.read_text(encoding="utf-8").splitlines()
+        out, problems, deltas, boards = rewrite(lines, RESUME_EVERY)
+        counts = rewrite.counts
         (dst / f.name).write_text("\n".join(out) + "\n", encoding="utf-8")
         total += boards
         total_deltas += sum(deltas.values())
-        streams = ", ".join(f"{'public' if s == 0 else f'seat {s}'} {n}" for s, n in sorted(deltas.items()))
-        print(f"{f.stem}: {boards} boards, deltas {streams or 'none'}")
+        total_resumes += sum(counts["resumes"].values())
+        total_caught += sum(counts["caught"].values())
+        name = lambda s: "public" if s == 0 else f"seat {s}"
+        streams = ", ".join(f"{name(s)} {n}" for s, n in sorted(deltas.items()))
+        resumed = ", ".join(f"{name(s)} {n} ({counts['caught'].get(s, 0)} boards)"
+                            for s, n in sorted(counts["resumes"].items()))
+        print(f"{f.stem}: {boards} boards, deltas {streams or 'none'}; resumes {resumed or 'none'}")
         if boards and not deltas:
             problems.append("boards but no delta: the gate compared nothing (HID-004)")
+        # HID-004 (spec 0119): a stream long enough to be cut that never was resumed.
+        per = {}
+        for line in lines:
+            try:
+                fr = json.loads(line).get("frame") or {}
+            except ValueError:
+                continue
+            if fr.get("type") == "MATCH_SNAPSHOT":
+                per[fr.get("seat")] = per.get(fr.get("seat"), 0) + 1
+        for s, n in per.items():
+            if n > RESUME_EVERY + MISSED and not counts["caught"].get(s):
+                problems.append(f"{name(s)}: {n} boards and no catch-up board: the resume pass compared nothing (HID-004)")
         bad += [f"{f.name}: {p}" for p in problems]
-    print(f"{len(files)} traces, {total} boards, {total_deltas} sent as deltas, "
-          f"rebuilt as the page does to {dst}")
+    print(f"{len(files)} traces, {total} boards, {total_deltas} sent as deltas, {total_resumes} resumes "
+          f"({total_caught} catch-up boards), rebuilt as the page does to {dst}")
     if bad:
         print(f"WRONG: {len(bad)} problem(s); first: {bad[0]}")
         return 1
@@ -267,6 +390,27 @@ def self_test():
 
     _, clean, deltas, _ = rewrite(trace())
     results["clean: no problem, deltas on every stream"] = not clean and set(deltas) == {0, 1, 2}
+    # Spec 0119: the resume pass, clean, cuts every stream and rebuilds every board exactly.
+    _, clean, _, _ = rewrite(trace(), 3)
+    caught = rewrite.counts["caught"]
+    results["resume, clean: no problem, catch-up boards on every stream"] = (
+        not clean and set(caught) == {0, 1, 2})
+    Plants.seat1_short = True
+    _, clean, _, _ = rewrite(trace(), 3)
+    Plants.seat1_short = False
+    results["resume, not kept: today's whole board, no problem"] = (
+        not clean and rewrite.counts["whole"].get(1, 0) > 0)
+    for plant in ("resume_other_seat", "resume_public_seat1", "resume_any_seat", "catchup_first_delta"):
+        setattr(Plants, plant, True)
+        try:
+            # The any-seat fault shows when seat 1's own list no longer reaches its
+            # page's board (only the other seat's list has that revision).
+            Plants.seat1_short = plant == "resume_any_seat"
+            _, problems, _, _ = rewrite(trace(), 3)
+        finally:
+            setattr(Plants, plant, False)
+            Plants.seat1_short = False
+        results[f"planted, caught: {plant}"] = bool(problems)
     for plant in ("other_seat_base", "public_from_seat1", "drop_moved", "no_checkpoint_reset"):
         setattr(Plants, plant, True)
         try:

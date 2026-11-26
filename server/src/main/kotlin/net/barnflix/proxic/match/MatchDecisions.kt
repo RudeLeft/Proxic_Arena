@@ -17,6 +17,8 @@ import org.slf4j.LoggerFactory
 
 class MatchDecisions(
     private val announcer: DecisionAnnouncer,
+    /** P11-D6 -- the server's clock, for each board's and step's `sentAt` (tests fix it). */
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private val log = LoggerFactory.getLogger(MatchDecisions::class.java)
 
@@ -51,7 +53,9 @@ class MatchDecisions(
                     // authorises the fetch (§6.129).
                     val pictured = MatchTiming.now()
                     val state = live.art.annotate(event.state, event.seat)
-                    live.snapshotTaken(event.seat, state)
+                    // P11-D6 (spec 0119) -- stamped once, kept for a resume, and
+                    // queued for the seat under the replay's lock (SeatReplay).
+                    val message = snapshotMessage(state, clock())
                     if (MatchTiming.on) {
                         val dur = MatchTiming.now() - pictured
                         MatchTiming.mark(
@@ -62,11 +66,12 @@ class MatchDecisions(
                             "dur" to dur,
                         )
                     }
-                    live.match.participants
-                        .firstOrNull { it.seatNumber == event.seat }
-                        ?.let { seat ->
-                            tell { announcer.snapshot(live.match.matchId, seat.userId, state) }
-                        }
+                    val user = live.match.participants.firstOrNull { it.seatNumber == event.seat }?.userId
+                    synchronized(live.replay) {
+                        live.snapshotTaken(event.seat, state)
+                        live.replay.keep(event.seat, message)
+                        user?.let { tell { announcer.deliver(live.match.matchId, it, message) } }
+                    }
                 }
 
             // Not this class's business: the match LIFECYCLE
@@ -94,11 +99,19 @@ class MatchDecisions(
             }
 
             // AMENDMENT 13 — public: everybody's step bar moves.
+            // P11-D6 -- each seat's own message, stamped and kept with its boards.
             is WorkerEvent.Step -> {
-                live.match.participants.map { it.userId }.distinct().forEach { user ->
-                    tell { announcer.step(live.match.matchId, user, event.state) }
+                val now = clock()
+                synchronized(live.replay) {
+                    live.match.participants.distinctBy { it.userId }.forEach { seat ->
+                        val message = stepMessage(event.state, now)
+                        live.replay.keep(seat.seatNumber, message)
+                        tell { announcer.deliver(live.match.matchId, seat.userId, message) }
+                    }
+                    val public = stepMessage(event.state, now)
+                    live.replay.keep(PUBLIC_SEAT, public)
+                    tell { announcer.spectate(live.match.matchId, public) }
                 }
-                tell { announcer.spectate(live.match.matchId, stepMessage(event.state)) }
             }
 
             // §7.55 — to the player who conceded, and nobody else.
@@ -131,8 +144,12 @@ class MatchDecisions(
         event: WorkerEvent.Snapshot,
     ) {
         val state = live.art.annotate(event.state, PUBLIC_SEAT)
-        live.snapshotTaken(PUBLIC_SEAT, state)
-        tell { announcer.spectate(live.match.matchId, snapshotMessage(state)) }
+        val message = snapshotMessage(state, clock())
+        synchronized(live.replay) {
+            live.snapshotTaken(PUBLIC_SEAT, state)
+            live.replay.keep(PUBLIC_SEAT, message)
+            tell { announcer.spectate(live.match.matchId, message) }
+        }
     }
 
     private fun ask(
