@@ -1200,7 +1200,7 @@ export function mergePlayLog(log: PlayLogLine[], incoming: PlayLogLine[]): PlayL
 export type MatchConnection = "connecting" | "open" | "reconnecting" | "closed";
 
 /** Fixed while building spec 0102 -- the boards kept for carry.ts (a hold is never longer). */
-const RECENT_KEPT = 30;
+const RECENT_KEPT = 50;
 
 export interface MatchState {
   connection: MatchConnection;
