@@ -32,23 +32,19 @@
 // or 4 runs one). Results: redraw-bench-<cpu>x.json, redraw-game-<cpu>x.json
 // and wire-game-<cpu>x.json in PROXIC_MEASURE_OUT.
 
-import { expect, test, type Browser, type Page, type WebSocketRoute } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { secondPassword, secondUser, signIn, signInAs } from "../../e2e/helpers";
 import {
   boardCards,
   cardCount,
-  clearEverything,
   clickNow,
   settle,
-  sharedDeck,
   startAMatch,
   watchGame,
 } from "../../e2e/match-helpers";
 import {
   BIG,
-  RECORDER,
   attackLeavingThemAlive,
   attackWithAll,
   attackers,
@@ -61,10 +57,10 @@ import {
   step,
   theirLife,
 } from "../../e2e/speed-kit";
-import { DeltaStream, WholeBoards } from "../../src/delta";
+import { bigTable, busyChange, still, takeOver, twoPlayers } from "./bench";
 import { perUpdate, timer, type Timer } from "./probes";
 import { serverCpuMs, writeResult, type Row } from "./results";
-import { boardMakeup, countBytes, tap, wireBytesIn, wireNumbers, type Counter } from "./wire";
+import { boardMakeup, countBytes, wireBytesIn, wireNumbers, type Counter } from "./wire";
 
 const pkg = join(process.cwd(), "..", "Test Deck", "green-deck.zip");
 const CPUS = (process.env.PROXIC_MEASURE_CPU ?? "1,4").split(",").map(Number);
@@ -76,218 +72,27 @@ const SIDES = [10, 100];
 test.skip(({ browserName }) => browserName !== "chromium", "Chrome's DevTools protocol only");
 test.beforeEach(() => test.skip(!existsSync(pkg), "no green deck package"));
 
-/** Two players signed in, the deck shared, nothing left over. */
-async function twoPlayers(browser: Browser, init = true, tapped = false) {
-  // P11-D2: the real game's pages go through a counting relay each, so the
-  // wire rows can say what crossed the wire as well as what the page read.
-  const target = new URL(process.env.PROXIC_E2E_URL ?? "http://127.0.0.1:8080");
-  const taps = tapped ? [await tap(target), await tap(target)] : [];
-  const options = (i: number) => ({
-    viewport: { width: 1920, height: 1080 },
-    ...(taps[i] ? { baseURL: taps[i].base } : {}),
-  });
-  const contexts = [await browser.newContext(options(0)), await browser.newContext(options(1))];
-  if (init) await contexts[0]!.addInitScript(RECORDER);
-  const [host, guest] = [await contexts[0]!.newPage(), await contexts[1]!.newPage()];
-  await signIn(host);
-  await clearEverything(host);
-  await signInAs(guest, secondUser, secondPassword);
-  await clearEverything(guest);
-  const deck = await sharedDeck(host, guest, pkg);
-  const done = async () => {
-    await clearEverything(host).catch(() => undefined);
-    await clearEverything(guest).catch(() => undefined);
-    for (const c of contexts) await c.close();
-    for (const t of taps) await t.close();
-  };
-  return { host, guest, deck, done, taps };
-}
-
-/** Wait until nothing that ends is still moving on [page] (looping glows don't count). */
-async function still(page: Page) {
-  await page
-    .waitForFunction(
-      () =>
-        document
-          .getAnimations()
-          .every((a) => a.playState !== "running" || a.effect?.getTiming().iterations === Infinity),
-      undefined,
-      { timeout: 15_000, polling: 100 },
-    )
-    .catch(() => undefined);
-  await page.waitForTimeout(500);
-}
-
 // --- 1. the replayed table ---------------------------------------------------------------------
-
-type Card = Record<string, unknown> & { id: string };
-type State = Record<string, unknown> & {
-  seat: number;
-  battlefield: Card[];
-  hand: Card[];
-  players: (Record<string, unknown> & { seat: number; life: number })[];
-  stateRevision: number;
-};
-
-/**
- * [side] permanents a side (40: 16 Forests, 24 Grizzly Bears; two fifths
- * Forests at any size), made from the deck's own cards.
- */
-function bigTable(base: State, side = 40): State {
-  const forest = base.hand.find((c) => c["name"] === "Forest") ?? base.hand[0]!;
-  const bear = base.hand.find((c) => c["kind"] === "creature") ?? {
-    ...forest,
-    name: "Grizzly Bears",
-    kind: "creature",
-    types: "Creature - Bear",
-  };
-  const seats = base.players.map((p) => p.seat);
-  const battlefield: Card[] = [];
-  let id = 9000;
-  for (const seat of seats)
-    for (let i = 0; i < side; i++) {
-      const land = i < Math.round(side * 0.4);
-      const from = land ? forest : bear;
-      battlefield.push({
-        ...from,
-        id: `card:${++id}`,
-        seat,
-        owner: seat,
-        enteredAt: 1,
-        tapped: false,
-        faceDown: false,
-        known: true,
-        ...(land
-          ? { kind: "land", types: "Basic Land - Forest", makes: ["G"] }
-          : {
-              kind: "creature",
-              power: 2,
-              toughness: 2,
-              basePower: 2,
-              baseToughness: 2,
-              damage: 0,
-              sick: false,
-              attacking: false,
-              blocking: false,
-            }),
-      });
-    }
-  return { ...base, battlefield, stack: [], casting: [], payments: [] };
-}
-
-/** The busy table's k-th change, made on [s] (k from 0). */
-function busyChange(s: State, k: number): State {
-  const me = s.seat;
-  const mine = (kind: string) =>
-    s.battlefield.filter((c) => c["seat"] === me && c["kind"] === kind);
-  const theirs = (kind: string) =>
-    s.battlefield.filter((c) => c["seat"] !== me && c["kind"] === kind);
-  const set = (id: string, patch: Record<string, unknown>) => ({
-    ...s,
-    battlefield: s.battlefield.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-  });
-  switch (k % 5) {
-    case 0: {
-      const land = mine("land")[k % 16]!;
-      return set(land.id, { tapped: !land["tapped"] });
-    }
-    case 1: {
-      const bear = theirs("creature")[0]!;
-      return {
-        ...s,
-        battlefield: [...s.battlefield, { ...bear, id: `card:${9500 + k}`, enteredAt: 100 + k }],
-      };
-    }
-    case 2: {
-      const bear = mine("creature")[k % 24]!;
-      return set(bear.id, { attacking: true, tapped: true });
-    }
-    case 3: {
-      const attacking = s.battlefield.find((c) => c["attacking"] === true);
-      const after = attacking ? set(attacking.id, { attacking: false }) : s;
-      return {
-        ...after,
-        players: after.players.map((p) => (p.seat === me ? p : { ...p, life: p.life - 2 })),
-      };
-    }
-    default: {
-      const gone = theirs("creature").at(-1)!;
-      return { ...s, battlefield: s.battlefield.filter((c) => c.id !== gone.id) };
-    }
-  }
-}
 
 test("bench: a 40-a-side table and one land tapping, replayed", async ({ browser }) => {
   test.setTimeout(30 * 60_000);
   for (const cpu of CPUS) {
-    const { host, guest, deck, done } = await twoPlayers(browser);
-    let client: WebSocketRoute | null = null;
-    let takenOver = false;
-    let base: { message: Record<string, unknown>; state: State } | null = null;
-    const whole = new WholeBoards();
-    await host.routeWebSocket("**/ws/matches/**", (ws) => {
-      client = ws;
-      const server = ws.connectToServer();
-      server.onMessage((m) => {
-        if (typeof m === "string" && /"MATCH_(SNAPSHOT|DELTA)"/.test(m)) {
-          if (takenOver) return;
-          // P11-D3: the whole board (its history rebuilt), so the replayed table is whole.
-          // P11-D4: a delta rebuilt too, and the page handed the whole board, so
-          // the bench's boards (built from this one) meet no later delta.
-          const text = whole.take(m);
-          const message = JSON.parse(text) as Record<string, unknown> & { state: State };
-          base = { message, state: message.state };
-          ws.send(text);
-          return;
-        }
-        if (
-          takenOver &&
-          typeof m === "string" &&
-          (m.includes('"DECISION_') || m.includes('"MATCH_ASKING"'))
-        )
-          return;
-        ws.send(m);
-      });
-      ws.onMessage((m) => server.send(m));
-    });
+    const { host, guest, deck, done } = await twoPlayers(browser, pkg);
     const rows: Row[] = [];
     try {
-      await startAMatch(host, guest, deck);
-      await expect.poll(() => base !== null && client !== null, { timeout: 120_000 }).toBe(true);
-      await host.waitForTimeout(2_000);
-      takenOver = true;
-      const b = base!;
-      let rev = b.state.stateRevision + 1_000;
-      let now = bigTable(b.state);
-      // P11-C2: the boards go as the server sends them (P11-D4): a whole board
-      // first, then only what changed (`DeltaStream`, the server's rule), so the
-      // page builds each on the one it holds and an unchanged card stays the
-      // same object. PROXIC_MEASURE_WHOLE=1 sends every board whole, as before.
-      const stream = new DeltaStream();
-      const send = (s: State) => {
-        now = { ...s, stateRevision: ++rev };
-        const out = WHOLE ? { type: "MATCH_SNAPSHOT", body: now } : stream.step(now);
-        client!.send(
-          JSON.stringify(
-            out.type === "MATCH_SNAPSHOT"
-              ? { ...b.message, state: out.body }
-              : {
-                  protocolVersion: b.message["protocolVersion"],
-                  messageId: b.message["messageId"],
-                  type: out.type,
-                  ...out.body,
-                },
-          ),
-        );
-      };
+      const bench = await takeOver(host, guest, deck, WHOLE);
+      const b = bench.base;
+      const send = bench.send;
       /** Twenty boards, each tapping or untapping one of the viewer's Forests, 0.7 s apart. */
       const tapOneLand = () => {
+        const now = bench.now();
         const land = now.battlefield.find((c) => c["seat"] === now.seat && c["kind"] === "land")!;
         return t.time(async () => {
           for (let k = 0; k < 20; k++) {
+            const at = bench.now();
             send({
-              ...now,
-              battlefield: now.battlefield.map((c) =>
+              ...at,
+              battlefield: at.battlefield.map((c) =>
                 c.id === land.id ? { ...c, tapped: !c["tapped"] } : c,
               ),
             });
@@ -295,7 +100,7 @@ test("bench: a 40-a-side table and one land tapping, replayed", async ({ browser
           }
         });
       };
-      send(now);
+      send(bigTable(b));
       await expect(host.locator(".bf-cards [data-zone^='viewer:']").first()).toBeVisible();
       await still(host);
       const t: Timer = await timer(host, cpu);
@@ -313,7 +118,7 @@ test("bench: a 40-a-side table and one land tapping, replayed", async ({ browser
       await still(host);
       const busy = await t.time(async () => {
         for (let k = 0; k < 20; k++) {
-          send(busyChange(now, k));
+          send(busyChange(bench.now(), k));
           await host.waitForTimeout(1_000);
         }
       });
@@ -322,7 +127,7 @@ test("bench: a 40-a-side table and one land tapping, replayed", async ({ browser
       // P11-C2 -- how the work scales with the table: the same land tap on a
       // table of 10 and of 100 permanents a side.
       for (const side of SIDES) {
-        send(bigTable(b.state, side));
+        send(bigTable(b, side));
         await still(host);
         const cards =
           (await cardCount(boardCards(host, "viewer"))) +
@@ -345,7 +150,7 @@ type Scene = "idle" | "hover" | "cast" | "combat" | "end";
 test("game: match-speed's moments, per update, and the wire", async ({ browser }) => {
   test.setTimeout(50 * 60_000);
   for (const cpu of CPUS) {
-    const { host, guest, deck, done, taps } = await twoPlayers(browser, true, true);
+    const { host, guest, deck, done, taps } = await twoPlayers(browser, pkg, true, true);
     const wires: Counter[] = [countBytes(host), countBytes(guest)];
     /** What crossed the wire on each seat's match socket, beside what its page read. */
     const onWire = (i: number, from: number, to: number) => {

@@ -3370,3 +3370,308 @@ eslint, prettier, vitest (1913/1913, 136 files), `vite build`,
 the layout, the glide pass): C3, C4 and C5's. The browser measure could not
 show C2's saving through today's spread; a quieter PC (no second stack
 running) would show whether the replayed table's 4x land tap moves at all.
+
+## As built: P11-C5 (and B2) (2026-11-25)
+
+Branch `p11-c5`, built in its own worktree against the first local stack
+(port 8080), from f08b0e66. One change a player could see is possible in
+principle (a layer), so it was checked frame by frame: nothing looks
+different (below, P11-R1).
+
+**The repaint measure (new, in the kit).** `node ci/measure.mjs repaint`
+runs `frontend/tools/measure/repaint.spec.ts` with `repaint.ts`: Chrome's
+`Paint` event says only that a layer painted (its clip is the layer's, C1),
+so the measure reads where the compositor really drew again. With the
+trace categories `disabled-by-default-devtools.timeline.layers` and
+`disabled-by-default-blink.invalidation`, every frame carries the
+compositor's layer tree (`LayerTreeHostImpl:snapshot`), and each layer
+Blink invalidated in that frame's commit names the rectangles, the object
+that asked and why (`annotated_invalidation_rects`). Per commit the
+rectangles are placed on screen through each layer's quad and unioned on a
+2 px grid (`measureSnapshots`); then, per update: the painted area; the
+part outside the moment's target (`targetsOf`: the cards the board changed,
+before and after, the piles holding them, the stack while a spell is on it,
+the plates when a life total changed); the same with each card's own lift
+shadow counted in (`SHADOW`: a gliding card is lifted, Phase 10 A-00, and
+its layer is cut about 0.35 of its height round it); the layers the
+compositor holds and their tiles' memory (most at once); and the area by
+the object that asked (`repaint-causes.json`, read by a person). The other
+page of the game is frozen while a stretch is measured
+(`Page.setWebLifecycleState`). The first commits after the categories come
+on carry the whole page (Blink starts tracking), so each stretch starts at a
+mark after a 400 ms lead-in. The bench is the redraw measure's, moved into
+`bench.ts` (its boards and rhythm unchanged), with the moments as boards:
+`tapLand` (10 boards, 0.7 s apart), `casts` (a hand Grizzly Bears onto the
+stack, two Forests paying, then onto the table; three times), `combatStep`
+(two attack, one is blocked, damage kills both fighters and costs 2 life,
+the end; twice), at 10, 40 and 100 permanents a side, and the busy board
+(below). A second test, "busy board", is P11-B2's (below).
+
+**Causes found (RUN, the measure's causes and the layer trees).**
+
+1. **The big one: a whole window drawn again, two or three times, for each
+   cast and each combat step.** Whenever a card starts a Glide or a cast card
+   flies, the browser lifts everything painted after it that overlaps it into
+   new layers: the effects overlay (`.bf-effects`), the stack's words
+   (`.bf-stack-caption`), the flights (`.gs-flights`) and the chat tab, each
+   a layer the size of the window ("Overlaps other composited content"), and
+   each new layer is drawn in full ("full layer"); when the move ends they
+   are dropped, and the next move makes them again. 2.2-3.3 million px per
+   update in a cast (a 1920 x 1080 window is 2.07 million), 1.1-1.6 million
+   in a combat. Most of those tiles are empty (the compositor finds them
+   transparent and keeps no memory for them), so the work is cheaper than
+   the area, but it is the area Chrome's paint flashing shows.
+2. **What is left is the moving cards' own drawing.** Each card that glides
+   (the land that taps, its ghost leaving the pile, a cast card, a fighter)
+   is drawn once in full as it starts and as it lands: its box plus its lift
+   shadow (`.bf-moving .bf-card`'s `box-shadow`, which comes and goes with
+   the move, so the card must be drawn again whatever layer it is in), its
+   pile number, its state tab and its mana sign. That is the approved Glide
+   look (Phase 10 A-00), not waste.
+3. **On a crowded table more cards move.** At 100 a side a land leaving its
+   pile re-spaces its row, and the neighbours glide too (P10-R1): 28 thousand
+   px per tap outside the land's own box and shadow.
+4. **Idle is 0** on every table (no commit invalidates anything), with or
+   without 32 flyers: the looping animations (flyers' bob, the z's, the
+   breath) are drawn by the compositor. They do restyle every frame (C1's
+   finding): with flyers 29-34 ms per 5 s at 1x, 136-162 at 4x (busy board
+   below). That is style time, not painting, and not this item's.
+5. **Looping animations that would repaint every frame** (they animate a
+   painted property): the arrows' flowing beam and the swords' glint
+   (`stroke-dashoffset` in an SVG, and SVG parts cannot be composited, so
+   their haze, embers and ripples repaint their SVG too), a phased card's
+   shimmer (`background-position`), the split-second ring and the tile
+   breath (`box-shadow`), the chat tab's flash (`background`,
+   `box-shadow`), and the targeted life banner and the holder glow
+   (`filter`). None runs on the bench's boards; they repaint only while
+   their moment shows. Not changed: making them compositor-only means
+   drawing them differently (a look change, P11-R1).
+
+**The fix (built): the effects overlay keeps a layer of its own.**
+`battlefield.css` `.bf-effects` has `will-change: transform`. With it always
+composited, the content painted after it is always in the layers above it,
+so a card starting to move no longer changes how the page is split into
+layers, and nothing is made or drawn in full again. It changes nothing seen:
+the overlay already stacks on its own (positioned, z-index `Z_EFFECTS`), so
+no new stacking order; it is already the containing block for its absolute
+parts and holds nothing fixed (the sparks, numbers and fight marks), so
+nothing moves; and the text after it was already in see-through layers
+(grayscale text) at rest before (the layer trees' `lcd_text_disallowed_reason`,
+RUN), as after. Tried and dropped: the same on `.gs-flights` alone (a third to
+a half of the saving), on the four layers together (no more than `.bf-effects` alone),
+`contain: paint` on the art window (no change: the moving card's layer is
+its lift shadow, not the art), and every card slot on a layer of its own
+(no change to what a move draws, for the reason in cause 2).
+
+**Before and after (RUN, 2026-11-25, `node ci/measure.mjs repaint`, 3 runs
+each, the owner's PC (13th Gen Intel Core i5-13600KF x20 / 32 GB),
+Playwright's bundled Chromium (headless shell), 1920x1080; the first local
+stack built from the worktree: before at f08b0e66, after with the fix; the
+second stack was up throughout, idle).** Medians of 3, per update; "!" a
+number whose runs are not all within ±10%. Areas in thousands of px
+squared; layer memory is the tiles' (a software raster's shared memory in
+headless Chromium, a GPU's elsewhere), the most at once.
+
+```text
+moment            painted       outside      outside, with   commits   layers      layer KB
+                                the box      the shadow      /update   (most)      (most)
+10 idle           0 > 0         0 > 0        0 > 0           0 > 0     42! > 0!    18912! > 0!
+10 tap-one-land   45.3 > 45.3   24.8 > 24.8  1.9 > 1.9       1 > 1     46 > 48     19184! > 20928
+10 cast           3309! > 483   2934! > 328  2221! > 61.4    2 > 1.5   52 > 53     22800 > 24752
+10 combat         1336! > 102!  1195! > 48!  1139! > 20.7!   1 > 1     90 > 90     21392! > 23568
+40 idle           0 > 0         0 > 0        0 > 0           0 > 0     48! > 0!    20704! > 0!
+40 tap-one-land   58.3 > 58.3   38 > 38      3.7 > 3.7!      1 > 1     54 > 56!    20240! > 21984
+40 cast           3309! > 495   2945! > 339  2203! > 63.8    2 > 1.5   60 > 61     23584 > 25552
+40 combat         1355! > 107   1212! > 60.6 1148! > 29.8    1 > 0.9   98 > 98     22240! > 24336
+100 idle          0 > 0         0 > 0        0 > 0           0 > 0     62! > 0!    22624! > 0!
+100 tap-one-land  97.3 > 97.3   71.5 > 71.5  28.1 > 28.1     1 > 1     74 > 76!    21872! > 23616
+100 cast          3309! > 517   2947! > 367  2206! > 78.5    2 > 1.5   83 > 84!    25568 > 27536
+100 combat        1129! > 141   991! > 90.9  929! > 59.2     0.9 > 0.8 112 > 113   24384! > 26016
+b2 idle           0 > 0         0 > 0        0 > 0           0 > 0     52 > 54!    20400! > 21536
+b2 busy           36 > 36!      20.8 > 20.7! 9.5 > 9.4!      0.4 > 0.4 68 > 70     21072! > 22448
+```
+
+- **Cast: 85% less painted (3,309 to 495 thousand px per update at 40 a
+  side), and 97% less outside the cards' own drawing (2,203 to 64).
+  Combat: 92% less (1,355 to 107), outside 1,148 to 30.** Before, the cast
+  rows were not steady (2,272-3,309: how many window-sized layers were made
+  depended on timing); after, the three runs agree to 0.1.
+- **The land tap is unchanged, and already met the target** (below).
+- "Idle layers 0!" is a run where the compositor drew no frame at all in the
+  5 s (nothing moved), so there was no layer tree to read; the tap's row
+  holds the table's layers.
+- **Layers and memory.** The layer count is the same (+0-2, run to run).
+  The tiles' memory, most at once, has medians 1.6-2.0 MB (6-9%) higher
+  after, inside the runs' spread on most rows (40 a side, tap: before
+  20.1-22.9 MB, after 20.5-22.2). An A/B in one session on the after build
+  (the fix switched off by an injected `will-change: auto`, then on; RUN,
+  the 40-a-side table): at rest 22.2 MB without, 21.2 MB with; the tap 23.1
+  and 22.0; the cast 26.4 and 25.3. The overlay's own layer holds no tiles
+  (it is empty where nothing is drawn). INFERENCE: the medians' rise is the
+  sessions', not the layer's; reported as slower below all the same.
+
+**The target, per moment.**
+
+- **Tapping one land repaints only that land's area, plus the count that
+  changed: met at 10 and 40 a side, before and after** (it was already so).
+  Per tap one commit draws the land (its box and its lift shadow, as it
+  glides to its own place and back), its ghost leaving or joining the pile,
+  the pile's number, its "tapped" tab and its mana sign: 45-58 thousand px.
+  Outside the land's box and shadow: 1.9 (10 a side) and 3.7 (40): the lift
+  shadow's corners past the 0.35 allowance. The plate is not drawn at all (a
+  bench tap changes no mana or count on it; C4 keeps the plates).
+  **At 100 a side: not met, 28 thousand px outside**, the neighbours gliding
+  as the row re-spaces (cause 3): an approved move, not a repaint to cut.
+- **Idle stays at 0 paints: met** on every table, with flyers too.
+- **Cast and combat** (no target of their own; measured as the item asks):
+  all but 61-79 (cast) and 21-59 (combat) thousand px per update is now
+  inside the cards that changed, their shadows, the stack and the plates;
+  what is outside is the hand's cards closing up and fighters' marks and
+  numbers drawn just past the fighters.
+
+**P11-B2: the busy board (RUN, the same runs).** The table of 40 a side
+with 16 of each side's creatures flying (32 flyers, past spec 0090's
+`FLY_SYNC_AT` 12, so they bob in step), beside the same table without
+flyers: 5 s idle and redraw.spec's busy table (20 boards, a second apart),
+timed with the redraw probes (`probes.ts`), long tasks from the page's own
+`PerformanceObserver` (over 50 ms).
+
+```text
+moment                   frames p95      frames worst    long tasks  app ms/upd   style ms/upd   paints/upd
+1x b2 idle (flyers)      16.7 > 16.7     83.3 > 66.7!    0 > 0       0 > 0        28.9! > 34.1   0 > 0
+1x b2 busy               16.7 > 16.7     16.8 > 16.8     0 > 0       3.3 > 3.1    7.5 > 8.6!     12.9 > 12.9
+1x no flyers idle        16.7 > 16.8     16.8 > 16.8     0 > 0       0 > 0        0 > 9.7!       0 > 0
+1x no flyers busy        16.7 > 16.7     16.8 > 16.8     0 > 0       2.5 > 2.3    3.9 > 5!       12.8 > 12.8
+4x b2 idle (flyers)      16.8 > 16.7     416.7 > 416.7   0 > 0       0.1 > 0.2    159.6! > 154.4 0 > 0
+4x b2 busy               16.7 > 16.8     50! > 66.7!     0 > 0       15.9 > 16.3  41.3! > 40.6   12.9 > 12.9
+4x no flyers idle        16.8 > 16.7     66.7 > 66.6!    0 > 0       0 > 0        47.3! > 51.6!  0 > 0
+4x no flyers busy        16.7 > 16.7     66.7 > 66.7!    0 > 0       11.9 > 12.7! 23.1! > 24.1!  12.8 > 12.8
+```
+
+(idle rows: the 5 s total, not per update.)
+
+- **The busy board does not stutter:** frames p95 16.7-16.8 ms at 1x and at
+  4x, with and without flyers, no long task in any run, and the repaint
+  measure's busy board paints the same area as the table without flyers.
+  The worst frame at 4x idle (417 ms) is the moment the CPU profiler starts
+  (C1 saw the same on its bench-idle). **So B2 needs no calming** (its row:
+  "calmed on a canvas only if it stutters"); nothing was built for it.
+- What flyers do cost is style, not painting: 29-34 ms per 5 s idle at 1x
+  (6 ms a second), 136-162 at 4x (about 30 ms a second), against 0 and
+  32-58 without flyers: the bobbing animations are restyled every frame on
+  the main thread although the compositor draws them. A C1-type finding,
+  for C6's style work if it wants it; not a repaint.
+
+**The redraw measure, before and after (RUN, `node ci/measure.mjs redraw`,
+3 runs each, the same PC, stack and builds; P11-R7).** Per update, medians.
+
+```text
+moment               renders      app ms        all JS ms     style ms       paints       frames p95/worst
+                                                                                          before      after
+1x tap-one-land      18 > 18!     2.7 > 2.8     3.6 > 3.6     4.4! > 4.0     11 > 11      16.8/16.8   16.7/16.8
+1x bench-40          21.4 > 21.4  2.7 > 2.4     3.8 > 3.6     6.2! > 5.8     12.8 > 12.8  16.8/16.8   16.7/16.8
+1x tap-one-land-10   14 > 14      2.0 > 2.0     2.7 > 2.6     3.7 > 3.5      8 > 8        16.7/16.8   16.8/16.8
+1x tap-one-land-100  44.2 > 44.2! 4.0 > 3.9     4.8 > 4.8     5.1! > 4.8     19.1 > 19.1! 16.8/50.1!  16.7/83.3!
+4x tap-one-land      18 > 18      14.0 > 14.2   15.0 > 14.8   15.5 > 15.7    11 > 11      16.7/66.7   16.7/66.6!
+4x bench-40          20.1 > 20.1  13.5 > 12.7   16.6 > 15.7   23.2 > 24.2    12.8 > 12.8  16.8/50!    16.7/66.6
+4x tap-one-land-10   14 > 14      10.2 > 10.0   11.5 > 11.1   13.8 > 14.2    8 > 8        16.8/83.3!  16.7/83.3
+4x tap-one-land-100  44.2! > 44.2 19.9 > 19.8   20.5 > 21.0   19.2 > 20.0    19.2 > 19.2  16.8/83.4!  16.7/100
+1x cast (game)       24.6! > 32.2! 1.2 > 1.7    1.4 > 1.9!    0.8 > 1.0!     8.6 > 9.4!   16.7/16.8   16.7/16.8
+1x combat (game)     22.4 > 20.5  1.1 > 1.1     1.3 > 1.3     0.7 > 0.7      6.4! > 7.3!  33.3!/50    16.8!/50
+4x cast (game)       19.5! > 27.5 5.4! > 7.4!   5.4! > 7.1!   4.5! > 4.5!    10.0 > 9.7   16.8/83.3!  16.8/66.8!
+4x combat (game)     17.6 > 18.5  5.2 > 5.7!    5.2 > 5.5!    3.0 > 3.3      7.6 > 7.7!   33.3/83.4!  33.3!/116.6!
+```
+
+- The replayed table (C6's yardstick) is the same within its runs' spread,
+  as it should be: the fix changes what the compositor draws, not what the
+  page's code does (renders and paints per update are identical).
+- **Slower (P11-R7), every row, both numbers:** 4x bench-40 style 23.2 >
+  24.2 ms (+4%), 4x tap-one-land-10 style 13.8 > 14.2 (+3%), 4x
+  tap-one-land-100 style 19.2 > 20.0 (+4%) and all JS 20.5 > 21.0 (+2%),
+  1x tap-one-land app 2.7 > 2.8 (+4%), 4x tap-one-land app 14.0 > 14.2
+  (+1%) and style 15.5 > 15.7 (+1%): all within the runs' spread. Worst
+  frames: 4x tap-one-land-100 83.4 > 100, 1x tap-one-land-100 50.1 > 83.3,
+  4x bench-40 50 > 66.6 (single frames, not steady before or after). The
+  real game: 1x cast renders 24.6 > 32.2, app 1.2 > 1.7, all JS 1.4 > 1.9;
+  4x cast renders 19.5 > 27.5, app 5.4 > 7.4; 4x combat app 5.2 > 5.7, all
+  JS 5.2 > 5.5, style 3.0 > 3.3, worst frame 83.4 > 116.6; real-game paints
+  per update 8.6 > 9.4 (1x cast), 6.4 > 7.3 (1x combat). The real game's
+  renders cannot be changed by a CSS rule; they follow each game's deal (C1:
+  the cast moment catches 33-89 updates), so these rows are the deal's, not
+  the fix's (INFERENCE). Tile memory, most at once: medians +1.6-2.0 MB (6-9%)
+  on every repaint row (above), against -1.0 MB in the same-session A/B.
+- Faster, beside them: 1x combat frames p95 33.3 > 16.8 (game), real-game
+  hover 71 > 31 renders (the hand that game was dealt).
+
+**Looks identical (RUN).**
+
+- **Settled frames, before and after:** three Lab games from C3's 30
+  (`board-data-combat` seat 1 boards 50-61, `life-changes-bolt` 0-5,
+  `game-flow-krenko` 20-32: combat, a spell's damage on a plate, a table of
+  tokens) replayed into a real game page (the bench's taken-over socket,
+  the page reloaded so no question of the real game is left on screen),
+  each board left to settle, then a screenshot with the animations
+  stopped, in Playwright's bundled Chromium (headless) and in headed Edge
+  (GPU, as the jump check), before (f08b0e66) and after. 31 boards x 2
+  browsers: every board is the same picture but for at most 111 pixels that
+  differ by 1/255 in one colour channel (Chromium: 22-37 px on the gear and
+  report buttons' edges; Edge: 7-58 px along the rail's text), and four
+  boards with a spell on the stack (combat 51 and 52, bolt 3, krenko 20),
+  whose drifting motes are random: they differ as much between two runs of
+  the unchanged build (6,300-12,200 px) as before to after (9,400-17,600),
+  all of it the motes, seen by eye. One krenko board showed "YOUR TURN"
+  white in one shot and gold in the other; filmed again, it differed by the
+  22 px only. Files: the session's scratchpad, `c5/clip-before/`,
+  `c5/clip-before2/`, `c5/clip-after/`.
+- **The jump check** (RUN, headed Edge, the first stack, after the fix) over
+  C3's 30 traces with `JUMPS_DELTAS=1`, 41.6 minutes: `check-jumps.py`'s report is identical, line
+  for line, to C2's after-run of f08b0e66 on this PC (the known flags only:
+  the restart's cards "not shown at all", in-place flips "changed form, no
+  animation"). The fix moves nothing, but the overlay holds the fights' and
+  sparks' effects, so it was run (targeted, owner 2026-11-21).
+
+**Checks.** Page test `repaintLayers.test.ts`: `.bf-effects` asks for its
+layer, and adds no stacking (positioned, its z-index on the board). The
+probe's arithmetic, `tools/measure/repaint.test.ts` (9 tests): a commit
+counted once however many frames show it; a layer's rectangle placed by its
+quad and split inside and outside; one commit's rectangles unioned and
+commits added; clipped to the window; layers and memory as the most at
+once; a card's lift shadow counted in, a plate's not; short client names;
+the targets (changed, gone and new cards, the pile holding a card, the
+stack, the plates on a life change only). **Bites (TEST-004), 14 of 14
+caught:** no `will-change` on the overlay (1 failing), `will-change:
+opacity` instead (1), the overlay without its z-index (1); in the probe, a
+commit counted per frame (1), the quad misread (1), no union (5),
+inside/outside swapped (1, after its test was made asymmetric: not caught
+at first), plates grown like cards (1), memory read as the last not the
+most (1), no float give on the grid (1), gone cards left out (1), no
+plate on a life change (1), the pile left out (1), client names unshortened
+(2). Browser specs on the first stack, after the fix, bundled Chromium:
+`match` (the real-click game), `match-board-motion`, `match-lands-stay-put`,
+`match-big-combat`: 4 passed, 1 skipped (`match`'s abandon test, skipped in
+the spec). No e2e spec was added or changed (the measures are the kit's own
+config); `node ci/ci-speed.mjs` for `match-board-motion` and
+`match-lands-stay-put` with their CI neighbours: 4 passed (with `match-always-choose` and `match-game-ahead`), 0 failed. Gates in the worktree: `npm ci`,
+`tsc -b`, `tsc -p tsconfig.e2e.json`, eslint, prettier, vitest (1931/1931,
+139 files), `vite build`, `check-doc-refs.py`.
+
+**Left open.**
+
+- The looping animations that repaint every frame while shown (cause 5):
+  the arrows' beam and glints, the phased shimmer, the split-second ring,
+  the tile breath, the chat tab's flash and the two `filter` glows. Making
+  them compositor-only means drawing them another way (for example a
+  gradient moved by `transform` instead of a dash offset): a look change, a
+  canvas and the owner's word (P11-R1). Not measured on the bench (none
+  shows there); a real-game repaint row for the attack arrows would size
+  them first.
+- A gliding card is drawn in full as it lifts and as it lands, because its
+  lift shadow comes and goes with the move. Drawing the shadow as its own
+  layer that fades in (opacity) would let the card's drawing be reused: the
+  same look in principle, but a rebuild of the approved Glide (Phase 10
+  A-00), so it needs the clip check and the owner; the saving is the 45-58
+  thousand px of a tap, about 2% of a window.
+- The flyers' restyle every frame (B2 above): style time, C6's if anyone's.
+- The repaint measure runs in Chromium only (CDP's layer trees); WebKit and
+  Firefox have no such account (P11-R7's "every browser" rests on the
+  change being a compositing hint that both honour or ignore).

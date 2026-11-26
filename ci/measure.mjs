@@ -10,6 +10,7 @@
 // using the shared test accounts (the measures play real games with them):
 //
 //   node ci/measure.mjs redraw  [--runs 3] [--out DIR] [--cpu 1,4] [--grep RE]
+//   node ci/measure.mjs repaint [--runs 3] [--out DIR] [--cpu 1,4] [--grep RE]
 //   node ci/measure.mjs loading [--runs 3] [--out DIR] [--engines chromium,webkit]
 //                               [--links local,slow4g,live,poor] [--grep RE]
 //   (any of them) --pw-output DIR   Playwright's own results under DIR, not frontend/test-results
@@ -18,7 +19,9 @@
 //   node ci/measure.mjs compare DIR [--against BEFORE_DIR]
 //
 // `redraw` is frontend/tools/measure/redraw.spec.ts (the replayed table and
-// the real game, which also writes the wire numbers); `loading` is
+// the real game, which also writes the wire numbers); `repaint` is
+// repaint.spec.ts (P11-C5: what one update draws again, from the
+// compositor's layer snapshots, and P11-B2's busy board); `loading` is
 // loading.spec.ts, once per engine; `timeline` is timeline.spec.ts (P11-D0:
 // four moments, click to both screens, every step timed; the stack must run
 // with PROXIC_TEST_TIMING=true), which also writes DIR/timeline-chart.html,
@@ -44,7 +47,7 @@ const opt = (name, fallback) => {
 
 function usage() {
     console.error(
-        "usage: node ci/measure.mjs redraw|loading|timeline [--runs N] [--out DIR] ... | timeline-chart DIR | compare DIR [--against DIR]",
+        "usage: node ci/measure.mjs redraw|repaint|loading|timeline [--runs N] [--out DIR] ... | timeline-chart DIR | compare DIR [--against DIR]",
     );
     process.exit(2);
 }
@@ -183,12 +186,12 @@ if (what === "compare") {
     const dir = args[0];
     if (!dir || !existsSync(dir)) usage();
     timelineChart(resolve(dir));
-} else if (what === "redraw" || what === "loading" || what === "timeline") {
+} else if (what === "redraw" || what === "repaint" || what === "loading" || what === "timeline") {
     const runs = Number(opt("runs", "3"));
     const out = resolve(opt("out", join(frontend, "test-results", "measure", `${what}-${stamp}`)));
     const grep = opt("grep");
-    if (what === "redraw")
-        run("redraw.spec.ts", runs, out, { PROXIC_MEASURE_CPU: opt("cpu", "1,4") }, ["chromium"], grep);
+    if (what === "redraw" || what === "repaint")
+        run(`${what}.spec.ts`, runs, out, { PROXIC_MEASURE_CPU: opt("cpu", "1,4") }, ["chromium"], grep);
     else if (what === "timeline") {
         run("timeline.spec.ts", runs, out, { PROXIC_MEASURE_CPU: opt("cpu", "1,4") }, ["chromium"], grep);
         timelineChart(out);

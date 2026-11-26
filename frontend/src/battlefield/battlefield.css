@@ -1622,6 +1622,16 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  /* P11-C5 -- a layer of its own, always (it already stacks on its own: its
+     z-index, Z_EFFECTS). Without it, each time a card starts to glide or fly
+     the browser lifts everything drawn after the board (these effects, the
+     stack's words, the flights, the chat tab) into new window-sized layers
+     and draws them all again, then drops them when it lands: a whole window
+     repainted two or three times per cast or combat step (RUN, the repaint
+     measure, tools/measure/repaint.spec.ts). Kept, its layer is empty where
+     nothing is drawn (no memory for those tiles), and nothing looks
+     different. */
+  will-change: transform;
 }
 /* The damage number: rises a little and fades, about a second. */
 .bf-number {
