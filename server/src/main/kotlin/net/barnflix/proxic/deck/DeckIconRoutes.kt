@@ -26,6 +26,8 @@ data class IconResponse(val deckId: String, val icon: String?)
 fun Route.iconRoute(
     dataSource: DataSource,
     authorization: DeckAuthorization,
+    /** P11-E10 — the Hall shows a deck's icon: told after it changes. */
+    listener: DeckAccessListener = DeckAccessListener.NONE,
 ) {
     put("/{deckId}/icon") {
         val deckId =
@@ -67,6 +69,7 @@ fun Route.iconRoute(
                 it.executeUpdate()
             }
         }
+        listener.deckShown(deckId)
         call.respond(IconResponse(deckId.toString(), icon))
     }
 }

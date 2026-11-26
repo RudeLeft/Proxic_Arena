@@ -29,6 +29,20 @@ class Hall(
         return Places.of(seasons.table(month, now), counted)
     }
 
+    /**
+     * P11-E10 -- the first moment after [now] at which [places] or [belt] can
+     * give a different answer with no new game, reset or account change: the
+     * season's end, or the holder's defend-by date if that is still to come.
+     * (A defend-by date already past with nobody to hand the Belt to changes
+     * nothing until the season does: the leader is looked for in the season
+     * as it stands.)
+     */
+    fun steadyUntil(now: Instant): Instant {
+        val seasonEnds = seasons.endsAt(seasons.monthOf(now))
+        val defendBy = belt(now).defendBy?.takeIf { it.isAfter(now) } ?: return seasonEnds
+        return minOf(seasonEnds, defendBy)
+    }
+
     /** Spec 0019 F1 — who holds the Belt now, for the mark beside their name. */
     fun beltHolder(now: Instant): UUID? = belt(now).holder
 

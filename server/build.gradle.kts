@@ -171,6 +171,10 @@ tasks.test {
     // 1.44 is supported by every engine we target (Docker 25+).
     systemProperty("api.version", "1.44")
 
+    // P11-E10 -- the Hall's measure (hall/HallMeasure.kt) runs only when
+    // asked: -PmeasureHall=0,500,2000 (the numbers of finished games).
+    project.findProperty("measureHall")?.let { systemProperty("proxic.measure.hall", it.toString()) }
+
     // CI runs the suite in three parts on three machines at once
     // (-PtestShard=1, 2 or 3; owner 2026-10-21, "the checks take longer
     // and longer"). Split by package, about five minutes each. Part 3 is

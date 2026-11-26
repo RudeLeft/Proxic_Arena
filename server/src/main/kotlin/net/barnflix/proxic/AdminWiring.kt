@@ -29,6 +29,24 @@ internal fun Route.startSessionMaintenance(
     }
 }
 
+/**
+ * PHASE_05 §5.50, §5.51 — a deck deleted or a share revoked reaches whoever
+ * is sitting in a lobby with it selected; P11-E10 — and a deck the Hall
+ * shows (its icon, its deletion) drops the kept Hall.
+ */
+internal fun deckAccessFor(
+    database: Database,
+    lobby: net.barnflix.proxic.lobby.LobbyService,
+) = net.barnflix.proxic.room.RoomDeckAccess(
+    net.barnflix.proxic.room.RoomDeckWatch(
+        database.dataSource(),
+        net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
+    ),
+    lobby,
+    net.barnflix.proxic.room.DeckRecipients(database.dataSource()),
+    hallChanged = { lobby.hall?.invalidate() },
+)
+
 /** What databaseRoutes already built, that the Admin API also needs. */
 internal class AdminParts(
     val sessions: net.barnflix.proxic.auth.Sessions,
@@ -115,6 +133,11 @@ internal fun adminServices(
                     parts.runtime::isLive,
                 ) { parts.runtime.runningCount },
                 net.barnflix.proxic.admin.BeltReset(database.dataSource()),
+                // P11-E10 — the lobby's kept Hall, which a reset drops.
+                hall =
+                    parts.lobby.hall ?: net.barnflix.proxic.hall.HallCache.uncached(
+                        net.barnflix.proxic.hall.HallGameSource(database.dataSource()),
+                    ),
             ),
         serverState = {
             val status = health.systemStatus()

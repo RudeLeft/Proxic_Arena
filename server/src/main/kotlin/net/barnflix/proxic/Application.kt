@@ -610,7 +610,7 @@ private fun Route.databaseRoutes(
         // decision that will never arrive.
         net.barnflix.proxic.match.MatchRecovery(database.dataSource(), application.log).recover()
 
-        startCategoryFill(config, database)
+        startCategoryFill(config, database, lobby.hall)
 
         startRoomMaintenance(config, database, lobby, lobbyHub.offline)
         startPictureCleanup(database.dataSource(), File(config.dataRoot)) { matchRuntime.picturesInPlay } // spec 0052
@@ -673,7 +673,7 @@ private fun Route.databaseRoutes(
         // corrected rather than believed.
         matchPresetRoutes()
         // Spec 0018; P11-E2: each player the Hall names comes with their avatar.
-        hallRoutes(HallGameSource(database.dataSource()), AccountNames(database.dataSource())::avatarsOf)
+        hallRoutes(lobby.hall!!, AccountNames(database.dataSource())::avatarsOf)
         reportRoutes(Reports(database.dataSource(), config.dataRoot, config.gameRecords())) // spec 0039
 
         val importer =
@@ -690,15 +690,7 @@ private fun Route.databaseRoutes(
             // selected. The §5.228 audit found RoomDeckWatch
             // written, tested and called by nothing; this is the
             // call it was missing.
-            deckAccess =
-                net.barnflix.proxic.room.RoomDeckAccess(
-                    net.barnflix.proxic.room.RoomDeckWatch(
-                        database.dataSource(),
-                        net.barnflix.proxic.deck.DeckAuthorization(database.dataSource()),
-                    ),
-                    lobby,
-                    net.barnflix.proxic.room.DeckRecipients(database.dataSource()),
-                ),
+            deckAccess = deckAccessFor(database, lobby),
             importer = importer,
             // PHASE 2 AMENDMENT 1: on by default, by owner
             // decision, with the switch kept because the
@@ -719,12 +711,18 @@ private fun lobbyService(
     hub: net.barnflix.proxic.lobby.LobbyHub,
     accountChanges: net.barnflix.proxic.auth.AccountChanges,
     updateWaiting: net.barnflix.proxic.admin.UpdateWaiting,
+    // P11-E10 — the Hall's finished games, kept; dropped on a game end, an
+    // account change (the Belt reset and the purge say so too) and a deck
+    // the Hall shows changing (the deck routes are told it in databaseRoutes).
+    hallCache: net.barnflix.proxic.hall.HallCache =
+        net.barnflix.proxic.hall.HallCache.of(HallGameSource(database.dataSource())),
 ) = net.barnflix.proxic.lobby.LobbyService(
     hub,
     roomService,
     accounts = net.barnflix.proxic.lobby.AccountNames(database.dataSource())::active,
     accountChanges = accountChanges,
-    standings = net.barnflix.proxic.lobby.StandingsSource(database.dataSource())::standings,
+    standings = net.barnflix.proxic.lobby.StandingsSource(database.dataSource(), hallCache)::standings,
+    hall = hallCache,
     gameSeats = net.barnflix.proxic.lobby.GameSeats(database.dataSource())::of,
     chatted = net.barnflix.proxic.room.RoomIdle(database.dataSource())::chatted,
     renameNotice = net.barnflix.proxic.auth.Renames(database.dataSource())::takeNotice,
@@ -739,6 +737,7 @@ private fun lobbyService(
 private fun Route.startCategoryFill(
     config: ServerConfig,
     database: Database,
+    hallCache: net.barnflix.proxic.hall.HallCache?,
 ) {
     // Spec 0015 — close-up copies for pictures imported before they existed.
     net.barnflix.proxic.deck.ZoomCopy.fillInBackground(
@@ -751,6 +750,7 @@ private fun Route.startCategoryFill(
             database.dataSource(),
             net.barnflix.proxic.deck.CardResolver(config),
             application.log,
+            filledSome = { hallCache?.invalidate() },
         )
     categoryFill.start()
     application.environment.monitor.subscribe(ApplicationStopped) { categoryFill.stop() }

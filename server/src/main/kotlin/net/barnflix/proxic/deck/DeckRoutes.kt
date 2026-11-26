@@ -324,7 +324,7 @@ fun Route.deckRoutes(
         // PHASE_07 §7.65 — rename, in its own file for the same reason.
         renameRoute(dataSource, authorization, deckAccess)
         // Spec 0012 — the deck's icon, owner only.
-        iconRoute(dataSource, authorization)
+        iconRoute(dataSource, authorization, deckAccess)
 
         // §2.79
         delete("/{deckId}") {
@@ -369,6 +369,8 @@ fun Route.deckRoutes(
 
             val removed = deleteDeck(dataSource, deckId)
             if (removed) {
+                // P11-E10 — the Hall shows its games by name now.
+                deckAccess.deckShown(deckId)
                 call.respond(HttpStatusCode.NoContent)
             } else {
                 call.respond(

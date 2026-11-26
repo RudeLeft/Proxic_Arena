@@ -10,6 +10,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.serialization.Serializable
 import net.barnflix.proxic.ErrorResponse
+import net.barnflix.proxic.hall.HallCache
 import net.barnflix.proxic.hall.HallGameSource
 import java.time.Instant
 import java.time.LocalDate
@@ -47,6 +48,8 @@ class AdminRecordsDesk(
     val purge: AdminPurge,
     val belt: BeltReset,
     val zone: ZoneId = ZoneId.systemDefault(),
+    /** P11-E10 — the server's kept Hall; read afresh when none is given. */
+    val hall: HallCache = HallCache.uncached(HallGameSource(dataSource)),
 )
 
 fun Route.adminPurgeRoutes(admin: AdminServices) {
@@ -95,7 +98,7 @@ fun Route.adminPurgeRoutes(admin: AdminServices) {
 }
 
 private fun beltView(desk: AdminRecordsDesk): AdminBeltView {
-    val belt = HallGameSource(desk.dataSource).hall(desk.zone).belt(Instant.now())
+    val belt = desk.hall.hall().belt(Instant.now())
     return AdminBeltView(
         holder = belt.holder?.let { nameOf(desk.dataSource, it) },
         since = belt.since?.toString(),

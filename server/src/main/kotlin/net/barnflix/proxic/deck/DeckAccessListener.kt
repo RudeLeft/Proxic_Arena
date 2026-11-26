@@ -41,6 +41,13 @@ fun interface DeckAccessListener {
      */
     suspend fun deckRenamed(deckId: UUID) = Unit
 
+    /**
+     * P11-E10 — what the Hall shows of this deck changed: its icon, or it
+     * is gone (its games keep its name). Called AFTER the write, so a read
+     * that follows sees it.
+     */
+    suspend fun deckShown(deckId: UUID) = Unit
+
     companion object {
         /** For wiring with no lobby: tests, and Phase 2's importer. */
         val NONE = DeckAccessListener { _, _ -> }

@@ -310,6 +310,18 @@ absent when nobody holds it), for the mark beside their name, and since
 spec 0048 `beltDefendBy` (the holder's defend-by date, for the lobby's
 reminder).
 
+**P11-E10 (kept in memory):** the server reads the finished games once
+and keeps them (`hall/HallCache.kt` `HallCache`), for `STANDINGS` and
+`GET /api/hall` alike, until something they are counted from changes: a
+game ends (`LobbyService.matchChanged`), an account changes
+(`AccountChanges`: names, avatars, accounts created, disabled or
+enabled; the Belt reset and the record purge say so too) or a deck the
+Hall shows changes its icon, colours or is deleted
+(`DeckAccessListener.deckShown`). Every answer is still worked out for
+the moment it is asked; the places a join is handed are reused only
+until the season ends or the Belt holder's defend-by date passes
+(`Hall.steadyUntil`). The messages are unchanged.
+
 ---
 
 ## Authorization, per answer

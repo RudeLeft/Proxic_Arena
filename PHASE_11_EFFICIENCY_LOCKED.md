@@ -4044,3 +4044,171 @@ Evidence, the rule's numbers, bites and the browser test
 (match-slow-link.spec.ts, the poor link and a stuck tab) are in spec 0119's
 "As built: the per-connection queue". The rest of 0119 and spec 0120 wait for
 the owner.
+
+## As built: P11-E10 (2026-11-26)
+
+The Hall and the lobby's standings are kept in memory. Branch `p11-e10`,
+built in its own worktree from aae55cce. Nothing a player sees changes; the
+messages are the same.
+
+**Where the time went (RUN, measured first).** The server test
+`hall/HallMeasure.kt` (new, run on purpose only:
+`./gradlew :server:test --tests '*HallMeasure*' -PmeasureHall=0,500,2000,10000`)
+seeds a fresh **test** database per size (`HallSeed`: 8 players, 16 decks, the
+games spread over a year, the same seeded games every run; never a real
+database), then times the Hall's database read (`HallGameSource.hall`), the
+Hall page's view (`Hall.view`), the lobby's places (`StandingsSource.standings`,
+uncached), `GET /api/hall` through the real server, and a lobby join: a real
+socket (`/ws/user`) from connecting to its `ROOMS` and to its `STANDINGS`
+(the join's last list). Medians of 11 after 5 warm-ups, in ms; each table cell
+is the median of 3 runs (the owner's PC, 13th Gen i5-13600KF, 32 GB; the
+server in-process, Postgres 16 in Testcontainers).
+
+```text
+finished games                      0        500       2,000     10,000
+the Hall's database read            0.7      4.2       7.2       29.7      (unchanged code; paid once per change now)
+Hall.view (the page's numbers)      0.05     4.2       6.3       23.4      (unchanged; still worked out per visit)
+the lobby's places, uncached        0.8      4.1       7.9       34.0
+                       before       after (3 runs each, medians; the runs in brackets)
+GET /api/hall          0            4.6  ->  3.9
+                       500         10.4  ->  7.8
+                       2,000       16.1  -> 12.3
+                       10,000      60.3  -> 26.1      (60.2-62.4 -> 25.8-26.7)
+join, to STANDINGS     0            5.9  ->  5.5
+                       500          8.0  ->  5.5
+                       2,000       11.4  ->  4.8
+                       10,000      37.4  ->  3.8      (36.6-38.1 -> 3.8-4.0)
+join, to ROOMS         10,000      11.5  ->  3.8      (the join's lists before STANDINGS)
+STANDINGS message      103 bytes with no games; 507-518 with any
+```
+
+- **Before, every lobby join paid the whole Hall**: at 10,000 games 26 of its
+  37 ms were reading every finished game and working out the places; the same
+  again for every account change and game end (once, then broadcast), and the
+  Hall page read every game per visit. A join is now 3.8-5.5 ms at any number
+  of games (the database read happens once after each change).
+- **What is left in `GET /api/hall`** is the page's own numbers worked out for
+  this moment (`Hall.view`, 23 ms at 10,000 games, 4 ms at 500). Kept as it
+  is: the view moves with the clock (the "since a day ago" arrows, the Belt's
+  date, the season), so keeping it would need its own rules for when it goes
+  stale, for a page read once per visit. How many finished games the live site
+  has is not known here (INFERENCE: hundreds, not thousands, at 2026-11's
+  pace); at 500 the page's server time is 8 ms.
+- Why the join's `ROOMS` also came sooner at 10,000 games (11.5 -> 3.8 ms) is
+  not known: the joins run back to back, and the measure does not separate
+  the server still finishing the previous join's places (INFERENCE) from
+  anything else.
+- **No row is slower** (P11-R7). The first read after a change costs what
+  every read cost before.
+
+**What changed** (server only):
+
+- `hall/HallCache.kt` `HallCache` (new) keeps the Hall (`HallGameSource.hall`:
+  the finished games, the Belt resets, who is active) until `invalidate`. A
+  read that a change overtook (an invalidation while it was reading) is handed
+  to its caller, as before, but never kept. The lobby owns it
+  (`LobbyService.hall`); the Hall page (`hallRoutes`), the lobby's places
+  (`StandingsSource`) and the Admin Belt tab (`AdminRecordsDesk.hall`) read it.
+- **What is kept is the Hall, never an answer for a moment:** every view,
+  place and Belt is still worked out for "now". `StandingsSource.standings`
+  reuses its last places only while nothing was invalidated and the moment
+  they hold to has not come (`Hall.steadyUntil`: the season's end, or the Belt
+  holder's defend-by date when that is still ahead); so a season rolling over
+  or a Belt falling due needs no trigger.
+- **The triggers** (each calls `invalidate` after the write it follows):
+  - a game end: `LobbyService.matchChanged` (ENDED), after `MatchRecords`
+    wrote the result (`MatchEndings.finish`);
+  - an account change: the `AccountChanges` listener, which a rename, an
+    avatar, an administrator creating, disabling or enabling an account, the
+    Belt reset and the record purge all already call;
+  - a deck the Hall shows (not one of the three, but the Hall page shows a
+    player's favourite deck's icon and colours): `DeckAccessListener.deckShown`
+    after an icon change (`iconRoute`) and a deletion (`deckRoutes`), and
+    `DeckCategoryFill`'s `filledSome` when it gives decks their colours.
+  - Renames and avatars never touched the standings (they carry ids; names and
+    pictures come from `PLAYERS` and the Hall's avatar lookup, which is read
+    per visit as before); they invalidate anyway, as account changes.
+- `LOBBY_PROTOCOL.md` says so. `ci/expected-skips.txt` lets `HallMeasure`
+  skip (a measure, not a check).
+
+**A stale standing is never served (proof, RUN).**
+`hall/HallTriggersTest.kt` (new, the real server and a real database): the
+kept copy is put in place (a join's `STANDINGS` and a Hall page read), the
+trigger is pulled through its real route, then the `STANDINGS` broadcast, a
+new connection's `STANDINGS` and `GET /api/hall` must each equal a fresh
+reading of the database, and the fresh reading must have moved (so the test
+cannot pass on a change that changed nothing):
+
+1. a Belt reset (`POST /api/admin/belt/reset`; the Belt tab's answer too);
+2. an account disabled (`PUT /api/admin/accounts/{id}/status`, the season's
+   leader);
+3. a deck's icon (`PUT /api/decks/{id}/icon`) and its deletion;
+4. a game end: ten games written as `MatchRecords` leaves them, then
+   `LobbyService.matchChanged` (ENDED) on the lobby built with the server's
+   own pieces (no game can be played without a worker in the server tests;
+   tests 1-2 prove the server wires the same kept Hall).
+
+`hall/HallCacheTest.kt` (new): kept until invalidated; an overtaken read
+never kept; the places worked out again at the season's end and at the Belt's
+defend-by date with nothing else changed.
+
+**Bites (TEST-004), each run against both test classes** (the four on lines
+that moved in the last tidy-up were run again on the final code):
+
+```text
+mutation                                                   caught by
+matchChanged forgets the Hall                              the game end test
+the account listener forgets the Hall                      Belt reset, account disabled
+the icon route doesn't tell                                the deck test
+the delete route doesn't tell                              the deck test
+the server gives the deck listener no hallChanged          the deck test
+the server gives the lobby no kept Hall                    Belt reset, account disabled, the deck test
+                                                           (a first form, the lobby given no invalidation
+                                                           only: Belt reset, account disabled)
+invalidate does nothing                                    all 4 trigger tests + 2 cache tests
+places kept past steadyUntil                               season end, Belt falls due
+places kept across an invalidation                         game end, Belt reset, account disabled
+steadyUntil ignores the Belt's date                        Belt falls due
+an overtaken read kept                                     NOT CAUGHT: equivalent (a kept copy carries
+                                                           the generation it was read under, so it is
+                                                           never handed out; the check only saves a
+                                                           write)
+```
+
+**PLAYERS and ROOMS as changes: not worth it (RUN, counts).**
+What the host's page read over one session (RUN, 2026-11-26, the second
+stack built from this branch; P11-E15's session measure,
+`frontend/tools/measure/session.spec.ts`, which counts every lobby-socket
+message by type the way D1 counts the game's; 2 minutes in the lobby, then
+three games of about 90 s each, conceded, 12.5 minutes in all; 6 accounts;
+text sizes, before the socket's compression, P11-D2):
+
+```text
+                                messages      bytes     share of the session
+lobby socket, every type            194      76,739          0.5%
+  ROOMS (the room list)              53      27,727          0.18%   about 520 bytes each
+  ROOM (your own room)               30      23,598          (already per member)
+  PLAYERS (every account)             8       6,664          0.04%   one per connection opened, about 830 bytes
+  STANDINGS                          11       3,905
+the game sockets                  5,006  15,210,662         99.5%
+```
+
+ROOMS and PLAYERS together are 34 KB of 15.3 MB: sending them as changes
+would save at most about 0.2% of what a player's page reads in a session of
+games, and nothing a player waits for (each is one small message, after the
+change it reports). PLAYERS grows with accounts, about 140 bytes each, and is
+sent once per connection: at 50 accounts about 7 KB a join. **So no protocol
+change, and no spec is needed.** The trigger to look again (PHASE-004): if
+the account count passes a few hundred, or a measure shows a lobby list
+message over 20 KB.
+
+**Checks.** `./gradlew :server:ktlintCheck :server:detekt :server:test`: 831
+tests, 0 failures, 61 skipped (the declared ones, and five classes that skip
+on this PC and run on CI: ForgeWorkerTest, DeckBuilderApiTest,
+MechanicsLabCorpusTest, MatchRuntimeTest, MatchPreflightTest: they need the
+built worker and Forge's resource checkout, which this worktree doesn't have,
+and `ci/check-skips.sh` names exactly those five as the only undeclared
+skips); `check-doc-refs.py`; the browser specs that read the Hall and the
+standings (lobby, belt-records, kept-data) on the second stack built from
+this branch: 22 passed. `node ci/ci-speed.mjs` not needed: no browser spec
+changed. No page changed in this item (the frontend gates ran for P11-E15).

@@ -26,6 +26,8 @@ class DeckCategoryFill(
     private val dataSource: DataSource,
     private val resolver: CardResolver,
     private val log: Logger,
+    /** P11-E10 — decks were given their colours, which the Hall shows. */
+    private val filledSome: () -> Unit = {},
 ) {
     @Volatile private var stopping = false
 
@@ -54,7 +56,10 @@ class DeckCategoryFill(
             }
             filled++
         }
-        if (filled > 0) log.info("deck category fill: {} deck(s) sorted", filled)
+        if (filled > 0) {
+            log.info("deck category fill: {} deck(s) sorted", filled)
+            filledSome()
+        }
         return filled
     }
 

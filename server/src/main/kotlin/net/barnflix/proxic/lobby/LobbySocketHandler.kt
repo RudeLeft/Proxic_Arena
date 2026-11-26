@@ -76,6 +76,12 @@ class LobbyService(
     val accountChanges: net.barnflix.proxic.auth.AccountChanges? = null,
     /** Spec 0011 — the Hall of Champions; none without a database. */
     private val standings: () -> Standings? = { null },
+    /**
+     * P11-E10 — the server's kept Hall (the Hall page and the Belt tab read
+     * it too). When something it is counted from changes here (a game ended,
+     * an account changed) it is dropped before [standings] is asked again.
+     */
+    val hall: net.barnflix.proxic.hall.HallCache? = null,
     /** Spec 0013 — the players of a player's game, for the game chat; null with none. */
     private val gameSeats: (UUID) -> List<UUID>? = { null },
     /**
@@ -132,6 +138,7 @@ class LobbyService(
         // or enabled an account: the Players list, and the Hall (spec 0011
         // leaves disabled accounts out), change for everybody.
         accountChanges?.onChange {
+            hall?.invalidate()
             hub.broadcast(playersMessage(accounts()))
             standings()?.let { hub.broadcast(standingsMessage(it)) }
         }
@@ -223,6 +230,7 @@ class LobbyService(
         publishRooms()
         // Spec 0011 — a result moves the Hall of Champions.
         if (match.status == net.barnflix.proxic.match.MatchStatus.ENDED) {
+            hall?.invalidate()
             standings()?.let { hub.broadcast(standingsMessage(it)) }
         }
     }

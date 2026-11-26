@@ -7,10 +7,12 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import net.barnflix.proxic.hall.HallCache
 import net.barnflix.proxic.hall.HallGameSource
 import net.barnflix.proxic.hall.RatingLine
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 import javax.sql.DataSource
 
 // Spec 0011 — the Hall of Champions; since spec 0018 the season's places
@@ -43,8 +45,21 @@ data class Standings(
     val beltDefendBy: Instant? = null,
 )
 
-/** Every active account's record, from the matches table. */
-class StandingsSource(private val dataSource: DataSource) {
+/**
+ * Every active account's record, from the matches table; and the season's
+ * places, from the Hall ([hall]: kept since P11-E10, read every time when
+ * none is given).
+ */
+class StandingsSource(
+    private val dataSource: DataSource,
+    private val hall: HallCache = HallCache.uncached(HallGameSource(dataSource)),
+    private val clock: () -> Instant = Instant::now,
+) {
+    /** P11-E10 -- the places last worked out: under which Hall, and until when they hold. */
+    private class Kept(val generation: Long, val until: Instant, val standings: Standings)
+
+    private val kept = AtomicReference<Kept?>(null)
+
     fun records(): List<PlayerRecord> =
         dataSource.connection.use { connection ->
             connection.prepareStatement(
@@ -77,15 +92,25 @@ class StandingsSource(private val dataSource: DataSource) {
             }
         }
 
-    /** This season's places (spec 0018). */
+    /**
+     * This season's places (spec 0018). P11-E10: the same answer is handed
+     * out again while nothing it is counted from has changed (the Hall's
+     * generation) and the moment it holds to (Hall.steadyUntil) is still to
+     * come.
+     */
     fun standings(): Standings {
-        val hall = HallGameSource(dataSource).hall()
-        val now = Instant.now()
+        val now = clock()
+        val generation = hall.current
+        kept.get()?.takeIf { it.generation == generation && now.isBefore(it.until) }?.let { return it.standings }
+        val hall = hall.hall()
         val places = hall.places(now)
 
         fun record(line: RatingLine) = PlayerRecord(line.userId, line.wins, line.games, null)
         val belt = hall.belt(now)
-        return Standings(places.podium.map(::record), places.last?.let(::record), belt.holder, belt.defendBy)
+        val standings =
+            Standings(places.podium.map(::record), places.last?.let(::record), belt.holder, belt.defendBy)
+        kept.set(Kept(generation, hall.steadyUntil(now), standings))
+        return standings
     }
 }
 

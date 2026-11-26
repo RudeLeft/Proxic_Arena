@@ -13,7 +13,8 @@ import java.util.UUID
 // caller's own rival.
 
 fun Route.hallRoutes(
-    source: HallGameSource,
+    /** P11-E10 — kept in memory, dropped when a game ends or an account changes. */
+    source: HallCache,
     /** P11-E2 — the avatars of these players whose accounts are active (null: the default). */
     avatars: (Collection<UUID>) -> Map<UUID, String?> = { emptyMap() },
 ) {

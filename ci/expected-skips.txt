@@ -43,3 +43,9 @@ net.barnflix.proxic.deck.MechanicsLabArtTest
 # words are proven through the real route by match-wording-pages.spec.ts
 # (pages-deck fixture) and by Words0114DeckTest, which runs everywhere.
 net.barnflix.proxic.deck.Words0114ImportTest
+
+# P11-E10: a measure, not a check (it asserts nothing). It runs only when
+# asked, with -PmeasureHall=<numbers of games>; its numbers are in
+# PHASE_11_EFFICIENCY_LOCKED.md "As built: P11-E10". HallCacheTest and
+# HallTriggersTest prove the cache and run everywhere.
+net.barnflix.proxic.hall.HallMeasure

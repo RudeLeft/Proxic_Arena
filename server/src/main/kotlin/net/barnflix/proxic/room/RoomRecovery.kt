@@ -117,6 +117,8 @@ class RoomDeckAccess(
     private val watch: RoomDeckWatch,
     private val announcer: RoomAnnouncer,
     private val sharing: DeckRecipients,
+    /** P11-E10 — the Hall shows a deck's icon and keeps its games: told when either changes. */
+    private val hallChanged: () -> Unit = {},
 ) : DeckAccessListener {
     override suspend fun deckAccessChanged(
         deckId: UUID,
@@ -140,6 +142,8 @@ class RoomDeckAccess(
     // PHASE_07 §7.65 — re-sent at the same revision: a rename is not
     // a change to the room, and bumping the revision would turn away
     // a host's Start match that was already on its way.
+    override suspend fun deckShown(deckId: UUID) = hallChanged()
+
     override suspend fun deckRenamed(deckId: UUID) {
         for (room in watch.roomsHolding(deckId)) announcer.roomChanged(room)
     }
