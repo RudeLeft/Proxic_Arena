@@ -3851,3 +3851,121 @@ the per-second cast 80 / combat 70 is retired, and the bigger card-motion
 changes are not built for it. (2) "Measure one page": the game end's slowest
 frame is measured with the other player's page paused, as a player sees it;
 the 200 ms limit stays. Both are built as a follow-up to C6.
+
+## As built: P11-C6 follow-up (2026-11-25)
+
+The owner's two answers above, built in `frontend/e2e/match-speed.spec.ts`
+with `frontend/e2e/page-share.ts` (test only; nothing a player sees, no page
+code). Branch `p11-c6`, first local stack, stack B stopped.
+
+**"Work per update."** The per-second budgets (0096's cast 80 / combat 70,
+loosened to 100 / 88) are retired. The 4x cast and combat are held to the
+page's own JavaScript per game update, `SPEED_BUDGETS.pageMsPerUpdate4x`:
+**cast 12 ms, combat 8.5 ms**. Enforced off CI only, as every other timing
+(`TIMINGS_ENFORCED` unchanged). ScriptDuration per second is still printed.
+
+- **How the test's own work is taken out (`pageShare`).** The host page is
+  CPU-profiled (250 us samples) through the moment. Each sample goes to
+  whoever's script was running at its top: walking from the sample's leaf
+  toward the root, the first frame that belongs to a script decides. The
+  browser's own functions (querySelectorAll, getAnimations...) belong to no
+  script, so they count for their caller. A frame of the app's bundle
+  (`/assets/`) is the page's; any other script is the test's: Playwright's
+  injected scripts and evaluates, and the speed kit's recorder (its frame
+  clock, and its React-commit walk, which runs inside React's DevTools hook
+  above the page's frames). An app handler started by the test's click is
+  the page's (its frames are on top).
+- **Why it is honest.** Only samples known to be the test's are removed.
+  Garbage collection and the browser's work under no script at all
+  ("other", 3-35 ms a moment) are charged to the page. So the split can make
+  the page look slower, never hide its work. The kit's redraw measure
+  (`probes.ts` `attribute`) is unchanged; it counts the recorder's walk as
+  the page's, so its "app ms" reads a little higher.
+- **The profiler's own stall is kept out.** Starting a profiler stalls the
+  page's next frame, 183-367 ms at 4x the first time in a page (RUN: the
+  first runs' cast worst 183-667 ms at 200-380 ms into the moment). The
+  profiler is now started once and stopped as the game begins
+  (`warmProfiler`), each moment's is started before its frames are marked,
+  with 300 ms to settle, and it is stopped after they are read.
+
+**"Measure one page."** The end is timed with the other player's page
+paused (`guestPaused`) and woken only while the bot acts on it; the 200 ms
+limit stays.
+
+- **Paused by the debugger (`Debugger.pause`).** `Page.setWebLifecycleState`
+  "frozen" does nothing to a visible page, and a headless page is always
+  visible (RUN, a scratch page in Edge and bundled Chromium: animation
+  frames and timers ran on through 1 s "frozen"; minimising its window did
+  not hide it). The debugger stops its script, timers and frames (RUN: 2
+  frames in 1 s). The trace confirms it: the paused page's main thread went
+  from about 1,700 events per half second to about 90. **INFERENCE: P11-C5's
+  repaint measure froze the other page the same way, so that freeze probably
+  did nothing.** Its numbers are of the measured page's own layers, so they
+  stand.
+- **What the slow end frame is.** With the other page paused, a 1x trace
+  still showed the GPU process spending 250 ms in
+  `SkiaOutputSurfaceImplOnGpu::FinishPaintRenderPass` as **this** page's end
+  banner came: headless drawing in software. In headed Edge with the PC's
+  GPU, the end's slowest frame was 66.7 ms (RUN, one 1x run).
+- **Result.** Before pausing, the end's frame went over 200 in 5 of 6 runs;
+  with the other page paused, in 3 of 9 on the quiet PC (always 4x,
+  216.6-216.9 ms), and in 2 of 3 while a PC game was running.
+
+**Runs (RUN, 2026-11-25, `match-speed.spec.ts`, headless Edge, the owner's
+PC, the first stack built from 74fbe36d's page; the PC game that ran during
+an earlier set was closed).** Page JS is ms per update at 4x, with the test's
+own in brackets. Per-second figures are as printed.
+
+```text
+run          cast page JS   (test) updates  JS/s    combat page JS (test) updates  JS/s    end worst 1x/4x   spec
+final 1      7.37  (1.43)   93      90.9    6.85  (1.05)   174      101.9   200.0 / 100.0     passed
+final 2      6.63  (1.69)   75      64.8    6.19  (1.64)    72       42.4   166.6 /  76.8     passed
+final 3      6.45  (1.39)   71      67.6    7.45  (1.31)   169      108.9    99.9 / 216.9     4x end 216.9 > 200
+earlier 1    7.16  (1.90)   71      64.9    5.01  (1.66)    86       42.5   134.3 / 216.9     4x end > 200
+earlier 2    8.66  (1.84)   52      59.9    5.91  (1.20)   163       80.7   100.0 / 216.6     4x end > 200
+earlier 3   10.49  (4.72)   33      46.9    6.42  (1.85)   141       78.8   125.9 /  83.3     passed
+bite 5 ms   13.19  (1.91)   71     146.1   10.39  (1.54)   154      158.3   (4x only)         both page JS over
+bite 1.5 ms  8.09  (1.48)   85     101.8    8.07  (1.46)   163      116.2   (4x only)         not caught
+```
+
+- **The new yardstick passes 3 runs in a row** ("final", and the 3 before
+  them, with no limit over). The page's own JavaScript per update: cast
+  6.5-10.5 ms (higher when the moment catches fewer updates: 33 updates,
+  10.5), combat 5.0-7.5. Another 3 runs (before the profiler warm-up, budget
+  checked by hand against the same limits) read cast 6.5-6.9, combat 5.5-6.6.
+  The limits sit above the slowest by about the runs' spread. The test's
+  own is 1.0-4.7 ms per update.
+- **The whole spec did not pass 3 in a row:** the 4x end's frame went over
+  200 ms in 1 of the last 3 runs (and 2 of the 3 before). That is the frame
+  above, this page's own drawing in headless software. **For the owner:** the
+  pause does not remove it; it would need the end's frames timed in a
+  headed browser with a GPU, or a different limit for headless (not
+  changed: the owner kept 200).
+- **Bite (TEST-004).** The page's own code (`match.ts`, the match socket's
+  `onmessage`) was built busy 5 ms longer on every message: the 4x test
+  failed on "4x cast: the page's JavaScript 13.19 ms per update > 12" and
+  "4x combat ... 10.39 > 8.5". A 1.5 ms busy loop (8.09 and 8.07) was
+  **not** caught; the limits catch a page about a third slower per update,
+  not less. The busy loop runs by the wall clock, so the 4x slowdown does
+  not multiply it. Reverted; the stack rebuilt from the clean tree.
+- `pageShare`'s page tests (`tools/measure/page-share.test.ts`, 6 tests): the
+  page's own code and the browser functions it calls; Playwright's scripts
+  and theirs; the recorder's walk inside React's commit; an app handler the
+  test's click started; garbage collection and work under no script charged
+  to the page, idle not; an empty profile. **Bites, 6 of 6 caught:** native
+  frames deciding (2 failing), the kit's "any app frame" rule (1), garbage
+  collection left out (1), the no-script work left out (1), it given to the
+  test (1), a sample's span read from the wait before it (5).
+- Also fixed: with `PROXIC_SPEED_TRACE_CATEGORIES`, the idle moment's trace
+  overflowed `Math.min(...)` (RangeError); it is now a loop.
+
+**Checks.** Gates in the worktree: `npm ci`, `tsc -b`, `tsc -p
+tsconfig.e2e.json`, eslint, prettier, vitest (1941/1941, 141 files), `vite
+build`, `check-doc-refs.py`. `node ci/ci-speed.mjs match-speed` (every
+page slowed 4x, with its CI neighbour `match-ring`): 2 passed, 1 skipped (the
+neighbour's spec skipped itself); 4x cast 7.43 and combat 5.57 ms per update.
+
+**Owner, 2026-11-26 (by prompt: "Time it in a window"):** the game end's
+slowest frame is timed in a headed browser window using the PC's graphics
+chip, as a player sees it; the 200 ms limit stays. It runs on the fixed
+machine only (CI's machines have no screen). Built as a second C6 follow-up.

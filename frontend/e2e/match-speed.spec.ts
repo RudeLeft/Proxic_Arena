@@ -65,6 +65,9 @@ import {
   theirLife,
   type Probe,
 } from "./speed-kit";
+import { pageShare, type Share } from "./page-share";
+
+const r2 = (x: number) => Math.round(x * 100) / 100;
 
 const pkg = join(process.cwd(), "..", "Test Deck", "green-deck.zip");
 const OUT = process.env.PROXIC_SPEED_OUT ?? join("test-results", "speed");
@@ -108,6 +111,12 @@ const TRACE_CATEGORIES = (process.env.PROXIC_SPEED_TRACE_CATEGORIES ?? "")
  *   in one raster flush of the OTHER page's tiles (SwiftShader's software GL,
  *   headless), and this page's frame waits for it. No task on either page's
  *   main thread. Kept at 200 (it is the test's, not a player's).
+ *   P11-C6 follow-up (owner 2026-11-25, "Measure one page"): the end is
+ *   timed with the other page paused (guestPaused). With it paused, the
+ *   GPU process still spent 250 ms finishing one of THIS page's frames as
+ *   its end banner came (SkiaOutputSurfaceImplOnGpu::FinishPaintRenderPass,
+ *   headless software drawing; trace, 1x); in headed Edge with the PC's GPU
+ *   the end's slowest frame was 66.7. The 200 stays (owner).
  * - Spec 0096 (the board keeps its cards): JavaScript at 4x 100 for a cast
  *   and 88 for a combat -- not the spec's 80 and 70, which were not met:
  *   after, a cast 65-87 and a combat 78-84 over three runs (before, 81-126
@@ -116,13 +125,29 @@ const TRACE_CATEGORIES = (process.env.PROXIC_SPEED_TRACE_CATEGORIES ?? "")
  *   after and before. What is left is React's own walk of the board, the
  *   glide pass, and the test's own polling (about 17-20 of it). Enforced
  *   off CI only (0095 A1); HEAD's page fails one or both in every run.
+ * - P11-C6 follow-up (owner 2026-11-25, "Work per update"): the per-second
+ *   JavaScript budgets (0096's 80/70, loosened to 100/88) are retired. A
+ *   per-second figure follows the bot's pace as much as the page (a bot that
+ *   stopped waiting 200 ms for combat doubled it, the page unchanged). The 4x
+ *   cast and combat are now held to the page's own JavaScript per game
+ *   update (pageMsPerUpdate4x, ms): a CPU profile of the moment, every sample
+ *   given to whoever's script was running (page-share.ts), the test's own
+ *   work (Playwright's scripts, the recorder) taken out and everything
+ *   else (garbage collection too) left in. On the owner's PC (9 runs,
+ *   2026-11-25, nothing else busy) a cast read 6.5-10.5 ms (higher when the
+ *   moment catches fewer updates) and a combat 5.0-7.5; the limits sit
+ *   above the slowest by about the runs' spread: cast 12, combat 8.5. (With
+ *   a PC game running, a combat read 9.1.) A page busy 5 ms more
+ *   on each message read 13.2 and 10.4 and failed both (As built: P11-C6
+ *   follow-up). Printed, not enforced, on CI, as the other timings.
+ *   ScriptDuration per second is still printed.
  */
 const SPEED_BUDGETS = {
   frames: {
     1: { p95: 40, worst: 120, endP95: 40, endWorst: 200 },
     4: { p95: 40, worst: 150, endP95: 67, endWorst: 200 },
   },
-  scriptMsPerSecond4x: { combat: 88, cast: 100 },
+  pageMsPerUpdate4x: { combat: 8.5, cast: 12 },
   gameScreenPerUpdate: 2,
   seatPerUpdate: 2,
   idlePaintsPerSecond: 1,
@@ -145,6 +170,13 @@ interface Row {
   seatRenders: number;
   gameScreenPerUpdate: number | null;
   seatPerUpdate: number | null;
+  /**
+   * P11-C6 follow-up (4x cast and combat): from the CPU profile, the page's
+   * own JavaScript per game update -- everything but the test's own, garbage
+   * collection included -- and the test's own (pageShare), ms.
+   */
+  pageMsPerUpdate?: number;
+  testMsPerUpdate?: number;
   paintsPerSecond?: { acting: number; waiting: number };
   /**
    * What repainted, when a page did: each Paint's ms from the moment's
@@ -168,6 +200,16 @@ async function measure(
   paints?: Probe,
 ): Promise<Row> {
   const page = main.page;
+  // P11-C6 follow-up: the 4x cast and combat are always profiled, for the
+  // page's own JavaScript per update (pageShare). Started before the frames
+  // are marked, given a moment, and stopped after they are read: a profiler
+  // starting stalls the page's next frame (183-367 ms at 4x the first time
+  // in a page, measured), which is not the game's (and see warmProfiler).
+  const split = cpu === 4 && (scene === "cast" || scene === "combat");
+  if (PROFILE || split) {
+    await startProfiler(main);
+    await page.waitForTimeout(300);
+  }
   const mark = await page.evaluate(() => {
     const P = (window as unknown as { __speed: { frames: number[]; commits: number[][] } }).__speed;
     (P as unknown as { walk: boolean }).walk = true;
@@ -190,17 +232,7 @@ async function measure(
   const playing = paints
     ? { acting: await playingNow(page), waiting: await playingNow(paints.page) }
     : undefined;
-  if (PROFILE) {
-    await main.cdp.send("Profiler.enable");
-    await main.cdp.send("Profiler.setSamplingInterval", { interval: 250 });
-    await main.cdp.send("Profiler.start");
-  }
   await during();
-  if (PROFILE) {
-    const { profile } = await main.cdp.send("Profiler.stop");
-    mkdirSync(OUT, { recursive: true });
-    writeFileSync(join(OUT, `${cpu}x-${scene}.cpuprofile`), JSON.stringify(profile));
-  }
   let painted: { acting: number; waiting: number } | undefined;
   let painters: { acting: string[]; waiting: string[] } | undefined;
   const m1 = await scriptMs(main);
@@ -213,6 +245,15 @@ async function measure(
       span: performance.now() - mk.now,
     };
   }, mark);
+  let share: Share | undefined;
+  if (PROFILE || split) {
+    const { profile } = await main.cdp.send("Profiler.stop");
+    if (split) share = pageShare(profile);
+    if (PROFILE) {
+      mkdirSync(OUT, { recursive: true });
+      writeFileSync(join(OUT, `${cpu}x-${scene}.cpuprofile`), JSON.stringify(profile));
+    }
+  }
   if (TRACE && !paints) await page.context().browser()!.stopTracing();
   if (paints) {
     await page.context().browser()!.stopTracing();
@@ -231,7 +272,9 @@ async function measure(
       acting: r1(of(main.frame).length / secs),
       waiting: r1(of(paints.frame).length / secs),
     };
-    const t0 = Math.min(...trace.traceEvents.flatMap((e) => (e.ts ? [e.ts] : [])));
+    // A loop, not Math.min(...): a trace with PROXIC_SPEED_TRACE_CATEGORIES
+    // holds more events than a call's arguments may (RangeError, P11-C6).
+    const t0 = trace.traceEvents.reduce((m, e) => (e.ts && e.ts < m ? e.ts : m), Infinity);
     const who = (frame: string) =>
       of(frame).map(
         (e) => `${Math.round(((e.ts ?? t0) - t0) / 1000)} ms ${e.args?.data?.nodeName ?? "?"}`,
@@ -276,6 +319,12 @@ async function measure(
     seatRenders: seats,
     gameScreenPerUpdate: updates > 0 ? r1(gameScreen / updates) : null,
     seatPerUpdate: updates > 0 ? r1(seats / updates) : null,
+    ...(share
+      ? {
+          pageMsPerUpdate: r2(share.charged / Math.max(1, updates)),
+          testMsPerUpdate: r2(share.test / Math.max(1, updates)),
+        }
+      : {}),
     ...(painted ? { paintsPerSecond: painted } : {}),
     ...(painters && (painters.acting.length || painters.waiting.length) ? { painters } : {}),
     ...(playing && (playing.acting.length || playing.waiting.length) ? { playing } : {}),
@@ -288,6 +337,9 @@ async function measure(
   console.log(
     `[speed ${cpu}x] ${scene}: frames p50 ${row.frames.p50} p95 ${row.frames.p95} worst ${row.frames.worst} (${row.frames.n}); ` +
       `JS ${row.scriptMsPerSecond} ms/s (task ${row.taskMsPerSecond}); renders ${row.rendersPerSecond}/s; ` +
+      (share
+        ? `page JS ${row.pageMsPerUpdate} ms/update (test ${row.testMsPerUpdate}, other ${r1(share.other)} ms); `
+        : "") +
       `updates ${updates}, GameScreen ${gameScreen} (${row.gameScreenPerUpdate}/update), plate ${seats} (${row.seatPerUpdate}/update)` +
       (painted ? `; repaints/s acting ${painted.acting}, waiting ${painted.waiting}` : "") +
       `; table ${board}`,
@@ -328,6 +380,66 @@ async function snap(page: Page, name: string) {
 async function settled(pages: Page[]) {
   if (!(await settle(pages, { clock: "commits" })))
     console.log("[speed] idle: the pages had not settled in 15 s; measured anyway");
+}
+
+/** Starts [p]'s CPU profiler, sampling every 250 us. */
+async function startProfiler(p: Probe) {
+  await p.cdp.send("Profiler.enable");
+  await p.cdp.send("Profiler.setSamplingInterval", { interval: 250 });
+  await p.cdp.send("Profiler.start");
+}
+
+/**
+ * P11-C6 follow-up: a profiler started and stopped once as the game begins,
+ * so the first start's stall (the page's code listed for it) lands there and
+ * not in a timed moment.
+ */
+async function warmProfiler(p: Probe) {
+  await startProfiler(p);
+  await p.page.waitForTimeout(500);
+  await p.cdp.send("Profiler.stop");
+}
+
+/**
+ * P11-C6 follow-up (owner 2026-11-25, "Measure one page"): the game's end as
+ * one player sees it. Both players' pages run in this one browser and share
+ * its GPU process (spec 0096: at the end the other page's drawing held up this
+ * page's frame), while a player's browser draws only their own page. So the
+ * other page is paused for the moment and woken only while the bot acts on it
+ * ([act]); the boards it is sent, the game's end among them, wait until it is
+ * woken after the moment. Paused by the debugger (Debugger.pause): its script,
+ * its timers and its frames all stop. Page.setWebLifecycleState "frozen" does
+ * nothing to a page that is not hidden, and a headless page is never hidden
+ * (measured, P11-C6 follow-up).
+ */
+async function guestPaused(
+  guest: Probe,
+  during: (act: (step: () => Promise<void>) => Promise<void>) => Promise<void>,
+) {
+  const cdp = guest.cdp;
+  await cdp.send("Debugger.enable");
+  const pause = async () => {
+    // A pause takes hold at the page's next script (its frame clock runs
+    // every frame); wait for it, so nothing the bot asks is left waiting on it.
+    const held = new Promise<void>((done) => cdp.once("Debugger.paused", () => done()));
+    await cdp.send("Debugger.pause");
+    await Promise.race([held, guest.page.waitForTimeout(2_000)]);
+  };
+  const resume = () => cdp.send("Debugger.resume").catch(() => undefined);
+  await pause();
+  try {
+    await during(async (step) => {
+      await resume();
+      try {
+        await step();
+      } finally {
+        await pause();
+      }
+    });
+  } finally {
+    await resume();
+    await cdp.send("Debugger.disable").catch(() => undefined);
+  }
 }
 
 // --- F-0095-B: the waiting plate's glow, as it was ------------------------------------------------
@@ -480,6 +592,7 @@ async function playAndTime(
     const deck = await sharedDeck(host, guest, pkg);
     await startAMatch(host, guest, deck);
     hostProbe = await probe(host, cpu);
+    if (cpu === 4) await warmProfiler(hostProbe);
     guestProbe = await probe(guest, 1);
     const done = new Set<Scene>();
     const deadline = Date.now() + 1_200_000;
@@ -538,12 +651,19 @@ async function playAndTime(
         }
         if (power >= life) {
           rows.push(
-            await measure("end", cpu, hostProbe, async () => {
-              if (await attackWithAll(host).catch(() => false))
-                await clickNow(matchPanel(host).locator("button.gs-act-combat"));
-              await drive([guest, host], 20_000, () => over(host));
-              await host.waitForTimeout(4000);
-            }),
+            await measure("end", cpu, hostProbe, () =>
+              guestPaused(guestProbe!, async (act) => {
+                if (await attackWithAll(host).catch(() => false))
+                  await clickNow(matchPanel(host).locator("button.gs-act-combat"));
+                const end = Date.now() + 20_000;
+                while (Date.now() < end && !(await over(host))) {
+                  await act(() => step(guest, false));
+                  await step(host, false);
+                  await host.waitForTimeout(150);
+                }
+                await host.waitForTimeout(4000);
+              }),
+            ),
           );
           done.add("end");
           ended = true;
@@ -596,9 +716,11 @@ function misses(rows: Row[], cpu: 1 | 4): string[] {
     const worst = row.scene === "end" ? frames.endWorst : frames.worst;
     if (row.frames.worst > worst) timed.push(`${at}: slowest frame ${row.frames.worst} > ${worst}`);
     if (cpu === 4 && (row.scene === "combat" || row.scene === "cast")) {
-      const limit = SPEED_BUDGETS.scriptMsPerSecond4x[row.scene];
-      if (row.scriptMsPerSecond > limit)
-        timed.push(`${at}: JavaScript ${row.scriptMsPerSecond} ms/s > ${limit}`);
+      const limit = SPEED_BUDGETS.pageMsPerUpdate4x[row.scene];
+      const ms = row.pageMsPerUpdate;
+      if (ms === undefined) timed.push(`${at}: the page's JavaScript per update was not measured`);
+      else if (ms > limit)
+        timed.push(`${at}: the page's JavaScript ${ms} ms per update > ${limit}`);
     }
     // Re-renders per game update: the moments the game sends updates in.
     if (row.scene === "cast" || row.scene === "combat" || row.scene === "end") {
