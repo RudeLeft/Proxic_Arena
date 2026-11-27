@@ -398,25 +398,28 @@ public final class DecisionGate {
      * both screens see it). Ends at once when `over` or when a piece is woken.
      */
     public void waitOut(long ms, long again, java.util.function.BooleanSupplier over, Sleeper sleeper) {
-        long left = ms;
+        // A deadline, not a count of what is left: a piece that wakes a
+        // fraction of a millisecond early must never leave the wait short of
+        // its end forever (whole-millisecond sums of pieces can stop moving).
+        long end = System.nanoTime() + ms * 1_000_000L;
         while (true) {
             if (over.getAsBoolean()) {
                 return;
             }
             if (held()) {
                 waitWhileHeld(over);
-                left = again;
+                end = System.nanoTime() + again * 1_000_000L;
                 continue;
             }
-            if (left <= 0) {
+            long leftNanos = end - System.nanoTime();
+            if (leftNanos <= 0) {
                 return;
             }
-            long piece = Math.min(left, HOLD_LOOK_MS);
-            long start = System.nanoTime();
+            // At least a whole millisecond, so every piece moves time on.
+            long piece = Math.max(1, Math.min((leftNanos + 999_999L) / 1_000_000L, HOLD_LOOK_MS));
             if (!sleeper.sleep(piece)) {
                 return;
             }
-            left -= (System.nanoTime() - start) / 1_000_000L;
         }
     }
 

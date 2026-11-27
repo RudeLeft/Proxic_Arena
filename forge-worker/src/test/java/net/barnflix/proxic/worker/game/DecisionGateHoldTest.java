@@ -61,6 +61,33 @@ class DecisionGateHoldTest {
     }
 
     @Test
+    void aWaitWhosePiecesWakeAFractionEarlyStillEnds() throws InterruptedException {
+        // Found by ci-speed (match-numbers, a rest that never ended): pieces
+        // that each wake 0.6 ms early, summed as whole milliseconds, once left
+        // the wait at 1 ms for ever. The wait is a deadline now.
+        DecisionGate gate = new DecisionGate();
+        long took = timed(() -> gate.waitOut(50, 50, NEVER, ms -> {
+            // Each piece ends 0.6 ms short of its length (spun, so exactly).
+            long until = System.nanoTime() + ms * 1_000_000L - 600_000L;
+            while (System.nanoTime() < until) {
+                Thread.onSpinWait();
+            }
+            return true;
+        }), 3_000);
+        assertTrue(took >= 0 && took < 1_000, "the wait ended: " + took);
+    }
+
+    @Test
+    void theStackRestPiecesEndOnTheirDeadline() throws InterruptedException {
+        StackRests rests = new StackRests(() -> true);
+        DecisionGate gate = new DecisionGate();
+        rests.unwake();
+        long took = timed(() -> gate.waitOut(2_500, 2_500, NEVER,
+                piece -> rests.piece(piece, () -> { }, NEVER)), 5_000);
+        assertTrue(took >= 2_490 && took < 2_800, "a whole rest, and it ended: " + took);
+    }
+
+    @Test
     void aStepPauseHeldMidwayStopsAndRunsAgainInFull() throws Exception {
         DecisionGate gate = new DecisionGate();
         AtomicLong ended = new AtomicLong();
@@ -169,14 +196,15 @@ class DecisionGateHoldTest {
 
     @Test
     void theHoldTakesEffectWithinMilliseconds() throws Exception {
-        // F-0120-B's measure: from HOLD to the wait stopping. A wait looks
-        // every HOLD_LOOK_MS (20 ms), so a hold bites within one piece.
+        // F-0120-D's measure: from HOLD to the wait stopping. A wait looks
+        // between pieces of at most HOLD_LOOK_MS (20 ms), so a hold bites
+        // when the piece under way ends.
         DecisionGate gate = new DecisionGate();
-        AtomicLong lastPiece = new AtomicLong();
+        java.util.List<Long> ends = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
         Thread t = new Thread(() -> gate.waitOut(5_000, 5_000, gate::closed, ms -> {
-            lastPiece.set(System.nanoTime());
             try {
                 Thread.sleep(ms);
+                ends.add(System.nanoTime());
                 return true;
             } catch (InterruptedException e) {
                 return false;
@@ -187,10 +215,12 @@ class DecisionGateHoldTest {
         long held = System.nanoTime();
         gate.hold();
         Thread.sleep(300);
-        long bite = (lastPiece.get() - held) / 1_000_000L;
-        // The last piece began `bite` ms after HOLD (negative: before it) and lasts at most HOLD_LOOK_MS.
-        System.out.println("[0120] HOLD took effect within " + (bite + DecisionGate.HOLD_LOOK_MS) + " ms");
-        assertTrue(bite < DecisionGate.HOLD_LOOK_MS + 10, "the last piece began " + bite + " ms after HOLD");
+        long stopped = ends.stream().filter(e -> e >= held).findFirst().orElse(held);
+        long piecesAfter = ends.stream().filter(e -> e >= held).count();
+        long bite = (stopped - held) / 1_000_000L;
+        System.out.println("[0120] HOLD took effect " + bite + " ms after it came");
+        assertTrue(piecesAfter <= 1, "no new piece began once held: " + piecesAfter);
+        assertTrue(bite < 40, "the hold bit " + bite + " ms after HOLD");
         gate.close();
         gate.go();
         t.join(1_000);

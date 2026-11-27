@@ -214,16 +214,18 @@ public final class StackRests {
             if (over.getAsBoolean()) {
                 return false;
             }
-            long left = (end - System.nanoTime()) / 1_000_000L;
-            if (left <= 0) {
+            long leftNanos = end - System.nanoTime();
+            if (leftNanos <= 0) {
                 return true;
             }
+            // Whole milliseconds, rounded up: never a 0 ms wait (Object.wait(0) waits for ever).
+            long left = Math.min((leftNanos + 999_999L) / 1_000_000L, 20);
             synchronized (wake) {
                 if (woken) {
                     return false;
                 }
                 try {
-                    wake.wait(Math.min(left, 20));
+                    wake.wait(left);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return false;
