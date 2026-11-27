@@ -283,6 +283,16 @@ jobs:
           # one 429 into hundreds of requests (CI run 45906524872).
           resolve() { for c in compileClasspath testRuntimeClasspath; do ./gradlew :server:dependencies --configuration "$c" --no-daemon -q > /dev/null || return 1; done; }
           resolve || { sleep 60; resolve; } || { sleep 120; resolve; }
+      # Spec 0121: the server makes card pictures' WebP copies with libwebp's
+      # `cwebp` (Alpine's libwebp-tools in the image). Its tests that need the
+      # real encoder (WebpPicturesTest) skip without it, and a skip fails this
+      # job below, so the tools are installed here: Ubuntu's `webp` package
+      # (cwebp and dwebp). A test PC without it uses the stand-in encoder.
+      - name: Install the WebP tools (cwebp, dwebp)
+        run: |
+          install() { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends webp; }
+          install || { sleep 30; install; }
+          cwebp -version
       - run: ./gradlew :server:test -PtestShard=${{ matrix.shard }} --no-daemon
 
       # A test that skips itself is not a test that passed. Phase 1
@@ -674,6 +684,11 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/crop-deck.zip" protocol/fixtures/crop-deck --crops
 
+      # And WebP pictures (spec 0121): a hand, the stack, an art crop and a close-up.
+      - name: Build the WebP pictures deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/webp-deck.zip" protocol/fixtures/webp-deck --crops
+
       # And printings (spec 0053): each printing wears its own picture.
       - name: Build the printings deck package
         run: |
@@ -1005,6 +1020,7 @@ jobs:
         run: |
           mkdir -p "Test Deck"
           node scripts/make-ci-deck.mjs "Test Deck/green-deck.zip" protocol/fixtures/green-deck
+          node scripts/make-ci-deck.mjs "Test Deck/webp-deck.zip" protocol/fixtures/webp-deck --crops
       - run: npm ci
         working-directory: frontend
       - name: Which Playwright
@@ -1035,6 +1051,13 @@ jobs:
         env:
           PROXIC_E2E_ENGINES: ${{ matrix.engine }}
         run: npx playwright test --project=${{ matrix.engine }} hidden-tab.spec.ts
+      # Spec 0121, F-0121-G: the game's and the Deck Depot's pictures come as WebP and draw.
+      - name: Card pictures come as WebP and draw in ${{ matrix.engine }}
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        env:
+          PROXIC_E2E_ENGINES: ${{ matrix.engine }}
+        run: npx playwright test --project=${{ matrix.engine }} match-webp-pictures.spec.ts
       - name: Server log, if anything failed
         if: failure() || cancelled()
         run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --tail 200 arena-server

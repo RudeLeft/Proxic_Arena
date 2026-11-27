@@ -73,6 +73,7 @@
     "match-passing.spec.ts": 26,
     "match-record.spec.ts": 23,
     "match.spec.ts": 17,
-    "match-setup.spec.ts": 17
+    "match-setup.spec.ts": 17,
+    "match-webp-pictures.spec.ts": 45
   }
 }
