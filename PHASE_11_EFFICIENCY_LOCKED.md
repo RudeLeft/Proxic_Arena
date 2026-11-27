@@ -4382,3 +4382,11 @@ the notice, 10 s gives up and resumes; a late check judges nothing, E13).
 P11-A1: a board skipped during a hold gives its moves to the board drawn
 (carry.ts). Evidence, bites, the gate's resume pass and the browser run are in
 spec 0119's "As built: catch-up after a stall, and A1". Spec 0120 is next.
+
+**Owner, 2026-11-27 (by prompt: "Count it as a drop"; spec 0120 Amendment 1):** decision 7
+is corrected. A hidden tab stays connected and never pauses a game (RUN: 10.5
+minutes). A tab the browser really freezes has its connections closed by the
+browser itself (RUN: Edge, 3 of 3), so it counts as a drop: the standard pause,
+then resume and catch-up when the player returns. P11-E13's "the browser answers
+pings while frozen" was measured on a busy script thread, not a real freeze; a
+frozen lobby tab shows offline until it wakes.
