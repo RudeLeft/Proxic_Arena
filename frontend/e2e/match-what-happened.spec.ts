@@ -70,8 +70,11 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
   try {
     await startAMatch(host, guest, deck);
     const end = Date.now() + 720_000;
-    const watch = watchGame([host, guest], () => ({ counter, revealed, closeUp }));
-    while (Date.now() < end && !(counter && revealed && closeUp)) {
+    const watch = watchGame([host, guest], () => ({ counter, revealed, closeUp, sawWords }));
+    // CI run 45925233990: the loop once ended on the close-up alone, before
+    // the trigger's words had been read on a page with nothing asked, and the
+    // check after the loop failed. The words are waited for like the rest.
+    while (Date.now() < end && !(counter && revealed && closeUp && sawWords)) {
       await watch.check();
       for (const page of [host, guest]) {
         const other = page === host ? guest : host;
@@ -226,7 +229,7 @@ test("counters, triggers and reveals say what happened", async ({ browser }) => 
         if (k === "chooseSpellAbilityToPlay") {
           // Not passing while the trigger waits to be looked at -- for a
           // few tries; a missed one is looked at on the next Pridemate.
-          if (!closeUp && tries < 6 && (await trigger.count()) > 0) continue;
+          if ((!closeUp || !sawWords) && tries < 6 && (await trigger.count()) > 0) continue;
           const turn = (await page.locator(".gs-ladder, .gs-turn").first().textContent()) ?? "";
           const land = page.locator('[data-zone="viewer:hand"][data-choosable="true"]', {
             hasText: /^(Plains|Mountain)/,
