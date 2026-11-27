@@ -9,6 +9,8 @@ import io.ktor.server.response.respond
 import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.close
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import net.barnflix.proxic.ErrorResponse
 import net.barnflix.proxic.ServerConfig
 
@@ -42,7 +44,7 @@ suspend fun DefaultWebSocketServerSession.socketPrincipal(
     }
     // §3.78 — the cookie that authenticates every other request
     // authenticates the upgrade too.
-    val principal = call.request.cookies[SESSION_COOKIE]?.let { sessions.authenticate(it) }
+    val principal = call.request.cookies[SESSION_COOKIE]?.let { sessions.authenticateOffLoop(it) }
     if (principal == null) {
         // §3.80 — refused, and told why in a way that does not
         // distinguish "no cookie" from "bad cookie".
@@ -54,7 +56,25 @@ suspend fun DefaultWebSocketServerSession.socketPrincipal(
 /** The principal for this call, or null (§3.38). */
 suspend fun ApplicationCall.principal(sessions: Sessions): Principal? {
     val token = request.cookies[SESSION_COOKIE] ?: return null
-    return sessions.authenticate(token)
+    return sessions.authenticateOffLoop(token)
+}
+
+/**
+ * [Sessions.authenticate] (a query and an UPDATE of `last_active_at`, so a
+ * commit), off the thread that called it: on the IO dispatcher, as
+ * DeckBuilderRoutes already does for a device's token.
+ *
+ * A WebSocket's handler runs on its connection's Netty event loop, which
+ * every other connection on that loop shares -- live games' sockets among
+ * them. With the query on that thread, a slow database stopped those
+ * games' messages and beats for as long as it waited (RUN 2026-11-27,
+ * stack B: commits 1-5 s in WALSync, 10 s waits for a pool connection;
+ * a page opening its sockets froze another player's game until the page
+ * gave up on the silence, 4001, and came back). Every session check goes
+ * through here; `SessionsOffLoopTest` holds the line.
+ */
+internal suspend fun Sessions.authenticateOffLoop(token: String): Principal? {
+    return withContext(Dispatchers.IO) { authenticate(token) }
 }
 
 /**

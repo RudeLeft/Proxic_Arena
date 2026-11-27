@@ -181,13 +181,15 @@ fun Route.userSocket(
  * Re-resolved from the database rather than trusted from connect
  * time, and the session id is compared as well: a token that now
  * resolves to a DIFFERENT session is not this connection's session.
+ * Off this socket's event loop (authenticateOffLoop): the check runs
+ * every 30 s on every open lobby socket.
  */
-private fun stillAuthorised(
+private suspend fun stillAuthorised(
     sessions: Sessions,
     token: String,
     sessionId: UUID,
 ): Boolean {
-    val current = sessions.authenticate(token) ?: return false
+    val current = sessions.authenticateOffLoop(token) ?: return false
     return current.sessionId == sessionId
 }
 

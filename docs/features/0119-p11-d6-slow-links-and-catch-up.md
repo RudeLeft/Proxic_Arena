@@ -581,3 +581,56 @@ run on the game page: the late check is unit-tested and bitten), F-0119-K
 measures (bytes per reconnect, memory for the kept boards), and a clip of
 A1's death in a real game (the screen test shows the death already played;
 the discard's stream is what changed).
+
+## As built: a slow database no longer freezes a game's socket (2026-11-27)
+
+Maintenance on the queue above (no behaviour a player sees changes). A local
+run of `match-slow-link` failed once in five at CI speed (4x CPU, stack B,
+the catch-up build): "the poor link was never cut off: one connection all
+game", 2 connections, with "fell behind: none".
+
+**Who closed it, and why** (RUN, stack B):
+
+- Not the relay, the queue or Ktor's ping: the server log has both seats'
+  game connections closing together, 2 s apart, as the second tab loaded (the
+  host's too, on a plain link), no "fell behind", and every HTTP request
+  over those 10 s finishing late together (`/api/version` 8.0 s,
+  `/api/matches/current` 9.9 s). The page closed them: 10 s with nothing
+  heard (`SILENCE_CLOSE_MS`, 4001 "silent"), then a resume. That part is
+  spec 0119 working as written.
+- The silence was the server's. The session check (`Sessions.authenticate`:
+  a query, then an UPDATE of `last_active_at`, so a commit) ran on the
+  thread that asked. A WebSocket's handler runs on its connection's Netty
+  event loop, which other connections share, live games' sockets among them;
+  the lobby socket also re-checks every 30 s on that thread. On this PC's
+  Docker disk a commit sat in WALSync for 1-5 s (`pg_stat_activity`
+  sampled every 0.3 s), concurrent checks of one session queued on its row,
+  and the 10-connection pool ran dry (Hikari's 10 s timeout, logged). Thread
+  dumps taken during such stalls: event-loop threads inside
+  `Sessions.authenticate`, one of them a WebSocket's (`socketPrincipal`).
+  No VM pause (a 0.2 s clock loop in the container saw no gap).
+- Made to happen at will (a scratch test, not kept): a quiet game, both
+  players' session rows held for 14 s (as a stuck commit holds them) and 40
+  lobby sockets opened. Before: 4 of 4 runs, the game sockets were cut, 4001
+  "silent", then resumed (both pages in 3, the host in 1). After: 0 of 3,
+  the longest gap 2.2 s (the beat). Database waits alone, on HTTP requests
+  only (12 or 60 at once), never cut a game socket: those run on the call
+  threads, not the event loops.
+
+**The fix** (SOURCE): `auth/AuthGates.kt` `authenticateOffLoop` runs the
+check on the IO dispatcher, as `DeckBuilderRoutes` already did for a
+device's token; `socketPrincipal`, `ApplicationCall.principal` and the lobby
+socket's `stillAuthorised` all call it. A slow database now delays the
+request or socket that is waiting for it, and nothing else.
+`SessionsOffLoopTest`: a session check with its row held leaves the asking
+thread free (a beat on the same one-thread dispatcher keeps ticking; 0
+ticks before the fix), and no production code calls `sessions.authenticate`
+directly. Bitten four ways (the helper on the asking thread, and each of the
+three callers going direct): each fails it.
+
+**Not changed:** the page's silence rule, the queue's limits, and the
+`match-slow-link` test (it was right: a healthy poor link must not be cut).
+Other database calls inside socket handlers (the lobby's names on connect)
+still run on the event loop. They are reads, but they wait for a pool
+connection when slow commits hold all ten; that was not seen to cut a game
+here, and is noted in ROADMAP's flakes row with a trigger.
