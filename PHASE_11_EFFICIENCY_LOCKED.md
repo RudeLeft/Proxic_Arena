@@ -4417,3 +4417,10 @@ while its connection is open; only a real drop pauses a game. P11-E13's "the
 browser answers pings while frozen" is right after all (the network process
 answers), though it was first measured on a busy script thread; a frozen lobby
 tab stays online to the server.
+
+**Owner answers, 2026-11-27 (P11-E11, by prompt; canvas `Proxic canvases/webp-e11.html`):**
+WebP quality 80 for the table pictures, the art crops **and** the close-ups ("I honestly
+cannot tell at 80"; table copy 67 -> 43 KB, crop 38 -> 29 KB, close-up 223 -> 128 KB
+on 275 real cards; SSIM and a 3x look in the research, scratch `e11/`). The Deck Builder
+sending WebP close-ups itself is roadmapped for later. E11 gets a short spec (it reverses
+spec 0051's "the JPEG is the close-up, no second encode" and adds a server dependency).
