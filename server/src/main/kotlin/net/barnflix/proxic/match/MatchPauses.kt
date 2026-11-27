@@ -70,14 +70,27 @@ fun MatchWorker.hold(on: Boolean): Boolean {
     return forward(holdFrame(on), if (on) "a pause" else "the end of a pause")
 }
 
+/**
+ * Spec 0120 -- this match's process has come and gone: its game is over (or
+ * failed). Not true before the process is started, which a match being
+ * launched is (its players' pages connect meanwhile).
+ */
+fun MatchWorker.ended(): Boolean = spawned && !isAlive()
+
 class MatchPauses internal constructor(
     /** Every connection of a match, players' and spectators', to tell. */
     private val everyone: (UUID) -> List<Connection>,
     private val clock: () -> Long = System::currentTimeMillis,
     /** Null: looked at only when asked ([look]), as the tests do. */
     ticker: ScheduledExecutorService? = defaultTicker(),
-    /** A match whose game is over (its worker gone): forgotten, nothing more to resume. */
-    private val gone: (LiveMatch) -> Boolean = { !it.worker.isAlive() },
+    /**
+     * A match whose game is over (its worker gone): forgotten, nothing more to
+     * resume. NOT a match whose worker has not started yet: one paused while
+     * launching (a page reloaded during the opening hands) was forgotten here
+     * and never went on, every answer refused for ever (CI run 46054823866:
+     * match.spec's pregame, "The game is running" never came).
+     */
+    private val gone: (LiveMatch) -> Boolean = { it.worker.ended() },
 ) {
     private val log = LoggerFactory.getLogger(MatchPauses::class.java)
 
@@ -86,8 +99,10 @@ class MatchPauses internal constructor(
 
     internal class PausedMatch(
         val live: LiveMatch,
-        val hold: (Boolean) -> Unit,
+        val hold: (Boolean) -> Boolean,
         var held: Boolean = false,
+        /** What the worker was last told and took (HOLD true, GO false). */
+        var told: Boolean = false,
     )
 
     init {
@@ -99,7 +114,7 @@ class MatchPauses internal constructor(
         live: LiveMatch,
         seat: Int,
         connectionId: String,
-        hold: (Boolean) -> Unit = { live.worker.hold(it) },
+        hold: (Boolean) -> Boolean = { live.worker.hold(it) },
     ) = apply(live, live.links.opened(seat, connectionId), hold)
 
     /** A player's connection closed (any way: closed, refreshed, timed out). */
@@ -107,13 +122,19 @@ class MatchPauses internal constructor(
         live: LiveMatch,
         seat: Int,
         connectionId: String,
-        hold: (Boolean) -> Unit = { live.worker.hold(it) },
-    ) = apply(live, live.links.closed(seat, connectionId), hold)
+        hold: (Boolean) -> Boolean = { live.worker.hold(it) },
+        /** The seat's other connections still open (the hub's): a seat with one is not dropped. */
+        stillOpen: Collection<String> = emptyList(),
+    ) = apply(live, live.links.closed(seat, connectionId, stillOpen), hold)
 
     /** Every paused match's resume rule, now. */
     fun look() {
         paused.entries.removeIf { gone(it.value.live) }
-        paused.values.forEach { p -> apply(p.live, p.live.links.tick(), p.hold) }
+        paused.values.forEach { p ->
+            apply(p.live, p.live.links.tick(), p.hold)
+            // A HOLD the worker could not take yet (still starting): again.
+            synchronized(p) { tellWorker(p) }
+        }
     }
 
     /** What a connection that just opened is told first: every pause under way. */
@@ -123,7 +144,7 @@ class MatchPauses internal constructor(
     private fun apply(
         live: LiveMatch,
         events: List<LinkEvent>,
-        hold: (Boolean) -> Unit,
+        hold: (Boolean) -> Boolean,
     ) {
         if (events.isEmpty()) return
         val matchId = live.match.matchId
@@ -133,11 +154,17 @@ class MatchPauses internal constructor(
             val now = live.links.paused
             if (now != entry.held) {
                 entry.held = now
-                entry.hold(now)
                 log.info("match $matchId: ${if (now) "paused (a player's connection dropped)" else "goes on"}")
             }
-            if (!now) paused.remove(matchId)
+            tellWorker(entry)
+            if (!now && entry.told == now) paused.remove(matchId)
         }
+    }
+
+    /** The worker is told HOLD or GO until it has taken what the game is now. */
+    private fun tellWorker(entry: PausedMatch) {
+        if (entry.told == entry.held) return
+        if (entry.hold(entry.held)) entry.told = entry.held
     }
 
     private fun tell(

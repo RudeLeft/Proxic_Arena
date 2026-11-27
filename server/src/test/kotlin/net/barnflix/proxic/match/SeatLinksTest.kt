@@ -235,7 +235,10 @@ class SeatLinksTest {
     @Test
     fun `the pages are told MATCH_PAUSED, back, and MATCH_RESUMED, the worker HOLD once and GO once`() {
         val held = mutableListOf<Boolean>()
-        val hold = { on: Boolean -> held += on }
+        val hold = { on: Boolean ->
+            held += on
+            true
+        }
         val live = liveMatch()
         val page = Page()
         val pauses = MatchPauses({ listOf(page.connection) }, { now }, ticker = null, gone = { false })
@@ -268,6 +271,60 @@ class SeatLinksTest {
         // Nothing in them but a seat and times (HID-001).
         val allowed = setOf("protocolVersion", "type", "messageId", "seat", "since", "awayAt", "now", "back", "endNow")
         page.told.forEach { m -> assertTrue(m.keys.all { it in allowed }, "$m") }
+    }
+
+    // ---- CI run 46054823866: a pause while the match is still being launched
+
+    @Test
+    fun `a match paused while its worker has not started yet is not forgotten, and goes on`() {
+        val told = mutableListOf<Boolean>()
+        // The worker of a match being launched: no process yet (never started).
+        val live = liveMatch()
+        assertFalse(live.worker.isAlive())
+        val page = Page()
+        // The real rule for a finished match (the default `gone`).
+        val pauses = MatchPauses({ listOf(page.connection) }, { now }, ticker = null)
+        val hold = { on: Boolean -> told.add(on) }
+        pauses.opened(live, 2, "b", hold)
+        pauses.closed(live, 2, "b", hold)
+        pauses.look()
+        now += 1_000
+        pauses.opened(live, 2, "b2", hold)
+        live.links.caughtUp(2, "b2")
+        now += 2_000
+        pauses.look()
+        assertFalse(live.links.paused, "the game goes on: answers are taken again")
+        assertEquals(2L, page.last("MATCH_RESUMED")["seat"]!!.jsonPrimitive.long)
+    }
+
+    @Test
+    fun `a HOLD the worker cannot take yet is told again until it does`() {
+        val tries = mutableListOf<Boolean>()
+        var ready = false
+        val hold = { on: Boolean ->
+            tries += on
+            ready
+        }
+        val live = liveMatch()
+        val pauses = MatchPauses({ emptyList() }, { now }, ticker = null, gone = { false })
+        pauses.opened(live, 2, "b", hold)
+        pauses.closed(live, 2, "b", hold)
+        pauses.look()
+        assertEquals(listOf(true, true), tries, "not taken: asked again")
+        ready = true
+        pauses.look()
+        pauses.look()
+        assertEquals(listOf(true, true, true), tries, "taken: not again")
+    }
+
+    @Test
+    fun `a seat's other connection the hub still has keeps it, even one opened before the match was live`() {
+        val links = links()
+        links.opened(2, "registered")
+        // "early" was opened while the match was launching: never counted here.
+        assertEquals(emptyList(), links.closed(2, "registered", stillOpen = listOf("early")))
+        assertFalse(links.paused)
+        assertTrue(links.closed(2, "early").single() is LinkEvent.Dropped)
     }
 
     /** One page's connection, reading what it is sent. */

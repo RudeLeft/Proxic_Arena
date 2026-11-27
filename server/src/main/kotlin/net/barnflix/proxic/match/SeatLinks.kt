@@ -93,8 +93,13 @@ class SeatLinks(
     fun closed(
         seat: Int,
         connectionId: String,
+        // The hub's other open connections for this seat. One opened before the
+        // match was live here (the page connects while it launches) was never
+        // counted; it still keeps the seat.
+        stillOpen: Collection<String> = emptyList(),
     ): List<LinkEvent> {
         val s = seats[seat] ?: return emptyList()
+        stillOpen.filter { it != connectionId }.forEach { s.links.putIfAbsent(it, Link(clock() - RESUME_CAP_MS)) }
         if (s.links.remove(connectionId) == null || s.links.isNotEmpty()) return emptyList()
         // A flap: dropped again before the game went on keeps the first drop's time.
         val since = s.droppedSince ?: clock().also { s.droppedSince = it }

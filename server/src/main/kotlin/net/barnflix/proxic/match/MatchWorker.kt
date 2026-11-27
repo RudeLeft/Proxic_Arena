@@ -136,6 +136,7 @@ class MatchWorker(
                     .redirectError(stderrTarget(config.dataRoot, matchId, log))
                     .start()
             process = started
+            spawned = true
             greetAndStart(started, seats)
         } catch (e: Exception) {
             // §1.66's rule, carried here: a worker that cannot be
@@ -356,6 +357,11 @@ class MatchWorker(
 
     /** Is the process still there? §6.17's RUNNING depends on it. */
     fun isAlive(): Boolean = process?.isAlive == true
+
+    /** Spec 0120 -- a process was started for this match (it may have ended since). */
+    @Volatile
+    var spawned: Boolean = false
+        private set
 
     /**
      * §6.162 — stop this match without touching any other.

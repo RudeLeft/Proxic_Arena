@@ -161,7 +161,13 @@ fun Route.matchSocket(
             connection.queue.stop()
             hub.watchers.close(matchId, userId, connectionId)
             // Spec 0120 -- its last connection gone, the seat drops: the game pauses.
-            live?.let { hub.pauses.closed(it, seat, connectionId) }
+            // The match as it is now (one being launched may have become live
+            // since this connection opened), and the seat's other connections
+            // the hub still has: a seat with one is not dropped.
+            runtime.liveMatch(matchId)?.let {
+                val others = hub.watchers.of(matchId, userId).map { c -> c.connectionId }
+                hub.pauses.closed(it, seat, connectionId, stillOpen = others)
+            }
             boardsSent(matchId, connection)
         }
     }

@@ -444,3 +444,43 @@ Three failures in the first CI run of the pause; fixed on `p11-pause-fix`.
   after the returning page is live), so the page sent nothing ("both tabs
   sent an answer": 0). That is the pause working; the test now waits for
   `MATCH_RESUMED` on the returning page before the two clicks.
+
+## As built: after CI run 46054823866 (2026-11-27)
+
+Two failures: machine 5's `match.spec` timed out in its pregame ("The game is
+running" never came) and machine 3's `match-numbers` ended its game on turn 28
+before a divided spell's targets were asked (`chooseTargetsFor`). Branch
+`p11-pause-fix3`. The CI server log is not kept, so what held machine 5's
+game is **not proven**; what was checked:
+
+- **A paused game holding the shared accounts: not found.** `clearEverything`
+  abandons the player's current match (`runtime.abandon`: out of `live`, its
+  worker stopped), and a match whose worker has ended is forgotten by the
+  pause; each match has its own worker, and a held one blocks nobody else's
+  game. A concession while paused is honoured at once (only an answer is
+  refused, `LiveMatch.answer`). Stack A's whole log (every whole-machine run
+  of the day): every pause before a game was RUNNING either went on about 8 s
+  later or was a game a test ended on purpose; none was left paused.
+- **Two narrow holes, closed (server, unit tests bitten).** (1) A match paused
+  in the moment between its `LiveMatch` being registered and its worker's
+  process starting was taken for a finished game and forgotten: it stayed
+  paused for ever, every answer refused. "Gone" is now a worker that was
+  started and has ended (`MatchWorker.spawned`). (2) A HOLD the worker could
+  not take yet (no process) was dropped; the pause now tells the worker again
+  every tick until it takes it, and forgets a resumed match only once GO was
+  taken. (3) A seat's connection opened before its match was live was never
+  counted, so a second connection of the same seat closing could drop the
+  seat; the socket now passes the hub's other open connections for that seat
+  (`SeatLinks.closed(stillOpen)`). Each is a real gap; none is shown to be
+  CI's: the first window is one process start long.
+- **Not a reload.** A browser test that reloaded the host 0, 400 and 1,500 ms
+  after Start match never reached a game, on the old build: Start match is
+  driven by the page (prepare, then launch), so a reload in between stops the
+  launch itself (the log: no launch, or `cancel-prep`). That is not what CI
+  did, and the test was dropped.
+- **Proof:** `ci-speed --whole` at 4x on the fixed build: machine 5 (17
+  tests, `match.spec` included) 16 passed, 16.0 min, 4 pauses (2 went on, 2
+  in games ended by their tests). Machine 3 (14 tests, `match-numbers` included) 14 passed, 22.6 min, 2 pauses, both in games ended by their tests (`match-away`'s away player). The pregame stall stays in
+  ROADMAP's flake list beside `match-damage-tray`'s (2026-11-26, before the
+  pause existed: the same look, the host's Keep never answered); the next
+  sighting needs the server log.
