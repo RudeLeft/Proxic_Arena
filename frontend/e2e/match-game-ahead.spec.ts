@@ -158,5 +158,10 @@ test("P11-E6: sitting in a room fetches the game's code and mana pictures ahead;
   } finally {
     await clearEverything(host).catch(() => undefined);
     await clearEverything(guest).catch(() => undefined);
+    // Its pages were never closed: they followed both players into every
+    // later game on the CI machine, a second tab of each -- in match-window
+    // the host's own countdown ran out there and passed (CI run 46043095260).
+    await host.context().close();
+    await guest.context().close();
   }
 });

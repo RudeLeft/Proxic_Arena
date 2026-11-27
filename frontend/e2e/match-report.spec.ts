@@ -49,115 +49,120 @@ test("a report from a real game reaches the administrator, with everything in it
   await signIn(host);
   await clearEverything(host);
   const guest = await (await browser.newContext()).newPage();
-  await signInAs(guest, secondUser, secondPassword);
-  await clearEverything(guest);
+  // Closed whatever happens: a page left open follows its player into the
+  // next spec's game, a second tab there (CI run 46043095260).
+  try {
+    await signInAs(guest, secondUser, secondPassword);
+    await clearEverything(guest);
 
-  const deck = await sharedDeck(host, guest, pkg!);
-  await startAMatch(host, guest, deck);
-  const matchId = (
-    (await (await guest.request.get("/api/matches/current")).json()) as {
-      match: { matchId: string };
+    const deck = await sharedDeck(host, guest, pkg!);
+    await startAMatch(host, guest, deck);
+    const matchId = (
+      (await (await guest.request.get("/api/matches/current")).json()) as {
+        match: { matchId: string };
+      }
+    ).match.matchId;
+
+    // The guest reports a problem from the board.
+    const stamp = `e2e ${Date.now()}`;
+    // The board's own button, beside the gear (the title bar's sits under the board).
+    await guest.locator("button.pa-report-coin").click();
+    const form = guest.getByRole("dialog", { name: "Report a problem or an idea" });
+    await expect(form.getByText(/^Turn \d+ · /)).toBeVisible();
+    await expect(form.getByLabel("Add a picture of my screen as it is now")).toBeChecked();
+    await form.getByLabel(/What happened\?/).fill(`The ${stamp} did nothing`);
+    await form.getByRole("button", { name: "Small thing", exact: true }).click();
+    await form.getByRole("button", { name: "Send report" }).click();
+    const sent = guest.getByRole("status").filter({ hasText: "Thanks. Your report was sent." });
+    await expect(sent).toContainText("this game’s record");
+    const number = Number((await sent.locator("b").innerText()).replace("#", ""));
+    await sent.getByRole("button", { name: "Back to the game" }).click();
+    await expect(guest.locator(".bf-cards")).toBeVisible();
+
+    // A player cannot read reports.
+    expect((await guest.request.get("/api/admin/reports")).status()).toBe(403);
+
+    // The host sends an idea from the title bar of another page.
+    await clearEverything(host);
+    await host.goto("/decks");
+    await host.getByRole("button", { name: "Report a problem or an idea" }).click();
+    const ideaForm = host.getByRole("dialog", { name: "Report a problem or an idea" });
+    await ideaForm.getByRole("tab", { name: "Suggest an idea" }).click();
+    await ideaForm.getByLabel(/Your idea in a few words/).fill(`Idea ${stamp}`);
+    await ideaForm.getByRole("button", { name: "Send idea" }).click();
+    await expect(
+      host.getByRole("status").filter({ hasText: "Thanks. Your report was sent." }),
+    ).toBeVisible();
+    await host.getByRole("button", { name: "Close" }).click();
+    // F-0039-C (owner 2026-11-04): an idea keeps its words, picture, page
+    // and version; no browser, screen or server log rides along.
+    const listed = (await (await host.request.get("/api/admin/reports")).json()) as {
+      reports: { number: number; summary: string }[];
+    };
+    const ideaNumber = listed.reports.find((r) => r.summary === `Idea ${stamp}`)!.number;
+    const idea = (await (await host.request.get(`/api/admin/reports/${ideaNumber}`)).json()) as {
+      context: Record<string, string>;
+      files: { name: string }[];
+    };
+    expect(Object.keys(idea.context).sort()).toEqual(["page", "version"]);
+    // Spec 0086, Amendment 2: the screen comes as a JPEG.
+    expect(idea.files.map((f) => f.name)).toEqual(["screen.jpg"]);
+
+    // The administrator's Reports tab: counted, listed, opened.
+    await host.goto("/admin?tab=reports");
+    await expect(
+      host.getByRole("tab", { name: /Reports/ }).locator(".pa-admin-tab-new"),
+    ).toHaveText(/\d+ new/);
+    await host.getByRole("button", { name: new RegExp(`#${number} `) }).click();
+    await expect(host.getByRole("heading", { name: `The ${stamp} did nothing` })).toBeVisible();
+    await expect(host.getByRole("img", { name: /Their screen/ })).toBeVisible();
+    await expect(host.getByRole("tab", { name: "The game record" })).toBeVisible();
+    await expect(host.locator(".pa-report-log")).toContainText("DECISION");
+    // Opening it marked it Seen.
+    await expect(host.getByLabel("Status")).toHaveValue("SEEN");
+
+    const zipResponse = await host.request.get(`/api/admin/reports/${number}/zip`);
+    expect(zipResponse.status()).toBe(200);
+    const files = unzip(await zipResponse.body());
+    const root = `proxic-report-${number}/`;
+    for (const name of [
+      "README.md",
+      "report.json",
+      "screen.jpg",
+      "browser-log.jsonl",
+      "game-record.jsonl.gz",
+      "server-log.txt",
+    ]) {
+      expect(files.has(root + name), name).toBe(true);
     }
-  ).match.matchId;
+    const report = JSON.parse(files.get(root + "report.json")!.toString()) as {
+      kind: string;
+      matchId: string;
+      answers: Record<string, unknown>;
+    };
+    expect(report.kind).toBe("PROBLEM");
+    expect(report.matchId).toBe(matchId);
+    expect(report.answers["happened"]).toBe(`The ${stamp} did nothing`);
+    // A JPEG (FF D8 FF), and small: a board full of card art was over 1 MB as a PNG.
+    const screen = files.get(root + "screen.jpg")!;
+    expect([...screen.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
+    console.log(`report picture: ${screen.length} bytes`);
+    expect(screen.length).toBeLessThan(1_000_000);
+    expect(files.get(root + "browser-log.jsonl")!.toString()).toContain("Report pressed");
+    expect(gunzipSync(files.get(root + "game-record.jsonl.gz")!).toString()).toContain(
+      "DECISION_REQUEST",
+    );
+    expect(files.get(root + "README.md")!.toString()).toContain(`The ${stamp} did nothing`);
 
-  // The guest reports a problem from the board.
-  const stamp = `e2e ${Date.now()}`;
-  // The board's own button, beside the gear (the title bar's sits under the board).
-  await guest.locator("button.pa-report-coin").click();
-  const form = guest.getByRole("dialog", { name: "Report a problem or an idea" });
-  await expect(form.getByText(/^Turn \d+ · /)).toBeVisible();
-  await expect(form.getByLabel("Add a picture of my screen as it is now")).toBeChecked();
-  await form.getByLabel(/What happened\?/).fill(`The ${stamp} did nothing`);
-  await form.getByRole("button", { name: "Small thing", exact: true }).click();
-  await form.getByRole("button", { name: "Send report" }).click();
-  const sent = guest.getByRole("status").filter({ hasText: "Thanks. Your report was sent." });
-  await expect(sent).toContainText("this game’s record");
-  const number = Number((await sent.locator("b").innerText()).replace("#", ""));
-  await sent.getByRole("button", { name: "Back to the game" }).click();
-  await expect(guest.locator(".bf-cards")).toBeVisible();
+    // Delete, after asking, leaves it gone.
+    await host.getByRole("button", { name: "Delete", exact: true }).click();
+    await host.getByRole("alert").getByRole("button", { name: "Delete" }).click();
+    await expect(host.getByRole("heading", { name: "Reports" })).toBeVisible();
+    expect((await host.request.get(`/api/admin/reports/${number}`)).status()).toBe(404);
 
-  // A player cannot read reports.
-  expect((await guest.request.get("/api/admin/reports")).status()).toBe(403);
-
-  // The host sends an idea from the title bar of another page.
-  await clearEverything(host);
-  await host.goto("/decks");
-  await host.getByRole("button", { name: "Report a problem or an idea" }).click();
-  const ideaForm = host.getByRole("dialog", { name: "Report a problem or an idea" });
-  await ideaForm.getByRole("tab", { name: "Suggest an idea" }).click();
-  await ideaForm.getByLabel(/Your idea in a few words/).fill(`Idea ${stamp}`);
-  await ideaForm.getByRole("button", { name: "Send idea" }).click();
-  await expect(
-    host.getByRole("status").filter({ hasText: "Thanks. Your report was sent." }),
-  ).toBeVisible();
-  await host.getByRole("button", { name: "Close" }).click();
-  // F-0039-C (owner 2026-11-04): an idea keeps its words, picture, page
-  // and version; no browser, screen or server log rides along.
-  const listed = (await (await host.request.get("/api/admin/reports")).json()) as {
-    reports: { number: number; summary: string }[];
-  };
-  const ideaNumber = listed.reports.find((r) => r.summary === `Idea ${stamp}`)!.number;
-  const idea = (await (await host.request.get(`/api/admin/reports/${ideaNumber}`)).json()) as {
-    context: Record<string, string>;
-    files: { name: string }[];
-  };
-  expect(Object.keys(idea.context).sort()).toEqual(["page", "version"]);
-  // Spec 0086, Amendment 2: the screen comes as a JPEG.
-  expect(idea.files.map((f) => f.name)).toEqual(["screen.jpg"]);
-
-  // The administrator's Reports tab: counted, listed, opened.
-  await host.goto("/admin?tab=reports");
-  await expect(host.getByRole("tab", { name: /Reports/ }).locator(".pa-admin-tab-new")).toHaveText(
-    /\d+ new/,
-  );
-  await host.getByRole("button", { name: new RegExp(`#${number} `) }).click();
-  await expect(host.getByRole("heading", { name: `The ${stamp} did nothing` })).toBeVisible();
-  await expect(host.getByRole("img", { name: /Their screen/ })).toBeVisible();
-  await expect(host.getByRole("tab", { name: "The game record" })).toBeVisible();
-  await expect(host.locator(".pa-report-log")).toContainText("DECISION");
-  // Opening it marked it Seen.
-  await expect(host.getByLabel("Status")).toHaveValue("SEEN");
-
-  const zipResponse = await host.request.get(`/api/admin/reports/${number}/zip`);
-  expect(zipResponse.status()).toBe(200);
-  const files = unzip(await zipResponse.body());
-  const root = `proxic-report-${number}/`;
-  for (const name of [
-    "README.md",
-    "report.json",
-    "screen.jpg",
-    "browser-log.jsonl",
-    "game-record.jsonl.gz",
-    "server-log.txt",
-  ]) {
-    expect(files.has(root + name), name).toBe(true);
+    await clearEverything(guest);
+  } finally {
+    await host.context().close();
+    await guest.context().close();
   }
-  const report = JSON.parse(files.get(root + "report.json")!.toString()) as {
-    kind: string;
-    matchId: string;
-    answers: Record<string, unknown>;
-  };
-  expect(report.kind).toBe("PROBLEM");
-  expect(report.matchId).toBe(matchId);
-  expect(report.answers["happened"]).toBe(`The ${stamp} did nothing`);
-  // A JPEG (FF D8 FF), and small: a board full of card art was over 1 MB as a PNG.
-  const screen = files.get(root + "screen.jpg")!;
-  expect([...screen.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
-  console.log(`report picture: ${screen.length} bytes`);
-  expect(screen.length).toBeLessThan(1_000_000);
-  expect(files.get(root + "browser-log.jsonl")!.toString()).toContain("Report pressed");
-  expect(gunzipSync(files.get(root + "game-record.jsonl.gz")!).toString()).toContain(
-    "DECISION_REQUEST",
-  );
-  expect(files.get(root + "README.md")!.toString()).toContain(`The ${stamp} did nothing`);
-
-  // Delete, after asking, leaves it gone.
-  await host.getByRole("button", { name: "Delete", exact: true }).click();
-  await host.getByRole("alert").getByRole("button", { name: "Delete" }).click();
-  await expect(host.getByRole("heading", { name: "Reports" })).toBeVisible();
-  expect((await host.request.get(`/api/admin/reports/${number}`)).status()).toBe(404);
-
-  await clearEverything(guest);
-  await host.context().close();
-  await guest.context().close();
 });

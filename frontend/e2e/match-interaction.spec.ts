@@ -51,156 +51,161 @@ test("a click with nothing asked selects and does not attack; a cancelled target
   await signIn(host);
   await clearEverything(host);
   const guest = await (await browser.newContext()).newPage();
-  await signInAs(guest, secondUser, secondPassword);
-  await clearEverything(guest);
-  const deck = await sharedDeck(host, guest, pkg);
-  await startAMatch(host, guest, deck);
+  // Closed whatever happens: a page left open follows its player into the
+  // next spec's game, a second tab there (CI run 46043095260).
+  try {
+    await signInAs(guest, secondUser, secondPassword);
+    await clearEverything(guest);
+    const deck = await sharedDeck(host, guest, pkg);
+    await startAMatch(host, guest, deck);
 
-  let selected = false;
-  let cancelled = false;
-  const deadline = Date.now() + 480_000;
-  const watch = watchGame([host, guest], () => ({ selected, cancelled }));
-  while (!(selected && cancelled) && Date.now() < deadline) {
-    await watch.check();
-    for (const page of [host, guest]) {
-      await page.mouse.move(0, 0);
-      const panel = matchPanel(page);
-      // Spec 0061: discarding to hand size is pick, then Discard.
-      if (await discardIfAsked(page)) continue;
-      const priority =
-        (await panel
-          .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
-          .count()) > 0;
-      const hand = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
+    let selected = false;
+    let cancelled = false;
+    const deadline = Date.now() + 480_000;
+    const watch = watchGame([host, guest], () => ({ selected, cancelled }));
+    while (!(selected && cancelled) && Date.now() < deadline) {
+      await watch.check();
+      for (const page of [host, guest]) {
+        await page.mouse.move(0, 0);
+        const panel = matchPanel(page);
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
+        const priority =
+          (await panel
+            .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+            .count()) > 0;
+        const hand = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
 
-      if (page === host && priority && !selected) {
-        // P7-G: a creature of ours that nothing is asked about.
-        const idle = panel
-          .locator(
-            // Not one already in a fight: at priority during combat a
-            // creature the bot attacked with is still "attacking" (CI a4e7007).
-            '.bf-cards button[data-controller="viewer"][data-object-id]:not([data-zone="viewer:hand"]):not([data-choosable="true"]):not([data-attacking="true"]):not([data-blocking="true"])',
-          )
-          .filter({ hasNotText: "Mountain" });
-        if ((await idle.count()) > 0) {
-          const id = (await idle.first().getAttribute("data-object-id"))!;
-          await click(idle);
-          const card = panel.locator(`.bf-cards button[data-object-id="${id}"]`);
-          await expect(card, "the click selects it").toHaveAttribute("data-selected", "true");
-          await expect(card, "and it does not attack").not.toContainText(/attacking/i);
-          await expect(
-            panel.locator(
-              "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
-            ),
-            "and the question is still open",
-          ).toHaveCount(1);
-          selected = true;
+        if (page === host && priority && !selected) {
+          // P7-G: a creature of ours that nothing is asked about.
+          const idle = panel
+            .locator(
+              // Not one already in a fight: at priority during combat a
+              // creature the bot attacked with is still "attacking" (CI a4e7007).
+              '.bf-cards button[data-controller="viewer"][data-object-id]:not([data-zone="viewer:hand"]):not([data-choosable="true"]):not([data-attacking="true"]):not([data-blocking="true"])',
+            )
+            .filter({ hasNotText: "Mountain" });
+          if ((await idle.count()) > 0) {
+            const id = (await idle.first().getAttribute("data-object-id"))!;
+            await click(idle);
+            const card = panel.locator(`.bf-cards button[data-object-id="${id}"]`);
+            await expect(card, "the click selects it").toHaveAttribute("data-selected", "true");
+            await expect(card, "and it does not attack").not.toContainText(/attacking/i);
+            await expect(
+              panel.locator(
+                "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
+              ),
+              "and the question is still open",
+            ).toHaveCount(1);
+            selected = true;
+            continue;
+          }
+        }
+
+        // Only in a main phase. Cancelled at the UPKEEP stop, priority passed
+        // on and the DRAW step drew a second copy, so the hand held one more
+        // than before (CI run 40893297305). From a main phase, passing on
+        // stops at the next main phase or a stop of the guest's, who does
+        // not act until this check is done -- never at our draw.
+        if (
+          page === host &&
+          priority &&
+          selected &&
+          !cancelled &&
+          /^Main [12]$/.test(await stepOf(page))
+        ) {
+          // P7-H: a burn spell we can pay for, started and then cancelled.
+          const burn = hand
+            .filter({ hasText: BURN })
+            .and(page.locator(':not([data-unpayable="true"])'));
+          if ((await burn.count()) > 0) {
+            const name = ((await burn.first().textContent()) ?? "").match(BURN)![0];
+            const inHand = await page
+              .locator('[data-zone="viewer:hand"]')
+              .filter({ hasText: name })
+              .count();
+            const life = await opponentLife(page);
+            await click(burn);
+            const popup = page.locator(".gs-popup .gs-option");
+            if ((await popup.count()) > 0) await click(popup);
+            // The candidates are shown: the opponent can be chosen.
+            await expect(
+              page.locator(".gs-seat-opponent .gs-life.gs-choosable"),
+              "the opponent is a target",
+            ).toHaveCount(1, { timeout: 15_000 });
+            // Owner 2026-10-22: backing out is the act button, "Cancel".
+            await expect(panel.locator("button.gs-act-cancel")).toContainText("Cancel");
+            await click(panel.locator("button.gs-act-cancel"));
+            // The target question is gone. (Priority may come back, or -- when
+            // that spell was the only thing to do -- pass on, as it should.)
+            await expect(
+              page.locator(".gs-seat-opponent .gs-life.gs-choosable"),
+              "the target question ended",
+            ).toHaveCount(0, { timeout: 15_000 });
+            await expect(
+              page.locator('[data-zone="viewer:hand"]').filter({ hasText: name }),
+              "the spell is still in hand",
+            ).toHaveCount(inHand);
+            await expect(
+              page.locator('[data-zone="stack"]'),
+              "nothing was cast: no card on the stack",
+            ).toHaveCount(0);
+            expect(await opponentLife(page), "nobody took damage").toBe(life);
+            // Spec 0058, item 1 -- and it can be cast again at once: the same
+            // card is offered (choosable, gold) at the next "your move". The
+            // Cancel was the player's "no", not a cast that went nowhere.
+            await expect(
+              page
+                .locator('[data-zone="viewer:hand"][data-choosable="true"]')
+                .filter({ hasText: name }),
+              "the cancelled card can be cast again",
+            ).not.toHaveCount(0, { timeout: 15_000 });
+            await page.screenshot({ path: "test-results/seen/0058-cancelled-castable.png" });
+            cancelled = true;
+            break;
+          }
+        }
+
+        if (!priority) {
+          // Any other question: the first choice, a board choice, or pass.
+          const listed = panel.locator(
+            ".gs-question li button, .gs-win li button, .gs-combat li button",
+          );
+          // Not a creature already attacking or blocking: since spec 0042 a
+          // click on it takes it back, and the loop would never end.
+          const board = panel
+            .locator('.bf-cards button[data-choosable="true"], .gs-life.gs-choosable')
+            .filter({ hasNotText: /attacking|blocking/i });
+          if ((await listed.count()) > 0) await clickUnless(listed, PRIORITY);
+          else if ((await board.count()) > 0) await clickUnless(board, PRIORITY);
+          else await click(passOrAct(page));
           continue;
         }
-      }
-
-      // Only in a main phase. Cancelled at the UPKEEP stop, priority passed
-      // on and the DRAW step drew a second copy, so the hand held one more
-      // than before (CI run 40893297305). From a main phase, passing on
-      // stops at the next main phase or a stop of the guest's, who does
-      // not act until this check is done -- never at our draw.
-      if (
-        page === host &&
-        priority &&
-        selected &&
-        !cancelled &&
-        /^Main [12]$/.test(await stepOf(page))
-      ) {
-        // P7-H: a burn spell we can pay for, started and then cancelled.
-        const burn = hand
-          .filter({ hasText: BURN })
-          .and(page.locator(':not([data-unpayable="true"])'));
-        if ((await burn.count()) > 0) {
-          const name = ((await burn.first().textContent()) ?? "").match(BURN)![0];
-          const inHand = await page
-            .locator('[data-zone="viewer:hand"]')
-            .filter({ hasText: name })
-            .count();
-          const life = await opponentLife(page);
-          await click(burn);
-          const popup = page.locator(".gs-popup .gs-option");
-          if ((await popup.count()) > 0) await click(popup);
-          // The candidates are shown: the opponent can be chosen.
-          await expect(
-            page.locator(".gs-seat-opponent .gs-life.gs-choosable"),
-            "the opponent is a target",
-          ).toHaveCount(1, { timeout: 15_000 });
-          // Owner 2026-10-22: backing out is the act button, "Cancel".
-          await expect(panel.locator("button.gs-act-cancel")).toContainText("Cancel");
-          await click(panel.locator("button.gs-act-cancel"));
-          // The target question is gone. (Priority may come back, or -- when
-          // that spell was the only thing to do -- pass on, as it should.)
-          await expect(
-            page.locator(".gs-seat-opponent .gs-life.gs-choosable"),
-            "the target question ended",
-          ).toHaveCount(0, { timeout: 15_000 });
-          await expect(
-            page.locator('[data-zone="viewer:hand"]').filter({ hasText: name }),
-            "the spell is still in hand",
-          ).toHaveCount(inHand);
-          await expect(
-            page.locator('[data-zone="stack"]'),
-            "nothing was cast: no card on the stack",
-          ).toHaveCount(0);
-          expect(await opponentLife(page), "nobody took damage").toBe(life);
-          // Spec 0058, item 1 -- and it can be cast again at once: the same
-          // card is offered (choosable, gold) at the next "your move". The
-          // Cancel was the player's "no", not a cast that went nowhere.
-          await expect(
-            page
-              .locator('[data-zone="viewer:hand"][data-choosable="true"]')
-              .filter({ hasText: name }),
-            "the cancelled card can be cast again",
-          ).not.toHaveCount(0, { timeout: 15_000 });
-          await page.screenshot({ path: "test-results/seen/0058-cancelled-castable.png" });
-          cancelled = true;
-          break;
-        }
-      }
-
-      if (!priority) {
-        // Any other question: the first choice, a board choice, or pass.
-        const listed = panel.locator(
-          ".gs-question li button, .gs-win li button, .gs-combat li button",
-        );
-        // Not a creature already attacking or blocking: since spec 0042 a
-        // click on it takes it back, and the loop would never end.
-        const board = panel
-          .locator('.bf-cards button[data-choosable="true"], .gs-life.gs-choosable')
-          .filter({ hasNotText: /attacking|blocking/i });
-        if ((await listed.count()) > 0) await clickUnless(listed, PRIORITY);
-        else if ((await board.count()) > 0) await clickUnless(board, PRIORITY);
-        else await click(passOrAct(page));
-        continue;
-      }
-      const land = hand.filter({ hasText: "Mountain" });
-      if ((await land.count()) > 0) {
-        await click(land);
-        continue;
-      }
-      if (page === host && !selected) {
-        const creature = hand
-          .filter({ hasNotText: BURN })
-          .filter({ hasNotText: "Mountain" })
-          .and(page.locator(':not([data-unpayable="true"])'));
-        if ((await creature.count()) > 0) {
-          await click(creature);
+        const land = hand.filter({ hasText: "Mountain" });
+        if ((await land.count()) > 0) {
+          await click(land);
           continue;
         }
+        if (page === host && !selected) {
+          const creature = hand
+            .filter({ hasNotText: BURN })
+            .filter({ hasNotText: "Mountain" })
+            .and(page.locator(':not([data-unpayable="true"])'));
+          if ((await creature.count()) > 0) {
+            await click(creature);
+            continue;
+          }
+        }
+        await click(panel.locator(".gs-act"));
       }
-      await click(panel.locator(".gs-act"));
+      await host.waitForTimeout(100);
     }
-    await host.waitForTimeout(100);
-  }
-  expect(selected, "a creature was clicked with nothing asked").toBe(true);
-  expect(cancelled, "a targeted spell was started and cancelled").toBe(true);
+    expect(selected, "a creature was clicked with nothing asked").toBe(true);
+    expect(cancelled, "a targeted spell was started and cancelled").toBe(true);
 
-  await clearEverything(host);
-  await host.context().close();
-  await guest.context().close();
+    await clearEverything(host);
+  } finally {
+    await host.context().close();
+    await guest.context().close();
+  }
 });

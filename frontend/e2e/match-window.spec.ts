@@ -54,158 +54,165 @@ test("your own spell counts down from 5 and resolves; a click on the countdown r
   await signIn(host);
   await clearEverything(host);
   const guest = await (await browser.newContext()).newPage();
-  await signInAs(guest, secondUser, secondPassword);
-  await clearEverything(guest);
-  const deck = await sharedDeck(host, guest, pkg);
-  await startAMatch(host, guest, deck);
+  // Closed whatever happens: a page left open follows its player into the
+  // next spec's game, a second tab there (CI run 46043095260).
+  try {
+    await signInAs(guest, secondUser, secondPassword);
+    await clearEverything(guest);
+    const deck = await sharedDeck(host, guest, pkg);
+    await startAMatch(host, guest, deck);
 
-  // Spec 0004's Hold button is gone (F-0005-D).
-  await expect(matchPanel(host).locator("button.gs-hold")).toHaveCount(0);
+    // Spec 0004's Hold button is gone (F-0005-D).
+    await expect(matchPanel(host).locator("button.gs-hold")).toHaveCount(0);
 
-  let ranOut = false;
-  let clicked = false;
-  // Amendment 13 (item 1): the circle pauses; nothing resolves until asked.
-  let paused = false;
-  // Owner 2026-11-04: only the tab in front counts down.
-  let hiddenTab = false;
-  // The opponent may still pass after us before the spell resolves, so the
-  // life total is checked as the game goes on.
-  let ranOutFrom: number | null = null;
-  let clickedFrom: number | null = null;
-  const deadline = Date.now() + 780_000;
-  const watch = watchGame([host, guest], () => ({ ranOut, clicked, paused, hiddenTab }));
-  while (!(ranOut && clicked && paused && hiddenTab) && Date.now() < deadline) {
-    await watch.check();
-    const life = await opponentLife(host);
-    if (ranOutFrom !== null && life < ranOutFrom) [ranOut, ranOutFrom] = [true, null];
-    if (clickedFrom !== null && life < clickedFrom) [clicked, clickedFrom] = [true, null];
-    for (const page of [host, guest]) {
-      await page.mouse.move(0, 0);
-      const panel = matchPanel(page);
-      // Spec 0061: discarding to hand size is pick, then Discard.
-      if (await discardIfAsked(page)) continue;
-      const windowButton = panel.locator("button.gs-act-window");
+    let ranOut = false;
+    let clicked = false;
+    // Amendment 13 (item 1): the circle pauses; nothing resolves until asked.
+    let paused = false;
+    // Owner 2026-11-04: only the tab in front counts down.
+    let hiddenTab = false;
+    // The opponent may still pass after us before the spell resolves, so the
+    // life total is checked as the game goes on.
+    let ranOutFrom: number | null = null;
+    let clickedFrom: number | null = null;
+    const deadline = Date.now() + 780_000;
+    const watch = watchGame([host, guest], () => ({ ranOut, clicked, paused, hiddenTab }));
+    while (!(ranOut && clicked && paused && hiddenTab) && Date.now() < deadline) {
+      await watch.check();
+      const life = await opponentLife(host);
+      if (ranOutFrom !== null && life < ranOutFrom) [ranOut, ranOutFrom] = [true, null];
+      if (clickedFrom !== null && life < clickedFrom) [clicked, clickedFrom] = [true, null];
+      for (const page of [host, guest]) {
+        await page.mouse.move(0, 0);
+        const panel = matchPanel(page);
+        // Spec 0061: discarding to hand size is pick, then Discard.
+        if (await discardIfAsked(page)) continue;
+        const windowButton = panel.locator("button.gs-act-window");
 
-      if (page === host && (await windowButton.count()) > 0) {
-        if (!ranOut && ranOutFrom === null) {
-          // F-0005-B: let it run out -- no click at all.
-          ranOutFrom = await opponentLife(page);
-          // F-0035-H: it starts from 5, and is still counting past 2 s.
-          await expect(windowButton).toContainText(/Resolves in [45]/);
-          await expect(windowButton).toContainText("Click to resolve it now.");
-          await host.screenshot({ path: "test-results/seen/window-counting.png" });
-          await page.waitForTimeout(2_500);
-          await expect(windowButton, "still counting after 2.5 s").toHaveCount(1);
-          await expect(windowButton, "the countdown ends by itself").toHaveCount(0, {
-            timeout: 6_000,
-          });
-        } else if (ranOut && !clicked && clickedFrom === null) {
-          // F-0035-H: a click on the countdown resolves it now -- an ordinary Pass.
-          clickedFrom = await opponentLife(page);
-          const before = Date.now();
-          await click(windowButton);
-          await expect(windowButton, "a click resolves at once").toHaveCount(0, {
-            timeout: 3_000,
-          });
-          expect(Date.now() - before, "well before the countdown ran out").toBeLessThan(3_500);
-        } else if (ranOut && clicked && !paused) {
-          // Amendment 13 (item 1): the pause in the circle stops the
-          // countdown; it waits past when it would have run out, then a
-          // click resolves it.
-          await click(panel.locator("button.gs-act-pause"));
-          await expect(windowButton).toContainText("Paused");
-          await host.screenshot({ path: "test-results/seen/window-paused.png" });
-          await page.waitForTimeout(6_000);
-          await expect(windowButton, "still paused after the countdown's 5 s").toContainText(
-            "Paused",
-          );
-          await click(windowButton);
-          await expect(windowButton, "resolved when asked").toHaveCount(0, { timeout: 3_000 });
-          paused = true;
-        } else if (ranOut && clicked && paused && !hiddenTab) {
-          // Owner 2026-11-04: a tab that is not in front never resolves
-          // anything; back in front, it counts again from 5.
-          await expect(windowButton).toContainText(/Resolves in [45]/);
-          await setHidden(page, true);
-          await page.waitForTimeout(6_000);
-          await expect(
-            page.locator('[data-zone="stack"]').first(),
-            "still on the stack after 6 s in a hidden tab",
-          ).toBeAttached();
-          await setHidden(page, false);
-          await expect(windowButton, "back in front, it counts from 5 again").toContainText(
-            /Resolves in [45]/,
-          );
-          await click(windowButton);
-          await expect(windowButton, "resolved when asked").toHaveCount(0, { timeout: 3_000 });
-          hiddenTab = true;
-        } else {
-          // An earlier window's spell is still on its way: let this one run out.
-          await expect(windowButton).toHaveCount(0, { timeout: 8_000 });
-        }
-        continue;
-      }
-
-      const priority =
-        (await panel
-          .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
-          .count()) > 0;
-      const hand = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
-      if (!priority) {
-        // Targets go to the opponent; anything else: first choice or pass.
-        const face = page.locator(".gs-seat-opponent .gs-life.gs-choosable");
-        const listed = panel.locator(
-          ".gs-question li button, .gs-win li button, .gs-combat li button",
-        );
-        const board = panel.locator('.bf-cards button[data-choosable="true"]');
-        if ((await face.count()) > 0) await click(face);
-        else if ((await listed.count()) > 0) await clickUnless(listed, PRIORITY);
-        else if ((await board.count()) > 0) await clickUnless(board, PRIORITY);
-        else await click(passOrAct(page));
-        continue;
-      }
-      const land = hand.filter({ hasText: "Mountain" });
-      if ((await land.count()) > 0) {
-        await click(land);
-        continue;
-      }
-      if (page === host) {
-        // Cast burn while holding another: with a spare Mountain there is
-        // something to respond with, and the worker makes it a window.
-        const burn = hand
-          .filter({ hasText: BURN })
-          .and(page.locator(':not([data-unpayable="true"])'));
-        // ...and only with a Mountain to spare after paying (Lightning Strike
-        // costs two): a cast with none opens no window and only burns the
-        // opponent. CI run 44908509595 did that six times, from one or two
-        // Mountains, and the opponent died on turn 37 before the next step.
-        const untapped = await page
-          .locator(
-            '.bf-cards button[data-controller="viewer"][data-tapped="false"][aria-label^="Mountain"]:not([data-zone="viewer:hand"])',
-          )
-          .evaluateAll((els) =>
-            els.reduce((n, el) => n + Number(el.getAttribute("data-pile") ?? "1"), 0),
-          );
-        if ((await burn.count()) >= 2 && untapped >= 3) {
-          await click(burn);
-          const popup = page.locator(".gs-popup .gs-option");
-          if ((await popup.count()) > 0) await click(popup);
+        if (page === host && (await windowButton.count()) > 0) {
+          if (!ranOut && ranOutFrom === null) {
+            // F-0005-B: let it run out -- no click at all.
+            ranOutFrom = await opponentLife(page);
+            // F-0035-H: it starts from 5, and is still counting past 2 s.
+            await expect(windowButton).toContainText(/Resolves in [45]/);
+            await expect(windowButton).toContainText("Click to resolve it now.");
+            await host.screenshot({ path: "test-results/seen/window-counting.png" });
+            await page.waitForTimeout(2_500);
+            await expect(windowButton, "still counting after 2.5 s").toHaveCount(1);
+            await expect(windowButton, "the countdown ends by itself").toHaveCount(0, {
+              timeout: 6_000,
+            });
+          } else if (ranOut && !clicked && clickedFrom === null) {
+            // F-0035-H: a click on the countdown resolves it now -- an ordinary Pass.
+            clickedFrom = await opponentLife(page);
+            const before = Date.now();
+            await click(windowButton);
+            await expect(windowButton, "a click resolves at once").toHaveCount(0, {
+              timeout: 3_000,
+            });
+            expect(Date.now() - before, "well before the countdown ran out").toBeLessThan(3_500);
+          } else if (ranOut && clicked && !paused) {
+            // Amendment 13 (item 1): the pause in the circle stops the
+            // countdown; it waits past when it would have run out, then a
+            // click resolves it.
+            await click(panel.locator("button.gs-act-pause"));
+            await expect(windowButton).toContainText("Paused");
+            await host.screenshot({ path: "test-results/seen/window-paused.png" });
+            await page.waitForTimeout(6_000);
+            await expect(windowButton, "still paused after the countdown's 5 s").toContainText(
+              "Paused",
+            );
+            await click(windowButton);
+            await expect(windowButton, "resolved when asked").toHaveCount(0, { timeout: 3_000 });
+            paused = true;
+          } else if (ranOut && clicked && paused && !hiddenTab) {
+            // Owner 2026-11-04: a tab that is not in front never resolves
+            // anything; back in front, it counts again from 5.
+            await expect(windowButton).toContainText(/Resolves in [45]/);
+            await setHidden(page, true);
+            await page.waitForTimeout(6_000);
+            await expect(
+              page.locator('[data-zone="stack"]').first(),
+              "still on the stack after 6 s in a hidden tab",
+            ).toBeAttached();
+            await setHidden(page, false);
+            await expect(windowButton, "back in front, it counts from 5 again").toContainText(
+              /Resolves in [45]/,
+            );
+            await click(windowButton);
+            await expect(windowButton, "resolved when asked").toHaveCount(0, { timeout: 3_000 });
+            hiddenTab = true;
+          } else {
+            // An earlier window's spell is still on its way: let this one run out.
+            await expect(windowButton).toHaveCount(0, { timeout: 8_000 });
+          }
           continue;
         }
+
+        const priority =
+          (await panel
+            .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+            .count()) > 0;
+        const hand = page.locator('[data-zone="viewer:hand"][data-choosable="true"]');
+        if (!priority) {
+          // Targets go to the opponent; anything else: first choice or pass.
+          const face = page.locator(".gs-seat-opponent .gs-life.gs-choosable");
+          const listed = panel.locator(
+            ".gs-question li button, .gs-win li button, .gs-combat li button",
+          );
+          const board = panel.locator('.bf-cards button[data-choosable="true"]');
+          if ((await face.count()) > 0) await click(face);
+          else if ((await listed.count()) > 0) await clickUnless(listed, PRIORITY);
+          else if ((await board.count()) > 0) await clickUnless(board, PRIORITY);
+          else await click(passOrAct(page));
+          continue;
+        }
+        const land = hand.filter({ hasText: "Mountain" });
+        if ((await land.count()) > 0) {
+          await click(land);
+          continue;
+        }
+        if (page === host) {
+          // Cast burn while holding another: with a spare Mountain there is
+          // something to respond with, and the worker makes it a window.
+          const burn = hand
+            .filter({ hasText: BURN })
+            .and(page.locator(':not([data-unpayable="true"])'));
+          // ...and only with a Mountain to spare after paying (Lightning Strike
+          // costs two): a cast with none opens no window and only burns the
+          // opponent. CI run 44908509595 did that six times, from one or two
+          // Mountains, and the opponent died on turn 37 before the next step.
+          const untapped = await page
+            .locator(
+              '.bf-cards button[data-controller="viewer"][data-tapped="false"][aria-label^="Mountain"]:not([data-zone="viewer:hand"])',
+            )
+            .evaluateAll((els) =>
+              els.reduce((n, el) => n + Number(el.getAttribute("data-pile") ?? "1"), 0),
+            );
+          if ((await burn.count()) >= 2 && untapped >= 3) {
+            await click(burn);
+            const popup = page.locator(".gs-popup .gs-option");
+            if ((await popup.count()) > 0) await click(popup);
+            continue;
+          }
+        }
+        await click(
+          panel.locator(
+            "button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)",
+          ),
+        );
       }
-      await click(
-        panel.locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)"),
-      );
     }
+    expect(ranOut, "a response window ran out and the spell resolved").toBe(true);
+    expect(clicked, "a clicked response window resolved the spell").toBe(true);
+    expect(paused, "a paused response window waited, then resolved when asked").toBe(true);
+    expect(hiddenTab, "a hidden tab's window waited, and counted again in front").toBe(true);
+    await clearEverything(host).catch(() => undefined);
+    await clearEverything(guest).catch(() => undefined);
+    // Closed, or a page left signed in follows the player into the next
+    // test's game and answers for them there.
+  } finally {
+    await host.context().close();
+    await guest.context().close();
   }
-  expect(ranOut, "a response window ran out and the spell resolved").toBe(true);
-  expect(clicked, "a clicked response window resolved the spell").toBe(true);
-  expect(paused, "a paused response window waited, then resolved when asked").toBe(true);
-  expect(hiddenTab, "a hidden tab's window waited, and counted again in front").toBe(true);
-  await clearEverything(host).catch(() => undefined);
-  await clearEverything(guest).catch(() => undefined);
-  // Closed, or a page left signed in follows the player into the next
-  // test's game and answers for them there.
-  await host.context().close();
-  await guest.context().close();
 });

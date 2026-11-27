@@ -44,7 +44,11 @@ import {
 // import ahead of it resolves every card the same way. Measured on
 // a cold stack: over two minutes. The file default of 45s is right
 // for every spec that is not this one.
-test.describe.configure({ timeout: 900_000 });
+// CI run 46043095260: machine 5 reached its 25-minute limit inside this file
+// (after match-window had left two players' pages open): a bare click waits
+// until the test's own limit, which was 15 minutes. Every click and the page
+// load below have their own limit, and a test six minutes.
+test.describe.configure({ timeout: 360_000 });
 
 const realExport = join(process.cwd(), "..", "Test Deck", "Basic_Mono_Red_65_Card_Deck.zip");
 const ciFixture = join(process.cwd(), "..", "Test Deck", "ci-deck.zip");
@@ -70,7 +74,7 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
 
   try {
     // --- a shared deck, as Phase 5 leaves it ----------------------
-    await host.goto("/decks");
+    await host.goto("/decks", { timeout: 60_000 });
     const existing = (await (await host.request.get("/api/decks")).json()) as {
       mine: { deckId: string; displayName: string }[];
     };
@@ -96,7 +100,7 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
     };
 
     if (!(await guestCanSee())) {
-      await host.getByRole("button", { name: "view" }).first().click();
+      await host.getByRole("button", { name: "view" }).first().click({ timeout: 30_000 });
       await shareOpenDeckWith(host, secondUser);
       await expect.poll(guestCanSee, { timeout: 30_000 }).toBe(true);
     }
@@ -185,9 +189,9 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
       .locator('.bf-cards button[data-object-id]:not([data-zone="viewer:hand"])')
       .count();
     if (hadActions) {
-      await affordable.first().click();
+      await affordable.first().click({ timeout: 30_000 });
     } else {
-      await matchPanel(asked).getByRole("button", { name: "Pass" }).click();
+      await matchPanel(asked).getByRole("button", { name: "Pass" }).click({ timeout: 30_000 });
     }
 
     // A new question, not the same one. Compared by LABEL because
@@ -332,9 +336,9 @@ test.fixme("a match can always be abandoned, and the room comes back", async ({ 
 
     // The guest abandons, not the host: ANY participant may, and
     // the trapped case is precisely the one where the host is gone.
-    await guest.getByRole("button", { name: "Game menu" }).click();
-    await guest.getByRole("button", { name: "Abandon match" }).click();
-    await guest.getByRole("button", { name: "Yes, abandon the match" }).click();
+    await guest.getByRole("button", { name: "Game menu" }).click({ timeout: 30_000 });
+    await guest.getByRole("button", { name: "Abandon match" }).click({ timeout: 30_000 });
+    await guest.getByRole("button", { name: "Yes, abandon the match" }).click({ timeout: 30_000 });
 
     // §6.153 — nobody won it, and both are told so without
     // refreshing.
