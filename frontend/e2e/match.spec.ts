@@ -21,7 +21,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { basename, extname, join } from "node:path";
 import {
   importPackage,
   secondPassword,
@@ -75,16 +75,23 @@ test("two players reach a real Forge game and one of them is asked to act", asyn
   try {
     // --- a shared deck, as Phase 5 leaves it ----------------------
     await host.goto("/decks", { timeout: 60_000 });
-    const existing = (await (await host.request.get("/api/decks")).json()) as {
-      mine: { deckId: string; displayName: string }[];
-    };
-    if (existing.mine.length === 0) {
+    // THIS package's deck, by name (a deck's display name is its package
+    // filename), as sharedDeck takes it. "The host's first deck" was the
+    // pages-deck an earlier spec on the same CI machine imports -- five
+    // Lightning Bolts on purpose -- so the room refused to start (CI run
+    // 46054823866, machine 5: "Your deck needs attention").
+    const wanted = basename(pkg!, extname(pkg!));
+    const ours = async () =>
+      (
+        (await (await host.request.get("/api/decks")).json()) as {
+          mine: { deckId: string; displayName: string }[];
+        }
+      ).mine.find((deck) => deck.displayName === wanted);
+    if (!(await ours())) {
       await importPackage(host, pkg!);
+      await expect.poll(async () => (await ours()) !== undefined, { timeout: 60_000 }).toBe(true);
     }
-    const library = (await (await host.request.get("/api/decks")).json()) as {
-      mine: { deckId: string; displayName: string }[];
-    };
-    const deckName = library.mine[0]!.displayName;
+    const deckName = (await ours())!.displayName;
 
     // Shared, and CHECKED THROUGH THE API rather than the
     // panel's wording. What matters is the fact the guest can
