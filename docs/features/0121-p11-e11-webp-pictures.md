@@ -1,6 +1,6 @@
 # 0121 — Phase 11 P11-E11: card pictures as WebP
 
-**Status:** Draft for the owner (2026-11-27). Nothing is built. Phase 11, item P11-E11 (step 8 of the recommended order).
+**Status:** **Approved by the owner 2026-11-27 (by prompt: "Approve it").** Building. Phase 11, item P11-E11 (step 8 of the recommended order).
 **Owner decisions:** already made, in `PHASE_11_EFFICIENCY_LOCKED.md`:
 
 - **Decision 8** (2026-11-19): card pictures move to a lighter format, **WebP**, with a side-by-side canvas first.
