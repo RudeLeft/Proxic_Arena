@@ -122,6 +122,16 @@ REPORTS_CLOSED seat, upTo       (no reply)          spec 0088: that seat closed 
                                                     the stamp `upTo` are gone from its
                                                     next snapshots (nothing in the game
                                                     changes, no snapshot is sent for it)
+HOLD / GO                       (no reply)          spec 0120: the game is paused (a
+                                                    player's connection dropped) / goes
+                                                    on. No seat named. Only Arena's own
+                                                    waits stop (DecisionGate#waitOut:
+                                                    the not-asked pass, the passed
+                                                    step's 400 ms, the stack's rest);
+                                                    after GO each runs again in full
+                                                    (a rest: StackRests#again). A
+                                                    concession still runs while held;
+                                                    an open question is untouched
 GAME_RESULT (diagnostics)       GAME_RESULT
                                 GAME_ENDED          outcome, winningSeat? (a win only), turn,
                                                     detail?, reason?, concededSeat?,

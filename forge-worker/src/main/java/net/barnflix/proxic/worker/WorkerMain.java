@@ -314,6 +314,10 @@ public final class WorkerMain {
 
                     GAME = new net.barnflix.proxic.worker.game.GameHost();
                     stops.forEach(GAME.stops()::follow);
+                    // Spec 0120 -- a HOLD that came before the game: held from its start.
+                    if (HELD) {
+                        GAME.hold();
+                    }
                     // §6.99 — a decision becomes a frame. Sent from
                     // Forge's own thread, inside the blocked call,
                     // so this writes and returns rather than waiting
@@ -687,6 +691,20 @@ public final class WorkerMain {
                     GAME.reportsClosed(request.get("seat").getAsInt(), request.get("upTo").getAsLong());
                 }
             }
+            case "HOLD", "GO" -> {
+                // Spec 0120 (G2) -- the game is paused while a player's
+                // connection is down (HOLD), and goes on (GO). They name no
+                // seat; only Arena's own waits stop (DecisionGate#waitOut).
+                // No reply.
+                HELD = "HOLD".equals(type);
+                if (GAME != null) {
+                    if (HELD) {
+                        GAME.hold();
+                    } else {
+                        GAME.go();
+                    }
+                }
+            }
             case "WATCHED" -> {
                 // Spec 0047 -- the server has spectators for this game (or
                 // no longer has): build the public view, sent as seat 0.
@@ -783,6 +801,9 @@ public final class WorkerMain {
      * nothing here should quietly make that untrue.
      */
     private static net.barnflix.proxic.worker.game.GameHost GAME;
+
+    /** Spec 0120 -- the server's last word was HOLD (the game is paused), not GO. */
+    private static volatile boolean HELD;
 
     private static JsonObject frame(String type, String correlatesTo) {
         JsonObject frame = new JsonObject();

@@ -682,7 +682,12 @@ public final class GameHost {
         try {
             publishSnapshots();
             long rested = Timing.now();
-            rests.sleep(rest.ms(), gate::interjectionsNow, () -> gate.closed() || current.isGameOver());
+            // Spec 0120 (G2, D10) -- held while the game is paused, then the
+            // whole rest again (StackRests#again), as each screen's ring.
+            java.util.function.BooleanSupplier over = () -> gate.closed() || current.isGameOver();
+            rests.unwake();
+            gate.waitOut(rest.ms(), StackRests.again(rest.ms()), over,
+                    piece -> rests.piece(piece, gate::interjectionsNow, over));
             // P11-D0 (test only): a deliberate wait (spec 0105), not Forge deciding.
             Timing.markAt("paced", rested, "why", "rest", "dur", Timing.now() - rested);
         } finally {
@@ -2922,6 +2927,46 @@ public final class GameHost {
             }
         });
         return null;
+    }
+
+    /**
+     * Spec 0120 (G2) -- HOLD from the server: a player's connection dropped,
+     * the game is paused. Our own waits stop (DecisionGate#waitOut); nothing
+     * of the game changes. GO lets them run again.
+     */
+    public void hold() {
+        gate.hold();
+    }
+
+    /** Spec 0120 -- GO from the server: the game goes on. */
+    public void go() {
+        gate.go();
+    }
+
+    /**
+     * Spec 0120 -- on Forge's thread, a pass Arena makes for a seat that was
+     * not asked (MatchController): waits while the game is held first.
+     */
+    void holdThePass() {
+        Game current = game;
+        gate.waitWhileHeld(() -> gate.closed() || current == null || current.isGameOver());
+    }
+
+    /**
+     * Spec 0120 (D10) -- the passed step's pause (PriorityStops#STEP_PAUSE_MS),
+     * held while the game is paused and then run again in full.
+     */
+    void stepPause(long ms) {
+        Game current = game;
+        gate.waitOut(ms, ms, () -> gate.closed() || current == null || current.isGameOver(), piece -> {
+            try {
+                Thread.sleep(piece);
+                return true;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        });
     }
 
     /** Stop the game thread. Used when a match is terminated. */

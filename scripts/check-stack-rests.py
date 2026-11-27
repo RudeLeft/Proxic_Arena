@@ -32,6 +32,11 @@ says otherwise. Every trace line carries `t`, when the Lab read or sent it
              with a pass: spec 0043), and none of them rests
   no-stack   F-0105-D: Forests only; Alice plays her lands and taps a Forest
              for mana at priority: no rest anywhere (neither uses the stack)
+  victim-held  F-0120-E (spec 0120, G2): the victim-unanswered game, paused
+             mid-rest: 1 s after the rest board the Lab sends HOLD (as the
+             server does when a player's connection drops), 3 s later GO. No
+             board comes while held, and the spell is gone no sooner than a
+             whole REST_MS (2500 ms) after GO: the rest ran again in full (D10)
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its moment.
@@ -152,7 +157,7 @@ VICTIM = {1: {"hand": ["Swamp"] * 5 + ["Victim of Night"] * 2, "top": ["Swamp"] 
           2: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3, "top": ["Forest"] * 4}}
 
 
-def victim_game(name, stops):
+def victim_game(name, stops, watch=None):
     g = game(name, [("Swamp", 40), ("Victim of Night", 20)], [("Forest", 40), ("Grizzly Bears", 20)],
              deal=VICTIM, stops=stops)
     st = {"cast": None, "aim": None}
@@ -187,6 +192,8 @@ def victim_game(name, stops):
         return None
 
     def until(g):
+        if watch:
+            watch(g)
         s = g.state.get(1) or {}
         return st["cast"] is not None and not s.get("stack") and \
             any(c.get("name") == "Victim of Night" for c in g.mine(1, "graveyard"))
@@ -456,9 +463,62 @@ def no_stack():
     return result(problems, f"{st['lands']} land drops and {st['tapped']} mana abilities: no rest", found)
 
 
+HOLD_AFTER_MS, HELD_MS = 1000, 3000
+
+
+def victim_held():
+    """F-0120-E -- HOLD 1 s into the Victim's rest, GO 3 s later: the rest stops, then runs whole again."""
+    import threading
+    import time
+    import uuid
+    sent = {"hold": None, "go": None}
+
+    def frame(kind):
+        return {"protocolVersion": 1, "type": kind, "messageId": str(uuid.uuid4())}
+
+    def watch(g):
+        if sent["hold"] is not None:
+            return
+        st1 = g.state.get(1) or {}
+        if any(e.get("name") == "Victim of Night" and "rest" in e for e in st1.get("stack") or []):
+            # The game thread is resting now and sends nothing until it resolves:
+            # the reader is idle, so the Lab may speak from a timer.
+            def hold_then_go():
+                time.sleep(HOLD_AFTER_MS / 1000)
+                sent["hold"] = int(time.time() * 1000)
+                g.send(frame("HOLD"))
+                time.sleep(HELD_MS / 1000)
+                sent["go"] = int(time.time() * 1000)
+                g.send(frame("GO"))
+            sent["hold"] = 0
+            threading.Thread(target=hold_then_go, daemon=True).start()
+
+    g, st = victim_game("victim-held", True, watch=watch)
+    victim = next((r for r in rests(g.path) if r["name"] == "Victim of Night"), None)
+    found = {"cast on turn": st["cast"], "HOLD sent": sent["hold"], "GO sent": sent["go"],
+             "stopped": g.stopped_badly()}
+    if st["cast"] is None or victim is None or not sent["go"]:
+        return "inconclusive", "the Victim never rested, or HOLD/GO were never sent", found
+    problems = [found["stopped"]] if found["stopped"] else []
+    gone = gone_after(g.path, victim["id"], victim["t"])
+    boards_held = [t for t, _, _ in boards(g.path) if sent["hold"] + 50 < t < sent["go"]]
+    found["boards while held"] = len(boards_held)
+    found["ms from GO to the board without it"] = None if gone is None else gone - sent["go"]
+    found["ms from the rest board to the board without it"] = None if gone is None else gone - victim["t"]
+    if boards_held:
+        problems.append(f"{len(boards_held)} boards came while held: the game moved")
+    if gone is None or gone - sent["go"] < REST_MS:
+        problems.append(f"it resolved {found['ms from GO to the board without it']} ms after GO, "
+                        f"sooner than a whole rest ({REST_MS})")
+    elif gone - sent["go"] > REST_MS + 1500:
+        problems.append(f"it resolved {gone - sent['go']} ms after GO: far longer than a whole rest")
+    return result(problems, f"held {HELD_MS} ms mid-rest; resolved {found['ms from GO to the board without it']} "
+                            f"ms after GO (a whole {REST_MS} ms rest again)", found)
+
+
 SCENARIOS = {"victim-unanswered": victim_unanswered, "victim-stops-off": victim_stops_off,
              "answerable": answerable, "own-window": own_window, "three-triggers": three_triggers,
-             "let-it-all-resolve": let_it_all_resolve, "no-stack": no_stack}
+             "let-it-all-resolve": let_it_all_resolve, "no-stack": no_stack, "victim-held": victim_held}
 
 if __name__ == "__main__":
     worst = 0

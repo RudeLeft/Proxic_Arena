@@ -196,34 +196,59 @@ public final class StackRests {
      * once when woken (the match stopping, the game over) or interrupted.
      */
     void sleep(long ms, Runnable between, java.util.function.BooleanSupplier over) {
-        long end = System.nanoTime() + ms * 1_000_000L;
         synchronized (wake) {
             woken = false;
         }
+        piece(ms, between, over);
+    }
+
+    /**
+     * Spec 0120 -- one piece of a rest (DecisionGate#waitOut): as `sleep`,
+     * without forgetting a wake that came before it. False when the rest was
+     * ended early (woken, over, interrupted).
+     */
+    boolean piece(long ms, Runnable between, java.util.function.BooleanSupplier over) {
+        long end = System.nanoTime() + ms * 1_000_000L;
         while (true) {
             between.run();
             if (over.getAsBoolean()) {
-                return;
+                return false;
             }
             long left = (end - System.nanoTime()) / 1_000_000L;
             if (left <= 0) {
-                return;
+                return true;
             }
             synchronized (wake) {
                 if (woken) {
-                    return;
+                    return false;
                 }
                 try {
                     wake.wait(Math.min(left, 20));
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    return;
+                    return false;
                 }
                 if (woken) {
-                    return;
+                    return false;
                 }
             }
         }
+    }
+
+    /** Spec 0120 -- a new rest begins: a wake from before it is forgotten. */
+    void unwake() {
+        synchronized (wake) {
+            woken = false;
+        }
+    }
+
+    /**
+     * Spec 0120 (D10) -- how long a rest runs again after a pause: a whole
+     * REST_MS (the card is already on the stack, so no arrival allowance),
+     * or the shorter rest of a run.
+     */
+    static long again(long ms) {
+        return Math.min(ms, REST_MS);
     }
 
     /** End a rest now (a concession, the match stopping). */

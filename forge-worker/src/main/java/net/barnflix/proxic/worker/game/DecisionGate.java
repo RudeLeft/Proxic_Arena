@@ -325,6 +325,104 @@ public final class DecisionGate {
         }
     }
 
+    // ---- Spec 0120 (G2): HOLD / GO -- the game is paused (a player's
+    // connection dropped). Only OUR waits stop: the not-asked pass, the
+    // passed step's pause and the stack's rest. A question already open is
+    // untouched (the server refuses its answers meanwhile), and a concession
+    // still runs (the interjections run while held). No rule changes and no
+    // Forge code: it decides nothing, it only waits.
+
+    private final Object holdLock = new Object();
+    private boolean held;
+
+    /** Spec 0120 -- the server said HOLD: our own waits stop until GO. */
+    public void hold() {
+        synchronized (holdLock) {
+            held = true;
+            holdLock.notifyAll();
+        }
+    }
+
+    /** Spec 0120 -- the server said GO. */
+    public void go() {
+        synchronized (holdLock) {
+            held = false;
+            holdLock.notifyAll();
+        }
+    }
+
+    public boolean held() {
+        synchronized (holdLock) {
+            return held;
+        }
+    }
+
+    /**
+     * Spec 0120 -- on Forge's thread: wait while held, running the pending
+     * interjections (a concession) as a question's wait does; ends when GO
+     * comes or `over` (the game ended, the match stopping). True when it
+     * waited at all.
+     */
+    public boolean waitWhileHeld(java.util.function.BooleanSupplier over) {
+        boolean waited = false;
+        while (true) {
+            runInterjections();
+            if (over.getAsBoolean() || Thread.currentThread().isInterrupted()) {
+                return waited;
+            }
+            synchronized (holdLock) {
+                if (!held) {
+                    return waited;
+                }
+                waited = true;
+                try {
+                    holdLock.wait(HOLD_LOOK_MS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return waited;
+                }
+            }
+        }
+    }
+
+    /** A piece of a wait: sleeps up to `ms`; false when it was ended early (woken). */
+    @FunctionalInterface
+    public interface Sleeper {
+        boolean sleep(long ms);
+    }
+
+    /**
+     * Spec 0120 (D10) -- wait out `ms` in pieces of at most HOLD_LOOK_MS.
+     * While held the count stops; after a hold the wait starts again from
+     * `again` (its full length: the stack's rest is a whole 2.5 s again, so
+     * both screens see it). Ends at once when `over` or when a piece is woken.
+     */
+    public void waitOut(long ms, long again, java.util.function.BooleanSupplier over, Sleeper sleeper) {
+        long left = ms;
+        while (true) {
+            if (over.getAsBoolean()) {
+                return;
+            }
+            if (held()) {
+                waitWhileHeld(over);
+                left = again;
+                continue;
+            }
+            if (left <= 0) {
+                return;
+            }
+            long piece = Math.min(left, HOLD_LOOK_MS);
+            long start = System.nanoTime();
+            if (!sleeper.sleep(piece)) {
+                return;
+            }
+            left -= (System.nanoTime() - start) / 1_000_000L;
+        }
+    }
+
+    /** Spec 0120 -- how often a held wait looks again (and the longest piece of a wait). */
+    static final long HOLD_LOOK_MS = 20;
+
     /** What a pass looks like in the slot, since null cannot be queued. */
     public static final String PASS = "pass";
 

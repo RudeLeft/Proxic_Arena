@@ -643,6 +643,9 @@ public final class MatchController extends GeneratedControllerBase {
             if (!host.restBeforePass(actedForSeat)) {
                 showTheirStack();
             }
+            // Spec 0120 (G2) -- the game is paused (a player's connection
+            // dropped): the pass Arena makes for this seat waits for GO.
+            host.holdThePass();
             return null;
         }
 
@@ -760,11 +763,8 @@ public final class MatchController extends GeneratedControllerBase {
             }
             if (host.stops().pausing(actedForSeat, player, player.getGame())) {
                 long paused = Timing.now();
-                try {
-                    Thread.sleep(PriorityStops.STEP_PAUSE_MS);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
+                // Spec 0120 (G2, D10) -- held while the game is paused, then whole again.
+                host.stepPause(PriorityStops.STEP_PAUSE_MS);
                 // P11-D0 (test only): a deliberate wait (spec 0061), not Forge deciding.
                 Timing.markAt("paced", paused, "why", "step", "dur", Timing.now() - paused);
             }
@@ -775,6 +775,9 @@ public final class MatchController extends GeneratedControllerBase {
             if (!host.restBeforePass(actedForSeat)) {
                 showTheirStack();
             }
+            // Spec 0120 (G2) -- the game is paused (a player's connection
+            // dropped): the pass Arena makes for this seat waits for GO.
+            host.holdThePass();
             return null;
         }
         // Spec 0005 -- your own spell or trigger on top: the page counts down.
