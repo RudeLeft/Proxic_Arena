@@ -1,6 +1,6 @@
 # 0121 — Phase 11 P11-E11: card pictures as WebP
 
-**Status:** **Approved by the owner 2026-11-27 (by prompt: "Approve it").** Building. Phase 11, item P11-E11 (step 8 of the recommended order).
+**Status:** **Approved by the owner 2026-11-27 (by prompt: "Approve it").** Built 2026-11-27 (As built, at the end). Phase 11, item P11-E11 (step 8 of the recommended order).
 **Owner decisions:** already made, in `PHASE_11_EFFICIENCY_LOCKED.md`:
 
 - **Decision 8** (2026-11-19): card pictures move to a lighter format, **WebP**, with a side-by-side canvas first.
@@ -96,3 +96,156 @@ None open: the look and the quality were decided on 2026-11-27. Approving this s
 ## Amendments
 
 None yet.
+
+## As built (2026-11-27)
+
+Branch `p11-e11-build`, from main 8c49da6f. Labels as EVID-001: RUN = measured
+here, SOURCE = read in the code.
+
+**What was built** (SOURCE):
+
+- `deck/WebpEncoder.kt` (new): the `WebpEncoder` interface and `CwebpEncoder`,
+  libwebp's `cwebp` as a child process per picture: `-q 80 -m 4 -metadata none`,
+  under `nice -n 10` where `nice` exists, a 60 s limit, the pixels in as a PPM
+  file in the temporary folder, the answer to a `.part` file renamed when whole.
+  Whether `cwebp` is there is asked once (`cwebp -version`); a missing one is
+  logged once, and every picture then gets today's JPEG copies. `webpSize` reads
+  a WebP's width and height from its header (VP8, VP8L, VP8X), for the tests.
+- `Dockerfile`: `apk add --no-cache libwebp-tools=1.6.0-r0` in the runtime stage
+  (Alpine 3.24's package; the build runs `cwebp -version`).
+- `deck/PictureCopies.kt` (new; `ArtStore.makeCopies` and `needsCopies` hand to it):
+  `display/xx/<sha>.webp` (384 wide, or the picture's own
+  width when narrower: a 96-wide crop is not blown up) and `zoom/xx/<sha>.webp`
+  (full size), from the decoded original through `ZoomCopy`'s scaling and
+  border-colour corners (`ZoomCopy.opaque`, shared with the JPEG writer). A copy
+  no lighter than the original is deleted and a `<sha>.nowebp` mark left, so it
+  is not tried again (the rule "a copy no smaller than what it replaces is not
+  kept", now for both copies). Once a WebP copy exists, the older copy of the
+  same kind goes (`display/<sha>.jpg` and `.png`, `zoom/<sha>.jpg`). If the
+  encoder fails it is logged ("the WebP table copy of picture ... was not made
+  (...); a JPEG copy is used") and spec 0051's JPEG copies are made as before.
+- `PictureCopies.needed` (`ArtStore.needsCopies`): true until both WebP copies
+  exist or are marked. `ArtStore.fileFor`: the WebP copy, then the JPEG (or pre-0051 PNG) copy, then
+  the original.
+- `ZoomCopy.fill` and `fillInBackground`: the one-time pass, on a
+  `Thread.MIN_PRIORITY` thread, from the originals, one picture at a time. With
+  no encoder it makes nothing and says so. It logs counts, time and CPU per
+  picture: its own thread's CPU (decoding, scaling) plus the encoder processes'
+  (the children's CPU from `/proc/self/stat`; "?" where there is no `/proc`).
+- `PictureRoutes.respondPicture` and `pictureType`: one answer for all three
+  addresses (`/api/pictures/{sha}`, `/api/matches/{id}/assets/{sha}`,
+  `/api/decks/{id}/assets/{sha}`): the `Content-Type` said by the file
+  (`image/webp`, `image/jpeg`, `image/png`) and `private, max-age=31536000,
+  immutable`. The deck route used to say `image/png` for anything not a `.jpg`.
+- `PictureCleanup`: a picture's files are its `png`, `jpg`, `webp` and `nowebp`
+  in each folder; the orphan sweep already went by hash.
+- CI: the server-tests job installs Ubuntu's `webp` (cwebp, dwebp); the game
+  machine and the engines job build `Test Deck/webp-deck.zip`; the engines job
+  runs the new browser spec in Firefox and WebKit.
+- Not changed: the Deck Builder side (`/api/deck-rules` says `png`, `jpeg`;
+  `PackageInspector` refuses a `.webp`), hidden information (no new address or
+  field), the frontend.
+
+**Bytes before and after, through the app** (RUN, stack A, 2026-11-27:
+`/api/pictures/{sha}` and `?size=full` for every picture in the package; after,
+every answer 200, `image/webp`, `private, max-age=31536000, immutable`):
+
+| Deck | Table picture | Close-up | All its pictures |
+|---|---|---|---|
+| `Basic_Mono_Red_65_Card_Deck` (11 pictures, PNG) | 70.8 -> 46.9 KB (-34%) | 221.9 -> 141.4 KB (-36%) | 3.14 -> 2.02 MB |
+| `Basic_Mono_Green_60_Card_Deck` (10 pictures, PNG) | 64.6 -> 43.8 KB (-32%) | 219.8 -> 150.3 KB (-32%) | 2.78 -> 1.89 MB |
+
+Every picture stored on stack A (RUN, 541 originals: 410 card pictures, many of
+them the CI decks' small solid ones, and 131 art crops; what `fileFor` serves):
+card table pictures 11.59 -> 8.03 MB, close-ups 41.34 -> 27.13 MB, art crops
+37.8 -> 28.9 KB on average (-24%; 4.83 -> 3.69 MB). Of the 275-card Lab set only
+14 pictures are stored on stack A as they are in `Test Deck/Testing Deck`:
+66.3 -> 42.4 KB table, 203.8 -> 123.6 KB close-up. The research's numbers over
+all 275 (Why, above) stand for the rest.
+
+Disk (RUN): the art folder grew from about 114 MB to 137 MB, because a JPEG
+original now has a WebP close-up copy beside it (spec 0051 served the JPEG
+itself): display 18 -> 13 MB, zoom 8.7 -> 38 MB, originals unchanged.
+
+**The one-time pass on stack A** (RUN): 541 pictures, 0 failed, 574 older
+copies removed (298 JPEG table copies, 276 JPEG close-ups). The close-ups of 5
+JPEG originals came out no lighter than the original: not kept, marked, and the
+JPEG original serves them. All 541 originals byte-identical before and after
+(SHA-256). A start after it logs nothing (nothing to do). All 1,077 WebP files
+decode (`dwebp`) and carry no metadata (`webpinfo`: no EXIF, XMP or ICCP).
+
+**Server CPU per picture (P11-R5)** (RUN, the owner's PC: Intel Core
+i5-13600KF, Docker Desktop; the pass run three times from the same pre-0121
+copies):
+
+| Run | Wall time | CPU in the server | CPU in `cwebp` | CPU per picture |
+|---|---|---|---|---|
+| 1 | 24,399 ms (45 ms a picture) | 5,624 ms | 17,770 ms | 43 ms |
+| 2 | 24,406 ms (45 ms a picture) | 5,628 ms | 17,860 ms | 43 ms |
+| 3 | 24,327 ms (44 ms a picture) | 5,586 ms | 17,680 ms | 43 ms |
+
+A picture is two encodes (its table copy and its close-up); an import pays the
+same per new picture, so a 100-card deck of 60 new pictures takes about 2.6 s
+more CPU than before. **Owed:** the same on the Unraid box (the pass's log line
+after the update, and a 100-card deck's import), at least 3 runs, the machine
+named, as P11-R5 and Rules above say. Not measured here.
+
+**Tests** (RUN):
+
+- `WebpPicturesTest` (new, 9): F-0121-A both copies for a PNG, a JPEG and a
+  crop, 384 wide and full size, corners filled, originals byte-identical, no
+  JPEG copies; a narrow picture, and a copy no lighter (marked, not encoded
+  again). F-0121-B the serving order; a failing encoder (import accepted, JPEG
+  copies, logged); a missing `cwebp` (found once, logged; the pass makes
+  nothing). F-0121-C the pass from the originals (the old copies planted blue,
+  never handed to the encoder), old copies removed after, logged, a second start
+  encodes nothing, and a failed encode keeps the old copy. F-0121-F a `.webp`
+  member refused with today's words, `PICTURE_FORMATS` still `png, jpeg`.
+  F-0121-A with the real `cwebp`: decodable by `dwebp`, and the same bytes as
+  `cwebp -q 80 -m 4 -metadata none` run by hand on the same pixels. That one
+  skips on this PC, which has no `cwebp`; CI's server-tests job installs it, and
+  CI fails an undeclared skip.
+- `WebpRoutesTest` (new) F-0121-D: `/api/pictures/{sha}`, `?size=full` and the
+  per-deck address with and without `?size=full` answer `image/webp` with the
+  cache rule; 401 with no session, 404 for an unknown hash; with the WebP copy
+  gone the JPEG copy answers as `image/jpeg`, a PNG copy as `image/png`, then the
+  original.
+- `PictureCleanupTest` F-0121-E: the WebP files and the mark go with their row
+  (not later as strays), 30-day-old orphan WebP files go, newer ones and a deck's
+  or a running game's stay. `DeckRulesTest`: `pictures.formats` is `png, jpeg`.
+- Updated: `LightPicturesTest` and `ZoomCopyTest` (spec 0051's JPEG copies, now
+  with no encoder), `DeckApiTest` and `DeckImportTest` (WebP where the encoder
+  is).
+- Bites (TEST-004), each against its tests, 11 of 11 caught (run again after the
+  code moved into `PictureCopies` for detekt's function count, 11 of 11): table copy not
+  scaled; corners not filled; JPEG close-up served before the WebP; no JPEG copy
+  when the encoder fails; the failure not logged; the pass made from the old
+  JPEG copy; the no-lighter mark ignored; the pass running with no encoder; a
+  WebP said to be a PNG; the clean-up forgetting WebP files; `PICTURE_FORMATS`
+  gaining `webp`. Two first tries were not caught and were changed: "old
+  close-up deleted although no WebP was made" is near-equivalent (the JPEG
+  close-up is made again at once), so it was replaced by "made from the old
+  copy" (caught once the test's blue check allowed for JPEG's rounding); and the
+  clean-up test now asserts the WebP files go with the row (they were swept up
+  later as strays, so forgetting them did not show).
+- F-0121-G, `frontend/e2e/match-webp-pictures.spec.ts` (new; in `ENGINE_SPEC`
+  and CI's engines job; deck `protocol/fixtures/webp-deck`, 56 Forests and 4
+  Llanowar Elves with art crops): the Deck Depot's close-up, both hands, the
+  Elves on the stack (the card being cast and its stack slot, both seats), its
+  art window's crop (both seats), a hand card's close-up (the reading card) and
+  an old per-match address each answered `image/webp` with the cache rule and
+  drew (`naturalWidth` above 0). Chromium (Edge): passed, 22.5 s. WebKit: passed,
+  1.3 min. Firefox does not start on this PC (UI-007): CI's engines job runs it.
+  With its CI neighbour at 4x CPU (`ci/ci-speed.mjs`): match-stolen-picture,
+  then this, both passed (30.4 s). Its whole CI machine (match 2/6, 13 files, 14
+  tests) at 4x CPU (`ci-speed.mjs --whole`): 14 passed in 17.0 min, this spec
+  30.8 s. `ci/browser-durations.json`: 45 s.
+- F-0121-I, the look (TEST-011): the same spec with
+  `PROXIC_WEBP_DECK=<Basic_Mono_Green_60_Card_Deck.zip>` (real scans), 1920x1080,
+  after the one-time pass: the hand, the Elves on the stack, the Forest's
+  close-up and the Deck Depot's close-up were looked at, and zoomed in: no
+  blocks, rings or smears; by eye the same as the canvas's WebP 80 side.
+
+**Owner, 2026-11-27 (by prompt: "Yes, that's fine"):** the picture folder growing about a fifth
+(stack A: 114 -> 137 MB), because a JPEG original now has a WebP close-up beside it, is accepted in
+exchange for close-ups about a third lighter. Originals stay untouched.

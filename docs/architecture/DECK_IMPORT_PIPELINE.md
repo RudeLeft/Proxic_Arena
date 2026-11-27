@@ -163,8 +163,10 @@ Art is **content-addressed**, so there is no promotion step:
 
 ```text
 /data/art/original/<ab>/<sha256>.png|.jpg   as exported (JPEG since spec 0051)
-/data/art/display/<ab>/<sha256>.jpg         384 px wide (a .png before spec 0051)
-/data/art/zoom/<ab>/<sha256>.jpg            the close-up copy (spec 0015)
+/data/art/display/<ab>/<sha256>.webp        384 px wide, WebP 80 (spec 0121; .jpg before,
+                                            .png before spec 0051)
+/data/art/zoom/<ab>/<sha256>.webp           the close-up copy, WebP 80 (spec 0121; .jpg
+                                            before, spec 0015)
 ```
 
 Writing is idempotent — the same bytes land in the same place — so a
@@ -172,7 +174,9 @@ failed import can leave art behind harmlessly. The two-character
 fan-out keeps any one directory small.
 
 A derivative that is not smaller than its original is deleted; the
-original is served instead.
+original is served instead. Since spec 0121 the copies are made by libwebp's
+`cwebp` (a child process per picture); if it fails or is missing, the
+import still succeeds with spec 0051's JPEG copies, and it is logged.
 
 ### Cleanup
 

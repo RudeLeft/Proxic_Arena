@@ -4424,3 +4424,10 @@ cannot tell at 80"; table copy 67 -> 43 KB, crop 38 -> 29 KB, close-up 223 -> 12
 on 275 real cards; SSIM and a 3x look in the research, scratch `e11/`). The Deck Builder
 sending WebP close-ups itself is roadmapped for later. E11 gets a short spec (it reverses
 spec 0051's "the JPEG is the close-up, no second encode" and adds a server dependency).
+
+**P11-E11 built, 2026-11-27 (spec 0121):** card pictures are WebP at quality 80,
+the table copy, the art crop and the close-up, made at import and once for the
+pictures already stored, from the originals (libwebp's `cwebp` in the image). On
+stack A the two real decks' pictures went from 3.14 to 2.02 MB and 2.78 to 1.89 MB;
+the one-time pass took 43 ms of CPU a picture on the owner's PC. Owed (P11-R5): the
+same CPU measurement on the Unraid box. Evidence in spec 0121's "As built".

@@ -256,8 +256,12 @@ none will (PHASE 4 AMENDMENT 1).
 
 ```text
 /data/art/original/<aa>/<sha256>.png|.jpg   as sent (JPEG since spec 0051)
-/data/art/display/<aa>/<sha256>.jpg         the table's copy (a .png before spec 0051)
-/data/art/zoom/<aa>/<sha256>.jpg            the close-up copy (spec 0015)
+/data/art/display/<aa>/<sha256>.webp        the table's copy, WebP 80 (spec 0121; a .jpg
+                                            before, a .png before spec 0051)
+/data/art/zoom/<aa>/<sha256>.webp           the close-up copy, WebP 80 (spec 0121; a .jpg
+                                            before, for a PNG original only)
+/data/art/{display,zoom}/<aa>/<sha256>.nowebp  a WebP copy was no lighter than the
+                                            original: the original is served
 ```
 
 Pictures no deck holds are removed by a weekly sweep once unused for

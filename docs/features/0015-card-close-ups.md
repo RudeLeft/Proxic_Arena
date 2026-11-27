@@ -47,3 +47,16 @@ The table's pictures, the layout, and how the original scans are kept.
 - `closeUp.test.tsx`: the table copy until the close-up is whole; the
   table copy stays when it will not load; a fetched-ahead close-up is
   sharp from the first frame; each picture fetched once, two at a time.
+
+## Amendments
+
+**Amendment, 2026-11-27 (owner approved spec 0121, Phase 11 P11-E11).** Item 3's
+"The close-up is the same picture at the same size as a JPEG" and "The
+close-up copy is made when a deck is imported (`art/zoom/xx/<sha>.jpg`, beside
+`art/original` and `art/display`)" are now: the same picture at the same size
+as a WebP at quality 80, `art/zoom/xx/<sha>.webp`, made for every picture (a
+JPEG original too); the corners are still filled with the border colour.
+Pictures stored before get it once, in the background, from their originals,
+and the JPEG copy goes after. The JPEG close-up is still made when the WebP
+encoder fails or is missing. Fetching ahead and "never a half-painted card"
+are unchanged. See `docs/features/0121-p11-e11-webp-pictures.md`.

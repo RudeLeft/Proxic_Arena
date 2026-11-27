@@ -197,3 +197,16 @@ Deck Builder (1.4.1: sends them). Plain-English notes for both.
 30 MB" was not met to the letter: the real 100-card deck was 30.3 MB
 (Evidence, above), accepted and playable, against 159 MB as PNGs. The
 server's limit is 150 MB, so nothing depends on the 30.
+
+**Amendment, 2026-11-27 (owner approved spec 0121, Phase 11 P11-E11).** Card
+pictures are WebP at quality 80 now (`docs/features/0121-p11-e11-webp-pictures.md`).
+This reverses three things here. Arena step 4's "A JPEG card picture IS the
+close-up copy (no second encode). The board copy is a 384-px JPEG": every
+picture now gets a WebP close-up copy (a second encode, quality 80) and the
+board copy is a 384-px WebP. "What the player sees", close-ups "the same 88%
+JPEG": a WebP at quality 80 made from that JPEG, the same to the owner's eye.
+F-0051-C's "the JPEG is served as the close-up unchanged; the board copy is a
+384-px JPEG": now F-0121-A and F-0121-B; the JPEG original is still kept
+unchanged and is served only when no WebP copy exists (or none was lighter).
+The JPEG copies here are still what a picture gets when the WebP encoder
+fails or is missing.
