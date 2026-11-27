@@ -738,7 +738,8 @@ private fun Route.startCategoryFill(
     database: Database,
     hallCache: net.barnflix.proxic.hall.HallCache?,
 ) {
-    // Spec 0015 — close-up copies for pictures imported before they existed.
+    // Spec 0015 — close-up copies for pictures imported before they existed;
+    // since spec 0121 the WebP copies, made once from the originals.
     net.barnflix.proxic.deck.ZoomCopy.fillInBackground(
         net.barnflix.proxic.deck.ArtStore(java.io.File(config.dataRoot)),
         application.log,

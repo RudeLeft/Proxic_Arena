@@ -49,7 +49,8 @@ class ZoomCopyTest {
     @Test
     fun `a close-up is served the light copy, and the scan when there is none`() {
         val dir = Files.createTempDirectory("art").toFile()
-        val store = ArtStore(dir)
+        // Spec 0051's JPEG copies, as made with no WebP encoder (spec 0121 scope 5).
+        val store = ArtStore(dir) { _, _ -> throw EncoderMissing("not in this test") }
         val png = File(dir, "card.png").also { ImageIO.write(scan(), "png", it) }
         val sha = (store.store(png, "card.png") as ArtResult.Ok).art.sha256
 

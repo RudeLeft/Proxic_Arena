@@ -43,6 +43,9 @@ class DeckRulesTest {
         assertEquals(OpenFormat.BASIC_LAND_NAMES.sorted(), unlimited)
         // FMT-004: "any number" cards are not exempt.
         assertTrue("relentless rats" !in unlimited)
+        // Spec 0121, F-0121-F: Arena makes WebP copies itself; the Deck Builder still sends PNG and JPEG.
+        val formats = format["pictures"]!!.jsonObject["formats"]!!.jsonArray.map { it.jsonPrimitive.content }
+        assertEquals(listOf("png", "jpeg"), formats)
         val sides = format["sideDecks"]!!.jsonObject
         assertEquals(15, sides["CONTRAPTIONS"]!!.jsonObject["minCards"]!!.jsonPrimitive.int)
         assertEquals(1, sides["ATTRACTIONS"]!!.jsonObject["maxCopies"]!!.jsonPrimitive.int)

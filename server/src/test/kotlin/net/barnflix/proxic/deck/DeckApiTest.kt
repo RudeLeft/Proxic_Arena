@@ -181,11 +181,12 @@ class DeckApiTest {
             )
 
             // §2.61 — the asset serves as a picture, cacheable: the table's
-            // copy is a JPEG since spec 0051.
+            // copy is a JPEG since spec 0051, a WebP since spec 0121 wherever
+            // the encoder is (this PC has none: the JPEG it falls back to).
             val asset = client.get(withArt.first().artUrl!!) { authed() }
             assertEquals(HttpStatusCode.OK, asset.status)
             assertEquals(
-                ContentType.Image.JPEG.toString(),
+                if (CwebpEncoder.shared.available) "image/webp" else ContentType.Image.JPEG.toString(),
                 asset.headers[HttpHeaders.ContentType],
             )
             assertTrue(

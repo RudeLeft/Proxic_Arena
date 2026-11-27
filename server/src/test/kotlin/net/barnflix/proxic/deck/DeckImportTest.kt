@@ -128,11 +128,13 @@ class DeckImportTest {
             // §2.134 — the derivative must be cheaper than the
             // original in BOTH respects it is kept for.
             val original = javax.imageio.ImageIO.read(store.originalPath(hash))
-            val scaled = javax.imageio.ImageIO.read(derivative)
+            // Spec 0121: a WebP where the encoder is (ImageIO reads no WebP), a JPEG where not.
+            val scaled =
+                webpSize(derivative) ?: javax.imageio.ImageIO.read(derivative).let { it.width to it.height }
             assertTrue(
-                scaled.width < original.width,
+                scaled.first < original.width,
                 "the derivative should have fewer pixels: " +
-                    "${scaled.width}x${scaled.height} vs ${original.width}x${original.height}",
+                    "${scaled.first}x${scaled.second} vs ${original.width}x${original.height}",
             )
             assertTrue(
                 derivative.length() < store.originalPath(hash).length(),

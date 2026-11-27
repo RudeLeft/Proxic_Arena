@@ -107,6 +107,12 @@ FROM eclipse-temurin:17.0.20.1_1-jre-alpine@sha256:c4a33e6ddb738fe4be0a28a613ea0
 # JVMs to /tmp, a tmpfs (docker-compose.yml).
 RUN addgroup -S proxic && adduser -S -G proxic proxic
 
+# Spec 0121 -- card pictures as WebP at quality 80, made by libwebp's own
+# `cwebp` run as a child process per picture (a crash or a hang stays in
+# that process, never in the server and its games). Pinned with the image
+# (ENV-003): Alpine 3.24's package; a new base image brings its own.
+RUN apk add --no-cache libwebp-tools=1.6.0-r0 && cwebp -version
+
 WORKDIR /app
 COPY --from=server  /src/server/build/install/server/ /app/
 COPY --from=frontend /src/dist/ /app/frontend/dist/

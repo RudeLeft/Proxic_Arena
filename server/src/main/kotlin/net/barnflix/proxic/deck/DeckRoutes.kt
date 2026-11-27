@@ -1,7 +1,5 @@
 package net.barnflix.proxic.deck
 
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
@@ -9,9 +7,7 @@ import io.ktor.http.content.streamProvider
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.request.receiveMultipart
-import io.ktor.server.response.header
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondFile
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -304,14 +300,10 @@ fun Route.deckRoutes(
             // revoked may keep a usable copy until their cache
             // expires. Revocation governs the server, not pixels
             // already delivered.
-            call.response.header(
-                HttpHeaders.CacheControl,
-                "private, max-age=31536000, immutable",
-            )
-            // The close-up copy is a JPEG since spec 0015; the rest are PNGs.
-            val type = if (file.extension == "jpg") ContentType.Image.JPEG else ContentType.Image.PNG
-            call.response.headers.append(HttpHeaders.ContentType, type.toString())
-            call.respondFile(file)
+            //
+            // Spec 0121: the type is said by the file (WebP, JPEG or PNG), as
+            // on /api/pictures -- this said PNG for anything not a JPEG.
+            call.respondPicture(file)
         }
 
         // §4.29-§4.35, §4.99 — sharing lives in its own file.

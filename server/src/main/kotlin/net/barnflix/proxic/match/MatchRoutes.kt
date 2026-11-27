@@ -5,9 +5,7 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.request.receive
-import io.ktor.server.response.header
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondFile
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -16,6 +14,7 @@ import io.ktor.util.pipeline.PipelineContext
 import kotlinx.serialization.Serializable
 import net.barnflix.proxic.ErrorResponse
 import net.barnflix.proxic.PRINCIPAL_KEY
+import net.barnflix.proxic.deck.respondPicture
 import java.util.UUID
 
 // Match routes — PHASE_06 §6.10, §6.11, §6.114.
@@ -368,10 +367,8 @@ private fun Route.matchAssetRoute(
         // browser may keep it, because an asset id is a content
         // hash and those bytes cannot come to mean something
         // else.
-        call.response.header(
-            io.ktor.http.HttpHeaders.CacheControl,
-            "private, max-age=31536000, immutable",
-        )
-        call.respondFile(file)
+        // Spec 0121: the same answer as /api/pictures (its type and this
+        // cache rule), WebP for a picture that has its WebP copy.
+        call.respondPicture(file)
     }
 }

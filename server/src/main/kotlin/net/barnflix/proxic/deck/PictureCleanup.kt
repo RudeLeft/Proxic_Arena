@@ -117,7 +117,7 @@ class PictureCleanup(
 
     private fun filesOf(sha: String): List<File> =
         folders.flatMap { folder ->
-            listOf("png", "jpg").map { File(File(folder, sha.substring(0, 2)), "$sha.$it") }
+            FILE_KINDS.map { File(File(folder, sha.substring(0, 2)), "$sha.$it") }
         }.filter { it.isFile }
 
     private fun deleteFiles(sha: String): Long =
@@ -163,6 +163,13 @@ class PictureCleanup(
         val KEEP: Duration = Duration.ofDays(30)
 
         private val SHA = Regex("[0-9a-f]{64}")
+
+        /**
+         * A picture's files in each folder: the original (PNG or JPEG), the
+         * older copies, and since spec 0121 the WebP copies and the mark that
+         * one was no lighter than the original.
+         */
+        private val FILE_KINDS = listOf("png", "jpg", "webp", PictureCopies.NO_WEBP)
 
         /** Some deck uses picture `a`: as a card, a back face, a token or an art crop. */
         private const val USED =

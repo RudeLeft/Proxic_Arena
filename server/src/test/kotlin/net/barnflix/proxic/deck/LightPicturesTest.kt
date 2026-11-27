@@ -20,8 +20,14 @@ import kotlin.test.assertTrue
  * accepted and served as it came for a close-up, the table's copy is a
  * 384-wide JPEG, and the pictures stored before get one, once, with
  * their originals untouched (F-0051-C, F-0051-D).
+ *
+ * Spec 0121 made both copies WebP (WebpPicturesTest). What is left here is
+ * spec 0051's JPEG copies, which are still what a picture gets when the WebP
+ * encoder is missing (spec 0121 scope 5): these stores have none.
  */
 class LightPicturesTest {
+    private val noEncoder = WebpEncoder { _, _ -> throw EncoderMissing("not in this test") }
+
     /** A card-shaped scan: noisy art, a red border and see-through corners. */
     private fun scan(
         width: Int = 744,
@@ -49,7 +55,7 @@ class LightPicturesTest {
     @Test
     fun `a JPEG card picture is stored, is its own close-up, and gets a 384-wide JPEG table copy`() {
         val dir = Files.createTempDirectory("light").toFile()
-        val store = ArtStore(File(dir, "data"))
+        val store = ArtStore(File(dir, "data"), noEncoder)
         val source = jpeg(dir, "card.jpg", scan())
 
         val stored = store.store(source, "real_cards/Card [SET].jpg")
@@ -71,7 +77,7 @@ class LightPicturesTest {
     @Test
     fun `an art crop smaller than the table copy would be is served as it came`() {
         val dir = Files.createTempDirectory("crop").toFile()
-        val store = ArtStore(File(dir, "data"))
+        val store = ArtStore(File(dir, "data"), noEncoder)
         val crop = jpeg(dir, "crop.jpg", scan(300, 220))
 
         val stored = assertIs<ArtResult.Ok>(store.store(crop, "art_crops/Card [SET].jpg"))
@@ -81,20 +87,19 @@ class LightPicturesTest {
     @Test
     fun `a PNG gets a JPEG table copy and its close-up, as before`() {
         val dir = Files.createTempDirectory("png").toFile()
-        val store = ArtStore(File(dir, "data"))
+        val store = ArtStore(File(dir, "data"), noEncoder)
         val source = File(dir, "card.png").also { ImageIO.write(scan(), "png", it) }
 
         val sha = assertIs<ArtResult.Ok>(store.store(source, "real_cards/Card [SET].png")).art.sha256
         assertEquals("png", store.originalPath(sha).extension)
         assertEquals("jpg", store.fileFor(sha, closeUp = false)!!.extension)
         assertEquals(store.zoomPath(sha), store.fileFor(sha, closeUp = true))
-        assertFalse(store.needsCopies(store.originalPath(sha)))
     }
 
     @Test
     fun `a picture stored before spec 0051 gets its JPEG table copy once, and its original is untouched`() {
         val dir = Files.createTempDirectory("old").toFile()
-        val store = ArtStore(File(dir, "data"))
+        val store = ArtStore(File(dir, "data"), noEncoder)
         val source = File(dir, "card.png").also { ImageIO.write(scan(), "png", it) }
         val sha = assertIs<ArtResult.Ok>(store.store(source, "real_cards/Card [SET].png")).art.sha256
         // As it was before: a PNG table copy, no JPEG one.
@@ -112,7 +117,8 @@ class LightPicturesTest {
         assertEquals("jpg", store.fileFor(sha, closeUp = false)!!.extension)
         assertFalse(oldCopy.isFile, "the PNG copy it replaces is gone")
         assertTrue(original.readBytes().contentEquals(before), "the original is untouched")
-        assertFalse(store.needsCopies(original), "made once")
+        // Spec 0121: with no encoder its WebP copies are still owed; WebpPicturesTest makes them once.
+        assertTrue(store.needsCopies(original))
     }
 
     @Test

@@ -33,11 +33,15 @@ sealed interface ArtResult {
     data class Rejected(val code: String, val detail: String) : ArtResult
 }
 
-class ArtStore(dataRoot: File) {
+class ArtStore(
+    dataRoot: File,
+    /** Spec 0121 -- the WebP writer: libwebp's `cwebp`, or a stand-in in tests. */
+    private val encoder: WebpEncoder = CwebpEncoder.shared,
+) {
     private val originals = File(dataRoot, "art/original")
     private val display = File(dataRoot, "art/display")
 
-    /** Spec 0015 — the close-up copies (JPEG), for the zoom views. */
+    /** Spec 0015 — the close-up copies (WebP since spec 0121, JPEG before), for the zoom views. */
     private val zoom = File(dataRoot, "art/zoom")
 
     /**
@@ -69,6 +73,9 @@ class ArtStore(dataRoot: File) {
      *
      * Spec 0051: the copy is a JPEG now (ZoomCopy's writer, scaled), not
      * a PNG: 384 wide either way, a fraction of the bytes.
+     *
+     * Spec 0121: a WebP at quality 80 now, 384 wide (or the picture's own
+     * width when it is narrower), about a third lighter again.
      */
     private val displayWidth = 384
 
@@ -81,8 +88,9 @@ class ArtStore(dataRoot: File) {
      * disk under a name the browser might serve.
      *
      * Spec 0051: a JPEG is accepted as well (the Deck Builder's light
-     * card pictures and Scryfall's art crops). A JPEG original IS its own
-     * close-up: it is served as it came, with no second encode. And a
+     * card pictures and Scryfall's art crops). Spec 0121 reversed "a JPEG
+     * original IS its own close-up": every picture gets a WebP close-up copy
+     * (a second encode, quality 80); the original is kept as it came. And a
      * picture already stored with its copies is recognised by its hash
      * before anything is decoded: identical bytes were decoded and
      * checked when they first came.
@@ -159,56 +167,22 @@ class ArtStore(dataRoot: File) {
         return ArtResult.Ok(StoredArt(sha, target.length(), image.width, image.height))
     }
 
+    /** Spec 0121 -- the table's and the close-up's copies: which files, and making them. */
+    internal val copies = PictureCopies(display, zoom, encoder, displayWidth)
+
     /**
-     * The table's copy and, for a PNG, the close-up copy, each only when
-     * missing. Shared with the background fill for pictures stored before
-     * a copy existed.
+     * The table's copy and the close-up copy, each only when missing. Shared
+     * with the background pass for pictures stored before a copy existed.
+     * Since spec 0121 both are WebP at quality 80 ([PictureCopies]).
      */
     internal fun makeCopies(
         sha: String,
         image: BufferedImage,
         original: File,
-    ) {
-        // Spec 0051: the table's copy is a JPEG, 384 wide. It was a PNG
-        // of 340-555 KB -- heavier than the full-size close-up -- whose
-        // see-through corners the table never shows.
-        val derivative = jpegDisplayPath(sha)
-        if (!derivative.isFile && image.width > displayWidth) {
-            runCatching { ZoomCopy.write(image, derivative, displayWidth) }
-                .onFailure {
-                    // A missing derivative is a performance problem,
-                    // not a failed import: the original can still be
-                    // served while this is investigated.
-                    derivative.delete()
-                }
-            // If the derivative is no smaller, it is pure cost on
-            // disk: the original is served instead.
-            if (derivative.isFile && derivative.length() >= original.length()) {
-                derivative.delete()
-            }
-            // The PNG copy it replaces, from before spec 0051.
-            if (derivative.isFile) pathFor(display, sha).delete()
-        }
+    ) = copies.make(sha, image, original)
 
-        // Spec 0015 — the close-up copy, so a zoom does not wait on the
-        // scan. A JPEG original is already that copy.
-        val closeUp = zoomPath(sha)
-        if (original.extension == PNG && !closeUp.isFile) {
-            runCatching { ZoomCopy.write(image, closeUp) }.onFailure { closeUp.delete() }
-        }
-    }
-
-    /**
-     * Whether a stored original still lacks a copy it should have: a PNG
-     * without its JPEG table copy (spec 0051) or its close-up (spec 0015).
-     * A JPEG original gets its copy when it is stored, and one that came
-     * out no smaller than the original is not made again.
-     */
-    internal fun needsCopies(original: File): Boolean {
-        if (original.extension != PNG) return !original.isFile
-        val sha = original.nameWithoutExtension
-        return !jpegDisplayPath(sha).isFile && pathFor(display, sha).isFile || !zoomPath(sha).isFile
-    }
+    /** Whether a stored original still lacks a copy it should have ([PictureCopies.needed]). */
+    internal fun needsCopies(original: File): Boolean = copies.needed(original)
 
     /** Where a hash's PNG lives, fanned out so no directory holds 100,000 files. */
     fun pathFor(
@@ -223,28 +197,33 @@ class ArtStore(dataRoot: File) {
         return if (!png.isFile && jpeg.isFile) jpeg else png
     }
 
-    /** The table's copy: a JPEG since spec 0051, a PNG before; the JPEG's path when neither exists. */
-    fun displayPath(sha256: String): File {
-        val jpeg = jpegDisplayPath(sha256)
-        val png = pathFor(display, sha256)
-        return if (!jpeg.isFile && png.isFile) png else jpeg
-    }
+    /**
+     * The table's copy that is served: a WebP since spec 0121, a JPEG since
+     * spec 0051, a PNG before; the WebP's path when none exists.
+     */
+    fun displayPath(sha256: String): File =
+        listOf(copies.webp(sha256, closeUp = false), copies.jpegTable(sha256), copies.pngTable(sha256))
+            .firstOrNull { it.isFile } ?: copies.webp(sha256, closeUp = false)
 
-    private fun jpegDisplayPath(sha256: String): File = File(File(display, sha256.substring(0, 2)), "$sha256.$JPEG")
-
-    fun zoomPath(sha256: String): File = File(File(zoom, sha256.substring(0, 2)), "$sha256.jpg")
+    /** Spec 0015's JPEG close-up copy (since spec 0121 made only when the WebP one cannot be). */
+    fun zoomPath(sha256: String): File = copies.jpegCloseUp(sha256)
 
     /**
-     * The file to serve: for the table, the display copy; for a close-up
-     * (spec 0015), the light JPEG copy. Either falls back to the original,
-     * which is what exists when a copy was not made -- and, for a JPEG
-     * original (spec 0051), is the close-up itself.
+     * The file to serve, for every picture address (spec 0052's one address
+     * and the old per-match and per-deck ones). Spec 0121's order: the WebP
+     * copy, then the older JPEG (or PNG) copy, then the original -- which is
+     * what exists when no copy was made, or none was lighter.
      */
     fun fileFor(
         sha256: String,
         closeUp: Boolean,
     ): File? {
-        val copy = if (closeUp) zoomPath(sha256).takeIf { it.isFile } else displayPath(sha256).takeIf { it.isFile }
+        val copy =
+            if (closeUp) {
+                listOf(copies.webp(sha256, closeUp = true), copies.jpegCloseUp(sha256)).firstOrNull { it.isFile }
+            } else {
+                displayPath(sha256).takeIf { it.isFile }
+            }
         return copy ?: originalPath(sha256).takeIf { it.isFile }
     }
 

@@ -222,6 +222,45 @@ class PictureCleanupTest {
         assertTrue(stored(failedNew))
     }
 
+    /** Spec 0121's files: both WebP copies and the mark that one was no lighter. */
+    private fun webpFiles(
+        hash: String,
+        age: Duration,
+    ): List<File> =
+        listOf("display" to "webp", "zoom" to "webp", "zoom" to PictureCopies.NO_WEBP).map { (folder, ext) ->
+            File(root, "art/$folder/${hash.substring(0, 2)}/$hash.$ext").apply {
+                parentFile.mkdirs()
+                writeBytes(byteArrayOf(4, 5))
+                setLastModified(start.minus(age).toEpochMilli())
+            }
+        }
+
+    @Test
+    fun `F-0121-E a picture's WebP files go with its row, old orphan WebP files go, and used ones stay`() {
+        val used = picture(10)
+        val dropped = picture(11)
+        val playing = picture(12)
+        val usedWebp = webpFiles(used, Duration.ofDays(60))
+        val droppedWebp = webpFiles(dropped, Duration.ofDays(60))
+        val playingWebp = webpFiles(playing, Duration.ofDays(60))
+        deckUsing(used)
+        cleanupAt(0).run()
+        val later = cleanupAt(31, inPlay = setOf(playing)).run()
+        assertEquals(1, later.deleted, "only the unused picture no game shows")
+        assertTrue(droppedWebp.none { it.isFile }, "its WebP copies and mark go with its row")
+        assertEquals(0, later.orphanFiles, "with its row, not swept up afterwards as strays")
+        assertTrue(usedWebp.all { it.isFile }, "a deck's picture keeps its WebP copies")
+        assertTrue(playingWebp.all { it.isFile }, "a running game's picture keeps them")
+
+        // Ages from `start`; this run is on day 31: 40 and 2 days old then.
+        val orphanOld = webpFiles(sha(13), Duration.ofDays(9))
+        val orphanNew = webpFiles(sha(14), Duration.ofDays(-29))
+        val swept = cleanupAt(31).run()
+        assertTrue(swept.orphanFiles >= orphanOld.size)
+        assertTrue(orphanOld.none { it.isFile }, "30-day-old WebP files no row knows are deleted")
+        assertTrue(orphanNew.all { it.isFile }, "newer ones are kept")
+    }
+
     @Test
     fun `the weekly schedule runs it and says what it did`() {
         val unused = picture(9)
