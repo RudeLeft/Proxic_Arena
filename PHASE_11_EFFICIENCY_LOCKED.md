@@ -4407,3 +4407,13 @@ connection's drop or the 10-minute budget. Found building it (RUN, Edge): a
 frozen tab's connection stays open, its pings answered, until Edge lets it go
 (15 s to over 3 minutes), so it counts as a drop only then. Evidence, bites
 and the browser runs are in spec 0120's "As built".
+
+**Owner, 2026-11-27 (by prompt: "Keep it this way"; spec 0120 Amendment 2):** the
+note above ("Count it as a drop") is withdrawn: its finding was wrong. A re-run
+with a logging proxy showed a frozen Edge tab's connection answering every ping
+for the whole 153 s freeze (RUN); Edge fails only the page's own socket objects.
+Decision 7 stands as first written: a hidden or frozen tab counts as connected
+while its connection is open; only a real drop pauses a game. P11-E13's "the
+browser answers pings while frozen" is right after all (the network process
+answers), though it was first measured on a busy script thread; a frozen lobby
+tab stays online to the server.

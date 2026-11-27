@@ -1,6 +1,8 @@
-// Spec 0120 (F-0120-G, Amendment 1) -- a tab that is only hidden never pauses
-// the game; a tab the browser freezes counts as a drop: the game pauses, and
-// when the tab wakes it reconnects, catches up, and the game goes on.
+// Spec 0120 (F-0120-G, Amendment 2: decision 7) -- a tab that is only hidden
+// never pauses the game; a tab the browser freezes keeps its connection (the
+// browser answers the pings), so it is not a drop either, and when it wakes it
+// reconnects, catches up and draws the server's board. Only if the browser
+// lets the connection go does the game pause, as for any drop.
 //
 // By hand only (PROXIC_FROZEN_PROBE=1, Windows Edge, headed): Playwright keeps
 // its own pages visible, so the guest's tab under test is opened in a plain
