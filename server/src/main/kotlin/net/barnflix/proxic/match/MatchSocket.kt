@@ -83,7 +83,7 @@ fun Route.matchSocket(
         }
 
         // Spec 0120 (Q7 B) -- a player's connection: pinged every 2 s, closed
-        // 3 s after an unanswered ping (Ktor's own pinger; the browser answers).
+        // 5 s after an unanswered ping (Ktor's own pinger; the browser answers).
         pingIntervalMillis = net.barnflix.proxic.Limits.MATCH_PING_MS
         timeoutMillis = net.barnflix.proxic.Limits.MATCH_PONG_WAIT_MS
 

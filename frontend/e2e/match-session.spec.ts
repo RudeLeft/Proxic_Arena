@@ -180,6 +180,20 @@ test("refresh, disconnect, a second tab and a closed browser change nothing", as
     });
     expect(await question(second), "the second tab sees the same question").toEqual(original);
 
+    // Spec 0120 -- the disconnect above paused the game (a seat with no game
+    // connection); it goes on 2 s after the returning page is live, and until
+    // then a click sends nothing. Wait for the server to say so.
+    await expect
+      .poll(
+        () =>
+          frames
+            .get(asked)!
+            .slice(mark)
+            .some((entry) => entry.dir === "in" && entry.frame.type === "MATCH_RESUMED"),
+        { timeout: 20_000, message: "the game goes on once the player is back" },
+      )
+      .toBe(true);
+
     const pending = [...frames.get(asked)!]
       .reverse()
       .find((entry) => entry.dir === "in" && entry.frame.type === "DECISION_REQUEST");

@@ -82,14 +82,18 @@ object Limits {
 
     /**
      * Spec 0120 (owner Q7 B) -- a PLAYER's game connection is pinged this
-     * often, and closed when a pong has not come this long after its ping: 5 s
-     * of silence after the last pong is a drop, and the game pauses. Answered
-     * by the browser itself, never by the page's script (a hidden tab keeps
-     * answering; a frozen one's connection the browser closes itself:
-     * Amendment 1). Spectators' connections and the lobby keep the above.
+     * often, and closed when a ping has had no pong for this long: at least
+     * 5 s of real silence is a drop, and the game pauses. Ktor sends a ping 2 s
+     * after the last pong and waits 5 s for its answer, so a line that dies
+     * pauses the game 5 to 7 s later (RUN: spec 0120's As built). A pong wait
+     * of 3 s (the first build) let a 3 s stall on a 300 ms link count as a drop
+     * when a ping was on its way as it began (CI run 46026863141): spec 0119's
+     * poor link is never cut. Answered by the browser itself, never by the
+     * page's script (a hidden or frozen tab keeps answering: Amendment 2).
+     * Spectators' connections and the lobby keep the above.
      */
     const val MATCH_PING_MS: Long = 2_000
-    const val MATCH_PONG_WAIT_MS: Long = 3_000
+    const val MATCH_PONG_WAIT_MS: Long = 5_000
 
     /** Spec 0086, Amendment 2 -- the report route's limit: 5 MB. */
     const val REPORT_BODY_BYTES: Long = 5L * 1024 * 1024

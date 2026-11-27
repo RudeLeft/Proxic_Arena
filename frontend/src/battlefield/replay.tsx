@@ -144,7 +144,12 @@ export function ReplayLayer({
       for (const a of all) {
         if (slowed.has(a)) continue;
         slowed.add(a);
-        a.updatePlaybackRate(a.playbackRate * REPLAY_RATE);
+        // Set, not updatePlaybackRate: an update stays pending (the old rate
+        // read, and played) until the browser's next animation update, and
+        // under load a replayed frame ran at full speed meanwhile (CI run
+        // 46026863141: "every replayed frame at half speed" read 1). Setting
+        // it keeps the animation's current time and takes effect at once.
+        a.playbackRate = a.playbackRate * REPLAY_RATE;
       }
       const elapsed = now - started;
       const leftNow = running(root).left;

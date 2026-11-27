@@ -87,9 +87,11 @@ beforeEach(() => {
       effect: {
         getComputedTiming: () => ({ endTime: Number(opts?.duration ?? 0), iterations: 1 }),
       },
-      updatePlaybackRate(rate: number) {
-        anim.playbackRate = rate;
-      },
+      // As Edge does (RUN 2026-11-27): an updated rate is PENDING -- the
+      // getter still reads the old one until the browser's next animation
+      // update, which a page under load (CI's 4x CPU) may not reach for a
+      // while. Never applied here: only a rate set directly reads at once.
+      updatePlaybackRate() {},
     };
     animations.push({ element: this, frames, options: opts, anim });
     return anim as unknown as Animation;

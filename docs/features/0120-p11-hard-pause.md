@@ -244,7 +244,8 @@ The owner chose "count it as a drop" (Amendment 1).
   `LiveMatch.answer` refuses `PAUSED` first (`DecisionRefusal.PAUSED`);
   `endForAway` reads `links.awayAt` (D8: the game connection, not the
   lobby). `MatchSocket`: a player's connection is pinged every 2 s and
-  closed 3 s after an unanswered ping (`Limits.MATCH_PING_MS`,
+  closed 5 s after an unanswered ping (3 s in the first build; see the fixes
+  below) (`Limits.MATCH_PING_MS`,
   `MATCH_PONG_WAIT_MS`, Ktor's own per-session pinger); opening and closing
   go to `MatchPauses`; CAUGHT_UP to `SeatLinks.caughtUp`. The match socket no
   longer reads the lobby's presence.
@@ -402,3 +403,44 @@ Playwright; F2's hand check per brand); the brands' own savers; a targeted
 jump check (nothing on the board moves differently: the dim is one layer, the
 ring's restart is the ring's own animation); the server-side measure of a
 3 s stall on the poor link over many runs.
+
+## As built: fixes after CI run 46026863141 (2026-11-27)
+
+Three failures in the first CI run of the pause; fixed on `p11-pause-fix`.
+
+- **A 3 s stall on the poor link counted as a drop** (match-slow-link, "the
+  poor link was never cut off": 2 connections). With a 3 s pong wait, a ping
+  on its way as a stall began (300 ms each way) went unanswered for 3 s, so the
+  connection closed though the line was silent for under 5 s: against the
+  owner's rule (decision 6, Q7 B: 5 s of silence is a drop) and spec 0119 (the
+  poor link with short stalls is never cut). `Limits.MATCH_PONG_WAIT_MS` is
+  now 5,000: Ktor pings 2 s after the last pong and closes when that ping has
+  had no pong for 5 s. **The real detection window: a line that dies pauses
+  the game 5 to 7 s later** (at least 5 s of real silence, at most a ping's
+  2 s more); a stall shorter than 5 s never does. `match-pause` checks the
+  silent drop lands between 4.5 and 8 s. The "Not as the spec words it"
+  paragraph above (3-5 s, "about one stall in four") is the first build's.
+- **A replay played at full speed** (match-reports-comfort, "every replayed
+  frame at half speed": read 1). `replay.tsx` slowed each animation with
+  `updatePlaybackRate`, whose new rate stays pending (the old one read, and
+  played) until the browser's next animation update (RUN, Edge: read 1 right
+  after, and still 1 after 300 ms of a busy main thread). Under CI's load the
+  layer's animations read 1 at the 250 ms sample. It now sets `playbackRate`
+  directly (the current time kept, in effect at once). Guard: the replay
+  test's fake animation now keeps an updated rate pending, as Edge does; with
+  `updatePlaybackRate` back the test fails (bitten). Why that run hit the
+  window and the runs before did not is not proven: nothing in the pause
+  touches the replay layer.
+- **CI machine 4 hung until its 25-minute limit inside `match-pause`** (its
+  last line: the silent drop measured, then nothing). No step had its own
+  limit (a click waits for ever by default) and the test's limit was 15 min.
+  Every click and navigation in it now has a limit, the test as a whole six
+  minutes, and its `finally` ends the game (`clearEverything`, 30 s at most)
+  so a paused game left behind never holds the next spec's players.
+- **Found by the whole-machine run (machine 4): `match-session` asserted
+  the old behaviour.** Its player leaves the game page for 5 s (a real
+  drop: the game pauses), comes back, opens a second tab, and both tabs click
+  the waiting question at once. The clicks came before the game went on (2 s
+  after the returning page is live), so the page sent nothing ("both tabs
+  sent an answer": 0). That is the pause working; the test now waits for
+  `MATCH_RESUMED` on the returning page before the two clicks.

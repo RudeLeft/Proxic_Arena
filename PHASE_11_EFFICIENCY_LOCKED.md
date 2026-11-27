@@ -4395,7 +4395,7 @@ frozen lobby tab shows offline until it wakes.
 
 The game pauses while a player's game connection is down (owner decisions 6
 and 7, Amendment 1): a player's match connection is pinged every 2 s and
-closed 3 s after an unanswered ping; a seat with no player connection left
+closed 5 s after an unanswered ping; a seat with no player connection left
 pauses the game at once (`SeatLinks.kt`, `MatchPauses.kt`): every answer
 refused `PAUSED` first, the worker sent `HOLD` (its own waits stop and run
 again in full after `GO`), every page told `MATCH_PAUSED`; it goes on 2 s

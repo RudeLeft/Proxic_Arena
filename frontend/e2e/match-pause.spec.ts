@@ -9,8 +9,8 @@
 // open WebSocket: spec 0119).
 //
 //  1. A silent drop: the server's 2 s pings go unanswered and it closes the
-//     guest's connection after 3 s more: the host is told MATCH_PAUSED
-//     within about 5 s (measured), and 1.5 s later shows the look: the dim,
+//     guest's connection when one has had no pong for 5 s: the host is told
+//     MATCH_PAUSED 5-7 s after the line died (measured), and 1.5 s later shows the look: the dim,
 //     "Connection dropped / <guest> · game paused · 0:0N", the plate's
 //     "Dropped", the window. While paused no move is made by anybody: the
 //     host's bot tries (real clicks), and a raw answer sent on the host's
@@ -35,7 +35,11 @@ import { clearEverything, sharedDeck, startAMatch } from "./match-helpers";
 import { serverBoard, slowLink, type Link, type LinkOptions } from "./slow-link";
 import { drive } from "./speed-kit";
 
-test.describe.configure({ timeout: 900_000 });
+// CI run 46026863141: the run hung here until the machine's 25-minute limit
+// (no step had its own limit). Every wait below has one, the test as a whole
+// six minutes, and the game is always ended (finally) so a paused game never
+// waits for the next spec's players.
+test.describe.configure({ timeout: 360_000 });
 
 const pkg = join(process.cwd(), "..", "Test Deck", "green-deck.zip");
 const SHOTS = process.env["MATCH_PAUSE_SHOTS"] ?? null;
@@ -150,7 +154,7 @@ test("a dropped connection pauses the game for everyone; the player comes back, 
     const deck = await sharedDeck(host, guest, pkg);
     await startAMatch(host, guest, deck);
     await drive([host, guest], 8_000);
-    await viewer.goto("/play");
+    await viewer.goto("/play", { timeout: 60_000 });
     await viewer
       .locator("article.pa-room-card")
       .getByRole("link", { name: /Spectate/ })
@@ -181,8 +185,9 @@ test("a dropped connection pauses the game for everyone; the player comes back, 
     console.log(
       `[pause] silent drop: MATCH_PAUSED reached the host ${pausedIn} ms after the line died`,
     );
-    expect(pausedIn).toBeGreaterThan(2_500);
-    expect(pausedIn).toBeLessThan(6_500);
+    // At least 5 s of real silence (owner Q7 B), at most a ping's 2 s more (and a slow runner's moment).
+    expect(pausedIn).toBeGreaterThan(4_500);
+    expect(pausedIn).toBeLessThan(8_000);
     const paused = host.locator('[data-paused="dropped"]');
     await expect(paused).toBeVisible({ timeout: 3_000 });
     await expect(paused).toContainText("Connection dropped");
@@ -210,7 +215,7 @@ test("a dropped connection pauses the game for everyone; the player comes back, 
     ).length;
     await drive([host], 6_000);
     // A real click on the act button: it nudges, nothing is sent.
-    await paused.click();
+    await paused.click({ timeout: 10_000 });
     await expect(host.locator(".gs-paused-nudge")).toBeVisible();
     const boardsMeanwhile =
       hostTap.heard.filter((h) => h.type === "MATCH_DELTA" || h.type === "MATCH_SNAPSHOT").length -
@@ -228,7 +233,7 @@ test("a dropped connection pauses the game for everyone; the player comes back, 
         .toBe("PAUSED");
     }
     // OK closes the window; the dim and the act button stay.
-    await window.getByRole("button", { name: "OK" }).click();
+    await window.getByRole("button", { name: "OK" }).click({ timeout: 10_000 });
     await expect(window).toHaveCount(0);
     await expect(host.locator(".gs-pause-dim")).toBeVisible();
     await expect(paused).toBeVisible();
@@ -252,7 +257,7 @@ test("a dropped connection pauses the game for everyone; the player comes back, 
     const goesOn = host.locator('[data-paused="goes-on"]');
     await expect(goesOn).toBeVisible({ timeout: 2_000 });
     await shot(host, "0120-back-goes-on.png");
-    await goesOn.click();
+    await goesOn.click({ timeout: 10_000 });
     await expect(goesOn).toHaveCount(0);
     await expect(host.locator(".gs-pause-dim")).toHaveCount(0);
     console.log(
@@ -280,13 +285,19 @@ test("a dropped connection pauses the game for everyone; the player comes back, 
     const again = await guestContext.newPage();
     const links2 = await slowLink(again, {});
     const reopenedAt = Date.now();
-    await again.goto(url);
+    await again.goto(url, { timeout: 60_000 });
     await expect
       .poll(() => hostTap.first("MATCH_RESUMED", reopenedAt) !== null, { timeout: 30_000 })
       .toBe(true);
     await drive([host, again], 5_000);
     await exact("after a clean close", again, links2[links2.length - 1]!);
   } finally {
+    // End the game whatever happened: a game left paused (its players gone)
+    // would hold the next spec's players in it.
+    await Promise.race([
+      clearEverything(host).catch(() => undefined),
+      new Promise((r) => setTimeout(r, 30_000)),
+    ]);
     await hostContext.close();
     await guestContext.close();
     await viewerContext.close();

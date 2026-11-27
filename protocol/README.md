@@ -1379,7 +1379,7 @@ never does).
 
 ```text
 (pings)       server -> browser, PLAYERS' match connections only: a WebSocket
-              ping every 2 s; no pong 3 s after it closes the connection
+              ping every 2 s; no pong 5 s after it closes the connection
               (Limits.MATCH_PING_MS, MATCH_PONG_WAIT_MS). Answered by the
               browser itself, never by the page's script. Spectators and the
               lobby keep 15 s / 30 s.

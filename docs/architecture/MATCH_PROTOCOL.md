@@ -493,10 +493,10 @@ or, past 20 updates or 6 s of replay, the table goes straight to now and
 question for the returning player is shown once the table is live; the
 page then sends `CAUGHT_UP`. The other player's game never waits.
 **The game pauses while a player's connection is down (spec 0120).** A
-player's match connection is pinged every 2 s and closed when a pong is 3 s
-late (5 s of silence); the browser answers pings itself, so a tab that is
-only hidden stays connected, while a tab the browser freezes has its
-connections closed by the browser and counts as a drop (Amendment 1). When
+player's match connection is pinged every 2 s and closed when a ping has had
+no pong for 5 s (at least 5 s of silence: a drop pauses the game 5-7 s after
+the line dies); the browser answers pings itself, so a tab that is hidden or
+frozen stays connected while its connection is open (Amendment 2). When
 a seat has no player connection left, the server pauses the game at once:
 every answer is refused `PAUSED` (checked first), the worker is sent `HOLD`
 (its own waits stop: the not-asked pass, the passed step's pause, the
