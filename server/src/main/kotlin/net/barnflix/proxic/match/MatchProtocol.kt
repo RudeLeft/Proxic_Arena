@@ -226,6 +226,9 @@ enum class DecisionRefusal {
 
     /** A search, for a question that is not answered by searching. */
     NOT_SEARCHABLE,
+
+    /** Spec 0120 -- the game is paused: a player's connection is down. Nobody moves. */
+    PAUSED,
 }
 
 /**

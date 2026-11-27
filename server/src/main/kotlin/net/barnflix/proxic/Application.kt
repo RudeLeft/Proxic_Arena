@@ -553,7 +553,6 @@ private fun Route.databaseRoutes(
         matchRuntime,
         matchHub,
         config,
-        presence = lobbyHub.offline,
     )
 
     route("/api") {

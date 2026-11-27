@@ -200,3 +200,203 @@ M on the server (`SeatLinks`, `paused`, `PAUSED`, the resume rule, the ping sett
 ## Amendments
 
 **Amendment 1, owner 2026-11-27 (by prompt: "Count it as a drop"):** decision 7 rested on the browser keeping a frozen tab's connection open and answering pings. **It does not** (RUN, 2026-11-26/27, the probe `frontend/e2e/probe-frozen.spec.ts`, commit 65cc8c9c on `p11-pause`: Edge driven over raw DevTools, since every page Playwright drives reports itself visible). A tab only **hidden** kept one connection for 10.5 minutes of a live game (beats arriving, longest gap 6.9 s, the server's queue never over 3 ms). A tab really **frozen** (`Page.setWebLifecycleState frozen`) had both its sockets, the lobby's and the game's, failed by Edge itself at the instant of the freeze ("Page entered Back-Forward Cache"), 3 of 3 runs; it then answers no pings. So the server cannot tell a frozen tab from a dropped connection. **The rule now:** a tab that is only hidden never pauses the game; a tab the browser freezes counts as a drop, with the standard pause look (answer 7), the 10-minute away clock and the pause budget like any drop; when the player returns, the tab wakes, reconnects with `resume`, catches up (0119), "<name> is back" for 1 s, and play goes on. Decision 7's text and this spec's item 9 are read with this amendment; F-0120-G becomes two checks: a hidden tab does not pause, and a frozen tab pauses and comes back cleanly. Not measured: the brands' own savers (Edge sleeping tabs, Chrome Memory and Energy Saver; F2's hand check) and WebKit (no hidden or frozen page through Playwright). Also corrected: P11-E13's "the browser answers pings while frozen" was measured on a busy script thread, not a real freeze; a frozen lobby tab's socket fails too.
+
+## As built (2026-11-27)
+
+Built on branch `p11-pause` from origin/main 105bb618 (Amendment 1), with the
+owner's answers above. Four commits: the probe (before the build), the
+worker's HOLD/GO, its deadline fix (found by ci-speed, below), then the server
+and the page.
+
+**First, the frozen tab (RUN, before building; Amendment 1 came of it).**
+Playwright keeps every page it drives `visible`, so the probe drives a plain
+Edge over raw DevTools (`frontend/e2e/frozen-tab.ts`). A tab only hidden kept
+its one game connection for 10.5 minutes of a live game; a tab really frozen
+(`Page.setWebLifecycleState frozen`) had both its sockets failed by Edge at
+the instant of the freeze ("Page entered Back-Forward Cache."), 3 of 3 runs.
+The owner chose "count it as a drop" (Amendment 1).
+
+**What was built** (SOURCE):
+
+- **Worker** (`forge-worker/.../game/`): `DecisionGate` `hold()`, `go()`,
+  `waitWhileHeld(over)` and `waitOut(ms, again, over, sleeper)`: a wait in
+  pieces of 20 ms (`HOLD_LOOK_MS`); while held the count stops and the
+  interjections run (a concession still ends the game); after GO it starts
+  again from `again`. `GameHost.stepPause` (the passed step's 400 ms, from
+  `MatchController`), `GameHost.holdThePass` (both not-asked passes in
+  `MatchController` wait for GO), and the stack's rest
+  (`GameHost.restBeforePass`: `StackRests.piece`, run again for
+  `StackRests.again(ms)` = a whole `REST_MS`, 2,500 ms, or a run's own 800).
+  `WorkerMain`: frames `HOLD` and `GO` (no seat, no reply); a HOLD before the
+  game starts holds it from its start. An open question is untouched.
+- **Server** (`server/.../match/`): `SeatLinks.kt` (new): each seat's open
+  player connections, the drop (`droppedSince`), the paused time used this
+  game, the resume rule (`tick`: every dropped seat back with a connection at
+  least 2 s old whose page said CAUGHT_UP at least 2 s ago, or 8 s old), the
+  away time (`awayAt`: the drop plus the away setting, or sooner with the
+  budget spent). `MatchPauses.kt` (new): `MATCH_PAUSED` / `MATCH_RESUMED` to
+  every player and spectator connection of the match, `HOLD`/`GO` to the
+  worker once per change, a 100 ms ticker for paused matches, the greeting
+  (every pause under way, right after `MATCH_HELLO`, players and
+  spectators). `LiveMatch.links` (kept across Karn's restart);
+  `LiveMatch.answer` refuses `PAUSED` first (`DecisionRefusal.PAUSED`);
+  `endForAway` reads `links.awayAt` (D8: the game connection, not the
+  lobby). `MatchSocket`: a player's connection is pinged every 2 s and
+  closed 3 s after an unanswered ping (`Limits.MATCH_PING_MS`,
+  `MATCH_PONG_WAIT_MS`, Ktor's own per-session pinger); opening and closing
+  go to `MatchPauses`; CAUGHT_UP to `SeatLinks.caughtUp`. The match socket no
+  longer reads the lobby's presence.
+- `MatchWorker.hold` sends nothing to a worker that has gone (a game over:
+  its players' connections close after it).
+- **Page** (`frontend/src/`): `match.ts`: `paused` (by seat: `key`, the
+  server's own drop time; `since` and `awayAt` in the page's clock, from the
+  message's `now`; `back`) and `resumed`; `DECISION_REFUSED` `PAUSED`
+  quietly; a fresh page sends CAUGHT_UP once its first board is in (so a
+  refresh goes on 2 s later, not at the 8 s cap). `battlefield/pause.tsx`
+  (new): `usePauseLook` (the look 1.5 s after the pause, at once on a move
+  tried; a seat back before its look ever showed, a quick refresh, shows
+  nothing, then or after; "is back" for 1 s after `MATCH_RESUMED`; a new
+  drop within 10 s shows at once), `PauseAct` (the act button: "Connection
+  dropped / <name> · game paused · 0:04", "<name> is back / Catching up ·
+  paused", "<name> is back / The game goes on", this page's own "Reconnecting…
+  / The game is paused"), `PauseWindow`, the plate's words ("Dropped", then
+  "Away · N min"; "Catching up", "Back"). `GameScreen`: the dim (over the
+  table, players only), the window beside the plate (once per drop: OK closes
+  it for that drop; the away window replaces it at `awayAt`), the plate's
+  sign, greyed picture and pill, the green glow; answers not sent while
+  paused (the card shakes, the act button nudges); the response window's
+  countdown stops and starts again at 5; the reconnect notice's line "The game
+  is paused until you're back."; the away clock from `MATCH_PAUSED`, no longer
+  the lobby. `Board`: a resting spell's ring stops grey with "Paused" and runs
+  a whole 2.5 s again after (`REST_AGAIN_MS`). The away window is 520 px wide
+  and its Peek hint never wraps.
+
+**Found by ci-speed (RUN) and fixed:** match-numbers, the spec before
+match-pause on its CI machine, stood still for 120 s with Arc Lightning
+resting on the stack: the worker's first `waitOut` counted what was left by
+subtracting each piece's elapsed whole milliseconds, and `StackRests.piece`
+returns once under a millisecond is left; at 1 ms left a piece returned at
+once, nothing was subtracted, and Forge's thread spun for ever. The Lab and
+the unit tests had passed by luck of the rounding. `waitOut` now keeps a
+deadline (each piece at least a whole millisecond, rounded up) and `piece`
+never asks `Object.wait` for 0. Unit test with pieces spun to end 0.6 ms
+short: the counted wait never ends (bitten), the deadline does.
+
+**Not as the spec words it** (no owner question; recorded here):
+
+- `MATCH_PAUSED` carries `awayAt` and `now` besides `since` and `endNow`
+  (the page cannot know the budget used, and turns server times into its own
+  with `now`), and `back` (sent again when the dropped seat has a connection:
+  the "Bob is back / Catching up · paused" look needs a signal).
+- **When a frozen tab counts as dropped** (RUN, Edge, F-0120-G): not at
+  the freeze, and not within the 5 s. Edge fails the page's own sockets at
+  the freeze (the page hears nothing more), but the connection itself stays
+  open and its pings are answered until Edge lets it go: after 15, 44 and
+  89 s in three runs (a normal close at the server, not its ping timeout),
+  and not within 92 s or 3 minutes in two others. Until then the server sees
+  the seat connected and the game is not paused (it waits on that player's
+  questions, as it always has). When the tab wakes, the page reconnects with
+  `resume`, catches up and draws the server's board; if the game had paused,
+  it goes on. A hidden tab never paused. So Amendment 1's "a frozen tab
+  counts as a drop" holds once the browser closes the connection, which the
+  server cannot hurry (see the report for the lead).
+- **5 s of silence is counted from the last pong** (Ktor's pinger: a ping 2 s
+  after the last pong, closed 3 s after it). So a silent drop pauses 3-5 s
+  after the line dies (RUN: 3.1-4.7 s), and a 3 s stall on D6's poor link
+  (300 ms each way) can count as a drop when a ping is in flight as it
+  starts (INFERENCE: about one stall in four); match-slow-link's 3 s stall
+  did not in the runs here. `match-catchup`'s second stall was 4.5 s and is
+  now 3 s (a longer one is a drop now).
+
+**Evidence** (RUN, 2026-11-27, stack A built from this branch, Edge):
+
+```text
+server SeatLinksTest (13)  a clean close drops at once; two tabs; spectators never count (only players'
+                           connections reach it); the budget (4, 3, 2.5 min, then the window 30 s into the
+                           4th drop); the away clock from the drop; the resume rule (2 s after CAUGHT_UP,
+                           the 8 s cap, both seats, a flap restarting the 2 s and keeping the first drop's
+                           time); PAUSED first, the question answerable after; 1,000 answers racing the
+                           drop, each forwarded once or refused; MATCH_PAUSED / back / MATCH_RESUMED to
+                           the pages and HOLD once, GO once; nothing in them but a seat and times; endNow
+server LiveMatchTest       the away test on the game connection's clock
+worker DecisionGateHoldTest (7)  a step's pause held midway then 400 again; the rest whole (2,500) after
+                           GO; the not-asked pass waits for GO; a concession while held ends it within
+                           200 ms; an open question untouched; HOLD takes effect within 20 ms (one piece)
+page pauseScreen (13)      the look after 1.5 s (dim, act button and clock, plate, window and its words);
+                           a move tried: at once, nothing sent; PAUSED quiet; the countdown stopped and
+                           at 5 again; "is back" catching up, then 1 s, a click only ends it; a quick
+                           refresh shows nothing; OK for the whole drop; a flap at once; Dropped then
+                           Away · 1 min; the away window at its time and at once with the budget spent;
+                           a spectator's words and sign only; this page's own line down
+Lab check-stack-rests      victim-held (new, F-0120-E): HOLD 1 s into the Victim's rest, GO 3 s later: no
+                           board while held, resolved 2,522-2,561 ms after GO (three runs); the seven others OK
+Lab check-concede          5/5 OK
+```
+
+**Bites (TEST-004)**, each restored after, all caught (25): PAUSED checked
+after the forwarded claim; no PAUSED refusal; the resume rule without the 2 s;
+without the 8 s cap; one of two tabs closing drops the seat; no budget; the
+away clock not from the game connection; HOLD never sent; GO resuming where
+the wait stopped; a wait ignoring HOLD; no interjections while held; the look
+at once; answers sent while paused; the countdown running on; PAUSED with
+words; a click on "is back" acting; no "is back"; a flap waiting its 1.5 s; the
+spectator dimmed; the away window from the lobby's 10 minutes; "Away" from
+the start; a fresh page never saying CAUGHT_UP; a quick refresh showing the
+look; OK not kept across the "back" message; the counted (not deadline)
+wait. Not bitten: the ping settings
+left at 15/30 (the browser test's 3.1-4.7 s silent drop would wait 30-45 s:
+measured before this spec, 0119's "Why") and a page timer instead of the
+ping (nothing in the page judges the drop).
+
+**Browser** (RUN, Edge, stack A):
+
+```text
+match-pause (new)   a silent drop (the relay reads nothing and answers no ping; while down every
+                    new connection is refused): MATCH_PAUSED at the host 3,082-4,699 ms after; the look, the window ("Peek · or hold Space" one line), the spectator's
+                    words and sign, no dim and no window for it; 6 s of the host's bot: no board;
+                    a raw answer refused PAUSED; real clicks: the act button nudges, OK closes the
+                    window (the dim stays); the line back: resume, "<name> is back / Catching up",
+                    the window not back, MATCH_RESUMED 2,219-2,799 ms after, "The game goes on",
+                    a click ends it; play goes on; the guest's page draws the server's board
+                    exactly; a clean close (a close frame, the tab gone): MATCH_PAUSED in 2-8 ms;
+                    reopened, the game goes on, the board exact. Silent drops measured over six
+                    runs, the return over four, the clean close over three
+match-away          now: Dropped, the pause window, then at the away time (sent as 1 minute in
+                    MATCH_PAUSED as in MATCH_HELLO) the away window in its place; its footer one
+                    line at 1920x1080, 1536x864 and 1280x720 (125%, 150%)
+frozen-tab (new,    by hand, PROXIC_FROZEN_PROBE=1, Edge: a hidden tab 94 s as the seat's only
+F-0120-G)           connection: no pause; frozen 92 s: not paused (Edge kept the connection); woken:
+                    reconnected with resume, its board the server's. Earlier runs of the same steps
+                    paused 15, 44 and 89 s after the freeze, and once not within 3 minutes
+match-catchup, match-slow-link, match-deltas, match-history   passed (the touched specs)
+ci-speed (4x CPU,   match-pause with match-numbers: both passed (1.1 min; silent drop 3,173 ms);
+its CI neighbour)   match-away passed (1.3 min); match-catchup with match-casting-dock: both
+                    passed (1.2 min). A first run caught the worker's rest that never ended
+                    (match-numbers, above); after the fix every one passed
+```
+
+**Hidden information (P11-R4)** (RUN): the new messages carry a seat number
+and server times, the same to every page; `HOLD`/`GO` name nobody; `PAUSED`
+goes only to the user who answered (unit-tested). Lab traces with Arena's
+worker jar from this branch, its deadline fix included (the eight
+stack-rests scenarios and the five concede ones, 13 traces):
+`check-deltas.py` rebuilt 1,202 boards (638 deltas, 162 resumes) equal to
+the worker's; `as-sent-traces.py --rebuilt`
+then `check-hidden-information`, `check-snapshot-first`,
+`check-hidden-hands`, `check-hidden-log`, `check-hidden-tops`,
+`check-hidden-mulligans` all OK; both `--self-test`s pass.
+
+**Gates:** server ktlintCheck, detekt, test; worker `mvn -q -o test` both
+orders; frontend `npm ci`, `tsc -b`, the e2e tsc, eslint, prettier, vitest,
+vite build; root check-doc-refs, check-deltas and as-sent-traces
+self-tests, check-test-switch.
+
+**Screenshots** (1920x1080, for the lead and the owner, beside the canvas
+crops `0120-q*.png` and `pause-1119.html`): the pause look with its window
+(host), the spectator's view, "is back / The game goes on", the away window.
+
+**Not done here, owed:** WebKit and Firefox (no hidden or frozen page through
+Playwright; F2's hand check per brand); the brands' own savers; a targeted
+jump check (nothing on the board moves differently: the dim is one layer, the
+ring's restart is the ring's own animation); the server-side measure of a
+3 s stall on the poor link over many runs.

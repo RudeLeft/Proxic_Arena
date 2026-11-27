@@ -649,6 +649,13 @@ type PaceClass = "move" | "wait" | "limit" | "loop" | "screen" | "derived";
  * is made of the others. A new constant fails until it is classified here.
  */
 const PACE_TABLE: Record<string, Record<string, PaceClass>> = {
+  // Spec 0120 -- the pause's looks: waits and limits, never the table's motion.
+  "pause.tsx": {
+    PAUSE_SETTLE_MS: "wait",
+    BACK_LOOK_MS: "wait",
+    FLAP_MS: "limit",
+    DROPPED_WORD_MS: "limit",
+  },
   "motion.ts": {
     MOVE_MS: "move",
     SETTLE_MS: "move",
@@ -681,6 +688,8 @@ const PACE_TABLE: Record<string, Record<string, PaceClass>> = {
     RIFFLE_BEAT_MS: "move",
   },
   "Board.tsx": {
+    // Spec 0120 (D10) -- the game's own rest again after a pause.
+    REST_AGAIN_MS: "wait",
     ATTACK_MS: "move",
     ATTACK_BEAT_MS: "move",
     BLOCK_MS: "move",
@@ -709,6 +718,8 @@ const PACE_TABLE: Record<string, Record<string, PaceClass>> = {
   },
   "GameScreen.tsx": {
     RESPONSE_WINDOW_MS: "wait",
+    // Spec 0120 -- a click's reply while paused (not the table's motion).
+    PAUSE_SHAKE_MS: "wait",
     LANDING_BEAT_MS: "wait",
     THEIR_SPELL_HOLD_MS: "derived",
     SWING_HOLD_MS: "limit",

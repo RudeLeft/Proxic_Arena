@@ -60,8 +60,8 @@ internal class Connection(
 
     /**
      * P11-D6 (spec 0119) -- this connection's page said its table is live
-     * again (CAUGHT_UP), at this time (ms); null before it said so. Read by
-     * nothing yet: spec 0120's resume rule is its only use.
+     * again (CAUGHT_UP), at this time (ms); null before it said so. Spec
+     * 0120's resume rule keeps its own, per seat (SeatLinks.caughtUp).
      */
     @Volatile
     var caughtUpAt: Long? = null
@@ -140,6 +140,12 @@ class MatchHub(
 
     /** Spec 0067 — the endings told to spectators, kept for one who comes back late. */
     val endings = SpectatorEndings(spectators)
+
+    /**
+     * Spec 0120 -- the hard pause: players' connections opening and closing,
+     * told to every page of the match and to the worker (MatchPauses.kt).
+     */
+    val pauses = MatchPauses({ matchId -> watchers.all(matchId) + spectators.all(matchId) })
 
     override suspend fun spectate(
         matchId: UUID,

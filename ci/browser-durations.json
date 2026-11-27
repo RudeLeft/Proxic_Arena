@@ -4,6 +4,7 @@
   "seconds": {
     "match-slow-link.spec.ts": 155,
     "match-catchup.spec.ts": 75,
+    "match-pause.spec.ts": 100,
     "match-speed.spec.ts": 420,
     "match-small-fixes.spec.ts": 202,
     "match-watching.spec.ts": 195,

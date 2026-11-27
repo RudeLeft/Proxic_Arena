@@ -122,3 +122,18 @@ and Peek with the away time sent as 1 minute (`match-away.spec.ts`).
 Ending the game itself is still proven only by the server tests above
 (code: frontend/e2e/match-away.spec.ts, its header and the test "an away player: Away on their plate, then a window beside it with Keep waiting, End the game and Peek",
 frontend/src/battlefield/AwayWindow.tsx).
+
+*2026-11-27 (spec 0120, owner D8, PHASE-002 amendment for the owner):* in a
+game, "away" now counts from the GAME connection, not the lobby's presence.
+A player whose game connection drops pauses the game (spec 0120), and "End
+the game · you win" is offered 10 minutes after that drop, or sooner once
+the player's pauses this game add up to 10 minutes (the budget). The server
+says when (`MATCH_PAUSED`'s `awayAt`) and checks it (`LiveMatch.endForAway`
+reads `SeatLinks.awayAt`); the page no longer reads the lobby for it. Until
+then the plate reads "Dropped" for the first minute and "Away · N min"
+after it, beside the pause's own window. What is offered (Keep waiting /
+End the game) is unchanged. The lobby's room rules (the host or a guest
+offline for `away`) are unchanged. `match-away.spec.ts` sends the away
+time as 1 minute in both `MATCH_HELLO` and `MATCH_PAUSED`
+(code: server/src/main/kotlin/net/barnflix/proxic/match/SeatLinks.kt,
+frontend/src/battlefield/pause.tsx).

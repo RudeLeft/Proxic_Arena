@@ -795,6 +795,12 @@ export interface BoardProps {
    * the ones that were, which do not slide in again once shown.
    */
   hiddenStack?: string | null;
+  /**
+   * Spec 0120 (D10) -- the game is paused ([held]: a resting ring stops,
+   * grey, "Paused"); [epoch] counts the times it went on: the ring then runs
+   * a whole rest again (REST_AGAIN_MS), as the worker's rest does.
+   */
+  restPause?: { held: boolean; epoch: number };
   quietStack?: ReadonlySet<string>;
   /** Amendment 13 (item 8) -- the mana still due for the front stack object. */
   stackOwing?: readonly string[] | null;
@@ -3267,6 +3273,13 @@ export const LANDED_FADE_MS = paced(176);
 export const REST_RING = 54 / 293;
 export const REST_RING_X = (293 - 36) / 293;
 export const REST_RING_Y = (410 - 29) / 410;
+/**
+ * Spec 0120 (D10) -- after a pause a resting spell rests again for this long
+ * (the worker's StackRests.REST_MS: the card is on the stack already, so no
+ * arrival allowance), or its own shorter rest in a run (StackRests#again).
+ */
+export const REST_AGAIN_MS = 2_500; // not paced: the game's own wait
+const NOT_PAUSED = { held: false, epoch: 0 };
 
 /** Spec 0105 -- one resting stack card as this page drew it (performance.now() times). */
 export interface StackRestSeen {
@@ -3541,6 +3554,7 @@ export function Board({
   flyingOnto = null,
   handLeft = null,
   hiddenStack = null,
+  restPause = NOT_PAUSED,
   quietStack,
   stackOwing = null,
   stackPay = null,
@@ -4625,9 +4639,16 @@ export function Board({
   // with its rest; `restLanded`: when it had landed.
   const restSeen = useRef(new Map<string, number>());
   const restLanded = useRef(new Map<string, number>());
+  // Spec 0120 (D10) -- after a pause the rest runs again, whole: from when the game went on.
+  const restAgain = useRef<{ epoch: number; at: number }>({ epoch: restPause.epoch, at: 0 });
+  if (restAgain.current.epoch !== restPause.epoch)
+    restAgain.current = { epoch: restPause.epoch, at: performance.now() };
   const restRing = (s: StackView, i: number): number | null => {
     if (!s.rest || i !== 0 || s.waiting) return null;
     const now = performance.now();
+    const again = restAgain.current.at;
+    if (again > 0 && (restSeen.current.get(s.id) ?? now) < again)
+      return Math.max(0, Math.min(s.rest.ms, REST_AGAIN_MS) - (now - again));
     const seen = restSeen.current.get(s.id) ?? now;
     restSeen.current.set(s.id, seen);
     if (stackWaiting(s)) return null;
@@ -10302,7 +10323,8 @@ export function Board({
                   ring empties until the game resolves it. */}
               {ringMs !== null && (
                 <span
-                  className="bf-stack-rest gs-coin-timer"
+                  key={`rest-${restPause.epoch}`}
+                  className={`bf-stack-rest gs-coin-timer${restPause.held ? " bf-stack-rest-held" : ""}`}
                   data-rest-ring={s.id}
                   data-rest-ms={Math.round(ringMs)}
                   aria-hidden="true"
@@ -10324,6 +10346,7 @@ export function Board({
                     />
                   </svg>
                   <i className="bf-stack-rest-dot" />
+                  {restPause.held && <span className="bf-stack-rest-word">Paused</span>}
                 </span>
               )}
               {/* Amendment 13 (item 8) -- paying for this one: what's still due,

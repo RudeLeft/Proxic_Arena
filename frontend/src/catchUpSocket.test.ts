@@ -214,13 +214,14 @@ describe("F-0119-D · late, missed, resume, CAUGHT_UP", () => {
     g.now().opened();
     g.now().says({ type: "MATCH_HELLO", seat: 1 });
     g.now().says({ type: "MATCH_SNAPSHOT", state: board() });
+    // Spec 0120 -- a fresh page is live once its first board is in: CAUGHT_UP at once.
+    const types = () => g.now().sent.map((s) => (JSON.parse(s) as { type: string }).type);
+    expect(types()).toEqual(["CAUGHT_UP"]);
     g.now().says({ type: "MATCH_BEAT", gameEpoch: 1, stateRevision: 1 });
     g.now().says({ type: "MATCH_BEAT", gameEpoch: 1, stateRevision: 0 });
-    expect(g.now().sent).toHaveLength(0);
+    expect(types()).toEqual(["CAUGHT_UP"]);
     g.now().says({ type: "MATCH_BEAT", gameEpoch: 1, stateRevision: 2 });
-    expect(g.now().sent.map((s) => (JSON.parse(s) as { type: string }).type)).toEqual([
-      "MATCH_RESYNC",
-    ]);
+    expect(types()).toEqual(["CAUGHT_UP", "MATCH_RESYNC"]);
   });
 });
 

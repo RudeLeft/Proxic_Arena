@@ -4,6 +4,11 @@
 // it away. A real game on the real server; only the away time is said
 // again shorter (MATCH_HELLO's awayMinutes, 1), so the test waits one
 // minute and not ten. Ending the game is spec 0054's own test.
+// Spec 0120 (D8): "away" is now the game connection's drop, and the server
+// says when the window opens (MATCH_PAUSED's awayAt): that is said shorter
+// too (one minute after the drop). Until then the pause shows (answer 2:
+// its window, replaced by this one in the same place) and the plate says
+// "Dropped" for the first minute (answer 4).
 
 import { expect, test, type Page } from "@playwright/test";
 import { join } from "node:path";
@@ -34,6 +39,11 @@ test("an away player: Away on their plate, then a window beside it with Keep wai
         ws.send(JSON.stringify({ ...(JSON.parse(m) as object), awayMinutes: 1 }));
         return;
       }
+      if (typeof m === "string" && m.includes('"MATCH_PAUSED"')) {
+        const paused = JSON.parse(m) as { since: number; awayAt: number };
+        ws.send(JSON.stringify({ ...paused, awayAt: paused.since + 60_000 }));
+        return;
+      }
       ws.send(m);
     });
     ws.onMessage((m) => server.send(m));
@@ -50,15 +60,18 @@ test("an away player: Away on their plate, then a window beside it with Keep wai
     const theirPlate = panel.locator(".gs-seat-opponent");
     await expect(theirPlate.locator(".gs-seat-away")).toHaveCount(0);
 
-    // The host goes: their plate says so at once, the window comes later.
+    // The host goes: their plate says so at once ("Dropped" for the first
+    // minute, spec 0120), the away window comes later, in the pause window's place.
     await hostContext.close();
-    await expect(theirPlate.locator(".gs-seat-away")).toHaveText(/^Away · \d+ min$/, {
-      timeout: 60_000,
+    await expect(theirPlate.locator(".gs-seat-away")).toHaveText("Dropped", {
+      timeout: 10_000,
     });
+    await expect(panel.getByRole("alertdialog")).toHaveAccessibleName(/'s connection dropped$/);
     // Found by its role, its words read (PROTO-006, spec 0113).
     const away = panel.getByRole("alertdialog");
     await expect(away).toBeVisible({ timeout: 150_000 });
-    await expect(away).toHaveAccessibleName(/has been gone one minute$/);
+    // Spec 0120: the pause window first, replaced by this one at the away time.
+    await expect(away).toHaveAccessibleName(/has been gone one minute$/, { timeout: 150_000 });
     await expect(away).toContainText("Ending the game counts as");
     await expect(away.getByRole("button", { name: "Keep waiting" })).toBeVisible();
     await expect(away.getByRole("button", { name: "End the game. You win." })).toBeVisible();
@@ -72,6 +85,27 @@ test("an away player: Away on their plate, then a window beside it with Keep wai
     expect(box.y).toBeLessThan(plate.y + plate.height);
     expect(box.y + box.height).toBeGreaterThan(plate.y);
     await guest.screenshot({ path: "test-results/seen/w26-away.png" });
+
+    // Spec 0120 (Q5, F-0120-I) -- "Peek · or hold Space" on one line: at
+    // 1920x1080 and as 125% and 150% Windows scaling leave the page (CSS px).
+    for (const size of [
+      { width: 1920, height: 1080 },
+      { width: 1536, height: 864 },
+      { width: 1280, height: 720 },
+    ]) {
+      await guest.setViewportSize(size);
+      await guest.waitForTimeout(300);
+      const hint = (await away.locator(".gs-win-peek-hint").boundingBox())!;
+      const peekButton = (await away.locator(".gs-peek-btn").boundingBox())!;
+      console.log(
+        `[away] ${size.width}x${size.height}: the window ${Math.round((await away.boundingBox())!.width)} px, ` +
+          `the Peek hint ${Math.round(hint.height)} px high (the button ${Math.round(peekButton.height)})`,
+      );
+      expect(hint.height, `one line at ${size.width}x${size.height}`).toBeLessThan(
+        peekButton.height + 4,
+      );
+    }
+    await guest.setViewportSize({ width: 1920, height: 1080 });
 
     // Peek fades it, Space too.
     const peek = away.getByRole("button", { name: /^Peek/ });

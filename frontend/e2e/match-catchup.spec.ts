@@ -206,7 +206,8 @@ test("a stalled page catches up: replay, skip, jump with the window, a refresh s
       await turnOf([host, guest], link, theirs());
       before = link().boards;
       link().stall();
-      await drive([host], 4_500);
+      // Spec 0120: under 5 s of silence (a longer stall is a drop: the game pauses).
+      await drive([host], 3_000);
       link().resume();
       if (
         !(await sign.waitFor({ state: "visible", timeout: 10_000 }).then(

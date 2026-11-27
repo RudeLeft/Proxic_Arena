@@ -80,6 +80,17 @@ object Limits {
     const val WS_PING_SECONDS: Long = 15
     const val WS_TIMEOUT_SECONDS: Long = 30
 
+    /**
+     * Spec 0120 (owner Q7 B) -- a PLAYER's game connection is pinged this
+     * often, and closed when a pong has not come this long after its ping: 5 s
+     * of silence after the last pong is a drop, and the game pauses. Answered
+     * by the browser itself, never by the page's script (a hidden tab keeps
+     * answering; a frozen one's connection the browser closes itself:
+     * Amendment 1). Spectators' connections and the lobby keep the above.
+     */
+    const val MATCH_PING_MS: Long = 2_000
+    const val MATCH_PONG_WAIT_MS: Long = 3_000
+
     /** Spec 0086, Amendment 2 -- the report route's limit: 5 MB. */
     const val REPORT_BODY_BYTES: Long = 5L * 1024 * 1024
 

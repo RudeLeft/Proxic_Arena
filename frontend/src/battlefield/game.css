@@ -6348,3 +6348,169 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
 .gs-missed-foot .gs-reveal-close {
   margin-left: auto;
 }
+
+/* Spec 0120 (canvas pause-1119.html "Q1" option B; owner answers 1-7) -- the
+   game is paused while a player's connection is down. One look for every
+   drop: the quiet dim over the table (not the rail), the act button's pause
+   words, a sign and a pill on the dropped player's plate, and the window
+   beside it. */
+.gs-pause-dim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: calc(900px * var(--rail-scale, 1));
+  background: #030508;
+  opacity: 0.42;
+  pointer-events: none;
+  animation: gs-pause-dim-in 300ms ease-out;
+}
+@keyframes gs-pause-dim-in {
+  from {
+    opacity: 0;
+  }
+}
+/* The act button: "Connection dropped / Bob · game paused · 0:04". */
+.gs-waiting.gs-paused {
+  border-color: #8a6a3a;
+  background: linear-gradient(#211d16, #14110d);
+  box-shadow:
+    0 0 0 1px rgb(201 163 90 / 25%),
+    0 3px 8px rgb(0 0 0 / 60%);
+}
+.gs-paused .gs-waiting-name {
+  color: #f2e6c8;
+  /* "Connection dropped" whole (never cut, as spec 0104's words): a step
+     smaller than a name, and onto two lines only where a wider font needs it. */
+  font-size: var(--pa-size-md);
+  white-space: normal;
+  overflow: visible;
+}
+.gs-paused .gs-waiting-sub {
+  color: #d9b26a;
+  font-variant-numeric: tabular-nums;
+}
+.gs-paused .gs-coin svg path {
+  stroke: #e0a44a;
+  stroke-width: 2.4;
+  fill: none;
+}
+.gs-paused .gs-coin svg.gs-coin-fill path {
+  fill: #f2c95c;
+  stroke: none;
+}
+/* "Bob is back / The game goes on": green, for a second (Q4 B). */
+.gs-waiting.gs-paused-back {
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  border-color: #3c9a4c;
+  background: linear-gradient(#16211a, #0f1612);
+  box-shadow:
+    0 0 0 1px rgb(79 191 106 / 40%),
+    0 0 22px rgb(79 191 106 / 28%);
+}
+.gs-paused-back .gs-waiting-name {
+  color: #d8f5de;
+}
+.gs-paused-back .gs-waiting-sub {
+  color: #8fd8a0;
+}
+.gs-paused-back .gs-coin svg path {
+  stroke: #6fd08a;
+}
+/* This page's own line down: "Reconnecting… / The game is paused", grey. */
+.gs-waiting.gs-paused-mine {
+  border-color: #2a323d;
+  background: none;
+  box-shadow: none;
+}
+.gs-paused-mine .gs-waiting-name {
+  color: #9aa3ad;
+}
+.gs-paused-mine .gs-waiting-sub {
+  color: #6d7682;
+}
+.gs-paused-mine .gs-coin svg path {
+  stroke: #8a929c;
+  stroke-width: 1.8;
+}
+/* A move tried while paused: the act button nudges (canvas "Q1", 5.2 s). */
+.gs-paused-nudge {
+  animation: gs-paused-nudge 420ms ease-out;
+}
+@keyframes gs-paused-nudge {
+  30% {
+    transform: scale(1.05);
+  }
+}
+/* The plate: the picture greyed, a sign on it, the pill under the name. */
+.gs-seat-dropped .gs-life-face .pa-avatar {
+  filter: grayscale(1) brightness(0.62);
+}
+.gs-seat-dropped {
+  border-top-color: #8a6a3a;
+}
+.gs-seat-dropsign {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  z-index: 4;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #1d232b;
+  border: 1.5px solid #e0a44a;
+  box-shadow: 0 0 0 2px #151b22;
+  display: grid;
+  place-items: center;
+}
+.gs-seat-dropsign svg {
+  width: 14px;
+  height: 14px;
+}
+.gs-seat-dropsign path {
+  fill: none;
+  stroke: #f2c46a;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+.gs-seat-away-ok {
+  border-color: #3c9a4c;
+  background: #12261a;
+  color: #a8e6b5;
+}
+/* Back: a green glow round the plate for its second. */
+.gs-seat.gs-seat-back {
+  box-shadow:
+    0 0 0 3px rgb(79 191 106 / 90%),
+    0 0 30px rgb(79 191 106 / 55%);
+  transition: box-shadow 300ms ease-out;
+}
+/* Spec 0120 (Q5) -- the away and pause windows wide enough that "Peek · or
+   hold Space" never goes under Peek. */
+.gs-away-win {
+  width: 520px;
+}
+.gs-away-win .gs-win-peek-hint {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+/* Spec 0120 (D10) -- a resting spell's ring while the game is paused: stopped, grey, "Paused". */
+.bf-stack-rest-held .gs-coin-ring {
+  animation-play-state: paused;
+  stroke: #8d9a92;
+}
+.bf-stack-rest-word {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  margin-top: 2px;
+  font-family: var(--pa-text);
+  font-size: var(--pa-size-xs);
+  font-weight: 600;
+  line-height: 1;
+  color: #9aa3ad;
+  white-space: nowrap;
+}

@@ -45,9 +45,9 @@ fun Route.matchSocket(
     runtime: MatchRuntime,
     hub: MatchHub,
     config: ServerConfig,
-    /** Spec 0054 — who is offline, for "End the game" when the other player is away. */
-    presence: net.barnflix.proxic.room.Presence = net.barnflix.proxic.room.EveryoneOnline,
 ) {
+    // Spec 0120 (D8) -- "End the game" for an away player now counts from the
+    // game connection (LiveMatch.links), no longer from the lobby's presence.
     webSocket("/ws/matches/{$MATCH_ID}") {
         // §3.78 — the cookie, and our own page (socketPrincipal).
         val principal = socketPrincipal(sessions, config) ?: return@webSocket
@@ -82,6 +82,11 @@ fun Route.matchSocket(
             return@webSocket
         }
 
+        // Spec 0120 (Q7 B) -- a player's connection: pinged every 2 s, closed
+        // 3 s after an unanswered ping (Ktor's own pinger; the browser answers).
+        pingIntervalMillis = net.barnflix.proxic.Limits.MATCH_PING_MS
+        timeoutMillis = net.barnflix.proxic.Limits.MATCH_PONG_WAIT_MS
+
         val connectionId = "mconn-${connectionSequence.incrementAndGet()}"
         // P11-D6 (spec 0119) -- the board this page holds, when it came back
         // (`?resume=<gameEpoch>.<stateRevision>`): only ever used to choose
@@ -114,6 +119,9 @@ fun Route.matchSocket(
                 }
                 // §6.110 — hello first, and NOT a decision before it.
                 opened.offer(Outgoing.Message(matchHelloMessage(matchId, seat)))
+                // Spec 0120 -- every pause under way (a returning player's own seat
+                // included: "back", catching up), right after the hello.
+                hub.pauses.greeting(live).forEach { opened.offer(Outgoing.Message(it)) }
 
                 // §6.110, §6.48 — STATE FIRST. A decision references
                 // objects by id, so the board has to arrive before
@@ -129,6 +137,8 @@ fun Route.matchSocket(
             }
         // P11-D6 -- MATCH_BEAT on a quiet line, from this connection's own coroutine.
         val beating = launch { beats(connection) }
+        // Spec 0120 -- this seat has a game connection (again).
+        live?.let { hub.pauses.opened(it, seat, connectionId) }
 
         try {
             // §6.111, §6.112 — whatever Forge is still waiting for,
@@ -145,11 +155,13 @@ fun Route.matchSocket(
             // screen does not guess it from priority.
             askingFor(runtime, matchId)?.let { asking -> connection.offer(Outgoing.Message(asking)) }
 
-            listen(connection, runtime, matchId, userId, presence)
+            listen(connection, runtime, matchId, userId) { live?.links?.caughtUp(seat, connectionId) }
         } finally {
             beating.cancel()
             connection.queue.stop()
             hub.watchers.close(matchId, userId, connectionId)
+            // Spec 0120 -- its last connection gone, the seat drops: the game pauses.
+            live?.let { hub.pauses.closed(it, seat, connectionId) }
             boardsSent(matchId, connection)
         }
     }
@@ -163,7 +175,8 @@ private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.liste
     runtime: MatchRuntime,
     matchId: UUID,
     userId: UUID,
-    presence: net.barnflix.proxic.room.Presence,
+    /** Spec 0120 -- the page said its table is live: the resume rule's catch-up. */
+    caughtUpNow: () -> Unit,
 ) {
     val resyncs = Resyncs(matchId, connection.connectionId)
     for (frame in incoming) {
@@ -178,9 +191,10 @@ private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.liste
         // P11-D6 (spec 0119) -- the page's table is live again: noted, nothing else.
         if (caughtUp(text)) {
             connection.caughtUpAt = System.currentTimeMillis()
+            caughtUpNow()
             continue
         }
-        handle(text, matchId, userId, runtime, presence)?.let { reply ->
+        handle(text, matchId, userId, runtime)?.let { reply ->
             val start = MatchTiming.now()
             connection.offer(Outgoing.Message(reply))
             MatchTiming.out(matchId, userId, reply, start, 1)
@@ -337,6 +351,8 @@ private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.spect
                     behind = { stuck, waiting, oldest -> fellBehind(matchId, stuck, waiting, oldest) },
                 )
             opened.offer(Outgoing.Message(matchHelloMessage(matchId, PUBLIC_SEAT)))
+            // Spec 0120 (D11, answer 6) -- spectators are told every pause under way too.
+            hub.pauses.greeting(live).forEach { opened.offer(Outgoing.Message(it)) }
             // Spec 0067 — with the public play log so far. P11-D6: or, coming
             // back (the switch on), the public boards missed: the public view's
             // own kept list, never a seat's.
@@ -410,7 +426,6 @@ private fun handle(
     matchId: UUID,
     userId: UUID,
     runtime: MatchRuntime,
-    presence: net.barnflix.proxic.room.Presence,
 ): JsonObject? {
     val message =
         runCatching { json.parseToJsonElement(text) as JsonObject }.getOrNull() ?: return null
@@ -462,16 +477,10 @@ private fun handle(
         // the player still here ends the game, as the other's
         // concession, so the game names the winner. Nothing but the
         // type is read: who is away, and for how long, is the server's.
+        // Spec 0120 (D8) -- "away" is the GAME connection's drop.
         "END_FOR_AWAY" -> {
             val live = runtime.liveMatch(matchId) ?: return awayEndMessage("UNREACHABLE")
-            awayEndMessage(
-                live.endForAway(
-                    userId,
-                    presence::offlineSince,
-                    net.barnflix.proxic.room.RoomTimeouts.active.away,
-                    java.time.Instant.now(),
-                ),
-            )
+            awayEndMessage(live.endForAway(userId))
         }
 
         // A newer client saying something this server has not

@@ -430,20 +430,21 @@ class LiveMatchTest {
     fun `the player left waiting ends the game as the away player's concession`() {
         val conceded = mutableListOf<Int>()
         val match = live()
-        val now = java.time.Instant.parse("2026-11-03T20:00:00Z")
-        val away = java.time.Duration.ofMinutes(10)
+        val now = 1_800_000_000_000L
         val send = { seat: Int ->
             conceded += seat
             true
         }
-        val bobGone = { minutes: Long -> { id: UUID -> if (id == bob) now.minusSeconds(minutes * 60) else null } }
+        // Spec 0120 (D8) -- when the away window opens against a seat: the
+        // game connection's drop plus the away setting (SeatLinks.awayAt).
+        val bobGone = { minutes: Long -> { seat: Int -> if (seat == 2) now - minutes * 60_000 + 600_000 else null } }
 
-        assertEquals("NOT_AWAY", match.endForAway(alice, { null }, away, now, send), "Bob is here")
-        assertEquals("NOT_AWAY", match.endForAway(alice, bobGone(9), away, now, send), "9 minutes is not 10")
-        assertEquals("NOT_A_PLAYER", match.endForAway(stranger, bobGone(30), away, now, send))
+        assertEquals("NOT_AWAY", match.endForAway(alice, now, { null }, send), "Bob is here")
+        assertEquals("NOT_AWAY", match.endForAway(alice, now, bobGone(9), send), "9 minutes is not 10")
+        assertEquals("NOT_A_PLAYER", match.endForAway(stranger, now, bobGone(30), send))
         assertEquals(emptyList(), conceded)
 
-        assertNull(match.endForAway(alice, bobGone(10), away, now, send))
+        assertNull(match.endForAway(alice, now, bobGone(10), send))
         assertEquals(listOf(2), conceded, "Bob's seat concedes, so Alice wins")
     }
 

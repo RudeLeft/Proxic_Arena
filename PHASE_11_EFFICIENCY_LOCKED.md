@@ -4390,3 +4390,20 @@ browser itself (RUN: Edge, 3 of 3), so it counts as a drop: the standard pause,
 then resume and catch-up when the player returns. P11-E13's "the browser answers
 pings while frozen" was measured on a busy script thread, not a real freeze; a
 frozen lobby tab shows offline until it wakes.
+
+## As built: P11 hard pause, spec 0120 (2026-11-27)
+
+The game pauses while a player's game connection is down (owner decisions 6
+and 7, Amendment 1): a player's match connection is pinged every 2 s and
+closed 3 s after an unanswered ping; a seat with no player connection left
+pauses the game at once (`SeatLinks.kt`, `MatchPauses.kt`): every answer
+refused `PAUSED` first, the worker sent `HOLD` (its own waits stop and run
+again in full after `GO`), every page told `MATCH_PAUSED`; it goes on 2 s
+after the returning page's catch-up (8 s at most), `MATCH_RESUMED`. The page
+shows one standard look (`battlefield/pause.tsx`): the dim, "Connection
+dropped / <name> · game paused · 0:04", the plate's "Dropped" then "Away · N
+min", the window, "<name> is back"; the away window from the game
+connection's drop or the 10-minute budget. Found building it (RUN, Edge): a
+frozen tab's connection stays open, its pings answered, until Edge lets it go
+(15 s to over 3 minutes), so it counts as a drop only then. Evidence, bites
+and the browser runs are in spec 0120's "As built".

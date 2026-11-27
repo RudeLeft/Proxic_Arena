@@ -35,6 +35,14 @@ export type LinkOptions = {
   bytesPerSecond?: number;
   bufferBytes?: number;
   plain?: boolean;
+  /**
+   * Spec 0120 -- the line is down: a new connection never gets through (it
+   * is closed at once, as a dead network fails it), so a page that gives up
+   * and reconnects gets no further.
+   * Read when each connection opens: set it, and clear it, on the options
+   * object given to `slowLink`.
+   */
+  down?: boolean;
 };
 
 /** D6's poor link (owner decision 4): 1 Mbit/s, 300 ms each way. */
@@ -102,6 +110,17 @@ export class Link {
       this.spam = setInterval(() => this.write(JSON.stringify({ type: "MATCH_RESYNC" })), 1_000);
   }
 
+  /**
+   * Spec 0120 -- the page goes away cleanly (a tab closed): a close frame
+   * (1001, "going away") to the server, as a browser sends, then the socket ends.
+   */
+  goAway() {
+    const code = Buffer.alloc(2);
+    code.writeUInt16BE(1001, 0);
+    this.send(0x8, code);
+    this.socket?.end();
+  }
+
   resume() {
     this.stalled = false;
     if (this.spam) clearInterval(this.spam);
@@ -111,6 +130,11 @@ export class Link {
   }
 
   async open(context: BrowserContext) {
+    // Spec 0120 -- the line is down: the connection never gets through.
+    if (this.options.down) {
+      this.finish(1011, "the line is down");
+      return;
+    }
     const target = new URL(this.url);
     if (this.options.plain) target.searchParams.delete("deltas");
     const origin = `http://${target.host}`;

@@ -1329,7 +1329,9 @@ MATCH_CATCHUP from {gameEpoch, stateRevision}, count
                                 step messages are the ones missed after `from`,
                                 oldest first, each with its own sentAt
 CAUGHT_UP     (nothing)         browser -> server: the page's table is live
-                                again (spec 0120 reads it); no reply
+                                again (spec 0120's resume rule reads it; a
+                                fresh page sends it once its first board is
+                                in); no reply
 ```
 
 - **Late.** The page keeps `skew` = the smallest (arrival - sentAt) over the
@@ -1367,6 +1369,59 @@ CAUGHT_UP     (nothing)         browser -> server: the page's table is live
   `PROXIC_SPECTATOR_CATCHUP` is on (default off, owner decision 2).
 - No `protocolVersion` bump: an older page ignores `sentAt`, `MATCH_BEAT` and
   `MATCH_CATCHUP` and never sends `resume` or `CAUGHT_UP`.
+
+## The game pauses while a player's connection is down (Phase 11, spec 0120, 2026-11-27)
+
+A player's game connection that drops pauses the game for everyone: nobody
+moves until the player is back and caught up (owner 2026-11-26; Amendment 1
+2026-11-27: a tab the browser freezes counts as a drop, a tab only hidden
+never does).
+
+```text
+(pings)       server -> browser, PLAYERS' match connections only: a WebSocket
+              ping every 2 s; no pong 3 s after it closes the connection
+              (Limits.MATCH_PING_MS, MATCH_PONG_WAIT_MS). Answered by the
+              browser itself, never by the page's script. Spectators and the
+              lobby keep 15 s / 30 s.
+MATCH_PAUSED  seat, since, awayAt, now, endNow?, back?
+              server -> every page of the match (players and spectators), and
+              on every new connection right after MATCH_HELLO while it lasts:
+              `seat` dropped at `since` (ms, the server's clock; `now` is the
+              server's clock as it was sent, for the page to turn the times
+              into its own); "End the game" opens at `awayAt` (the drop plus
+              the away setting, or sooner once the seat's paused time this
+              game reaches it: the budget); `endNow`: already; `back`: the
+              seat has a connection again and is catching up (sent again then)
+MATCH_RESUMED seat     server -> every page: `seat` is back, the game goes on
+DECISION_REFUSED reason PAUSED
+              server -> only the user who answered: the game is paused; the
+              question stays and can be answered once it goes on
+HOLD / GO     server -> worker (no seat named): the game is paused / goes on;
+              only Arena's own waits stop (the not-asked pass, the passed
+              step's 400 ms, the stack's rest), and run again in full after GO
+```
+
+- **A seat drops** when its user has no open player connection to the match
+  (the last tab closed, a refresh, the ping timeout). Two tabs: either one
+  open keeps it. A seat that never connected never drops. Spectators never
+  count. The server pauses at once (`SeatLinks.kt`, `MatchPauses.kt`).
+- **Refused first.** `LiveMatch.answer` refuses with `PAUSED` before every
+  other check and before the one-forward-per-question claim, so an answer
+  read before the drop was forwarded once and one read after is refused,
+  never both. `DECISION_SEARCH`, `CONCEDE`, `REPORTS_CLOSED`, `END_FOR_AWAY`
+  and chat stay allowed.
+- **The game goes on** when every dropped seat has a connection again whose
+  page said `CAUGHT_UP` at least 2 s ago (and is itself at least 2 s old),
+  or that is 8 s old (a cap); then `GO` and `MATCH_RESUMED`. A fresh page (a
+  load, a refresh) sends `CAUGHT_UP` once its first board is in.
+- **The away clock** (`END_FOR_AWAY`, spec 0054) counts from the game
+  connection's drop, no longer the lobby's presence: refused (`NOT_AWAY`)
+  until `awayAt`.
+- Hidden information: a seat number and server times only; who dropped was
+  public already. `HOLD`/`GO` name nobody. `PAUSED` goes only to whoever
+  answered.
+- No `protocolVersion` bump: an older page ignores both messages (its
+  answers are still refused).
 
 ## Test-only: the Lab's deal (worker START_GAME, 2026-11-08)
 

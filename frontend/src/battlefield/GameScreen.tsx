@@ -194,6 +194,7 @@ import {
 } from "./gameEnd";
 import { lifeLanded, useLifeLanded } from "./lifeTicks";
 import { AwayWindow } from "./AwayWindow";
+import { PauseAct, PauseWindow, droppedWord, usePauseLook, type PlateLink } from "./pause";
 import { MissedWindow } from "./MissedWindow";
 import { CATCH_UP_RATE, quicken, useCatchUp } from "./catchUp";
 import {
@@ -255,7 +256,6 @@ import { abilityParts } from "./abilities";
 import { useBiggerText } from "./biggerText";
 import { ThisTurnCounts } from "./thisTurn";
 import { KnownTop } from "./knownTop";
-import { everyWhileShown } from "../shownTimer";
 import { ReplayLayer, replayPairOf, type ReplayPair } from "./replay";
 import {
   DECLARE_KINDS,
@@ -369,9 +369,10 @@ export function GameScreen({
       label: "Connection",
       title: "Reconnecting to the game…",
       // Spec 0067 -- a spectator's hiccup: the game carries on, and so do they.
+      // Spec 0120 -- a player's own line down pauses the game for everyone.
       line: watching
         ? "The game carries on. You'll be back in a moment."
-        : "The game is still running, and nothing is answered for you while you're away.",
+        : "The game is paused until you're back.",
       actions: [],
     });
   }
@@ -910,49 +911,108 @@ export function GameScreen({
   // chat is closed (owner 2026-10-21). By the line's id, not a count: the
   // log keeps only the latest lines, so its length stops growing.
   const { lobby } = useLobbyConnection();
-  // Spec 0054 (owner 2026-11-03) — the other player has been offline as
-  // long as the server's away setting (game.awayMinutes, from the
-  // greeting): the one still here may keep waiting, or end the game as the
-  // other's concession. The server checks the time again; this only says
-  // when to offer it. Offline is the lobby's word for it, and only trusted
-  // while the lobby can see YOU (a dropped lobby shows everybody gone).
+  // Spec 0054 (owner 2026-11-03) — the other player has been away as long
+  // as the server's away setting (game.awayMinutes, from the greeting): the
+  // one still here may keep waiting, or end the game as the other's
+  // concession. The server checks the time again; this only says when to
+  // offer it. Spec 0120 (D8): "away" is the GAME connection's drop
+  // (MATCH_PAUSED), no longer the lobby's presence; the budget may open it
+  // sooner (MATCH_PAUSED's awayAt).
   const theirId = match.participants.find((seat) => seat.userId !== me)?.userId ?? null;
-  const lobbySeesMe = lobby.presence.some((p) => p.userId === me);
-  const theyAreGone =
-    theirId !== null && lobbySeesMe && !lobby.presence.some((p) => p.userId === theirId);
-  const theirLastSeen = lobby.players.find((p) => p.userId === theirId)?.lastSeenAt ?? null;
+  const theirSeat = match.participants.find((seat) => seat.userId !== me)?.seatNumber ?? null;
   const theirName =
     lobby.players.find((p) => p.userId === theirId)?.displayName ?? "The other player";
-  const [goneSince, setGoneSince] = useState<number | null>(null);
-  useEffect(() => {
-    if (!theyAreGone) setGoneSince(null);
-    else {
-      // The earliest we know of: "last seen" may arrive after "gone".
-      const seen = theirLastSeen ? Date.parse(theirLastSeen) : NaN;
-      setGoneSince((was) =>
-        Number.isNaN(seen) ? (was ?? Date.now()) : was === null ? seen : Math.min(was, seen),
-      );
-    }
-  }, [theyAreGone, theirLastSeen]);
-  const [awayNow, setAwayNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (goneSince === null) return undefined;
-    setAwayNow(Date.now());
-    // P11-E15: resting while this tab is hidden; read again when it is shown.
-    return everyWhileShown(() => setAwayNow(Date.now()), 15_000);
-  }, [goneSince]);
+  // Spec 0120 -- the pause: who dropped, and how this page shows it (pause.tsx).
+  const seatName = (seat: number) =>
+    game.board?.players.find((p) => p.seat === seat)?.name ??
+    lobby.players.find(
+      (p) => p.userId === match.participants.find((m) => m.seatNumber === seat)?.userId,
+    )?.displayName ??
+    "The other player";
+  const pause = usePauseLook(
+    game.paused,
+    game.resumed,
+    watching ? null : (mine?.seatNumber ?? null),
+    seatName,
+  );
+  const gamePaused = live && Object.keys(game.paused ?? {}).length > 0;
+  const theirPause = !watching && pause.dropped?.seat === theirSeat ? pause.dropped : null;
+  // Which drop (the server's own time for it): OK and Keep waiting are for this drop.
+  const goneSince = live && theirPause ? theirPause.at.key : null;
   const [keptWaiting, setKeptWaiting] = useState<number | null>(null);
-  // W-26 -- how long they have been gone, on their plate from the moment they drop.
-  const theirAway =
-    !watching && live && goneSince !== null
-      ? Math.max(0, Math.floor((awayNow - goneSince) / 60_000))
-      : null;
+  // Answer 2 -- the pause window, once per drop: OK closes it for this drop.
+  const [pauseOk, setPauseOk] = useState<number | null>(null);
   const awayLong =
     !watching &&
     live &&
-    goneSince !== null &&
-    awayNow - goneSince >= game.awayMinutes * 60_000 &&
+    theirPause !== null &&
+    pause.now >= theirPause.at.awayAt &&
     keptWaiting !== goneSince;
+  const pauseWindowShown =
+    !watching &&
+    live &&
+    theirPause !== null &&
+    pause.shown &&
+    !awayLong &&
+    pauseOk !== goneSince &&
+    keptWaiting !== goneSince;
+  // The plate (answer 4; canvas "Q1" B, "Bob's return", "Q4" B): on every
+  // dropped seat's plate but this page's own.
+  const plateLink = (seat: number): PlateLink | null => {
+    if (!live) return null;
+    if (pause.goesOn?.seat === seat) return { word: "Back", ok: true, grey: false, glow: true };
+    if (pause.dropped?.seat !== seat || !pause.shown) return null;
+    if (pause.dropped.at.back) return { word: "Catching up", ok: true, grey: false, glow: false };
+    return {
+      word: droppedWord(pause.now - pause.dropped.at.since),
+      ok: false,
+      grey: true,
+      glow: false,
+    };
+  };
+  // Spec 0120 (D10) -- a resting spell's ring: stopped while paused, whole again after.
+  const resumedAt = game.resumed?.at ?? 0;
+  const restPause = useMemo(
+    () => ({ held: gamePaused, epoch: resumedAt }),
+    [gamePaused, resumedAt],
+  );
+  // Spec 0120 -- the act button while paused: this page's own line down
+  // (Bob's screen), another seat dropped, or "is back" for 1 s.
+  const pauseActNode =
+    !live || finished ? null : !watching && reconnecting ? (
+      <PauseAct look={pause} mine />
+    ) : pause.goesOn && !watching ? (
+      <PauseAct look={pause} onEnd={pause.endLook} />
+    ) : pause.dropped && pause.shown ? (
+      <PauseAct look={pause} onPoke={watching ? undefined : pause.poke} />
+    ) : null;
+  // Spec 0120 (G3) -- while paused a move is refused here as well as by the
+  // server (G1 is the gate; this is only the look): the card shakes, the act
+  // button nudges, and the look shows at once. Refs, so `answer` is stable.
+  const pausedRef = useRef(false);
+  pausedRef.current = gamePaused && !watching;
+  const pokeRef = useRef(pause.poke);
+  pokeRef.current = pause.poke;
+  const pressed = useRef<{ element: Element; at: number } | null>(null);
+  useEffect(() => {
+    const down = (event: PointerEvent) => {
+      const element = (event.target as Element | null)?.closest?.(
+        ".bf-slot, .bf-card, .gs-hand-card, .gs-life, .gs-win-btn, button",
+      );
+      pressed.current = element ? { element, at: Date.now() } : null;
+    };
+    document.addEventListener("pointerdown", down, true);
+    return () => document.removeEventListener("pointerdown", down, true);
+  }, []);
+  const refusedWhilePaused = useCallback(() => {
+    if (!pausedRef.current) return false;
+    pokeRef.current();
+    const hit = pressed.current;
+    if (hit && Date.now() - hit.at < 1_000 && typeof hit.element.animate === "function") {
+      hit.element.animate(PAUSE_SHAKE_FRAMES, { duration: PAUSE_SHAKE_MS, easing: "ease-out" });
+    }
+    return true;
+  }, []);
   // Spec 0028 — each stack object with its caster's picture.
   const stackShown = useMemo(
     () =>
@@ -985,6 +1045,8 @@ export function GameScreen({
   const answer = useCallback(
     (actionId: string | null) => {
       if (!decision) return;
+      // Spec 0120 -- the game is paused: nothing is sent (the server would refuse it).
+      if (refusedWhilePaused()) return;
       answered.current = decision.decisionId;
       // Amendment 13 (item 1): a pause lasts until the player passes --
       // resolving the spell, or moving on.
@@ -1016,7 +1078,7 @@ export function GameScreen({
       setOffer(null);
       socketRef.current?.answer(decision.decisionId, actionId);
     },
-    [decision, sameTarget],
+    [decision, sameTarget, refusedWhilePaused],
   );
 
   // PHASE_09 W-05, W-06 -- answers the player already gave: the same
@@ -2018,7 +2080,8 @@ export function GameScreen({
     document.addEventListener("visibilitychange", changed);
     return () => document.removeEventListener("visibilitychange", changed);
   }, []);
-  const counting = windowId !== null && !paused && !hidden;
+  // Spec 0120 (D10) -- paused: the countdown stops, and starts again at 5 when the game goes on.
+  const counting = windowId !== null && !paused && !hidden && !gamePaused;
   const pauseWindow = useCallback(() => {
     if (windowId !== null) setPaused(true);
   }, [windowId]);
@@ -2670,6 +2733,7 @@ export function GameScreen({
                 : null
             }
             hiddenStack={hiddenStack}
+            restPause={restPause}
             stackPay={stackPay}
             stackPayLive={owingNow !== null}
             quietStack={quietStack.current}
@@ -2716,7 +2780,25 @@ export function GameScreen({
                   </EndEnter>
                 )}
                 {turning > 0 && <div key={turning} className="gs-turning" aria-hidden="true" />}
+                {/* Spec 0120 -- the quiet dim over the table (not the rail); players only. */}
+                {!watching && !finished && pause.dropped && pause.shown && (
+                  <div className="gs-pause-dim" aria-hidden="true" />
+                )}
                 <KeptNoticeStack notices={tableNotices} place="table" />
+                {pauseWindowShown && !finished && theirPause && (
+                  // Spec 0120 (answers 1, 2) -- beside their plate, once per drop.
+                  <PauseWindow
+                    name={theirPause.name}
+                    face={
+                      <Avatar
+                        avatar={theirId ? avatarOf(lobby, theirId) : null}
+                        size={48}
+                        rank={theirId ? rankOf(lobby, theirId) : undefined}
+                      />
+                    }
+                    onOk={() => setPauseOk(goneSince)}
+                  />
+                )}
                 {awayLong && !finished && (
                   // W-26 (Amendment 20): a game window beside their plate.
                   <AwayWindow
@@ -2744,7 +2826,8 @@ export function GameScreen({
               <Rail
                 catchingUp={catching ? { progress: catchUp.progress, onSkip: catchUp.skip } : null}
                 stackFocus={stackFocusId}
-                theirAway={theirAway}
+                link={plateLink}
+                pauseAct={pauseActNode}
                 end={end}
                 board={board}
                 question={question}
@@ -3925,7 +4008,7 @@ function SeatBlockView({
   mine,
   deciding = false,
   end = null,
-  away = null,
+  link = null,
   choosable,
   chosenTarget,
   libTopChoosable,
@@ -3938,8 +4021,8 @@ function SeatBlockView({
   mine: boolean;
   /** Spec 0089 (Q1 A) -- this plate's part in the end of the game. */
   end?: PlateEnd | null;
-  /** W-26 -- minutes this player has been gone, or null. */
-  away?: number | null;
+  /** Spec 0120 (W-26's pill) -- this player's connection is down, or just back. */
+  link?: PlateLink | null;
   /** W-25 — it is this player's move and you are waiting: the plate glows. */
   deciding?: boolean;
   /** The question (or W-14's selection) can point at this player. */
@@ -4002,7 +4085,8 @@ function SeatBlockView({
     // and a grid of tiles for the zones. Whose turn: the plate's top edge.
     <div
       ref={plateRef}
-      className={`gs-seat gs-seat-${mine ? "viewer" : "opponent"}${active ? " gs-seat-active" : ""}${deciding ? " gs-seat-deciding" : ""}${end ? ` gs-seat-${end.role}` : ""}`}
+      className={`gs-seat gs-seat-${mine ? "viewer" : "opponent"}${active ? " gs-seat-active" : ""}${deciding ? " gs-seat-deciding" : ""}${end ? ` gs-seat-${end.role}` : ""}${link?.grey ? " gs-seat-dropped" : ""}${link?.glow ? " gs-seat-back" : ""}`}
+      data-link={link ? link.word : undefined}
       data-seat={player.seat}
       data-end={end ? `${end.role}:${end.how}` : undefined}
       data-library={player.libraryCount}
@@ -4029,6 +4113,14 @@ function SeatBlockView({
             size={48}
             rank={seatedAs ? rankOf(lobby, seatedAs) : undefined}
           />
+          {/* Spec 0120 -- the "dropped" sign on the picture while the connection is down. */}
+          {link?.grey && (
+            <span className="gs-seat-dropsign" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M9.5 14.5l-2.2 2.2a3 3 0 0 1-4.2-4.2l2.2-2.2M14.5 9.5l2.2-2.2a3 3 0 0 1 4.2 4.2l-2.2 2.2M9 3.5v2.5M3.5 9H6M15 20.5V18M20.5 15H18" />
+              </svg>
+            </span>
+          )}
           {/* Spec 0086 (8) -- the crown on the monarch's face, the initiative on its corner. */}
           <FaceMarks seat={player.seat} designations={player.designations} stack={facts.holders} />
         </span>
@@ -4042,7 +4134,10 @@ function SeatBlockView({
             mine={mine && !spectator}
             side={mine ? "viewer" : "opponent"}
           />
-          {away !== null && <span className="gs-seat-away">Away · {away} min</span>}
+          {/* Spec 0120 (answer 4) -- "Dropped", then "Away · N min"; green "Catching up", "Back". */}
+          {link && (
+            <span className={`gs-seat-away${link.ok ? " gs-seat-away-ok" : ""}`}>{link.word}</span>
+          )}
           {/* Spec 0047 -- a spectator sees no hand: how many cards it holds. */}
           {spectator && <span className="gs-seat-hand">{player.handCount} in hand</span>}
           {/* Under the name: the Belt, so the name keeps the whole row.
@@ -4408,6 +4503,16 @@ function CatchUpAct({ progress, onSkip }: { progress: number; onSkip: () => void
   );
 }
 
+/** Spec 0120 (canvas "Q1", 5.2 s) -- a move tried while paused: the card's little shake. */
+const PAUSE_SHAKE_MS = 360; // not paced: a reply to a click
+const PAUSE_SHAKE_FRAMES: Keyframe[] = [
+  { transform: "translateX(0)" },
+  { transform: "translateX(-5px)" },
+  { transform: "translateX(5px)" },
+  { transform: "translateX(-3px)" },
+  { transform: "translateX(0)" },
+];
+
 /** Spec 0058, item 5 -- how long the act button holds its last state when nothing is asked. */
 export const STEADY_MS = 400; // not paced: a wait (spec 0106)
 /** Spec 0058, item 5 -- while triggers go on the stack, the gaps between their questions. */
@@ -4541,7 +4646,8 @@ function useLastAsked(asking: { seat: number | null } | null): number | null {
 
 function Rail({
   catchingUp = null,
-  theirAway = null,
+  link = () => null,
+  pauseAct = null,
   end = null,
   board,
   question,
@@ -4580,8 +4686,10 @@ function Rail({
   question: Question | null;
   /** W-14 -- what the selected creatures can be pointed at. */
   aim?: ReadonlySet<string> | null;
-  /** W-26 -- minutes the other player has been gone, or null. */
-  theirAway?: number | null;
+  /** Spec 0120 -- each seat's plate while its connection is down or just back (W-26's pill). */
+  link?: (seat: number) => PlateLink | null;
+  /** Spec 0120 -- the act button while the game is paused (pause.tsx PauseAct), or null. */
+  pauseAct?: ReactNode;
   /** Amendment 12 -- the seat whose action the open tray reports: it glows. */
   actingSeat?: number | null;
   mySeat: number;
@@ -4899,7 +5007,7 @@ function Rail({
           player={them}
           facts={plateFacts(board, them, false, stackFocus)}
           mine={false}
-          away={theirAway ?? null}
+          link={link(them.seat)}
           end={plateEnd(end, them.seat)}
           deciding={waiting?.seat === them.seat || actingSeat === them.seat}
           {...plateChoice(board, them.seat, question, aim)}
@@ -4917,7 +5025,7 @@ function Rail({
       {catchingUp ? (
         <CatchUpAct progress={catchingUp.progress} onSkip={catchingUp.onSkip} />
       ) : (
-        steadyAct
+        (pauseAct ?? steadyAct)
       )}
 
       {me && (
@@ -4926,6 +5034,7 @@ function Rail({
           player={me}
           facts={plateFacts(board, me, true, stackFocus)}
           mine
+          link={link(me.seat)}
           end={plateEnd(end, me.seat)}
           deciding={actingSeat === me.seat}
           {...plateChoice(board, me.seat, question, null)}

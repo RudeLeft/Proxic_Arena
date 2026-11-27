@@ -96,6 +96,7 @@ spectator connection otherwise reconnects like a player's.
 WATCHING          count, names -- only when somebody is watching
 MATCH_HELLO       matchId, seat, awayMinutes (spec 0054: when "End the
                   game" is offered), spectator? (seat 0)
+MATCH_PAUSED      spec 0120: each pause under way (a dropped seat), if any
 MATCH_SNAPSHOT    the board as THIS player may see it      (if any yet)
 DECISION_REQUEST  the question still waiting for this player (if any)
 MATCH_ASKING      who is being asked now
@@ -122,6 +123,11 @@ MATCH_STEP              state: the step bar's state -- a step nobody is asked
 MATCH_BEAT              P11-D6, players: gameEpoch?, stateRevision? -- nothing
                         else sent for 2 s; the board this connection was
                         sent last
+MATCH_PAUSED            spec 0120, players and spectators: seat, since,
+                        awayAt, now, endNow?, back? -- a player's game
+                        connection dropped: the game is paused (back: it has
+                        a connection again and is catching up)
+MATCH_RESUMED           spec 0120: seat -- back, the game goes on
 MATCH_CATCHUP           P11-D6, a resume: from {gameEpoch, stateRevision},
                         count -- the next `count` boards and steps are the
                         ones missed, oldest first
@@ -210,7 +216,9 @@ DECISION_RESPONSE   decisionId, actionId     actionId null = pass
 DECISION_SEARCH     decisionId, query        searchable questions only
 CONCEDE             (nothing)                PHASE_07 §7.55: for your own seat
 END_FOR_AWAY        (nothing)                spec 0054: the OTHER seat concedes, only
-                                             once its player has been offline 10 min
+                                             once its player has been away 10 min
+                                             (spec 0120: from the GAME connection's
+                                             drop, or sooner with the budget spent)
 REPORTS_CLOSED      upTo                     spec 0088: the report window was closed;
                                              reports up to that stamp are gone for
                                              your own seat. No reply
@@ -219,7 +227,9 @@ MATCH_RESYNC        have? {gameEpoch,        P11-D4: a delta did not fit; answer
                                              at most once a second; `have` only logged.
                                              Spectators may send it too
 CAUGHT_UP           (nothing)                P11-D6: the page's table is live again
-                                             after a catch-up; noted, nothing else. No reply
+                                             after a catch-up (spec 0120: or a fresh
+                                             page's first board is in); the pause's
+                                             resume rule reads it. No reply
 ```
 
 **Spec 0088 — reports that stay and gather.** A report window is no longer
@@ -416,6 +426,8 @@ STALE_STATE        asked against a board that has moved on
 UNREACHABLE        the match cannot be answered (worker gone)
 NOT_YOURS          not a match you are in, or not you being asked
 PASS_NOT_ALLOWED   a mandatory question
+PAUSED             spec 0120: the game is paused (a player's connection is
+                   down); checked first; the question stays
 ```
 
 A search on a question that is not searchable is refused with
@@ -480,6 +492,19 @@ or, past 20 updates or 6 s of replay, the table goes straight to now and
 "While you were away" lists the play log's lines (`catchUp.ts`). The
 question for the returning player is shown once the table is live; the
 page then sends `CAUGHT_UP`. The other player's game never waits.
+**The game pauses while a player's connection is down (spec 0120).** A
+player's match connection is pinged every 2 s and closed when a pong is 3 s
+late (5 s of silence); the browser answers pings itself, so a tab that is
+only hidden stays connected, while a tab the browser freezes has its
+connections closed by the browser and counts as a drop (Amendment 1). When
+a seat has no player connection left, the server pauses the game at once:
+every answer is refused `PAUSED` (checked first), the worker is sent `HOLD`
+(its own waits stop: the not-asked pass, the passed step's pause, the
+stack's rest), and every page is told `MATCH_PAUSED`. When every dropped
+seat is back with a connection whose page said `CAUGHT_UP` 2 s ago (or one
+8 s old), the worker is sent `GO` (each wait runs again in full) and every
+page `MATCH_RESUMED`. Each seat's paused time is added up for the game; the
+away window opens 10 minutes after the drop or once that budget is spent.
 Refresh, two tabs and a closed browser are covered by P6-R/S/T/BB;
 on the live site a page reloaded mid-game was back in the same match
 (P6-BK).

@@ -43,6 +43,12 @@ class LiveMatch(
      */
     val art: MatchArt = MatchArt(emptyMap()),
     /**
+     * Spec 0120 -- which seats have a game connection, which dropped, and
+     * whether the game is paused ([SeatLinks]); kept across Karn's restart
+     * (the same match), so the pause budget carries on. Dies with the match.
+     */
+    val links: SeatLinks = SeatLinks({ net.barnflix.proxic.room.RoomTimeouts.active.away.toMillis() }),
+    /**
      * How an authorised SEARCH reaches the worker (P6-AG). Before
      * `send`, so a test's trailing lambda still means `send`.
      */
@@ -213,6 +219,12 @@ class LiveMatch(
         decisionId: Long,
         actionId: String?,
     ): DecisionRefusal? {
+        // Spec 0120 (G1) -- FIRST: while a player's connection is down nobody
+        // moves. Before the `forwarded` claim, so an answer read after the
+        // drop is refused and the question stays answerable once the game
+        // goes on; one read before it was already claimed and forwarded (its
+        // boards go into the dropped seat's kept list, spec 0119).
+        if (links.paused) return DecisionRefusal.PAUSED
         val question = pending.get() ?: return DecisionRefusal.NOT_PENDING
         if (question.decisionId != decisionId) return DecisionRefusal.STALE_DECISION
 
@@ -352,19 +364,21 @@ fun LiveMatch.reportsClosed(
  * exception to "a disconnect never concedes" (§6.111), and only the
  * player left waiting can make it. Null when it went to the game, or why
  * not: "NOT_A_PLAYER", "NOT_AWAY" (they are back, or not gone long
- * enough), "UNREACHABLE".
+ * enough), "UNREACHABLE". Spec 0120: "gone" is the game connection's drop.
  */
 fun LiveMatch.endForAway(
     userId: UUID,
-    offlineSince: (UUID) -> java.time.Instant?,
-    away: java.time.Duration,
-    now: java.time.Instant,
+    now: Long = System.currentTimeMillis(),
+    // Spec 0120 (D8, Q6 B) -- counted from the GAME connection (SeatLinks),
+    // not the lobby's presence: the drop, plus the away setting, or sooner
+    // once the seat's pauses this game reach it in all (the budget).
+    awayAt: (Int) -> Long? = links::awayAt,
     send: (Int) -> Boolean = worker::concede,
 ): String? {
     seatOf(userId) ?: return "NOT_A_PLAYER"
     val other = match.participants.firstOrNull { it.userId != userId } ?: return "NOT_A_PLAYER"
-    val since = offlineSince(other.userId) ?: return "NOT_AWAY"
-    if (since.plus(away).isAfter(now)) return "NOT_AWAY"
+    val opens = awayAt(other.seatNumber) ?: return "NOT_AWAY"
+    if (opens > now) return "NOT_AWAY"
     return if (send(other.seatNumber)) null else "UNREACHABLE"
 }
 

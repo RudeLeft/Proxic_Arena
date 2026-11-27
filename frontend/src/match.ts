@@ -1307,6 +1307,26 @@ export interface MatchState {
    * after its usual settle (about 6.5 s in all).
    */
   stalled?: boolean;
+  /**
+   * Spec 0120 -- the game is paused: each dropped seat (a player's game
+   * connection is down), by seat. Times are this page's clock (ms). Empty or
+   * absent: the game is live. Told again on every connection (the greeting).
+   */
+  paused?: Readonly<Record<number, SeatPaused>>;
+  /** Spec 0120 (Q4 B) -- the last seat back (MATCH_RESUMED) and when (this page's ms). */
+  resumed?: { seat: number; at: number } | null;
+}
+
+/** Spec 0120 -- one dropped seat, as MATCH_PAUSED said it (in this page's time). */
+export interface SeatPaused {
+  /** Which drop this is: the server's own `since`, the same in every message about it. */
+  key: number;
+  /** When it dropped. */
+  since: number;
+  /** When "End the game" opens against it (the away clock, or its budget spent). */
+  awayAt: number;
+  /** It has a connection again and is catching up (canvas "Bob's return"). */
+  back: boolean;
 }
 
 /** P11-D6 (spec 0119) -- what the page is catching up on (match.ts `arrive`, catchUp.ts). */
@@ -1412,6 +1432,8 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
         ...state,
         connection: "open",
         stalled: false,
+        // Spec 0120 -- a new connection is told every pause under way again, after its hello.
+        paused: {},
         // P11-D6 -- a new connection: nothing more comes from the last one's catch-up.
         ...(state.catchUp ? { catchUp: { ...state.catchUp, missed: 0 } } : {}),
         seat,
@@ -1605,9 +1627,43 @@ export function reduceMatch(state: MatchState, message: Record<string, unknown>)
     case "AWAY_END_REFUSED":
       return { ...state, awayEnd: asString(message["reason"]) ?? "REFUSED" };
 
+    // Spec 0120 -- a player's game connection dropped (or is back and catching up).
+    case "MATCH_PAUSED": {
+      const seat = asNumber(message["seat"]);
+      const since = asNumber(message["since"]);
+      const awayAt = asNumber(message["awayAt"]);
+      if (seat === null || since === null || awayAt === null) return state;
+      // The server's times, in this page's clock: `now` is the server's as it was sent.
+      const serverNow = asNumber(message["now"]);
+      const offset = serverNow === null ? 0 : Date.now() - serverNow;
+      return {
+        ...state,
+        paused: {
+          ...(state.paused ?? {}),
+          [seat]: {
+            key: since,
+            since: since + offset,
+            awayAt: awayAt + offset,
+            back: message["back"] === true,
+          },
+        },
+      };
+    }
+
+    case "MATCH_RESUMED": {
+      const seat = asNumber(message["seat"]);
+      if (seat === null) return state;
+      const rest = { ...(state.paused ?? {}) };
+      delete rest[seat];
+      return { ...state, paused: rest, resumed: { seat, at: Date.now() } };
+    }
+
     case "DECISION_REFUSED": {
       const decisionId = asNumber(message["decisionId"]);
       if (decisionId === null) return state;
+      // Spec 0120 -- refused because the game is paused: quietly (the pause's
+      // own look is the answer), and the question stays for when it goes on.
+      if (message["reason"] === "PAUSED") return { ...state, awaiting: null };
       // The question STAYS. A refusal means the answer did not
       // take, not that the game moved on — and if it did move on,
       // the next DECISION_REQUEST is what says so.
@@ -1781,6 +1837,8 @@ function refusalText(reason: string | null): string {
       return "The game did not receive that. It may have stopped.";
     case "NOT_SEARCHABLE":
       return "That question is answered from the list, not by searching.";
+    case "PAUSED":
+      return "The game is paused until everyone is back.";
     default:
       return "That answer was not accepted.";
   }
@@ -3283,6 +3341,10 @@ export function connectMatch(
       });
       // A resumed page sent today's whole board: it is drawn at once (no replay).
       if (how.jump) sayCaughtUp();
+      // Spec 0120 -- a fresh page (a refresh starts fresh, answer 5) is live as
+      // soon as it has its board: said at once, so the game goes on 2 s later
+      // rather than at the server's 8 s cap.
+      if (!resuming && isBoard) sayCaughtUp();
     };
     // P11-D6 -- the connection is gone: closed by either side, or given up
     // as silent (a browser may wait a long time for a frozen line's close).
