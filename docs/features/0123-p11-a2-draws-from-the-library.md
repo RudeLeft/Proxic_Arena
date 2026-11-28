@@ -1,6 +1,6 @@
 # 0123 — Phase 11 P11-A2: a drawn card comes off the Library tile (and A3 closed)
 
-**Status:** **Approved by the owner 2026-11-27 (by prompt: "As it leaves"; A3 "Close it")**; building. Phase 11, items P11-A2 and P11-A3 (step 10 of the recommended order, "the small look fixes"). Canvas the owner saw: `Proxic canvases/a2-a3-library-glow.html` ("Library and Glow Timing").
+**Status:** **Approved by the owner 2026-11-27 (by prompt: "As it leaves"; A3 "Close it")**; built 2026-11-27 (As built, at the end). Phase 11, items P11-A2 and P11-A3 (step 10 of the recommended order, "the small look fixes"). Canvas the owner saw: `Proxic canvases/a2-a3-library-glow.html` ("Library and Glow Timing").
 **Owner decisions** (2026-11-27, by prompt, after the canvas):
 
 - **A2: "As it leaves"** (the canvas's Option A, recommended). The Library number drops by one as each card lifts off the Library tile, the way a mill, Light Up the Stage and a card leaving a graveyard already count. The drawn card lifts off its owner's Library tile and glides to the hand: Alice sees her card turn face up on the way; Bob sees only a card back go from her Library to her hand (never more than today, HID rules). When a resolving spell made the draw, the cards go after the spell has resolved, a beat apart: cause, then effect.
@@ -77,3 +77,62 @@ Researched 2026-11-27 at origin/main 48b8ff8b (re-checked while building at 6b4d
 ## Amendments
 
 None.
+
+## As built (2026-11-27)
+
+Page only, as "The change" says (commit 915cfe09; the browser test and its CI line in the next commit). Built on origin/main 6b4df553. Stack A (port 8080) rebuilt from this branch for every RUN below; the Lab traces are the 432 of 2026-11-22 (the lead's scratch `b4-mycheck/`), replayed into today's page (a page-only change).
+
+**What a player notices.** A drawn card now lifts off its owner's Library tile and glides to the hand: your own turns face up on the way; the other player's is a card back the whole way. The Library number drops by one as each card leaves the tile. A draw a spell made waits for the spell: Village Rites glows, then its two cards leave a beat apart (the number 50, 49, 48 with them). A surveil or mill in the same update goes first, then the draw.
+
+**Unit tests** (`frontend/src/battlefield/fixes0123.test.tsx`, 12 tests; RUN, vitest):
+
+- F-0123-A: draw two while a spell resolves reads 49 until `RESOLVE_MS`, 48, then 47 a `DRAW_BEAT_MS` later; each lift and its tick on the same moment; mill two then draw reads 68, 67, 66, 65 with the draw last; a turn's draw lifts at once.
+- F-0123-B: your drawn card's first frame on your Library tile (not the stack's spot); a back on the same path turning away as the face turns in; nothing seen on the tile while it waits.
+- F-0123-C: through `boardFromSnapshot`, the other player's unnamed draws go to the last new backs; your named draw arrives from your library; an opening update sets no draw arrival; on the page their back lifts off their tile, a back the whole way (no turn, no ghost with a picture); a held-back board's draw waits for the spell.
+- F-0123-D (A3): a pile tile is held dark at least until its number's landing tick, for a creature dying into a graveyard with a use there and a spell going to exile with a use there.
+- On origin/main (Board.tsx and fromSnapshot.ts put back, the tests kept): 8 of the 12 fail (every F-0123-A timing test, the back-and-face test, all four F-0123-C tests). The four that pass there are guards of what already held: the turn's-draw-at-once test, the first-frame test with an arrival handed in (the Board already honoured an arrival; nothing set one), and the two A3 tests (0099 had fixed it).
+- Full vitest: 150 files, 2,013 tests passing, with `motion.test.ts`'s pace table classifying `DRAW_BEAT_MS` as a move (it failed until classified, as it should).
+
+**Bites** (TEST-004; each mutation applied alone, `fixes0123.test.tsx` run; all 13 caught):
+
+| Mutation | Caught by |
+|---|---|
+| M1 no tick as each card leaves | 4 tests (F-0123-A x3, the held-back board) |
+| M2 no `RESOLVE_MS` wait | 4 tests |
+| M3 no beat between cards | 3 tests |
+| M4 the draw ignores this board's mill | the mill-then-draw test |
+| M5 your card not turned (no face-up turn) | the back-and-face test |
+| M6 their back seen on the tile while it waits | the their-back test |
+| M7 HID: their back given a face turn and a picture ghost | the their-back test ("never a face") |
+| M8 your named draw given no arrival | the own-draw arrivals test |
+| M9 their unnamed draws not mapped | 2 tests |
+| M10 the opening update played again (0089 twice) | the own-draw/opening test |
+| M11 their draws mapped to old backs, not the new ones | 2 tests |
+| A3-M1 the tile dark only for the hold | both A3 tests |
+| A3-M2 the fan's rise ignores the landing (0099 undone) | the creature A3 test |
+
+**Lab replays** (F-0123-F; RUN, the jump tool, real Edge window, both seats): agent-of-kotis, anywhere-opt, card-actions-mill, card-trays-piles (Fact or Fiction), card-trays-tutor (Demonic Tutor), life-changes-sign (Sign in Blood), top-goes-home, turn-ends-meditate, who-did-it-scour. `scripts/check-jumps.py`: 408 boards, **no findings** (no jump, pop-in, blink or unseen move). Every card new to a hand on a board whose moves draw it (93 appearances: 49 own, 44 the other player's backs) is first drawn at its owner's Library tile: own at (1776, 935) +-4 px, theirs at (1774, 154) +-2 px; none elsewhere (scratch `a2/firstframes.py`). Village Rites (agent-of-kotis, board 48 in the tool's numbering; the research's 57/58): its cards first drawn 483 and 666-683 ms after the board, on both seats.
+
+**Stills, read by eye** (slow-motion clips, scratch `a2/clips/` and the sheets `a2/*-sheet.jpg`):
+
+- Your turn draw (agent-of-kotis seat 1, board 23): Library 52, then 51 as a small card back sits on the tile and lifts; the back glides down-left, turns edge-on, and a face-up Swamp lands in the hand. Nothing appears mid-table.
+- The other player's draw (seat 2, board 23): Alice's Library 52 -> 51 as a back lifts off her tile; it glides along the top into her fan as a back; no face at any frame.
+- Village Rites, Bob's own page (seat 2, board 48): Library 50 while Village Rites glows; 49 as the first back lifts, 48 as the second does; the backs turn face up on the way; Graveyard 1 -> 2 when Village Rites' card lands.
+- Village Rites, Alice's page (seat 1): Bob's Library 50 while it glows, 49, 48 as the two backs lift; both go to his fan as backs.
+- Mill and draw (surveil-consider-graveyard seat 1, board 7, Consider): 52 while Consider glows; 51 as the surveilled Island lifts and streams to the graveyard; 50 as the drawn card lifts after it; Graveyard 0 -> 1 -> 2 (the Island, then Consider).
+
+**Real game** (F-0123-G, TEST-012; `frontend/e2e/match-draw-from-library.spec.ts`, stack A, RUN 47 s): the guest really plays lands, casts Agent of Kotis, casts Village Rites and really clicks the Agent to sacrifice it. Both pages, every frame: every card new to a hand after the opening first drawn 1-4 px from its owner's Library tile (6 per page: turn draws both ways, and Village Rites' two); on the guest's page the Library read 51 until 499 ms, 50 until 683 ms, then 49, the cards first drawn at 499 and 683 ms; on the host's page Bob's Library 50 at 483 ms and 49 at 666 ms, his two backs first drawn at 483 and 683 ms. **Bite:** stack A rebuilt with origin/main's Board.tsx and fromSnapshot.ts: the test fails (the first new back drawn 353 px from the Library tile, at the stack's spot); a copy with that check made soft fails on "the first card waited for Village Rites" (both cards first drawn at 0 ms, the Library at 48 from the board's first frame). Stack A was then rebuilt from this branch.
+
+**A test changed with it.** `match-small-fixes`' 0108 mill test counts each card-back ghost starting on the player's half of the screen as a milled card's stream. A drawn card's back now starts there too (Thought Scour draws after its mill), so the first CI-speed run of machine 2 read three streams for Thought Scour's two (`card:106`, `card:103` and the drawn `card:112`). The tiles counted one at a time and passed. The recorder now marks a ghost whose card is in this player's hand (`toHand`) and leaves it out: a milled card never is. After the change the test passes (streams `card:106`, `card:114`, and the land played `card:34` as before).
+
+**CI speed** (`node ci/ci-speed.mjs --whole`, 4x CPU, stack A, Playwright's Chromium; RUN 2026-11-27):
+
+- Machine 6 (this spec's, with `match-surveil`): 13 of 13 passed (20.8 min).
+- Machine 3 (`match-last-jumps`, Village Rites): 17 passed, 1 skipped (`match-wording-pages`' five-copy test needs `PROXIC_E2E_CONTAINER`, set only on CI).
+- Machine 2 (`match-small-fixes`, Thought Scour; `match-reports-comfort`, Brainstorm): the first run failed only the mill test above (fixed). The second run passed the mill test, but `match-reports-comfort` timed out before turn 1 in `settlePregame` (it passed in the first run). Two reruns with its neighbour: 1 passed; 1 failed before any game, on an empty `/api/rooms/current` body in `clearEverything`.
+- Machine 1 (`match-opening-hand`, 0089's deal): 9 passed, 1 skipped (`match.spec.ts`' abandon test). `match-away`, `match-big-combat` and `match-opening-hand` timed out before turn 1 (`settlePregame`, or waiting for the opening window while the game was already at turn 1). Rerun with their neighbours on the same build: 5 of 5 passed.
+- The pregame timeouts are recorded in ROADMAP's flake list (TEST-013). They are not counted here as this spec's. Each one stopped before any draw, in the turn-0 opening, which this spec leaves to 0089 (its update is skipped: bite M10). The same build passed each on a rerun. During those runs another builder was using stack B on the same PC, and an account outside the test pair signed in to stack A. CI's run of the pushed commit is the current RUN for the full suites (TEST-013).
+
+**Gates** (the lead's gate script, on this branch with these docs; RUN 2026-11-27): worker (both orders), server (ktlint, detekt, tests), tsc (page and browser tests), eslint, prettier, vitest, vite build, doc refs, `check-deltas.py`, `as-sent-traces.py`, the test switch: all PASS. Run without its `npm ci` step: this worktree's `frontend/node_modules` was linked to the main checkout's, whose installed set matches this lockfile (a fresh install was not run). A first attempt with the step was stopped before it reached `npm ci`. Its worker run read FAIL with no output while another Maven run of mine overlapped; alone, and then in the full run, it passed.
+
+**Left open.** A draw that comes in the same update as a cast or a land played from the same hidden hand (no new back to carry it) still changes the number as the board arrives ("Not in this spec"). The held-board glow case is P11-A1's.

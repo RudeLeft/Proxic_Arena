@@ -4472,3 +4472,10 @@ resolve, the cards a beat apart. A3 "Close it": already fixed by spec 0099 (RUN,
 comes on after the card lands); one guard test that fails if a pile's glow comes on before the
 card's landing tick; the one way left (a card arriving during the other player's held spell,
 INFERENCE) goes to P11-A1. Both in spec 0123.
+
+**P11-A2 and A3 built, 2026-11-27 (spec 0123):** a drawn card lifts off its owner's Library
+tile and glides to the hand (face up on the way for its owner, a back for the other player),
+the Library number dropping as each card leaves; a spell's draw waits for its resolve, the
+cards a beat apart, after a mill off the same library. Page only. A3's guard test is in
+`fixes0123.test.tsx`. Evidence (Lab replays with no jump findings, stills, the real-click game,
+CI-speed machines) in spec 0123's "As built".

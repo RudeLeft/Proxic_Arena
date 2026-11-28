@@ -706,6 +706,7 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
           turn?: string | undefined;
           what?: string;
           mine?: boolean;
+          toHand?: boolean;
           lib?: number;
           grave?: number;
         };
@@ -797,6 +798,13 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
               mine:
                 el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2 >
                 window.innerHeight / 2,
+              // Spec 0123 -- a drawn card's back, flying from the Library tile
+              // to this player's hand beside its face (it is in the hand now):
+              // a draw, not a mill.
+              toHand:
+                document.querySelector(
+                  `[data-zone="viewer:hand"][data-object-id="${el.dataset.ghostOf ?? ""}"]`,
+                ) !== null,
             });
           }
           requestAnimationFrame(frame);
@@ -809,6 +817,7 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
       turn?: string | undefined;
       what?: string;
       mine?: boolean;
+      toHand?: boolean;
       lib?: number;
       grave?: number;
     };
@@ -959,7 +968,7 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
       const rows = log.filter((r) => r.t >= from && r.t <= to);
       const streams = new Map<string, string[]>();
       for (const r of rows)
-        if (r.ghost && !st.cast.includes(r.ghost))
+        if (r.ghost && !st.cast.includes(r.ghost) && !r.toHand)
           streams.set(r.ghost, [...(streams.get(r.ghost) ?? []), r.turn ?? ""]);
       // The counts as the cast began (the last change before it), then each change.
       const before = log.filter((r) => r.lib !== undefined && r.t < from).at(-1);
@@ -972,7 +981,9 @@ test("the mill re-checked: Screeching Skaab's two and Thought Scour's two each s
       // A milled card streams as its back (data-turn "back") turning into its
       // face (a ghost with no turn): one "back" per card. A card that shows a
       // face ghost with a turn is another move on the table (a land played
-      // from a hand, its back turning face up), not a mill.
+      // from a hand, its back turning face up), not a mill; nor is a card
+      // drawn into this player's hand (spec 0123: its back flies from the
+      // Library tile beside its face).
       const mineIds = new Set(rows.filter((r) => r.ghost && r.mine).map((r) => r.ghost!));
       const milled = [...streams].filter(
         ([id, turns]) => mineIds.has(id) && turns.every((x) => x === "back"),
