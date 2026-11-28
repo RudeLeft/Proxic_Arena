@@ -827,6 +827,11 @@ public final class MatchController extends GeneratedControllerBase {
                 // and a hang, and the hang is silent.
                 // Spec 0105: a pass counts (as Forge counts it); asked, it never rests.
                 host.passedWhenAsked(actedForSeat);
+                // Spec 0124, owner 2026-11-28 ("Ordinary button"): passing up
+                // something playable on your own turn keeps "Passing" away
+                // for the rest of it. Words and pauses only.
+                host.stops().passedWhenAsked(actedForSeat, player, player.getGame(),
+                        actedForSeat != authorisedSeat, byId, unpayable);
                 return null;
             }
             lastOffered = choice;

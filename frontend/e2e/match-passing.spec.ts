@@ -438,3 +438,158 @@ test("spec 0124: the ante window, Bob's move over Passing, and Passing re-checke
     await guest.context().close();
   }
 });
+
+// Spec 0124, owner answer 2026-11-28 ("Ordinary button", Option B) -- in a
+// real game, with real clicks: the host has Islands and Air Elemental in
+// hand. Earlier turns pass for it ("Passing", the Elemental not yet payable).
+// Once it can pay for the Elemental (the page's own mark: not unpayable) it
+// presses Pass / End turn instead (a real click), at Main 1 and Main 2. For the rest of that turn the
+// button never says "Passing"; the End step is the ordinary button.
+
+test("spec 0124: passing up a playable card keeps Passing away for the rest of the turn", async ({
+  browser,
+}) => {
+  test.skip(!existsSync(passingPackage), "no passing deck package (CI builds it)");
+  test.setTimeout(1_200_000);
+  const viewport = { width: 1920, height: 1080 };
+  const host = await (await browser.newContext({ viewport })).newPage();
+  await signIn(host);
+  await clearEverything(host);
+  const guest = await (await browser.newContext({ viewport })).newPage();
+  await signInAs(guest, secondUser, secondPassword);
+  await clearEverything(guest);
+
+  // One look inside the page (see the test above: the act button's element is reused).
+  const look = (page: Page) =>
+    page.evaluate(() => {
+      const passing = document.querySelector("[data-passing]");
+      return {
+        passing: passing ? (passing.textContent ?? "") : null,
+        step: document.querySelector(".gs-steps")?.getAttribute("data-step") ?? "",
+        act: [...document.querySelectorAll(".gs-act, .gs-waiting, .gs-pass")]
+          .map((e) => e.textContent ?? "")
+          .join(" | "),
+      };
+    });
+  const turnOf = async (page: Page) =>
+    Number((await page.locator(".gs-turn-value").allTextContents())[0] ?? 0);
+  const inHand = (page: Page, name: RegExp) =>
+    page
+      .locator('[data-zone="viewer:hand"][data-choosable="true"]:not([data-unpayable="true"])')
+      .filter({ hasText: name });
+
+  try {
+    const deck = await sharedDeck(host, guest, passingPackage);
+    await startAMatch(host, guest, deck, {
+      deal: {
+        host: {
+          hand: ["Island", "Island", "Island", "Island", "Island", "Island", "Air Elemental"],
+          top: ["Island", "Island", "Island", "Island", "Island", "Island", "Island", "Island"],
+        },
+        guest: {
+          hand: [
+            "Mountain",
+            "Mountain",
+            "Mountain",
+            "Mountain",
+            "Mountain",
+            "Mountain",
+            "Mountain",
+          ],
+          top: ["Mountain", "Mountain", "Mountain", "Mountain", "Mountain", "Mountain", "Mountain"],
+        },
+      },
+    });
+
+    let passingEarlier: string | null = null;
+    let declinedTurn: number | null = null;
+    let declines = 0;
+    let shot = false;
+    const after: { step: string; passing: string }[] = [];
+    let endLook: { passing: string | null; step: string; act: string } | null = null;
+    let finished = false;
+    const watch = watchGame([host, guest], () => ({
+      passingEarlier,
+      declinedTurn,
+      declines,
+      after,
+    }));
+    const deadline = Date.now() + 1_000_000;
+
+    while (!finished && Date.now() < deadline) {
+      await watch.check();
+      const now = await look(host);
+      const turn = await turnOf(host);
+      if (declinedTurn === null && now.passing) passingEarlier = now.passing;
+      if (declinedTurn !== null) {
+        if (turn === declinedTurn && now.passing)
+          after.push({ step: now.step, passing: now.passing });
+        if (turn > declinedTurn) finished = true;
+      }
+      for (const page of [host, guest]) {
+        const panel = matchPanel(page);
+        if ((await page.locator(".gs-over").count()) > 0) break;
+        if (await discardIfAsked(page)) continue;
+        // The ante windows (Contract from Below in the deck): closed.
+        const close = page.locator(".gs-reveal .gs-reveal-close");
+        if ((await close.count()) > 0) {
+          await clickNow(close);
+          continue;
+        }
+        const combat = panel.locator("button.gs-act-combat:not([disabled])");
+        if ((await combat.count()) > 0) {
+          await clickNow(combat);
+          continue;
+        }
+        if (!(await isAsked(page))) continue;
+        const priority =
+          (await panel
+            .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+            .count()) > 0;
+        if (!priority) {
+          const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
+          const listed = panel.locator(".gs-question li button, .gs-win li button");
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main);
+          else await clickNow(passButton(page));
+          continue;
+        }
+        const land = inHand(page, page === host ? /^Island/ : /^Mountain/);
+        if ((await land.count()) > 0) {
+          await realClick(page, land);
+          continue;
+        }
+        if (page === host && (await inHand(host, /^Air Elemental/).count()) > 0) {
+          // Air Elemental could be cast: passed up, by a real click on the button.
+          if (declinedTurn === null) declinedTurn = await turnOf(host);
+          declines += 1;
+          const step = (await look(host)).step;
+          await realClick(host, passButton(host).first());
+          if (step === "Main 2" && !shot) {
+            // The End step that follows: the ordinary button, as in 1.76.0.
+            shot = true;
+            await host.waitForTimeout(150);
+            endLook = await look(host);
+            await host.screenshot({ path: join(SHOTS, "0124-host-declined-end-step.png") });
+          }
+          continue;
+        }
+        await clickNow(passButton(page));
+      }
+    }
+
+    console.log(JSON.stringify({ passingEarlier, declinedTurn, declines, after, endLook }));
+    // The rule is on: an earlier turn passed for the host.
+    expect(passingEarlier, "an earlier turn was passed for the host").toMatch(/Nothing to play/);
+    expect(declinedTurn, "the host passed up Air Elemental it could pay for").not.toBeNull();
+    expect(declines, "passed up at Main 1 and at Main 2").toBeGreaterThanOrEqual(1);
+    expect(endLook, "the host's button after its Main 2 pass").not.toBeNull();
+    expect(endLook!.passing, "the End step: the ordinary button").toBeNull();
+    // Never "Passing" again that turn.
+    expect(after, "no Passing for the rest of the turn").toEqual([]);
+  } finally {
+    await clearEverything(host).catch(() => undefined);
+    await host.context().close();
+    await guest.context().close();
+  }
+});

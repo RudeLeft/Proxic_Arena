@@ -42,6 +42,13 @@ Each scenario is its own small game against Forge.
              back that turn with the reason as it is now ("Four lands; no
              land in hand"). Bob's boards never say it.
              On 1.76.0 the first reason stayed all turn.
+  declined   Spec 0124, owner answer 2026-11-28 ("Ordinary button",
+             Option B): Alice has six Islands and Air Elemental in hand;
+             asked at Main 1 and Main 2 she passes it up (End turn). For the
+             rest of that turn none of her boards says `passing`, and her
+             End step goes at full speed: from her Main 2 pass to the next
+             turn under 0.3 s. Before this answer, "Passing" came back
+             from the combat steps and the End step paused 0.4 s.
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its point.
@@ -471,7 +478,81 @@ def drew():
                             f"Thief's draw; back with {st['after']!r}; Bob never told", found)
 
 
-SCENARIOS = {"cave": cave, "handsize": handsize, "countered": countered, "passed": passed, "drew": drew}
+# --- declined ---------------------------------------------------------------
+
+
+def declined():
+    """Spec 0124, owner answer 2026-11-28 ("Ordinary button")."""
+    # Alice: Islands and one Air Elemental in hand, Islands on top. She plays
+    # a land every turn; from her fifth land the Elemental can be cast, and
+    # she never casts it: asked, she passes (End turn).
+    g = game("declined", [("Island", 40), ("Air Elemental", 20)], [("Mountain", 60)],
+             stops={1: True, 2: True},
+             deal={1: {"hand": ["Island"] * 6 + ["Air Elemental"], "top": ["Island"] * 8}})
+    w = Watch(g)
+    st = {"turn": None, "lands": None, "passes": 0, "main2_at": None, "next_at": None, "after": []}
+
+    def alice():
+        return g.state.get(1) or {}
+
+    def policy(g, f):
+        w.see()
+        if f["authorisedSeat"] == 2:
+            return g.play_land(f) if f.get("kind") == "chooseSpellAbilityToPlay" else DEFAULT
+        if f.get("kind") != "chooseSpellAbilityToPlay":
+            return DEFAULT
+        land = g.play_land(f)
+        if land:
+            return land
+        board = alice()
+        lands = len([c for c in g.mine(1) if c.get("kind") == "land"])
+        elemental = g.option(f, name="Air Elemental", zone="hand")
+        if elemental and lands >= 6 and board.get("activeSeat") == 1 and board.get("phase") in ("MAIN1", "MAIN2"):
+            if st["turn"] is None:
+                st["turn"], st["lands"] = board.get("turn"), lands
+            if board.get("turn") == st["turn"]:
+                st["passes"] += 1
+                if board.get("phase") == "MAIN2":
+                    st["main2_at"] = time.monotonic()
+        return None  # never cast it: End turn
+
+    def until(g):
+        w.see()
+        board = alice()
+        done = st["turn"] is not None and (board.get("turn") or 0) > st["turn"]
+        if done and st["next_at"] is None:
+            st["next_at"] = time.monotonic()
+        return done
+
+    g.run(policy, until=until, max_turn=20)
+    w.see()
+    turn = st["turn"]
+    # Every board of that turn sent after her first pass with the Elemental on offer.
+    asked_at = None
+    for i, s in enumerate(w.snaps[1]):
+        if s.get("turn") == turn and s.get("phase") in ("MAIN1", "MAIN2"):
+            asked_at = i
+            break
+    after = [(s.get("phase"), (s.get("passing") or {}).get("why")) for s in w.snaps[1][(asked_at or 0):]
+             if s.get("turn") == turn and passing_now(s)]
+    phases = sorted({s.get("phase") for s in w.snaps[1] if s.get("turn") == turn})
+    # From her End turn at Main 2 to the next turn: the End step at full
+    # speed (on the branch before this answer it paused 0.4 s there).
+    gap = st["next_at"] - st["main2_at"] if st["main2_at"] and st["next_at"] else None
+    found = dict(st, after=after, phases=phases, gap_s=gap, stopped=g.stopped_badly())
+    if turn is None or not st["passes"] or gap is None:
+        return "inconclusive", "Alice never passed up Air Elemental at Main 2 with six lands, or the next turn never came", found
+    problems = [found["stopped"]] if found["stopped"] else []
+    if after:
+        problems.append(f"she passed up Air Elemental on turn {turn}; 'Passing' must not come back that turn: {after}")
+    if gap >= 0.3:
+        problems.append(f"the End step after she passed it up should be at full speed (< 0.3 s), took {gap:.2f} s")
+    return result(problems, f"turn {turn}: {st['lands']} lands, Air Elemental passed up {st['passes']} time(s); "
+                            f"no 'Passing' for the rest of the turn; Main 2 to the next turn {gap:.2f} s", found)
+
+
+SCENARIOS = {"cave": cave, "handsize": handsize, "countered": countered, "passed": passed, "drew": drew,
+             "declined": declined}
 
 if __name__ == "__main__":
     worst = 0

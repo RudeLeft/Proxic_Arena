@@ -97,6 +97,59 @@ class PassingEveryStepTest {
         assertNull(fresh.passingFor(ALICE, TURN, true));
     }
 
+    // --- owner answer 2026-11-28, "Ordinary button" (Option B) ---------------
+
+    @Test
+    void passedUpSomethingPlayableThenNoPassingAtTheEndStep() {
+        // Six Islands, Air Elemental in hand: asked at Main 2, End turn pressed.
+        PriorityStops stops = new PriorityStops();
+        stops.declined(ALICE, TURN, true, true);
+        // The End step: nothing castable (a creature), yet no "Passing".
+        assertFalse(stops.recheck(ALICE, TURN, true, PhaseType.END_OF_TURN, true, true,
+                () -> "Six lands; no land in hand"), "nothing to send: it was never on");
+        assertNull(stops.passingFor(ALICE, TURN, true));
+        assertFalse(stops.recheck(ALICE, TURN, true, PhaseType.CLEANUP, true, true, () -> "x"));
+        assertNull(stops.passingFor(ALICE, TURN, true));
+    }
+
+    @Test
+    void passedUpAfterPassingWasOnTakesItAway() {
+        // On at Main 1; later asked and passed with something playable: gone, and stays gone.
+        PriorityStops stops = new PriorityStops();
+        stops.recheck(ALICE, TURN, true, PhaseType.MAIN1, true, true, () -> "Two lands; no land in hand");
+        stops.declined(ALICE, TURN, true, true);
+        assertTrue(stops.recheck(ALICE, TURN, true, PhaseType.END_OF_TURN, true, true, () -> "x"));
+        assertNull(stops.passingFor(ALICE, TURN, true));
+    }
+
+    @Test
+    void playingWhatWasOfferedIsNotDecliningSoPassingComesBack() {
+        // Q1's case: the Thief drew an Island, asked at Main 2, she PLAYED it.
+        PriorityStops stops = new PriorityStops();
+        stops.recheck(ALICE, TURN, true, PhaseType.MAIN1, true, true, () -> "Three lands; no land in hand");
+        stops.asked(ALICE);
+        // A pass with nothing playable on offer, or on Bob's turn, declines nothing either.
+        stops.declined(ALICE, TURN, true, false);
+        stops.declined(ALICE, TURN - 1, false, true);
+        assertTrue(stops.recheck(ALICE, TURN, true, PhaseType.MAIN2, true, true,
+                () -> "Four lands; no land in hand"));
+        assertEquals("Four lands; no land in hand", why(stops, TURN));
+    }
+
+    @Test
+    void declinedResetsAtTheNextTurn() {
+        PriorityStops stops = new PriorityStops();
+        stops.declined(ALICE, TURN, true, true);
+        assertFalse(stops.recheck(ALICE, TURN, true, PhaseType.END_OF_TURN, true, true, () -> "x"));
+        // Her next turn: nothing to play, and "Passing" is back.
+        assertTrue(stops.recheck(ALICE, TURN + 2, true, PhaseType.MAIN1, true, true,
+                () -> "Six lands; no land in hand"));
+        assertEquals("Six lands; no land in hand", why(stops, TURN + 2));
+        // Bob passing up his own turn's plays never touches Alice's.
+        stops.declined(2, TURN + 2, true, true);
+        assertNotNull(stops.passingFor(ALICE, TURN + 2, true));
+    }
+
     @Test
     void goneAtTheTurnLineAndNeverOnAnotherSeatsBoard() {
         PriorityStops stops = new PriorityStops();

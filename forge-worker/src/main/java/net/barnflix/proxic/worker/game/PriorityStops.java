@@ -226,6 +226,11 @@ public final class PriorityStops {
         if (!nothing) {
             return clear(seat); // something to play now: "Passing" goes
         }
+        if (Integer.valueOf(turn).equals(declinedTurn.get(seat))) {
+            // Owner 2026-11-28 ("Ordinary button"): she passed up something
+            // she could play this turn; "Passing" stays away until it ends.
+            return clear(seat);
+        }
         String reason = why.get();
         Integer wasTurn = passingTurn.put(seat, turn);
         String wasWhy = passingWhy.put(seat, reason);
@@ -240,6 +245,38 @@ public final class PriorityStops {
      */
     boolean asked(int seat) {
         return clear(seat);
+    }
+
+    /**
+     * Spec 0124, owner answer 2026-11-28 ("Ordinary button", Option B) --
+     * seat to the turn in which it answered a priority question of its own
+     * turn by passing, while that question offered something it could play
+     * (Air Elemental at Main 2, End turn pressed). For the rest of that turn
+     * "Passing" does not come back ({@link #recheck}): the End step shows the
+     * ordinary button at full speed, as in 1.76.0. Gone with the turn.
+     */
+    private final Map<Integer, Integer> declinedTurn = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Spec 0124, owner 2026-11-28 -- [seat] was ASKED this priority question
+     * and passed. Words and pauses only: nothing here changes which
+     * questions are asked ({@link #shouldAsk} alone does).
+     */
+    void passedWhenAsked(int seat, Player player, Game game, boolean controlled,
+                         Map<String, SpellAbility> options, Collection<String> unpayable) {
+        if (!ruled.contains(seat) || controlled) {
+            return;
+        }
+        PhaseType phase = game.getPhaseHandler().getPhase();
+        declined(seat, game.getPhaseHandler().getTurn(), player.equals(game.getPhaseHandler().getPlayerTurn()),
+                somethingToDo(options, unpayable, !game.getStack().isEmpty(), phase) > 0);
+    }
+
+    /** The same, as plain state (its unit tests): [couldPlay] the question offered something playable. */
+    void declined(int seat, int turn, boolean ownTurn, boolean couldPlay) {
+        if (ownTurn && couldPlay) {
+            declinedTurn.put(seat, turn);
+        }
     }
 
     private boolean clear(int seat) {
@@ -290,6 +327,10 @@ public final class PriorityStops {
             // A new turn (or a restarted game's: Karn counts turns from 1
             // again): whatever was being passed is over.
             passingTurn.remove(seat);
+            // And a turn passed up in is over too (a declined mark of this
+            // very turn, from its upkeep, stays; a restarted game's goes).
+            int now = game.getPhaseHandler().getTurn();
+            declinedTurn.computeIfPresent(seat, (k, turn) -> turn == now ? turn : null);
             return false;
         }
         Integer passing = passingTurn.get(seat);
