@@ -76,9 +76,15 @@ export default defineConfig({
   // `channel` is the documented way to use an installed browser. On
   // a Linux CI runner the bundled Chromium works, so PROXIC_E2E_
   // CHANNEL can be left unset there.
+  //
+  // "warm-up" (P11-B3) loads the sign-in, the lobby and the Admin page once
+  // before "other" starts, so its first tests (admin, auth) are not the ones
+  // that meet a cold stack (e2e/warm-up.setup.ts). Run with --project=other,
+  // it runs first by itself.
   projects: [
     { name: "match", testMatch: MATCH_SPEC, use: chromium },
-    { name: "other", testIgnore: MATCH_SPEC, use: chromium },
+    { name: "warm-up", testMatch: /(^|[\\/])warm-up\.setup\.ts$/, use: chromium },
+    { name: "other", testIgnore: MATCH_SPEC, use: chromium, dependencies: ["warm-up"] },
     ...engines,
   ],
 });
