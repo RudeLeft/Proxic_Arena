@@ -63,20 +63,40 @@ function PreventBadgeView({
   seat: number;
   /** What is left to prevent this turn (the player's `preventNext`; 0: none). */
   count: number;
-  /** The damage wave's key when a hit on this player was stopped by it on this board; else null. */
-  soaked: string | null;
+  /**
+   * A hit on this player stopped by it on this board: the damage wave's key
+   * and how much it stopped; else null. The tick runs from what was left
+   * before that hit (the count now plus what it stopped), so it plays even
+   * when the board that showed the count was never drawn (a held spell, a
+   * catch-up: the effect arrived and was used between two drawn boards).
+   */
+  soaked: { key: string; prevented: number } | null;
   /** The player's name, or "you" on your own plate. */
   who: string;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [leaving, setLeaving] = useState<Leaving | null>(null);
   const lastCount = useRef(count);
+  const lastSoak = useRef(soaked?.key ?? null);
   const grew = useRef(count > 0);
-  if (lastCount.current !== count) {
+  if ((soaked?.key ?? null) !== lastSoak.current) {
+    // A hit it stopped, on this board: tick from what was left before it.
+    const was = lastCount.current;
+    lastSoak.current = soaked?.key ?? null;
+    lastCount.current = count;
+    if (soaked && !reducedMotion() && Math.max(was, count + soaked.prevented) > count)
+      setLeaving({
+        from: Math.max(was, count + soaked.prevented),
+        to: count,
+        tick: true,
+        key: Date.now(),
+      });
+  } else if (lastCount.current !== count) {
     const was = lastCount.current;
     lastCount.current = count;
-    if (count < was && !reducedMotion() && (soaked || count === 0))
-      setLeaving({ from: was, to: count, tick: soaked !== null, key: Date.now() });
+    // Gone with no hit (the turn ended): it only shrinks away.
+    if (count < was && count === 0 && !reducedMotion())
+      setLeaving({ from: was, to: 0, tick: false, key: Date.now() });
     else if (leaving && count > leaving.to) setLeaving(null);
   }
   // The first count: the badge grows in (not on the first board drawn).

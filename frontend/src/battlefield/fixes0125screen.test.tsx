@@ -343,7 +343,9 @@ describe("F-0125-C · a player's prevent-the-next-N badge on the life shield", (
   it("a fight clock already playing when the board comes: the tick waits for its blow", () => {
     startLifeSteps(() => 0, [{ seat: 2, at: 900, amount: 0, prevented: 3 }]);
     const view = render(<PreventBadge seat={2} count={3} soaked={null} who="Bob" />);
-    view.rerender(<PreventBadge seat={2} count={0} soaked="damage:9" who="Bob" />);
+    view.rerender(
+      <PreventBadge seat={2} count={0} soaked={{ key: "damage:9", prevented: 3 }} who="Bob" />,
+    );
     const steps = [...view.container.querySelectorAll<HTMLElement>("[data-prevent-step]")];
     expect(steps.map((s) => Number(runsOn(s).at(-1)!.options.delay))).toEqual([
       0,
@@ -355,10 +357,28 @@ describe("F-0125-C · a player's prevent-the-next-N badge on the life shield", (
     endLifeSteps();
     startLifeSteps(() => 0, [{ seat: 1, at: 900, amount: 0, prevented: 3 }]);
     const other = render(<PreventBadge seat={2} count={3} soaked={null} who="Bob" />);
-    other.rerender(<PreventBadge seat={2} count={0} soaked="damage:10" who="Bob" />);
+    other.rerender(
+      <PreventBadge seat={2} count={0} soaked={{ key: "damage:10", prevented: 3 }} who="Bob" />,
+    );
     const first = other.container.querySelectorAll<HTMLElement>("[data-prevent-step]")[1]!;
     expect(Number(runsOn(first).at(-1)!.options.delay)).toBe(PREVENT_TICK_AT_MS);
     endLifeSteps();
+  });
+
+  it("the board that showed the badge never drawn (a held spell): the tick still plays from 3", () => {
+    const c = open(1).container;
+    // Straight from no badge to the Bolt's board: the Salve's board was skipped.
+    animations = [];
+    send(bolted(1));
+    const badge = badgeOf(c, 2)!;
+    expect(badge).toBeTruthy();
+    expect(badge.dataset["used"]).toBe("3-0");
+    expect([...badge.querySelectorAll("[data-prevent-step]")].map((s) => s.textContent)).toEqual([
+      "3",
+      "2",
+      "1",
+      "0",
+    ]);
   });
 
   it("the turn ends with it unused: no tick, it just shrinks away", () => {

@@ -498,11 +498,11 @@ export function tableCards(snapshot: Snapshot, previous: Snapshot | null): Board
   const prepared = preparedSpells(snapshot);
   const fighting = COMBAT_STEPS.has(snapshot.phase ?? "");
   const candidates = new Set(fighting ? (snapshot.blockerCandidates ?? []) : []);
-  const soaked = new Set(
-    (snapshot.damage?.hits ?? []).flatMap((h) =>
-      h.by === "prevent-next" && "object" in h.target ? [h.target.object] : [],
-    ),
-  );
+  // Each card's damage stopped by its "prevent the next N" on this board.
+  const soaked = new Map<string, number>();
+  for (const h of snapshot.damage?.hits ?? [])
+    if (h.by === "prevent-next" && "object" in h.target)
+      soaked.set(h.target.object, (soaked.get(h.target.object) ?? 0) + (h.prevented ?? 0));
   let exile: Map<string, SnapshotCard> | null = null;
   const inExile = (id: string) => {
     exile ??= new Map(snapshot.exile.map((c) => [c.id, c]));
@@ -514,8 +514,14 @@ export function tableCards(snapshot: Snapshot, previous: Snapshot | null): Board
     const inCombat = fighting && (card.attacking || card.blocking || candidates.has(card.id));
     let used: BoardCard["preventUsed"];
     if (soaked.has(card.id)) {
-      const had = previous?.battlefield.find((c) => c.id === card.id)?.preventNext ?? 0;
-      if (had > (card.preventNext ?? 0)) used = { from: had, to: card.preventNext ?? 0 };
+      // Spec 0125 -- from what was left before the hit: the count now plus
+      // what it stopped, even when the board that showed it was never drawn.
+      const now = card.preventNext ?? 0;
+      const had = Math.max(
+        previous?.battlefield.find((c) => c.id === card.id)?.preventNext ?? 0,
+        now + soaked.get(card.id)!,
+      );
+      if (had > now) used = { from: had, to: now };
     }
     const was = derived.get(card);
     if (

@@ -3963,8 +3963,11 @@ interface PlateFacts {
   holders: Snapshot["stack"];
   /** Spec 0086 (10 B) -- what says a turn began for this player. */
   turn: { gameEpoch: number; turn: number; activeSeat: number };
-  /** Spec 0125, item 2 -- this board's damage key when a hit on this player was stopped by "prevent the next N"; else null. */
-  preventSoaked: string | null;
+  /**
+   * Spec 0125, item 2 -- a hit on this player stopped by "prevent the next N"
+   * on this board: the damage wave's key and how much it stopped; else null.
+   */
+  preventSoaked: { key: string; prevented: number } | null;
 }
 
 function plateFacts(
@@ -4019,13 +4022,18 @@ function plateFacts(
           },
     holders: board.stack.filter((s) => s.from === "monarch" || s.from === "initiative"),
     turn: { gameEpoch: board.gameEpoch, turn: board.turn, activeSeat: board.activeSeat },
-    preventSoaked:
-      board.damage?.hits.some(
-        (h) => h.by === "prevent-next" && "player" in h.target && h.target.player === seat,
-      ) === true
-        ? board.damage.key
-        : null,
+    preventSoaked: soakedOn(board, seat),
   };
+}
+
+/** Spec 0125 -- the hits on [seat] stopped by "prevent the next N" on this board, as one. */
+function soakedOn(board: Snapshot, seat: number): { key: string; prevented: number } | null {
+  const hits = (board.damage?.hits ?? []).filter(
+    (h) => h.by === "prevent-next" && "player" in h.target && h.target.player === seat,
+  );
+  return hits.length > 0 && board.damage
+    ? { key: board.damage.key, prevented: hits.reduce((n, h) => n + (h.prevented ?? 0), 0) }
+    : null;
 }
 
 /** P11-C4 -- what the question (and W-14's selection) makes of a plate, as plain answers. */

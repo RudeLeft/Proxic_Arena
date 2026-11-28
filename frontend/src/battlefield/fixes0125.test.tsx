@@ -373,3 +373,26 @@ describe("F-0125-G · one look: part of a spell hit stopped, on a creature as on
     ]);
   });
 });
+
+describe("F-0125-H · a creature's square ticks from what was left, even when that board was never drawn", () => {
+  it("fromSnapshot: a hit it stopped with no earlier board showing the count: 3 -> 0", () => {
+    const after = snap(1, 30, {
+      battlefield: [row("card:12", 1, "Grizzly Bears")],
+      damage: {
+        key: "damage:30",
+        hits: [
+          {
+            source: "card:90",
+            target: { object: "card:12" },
+            amount: 0,
+            prevented: 3,
+            by: "prevent-next",
+          },
+        ],
+      },
+    });
+    const before = snap(1, 28, { battlefield: [row("card:12", 1, "Grizzly Bears")] });
+    const data = boardFromSnapshot(after, before);
+    expect(data.battlefield[0]!.preventUsed).toEqual({ from: 3, to: 0 });
+  });
+});

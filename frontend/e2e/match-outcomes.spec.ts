@@ -561,13 +561,31 @@ type SeenA6 = {
   wards: number;
   /** The red numbers seen rising at the guest's life ("−2"). */
   reds: string[];
+  /** The badge's box and its neighbours, the first frame it showed (UI-006). */
+  fit: Fit | null;
+};
+type Box = { x: number; y: number; w: number; h: number };
+type Fit = {
+  badge: Box;
+  plate: Box;
+  poison: Box;
+  shield: Box | null;
+  number: Box | null;
+  tiles: Box | null;
+  tray: Box | null;
+  viewport: { w: number; h: number };
 };
 
 /** On every frame: what the menace squares, the guest's prevention badge and life shield show. */
 async function recorderA6(page: Page, guestSide: "viewer" | "opponent") {
   await page.evaluate((side) => {
     const w = window as unknown as { __a6: SeenA6; __running: WeakSet<Animation> };
-    w.__a6 = { menace: [], badge: 0, used: [], wards: 0, reds: [] };
+    w.__a6 = { menace: [], badge: 0, used: [], wards: 0, reds: [], fit: null };
+    const box = (el: Element | null) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.left, y: r.top, w: r.width, h: r.height };
+    };
     w.__running = new WeakSet();
     const tick = () => {
       const s = w.__a6;
@@ -578,6 +596,27 @@ async function recorderA6(page: Page, guestSide: "viewer" | "opponent") {
           s.menace.push(Math.round(Number(a.effect?.getTiming().duration ?? 0)));
         }
       const badge = document.querySelector<HTMLElement>(`.gs-seat-${side} .gs-prevent`);
+      if (badge && !s.fit) {
+        const plate = badge.closest<HTMLElement>(".gs-seat")!;
+        const p = plate.getBoundingClientRect();
+        // The plate's padding box, where game.css places the poison badge (130, 40, 40 x 40).
+        const inner = {
+          x: p.left + plate.clientLeft,
+          y: p.top + plate.clientTop,
+          w: plate.clientWidth,
+          h: plate.clientHeight,
+        };
+        s.fit = {
+          badge: box(badge)!,
+          plate: inner,
+          poison: { x: inner.x + 130, y: inner.y + 40, w: 40, h: 40 },
+          shield: box(plate.querySelector(".gs-life")),
+          number: box(plate.querySelector(".gs-life-n")),
+          tiles: box(plate.querySelector(".gs-zones")),
+          tray: box(document.querySelector(`.gs-status-${side}`)),
+          viewport: { w: innerWidth, h: innerHeight },
+        };
+      }
       if (badge) {
         s.badge = Math.max(s.badge, Number(badge.dataset["prevent"] ?? 0));
         const used = badge.dataset["used"];
@@ -597,35 +636,6 @@ async function recorderA6(page: Page, guestSide: "viewer" | "opponent") {
 }
 const seenA6 = (page: Page) => page.evaluate(() => (window as unknown as { __a6: SeenA6 }).__a6);
 
-type Box = { x: number; y: number; w: number; h: number };
-/** The badge's box and what it must fit beside, on the guest's plate of this page. */
-async function fit(page: Page, side: "viewer" | "opponent") {
-  return page.evaluate((s) => {
-    const box = (el: Element | null): Box | null => {
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return { x: r.left, y: r.top, w: r.width, h: r.height };
-    };
-    const plate = document.querySelector<HTMLElement>(`.gs-seat-${s}`)!;
-    const p = plate.getBoundingClientRect();
-    // The plate's padding box, where game.css places the poison badge (130, 40, 40 x 40).
-    const inner = {
-      x: p.left + plate.clientLeft,
-      y: p.top + plate.clientTop,
-      w: plate.clientWidth,
-      h: plate.clientHeight,
-    };
-    return {
-      badge: box(plate.querySelector(".gs-prevent")),
-      plate: inner,
-      poison: { x: inner.x + 130, y: inner.y + 40, w: 40, h: 40 },
-      shield: box(plate.querySelector(".gs-life")),
-      number: box(plate.querySelector(".gs-life-n")),
-      tiles: box(plate.querySelector(".gs-zones")),
-      tray: box(document.querySelector(`.gs-status-${s}`)),
-    };
-  }, side);
-}
 const overlap = (a: Box | null, b: Box | null) =>
   !a || !b
     ? 0
@@ -640,10 +650,17 @@ test("menace pops at a refused lone block on both pages; a player's prevent-the-
   const host = await (await browser.newContext({ viewport })).newPage();
   await signIn(host);
   await clearEverything(host);
-  const guest = await (await browser.newContext({ viewport })).newPage();
+  // PROXIC_A6_GUEST_HEIGHT=947: the guest in a browser window (UI-006) instead.
+  const guestViewport = {
+    width: 1920,
+    height: Number(process.env.PROXIC_A6_GUEST_HEIGHT ?? 1080),
+  };
+  const guest = await (await browser.newContext({ viewport: guestViewport })).newPage();
   await signInAs(guest, secondUser, secondPassword);
   await clearEverything(guest);
 
+  let filming = true;
+  let camera: Promise<unknown> = Promise.resolve();
   try {
     const deck = await sharedDeck(host, guest, pkgA6);
     await startAMatch(host, guest, deck, {
@@ -686,14 +703,44 @@ test("menace pops at a refused lone block on both pages; a player's prevent-the-
     let afterCombat = false;
     let bolted = false;
     let salves = 0;
-    let shown: {
-      host: Awaited<ReturnType<typeof fit>>;
-      guest: Awaited<ReturnType<typeof fit>>;
-    } | null = null;
+    let shown: { host: Fit; guest: Fit } | null = null;
     let ticked: { host: SeenA6; guest: SeenA6 } | null = null;
     let axed = false;
     let partial: { host: SeenA6; guest: SeenA6 } | null = null;
     let wardsBeforeAxe = { host: 0, guest: 0 };
+    // The camera, beside the game loop: both screens as the badge shows and as
+    // it ticks (the moments pass faster than a loop's turn).
+    camera = (async () => {
+      const both = (name: string) =>
+        Promise.all([
+          host.screenshot({ path: join(SHOTS, `a6-${name}-host.png`) }),
+          guest.screenshot({ path: join(SHOTS, `a6-${name}-guest.png`) }),
+        ]).catch(() => undefined);
+      const badgeOn = (page: Page, side: string, used: boolean) =>
+        page
+          .locator(`.gs-seat-${side} .gs-prevent${used ? "[data-used]" : ":not([data-used])"}`)
+          .count()
+          .catch(() => 0);
+      let stage = 0;
+      while (filming) {
+        if (stage === 0 && (await badgeOn(host, "opponent", false)) > 0) {
+          await both("prevent");
+          await guest
+            .locator(".gs-seat-viewer")
+            .screenshot({ path: join(SHOTS, "a6-prevent-plate-guest.png") })
+            .catch(() => undefined);
+          stage = 1;
+        } else if (stage === 1 && (await badgeOn(host, "opponent", true)) > 0) {
+          await host.waitForTimeout(250);
+          await both("prevent-tick");
+          stage = 2;
+        } else if (stage === 2 && axed && (await badgeOn(guest, "viewer", true)) > 0) {
+          await guest.waitForTimeout(250);
+          await both("partial");
+          stage = 3;
+        } else await host.waitForTimeout(40);
+      }
+    })().catch(() => undefined);
     const deadline = Date.now() + 1_000_000;
     const watch = watchGame([host, guest], () => ({
       attacked,
@@ -720,37 +767,17 @@ test("menace pops at a refused lone block on both pages; a player's prevent-the-
         if ((await page.locator(".gs-over").count()) > 0) break;
         if (await discardIfAsked(page)) continue;
 
-        // The badge on both pages (step 2): stills and its box, once.
+        // The badge on both pages (step 2), from the recorders.
         if (salves >= 1 && !shown) {
-          const h = host.locator(".gs-seat-opponent .gs-prevent:not([data-used])");
-          const g = guest.locator(".gs-seat-viewer .gs-prevent:not([data-used])");
-          if ((await h.count()) > 0 && (await g.count()) > 0) {
-            await host.waitForTimeout(600);
-            await host.screenshot({ path: join(SHOTS, "a6-prevent-host.png") });
-            await guest.screenshot({ path: join(SHOTS, "a6-prevent-guest.png") });
-            await host
-              .locator(".gs-seat-opponent")
-              .screenshot({ path: join(SHOTS, "a6-prevent-plate-host.png") });
-            await guest
-              .locator(".gs-seat-viewer")
-              .screenshot({ path: join(SHOTS, "a6-prevent-plate-guest.png") });
-            shown = { host: await fit(host, "opponent"), guest: await fit(guest, "viewer") };
-            // In a browser window (about 1920 x 947) too.
-            await host.setViewportSize({ width: 1920, height: 947 });
-            await host.waitForTimeout(300);
-            console.log(`at 1920x947 (host): ${JSON.stringify(await fit(host, "opponent"))}`);
-            await host.screenshot({ path: join(SHOTS, "a6-prevent-host-947.png") });
-            await host.setViewportSize(viewport);
-          }
+          const h = await seenA6(host);
+          const g = await seenA6(guest);
+          if (h.fit && g.fit) shown = { host: h.fit, guest: g.fit };
         }
         // The tick (the Bolt resolved into it), on both pages.
         if (shown && !ticked && !axed) {
-          const h = host.locator(".gs-seat-opponent .gs-prevent[data-used]");
-          const g = guest.locator(".gs-seat-viewer .gs-prevent[data-used]");
-          if ((await h.count()) > 0 || (await g.count()) > 0) {
-            await host.waitForTimeout(480);
-            await host.screenshot({ path: join(SHOTS, "a6-prevent-tick-host.png") });
-            await guest.screenshot({ path: join(SHOTS, "a6-prevent-tick-guest.png") });
+          const h = await seenA6(host);
+          const g = await seenA6(guest);
+          if (h.used.includes("3-0") && g.used.includes("3-0")) {
             await host.waitForTimeout(1_500);
             ticked = { host: await seenA6(host), guest: await seenA6(guest) };
             wardsBeforeAxe = { host: ticked.host.wards, guest: ticked.guest.wards };
@@ -765,8 +792,6 @@ test("menace pops at a refused lone block on both pages; a player's prevent-the-
         if (axed && salves >= 2 && !partial) {
           const used = await seenA6(guest);
           if (used.used.length >= 2) {
-            await guest.screenshot({ path: join(SHOTS, "a6-partial-guest.png") });
-            await host.screenshot({ path: join(SHOTS, "a6-partial-host.png") });
             await host.waitForTimeout(2_000);
             partial = { host: await seenA6(host), guest: await seenA6(guest) };
             break;
@@ -855,6 +880,9 @@ test("menace pops at a refused lone block on both pages; a player's prevent-the-
         if ((await modes.count()) > 0) {
           // Healing Salve's "prevent the next 3".
           const prevent = modes.locator("button").filter({ hasText: /revent/ });
+          console.log(
+            `[a6] mode window: ${JSON.stringify(await modes.locator("button").allTextContents())}`,
+          );
           if ((await prevent.count()) > 0) await clickNow(prevent);
           const done = modes.locator("button.gs-modes-done:not(:disabled)");
           if ((await done.count()) > 0) await clickNow(done);
@@ -868,13 +896,14 @@ test("menace pops at a refused lone block on both pages; a player's prevent-the-
               `.gs-seat-${isHost ? "opponent" : "viewer"} .gs-life[data-choosable="true"]`,
             );
             if ((await at.count()) > 0) {
+              console.log(
+                `[a6] ${isHost ? "host" : "guest"} aims at ${isHost ? "the guest" : "herself"}`,
+              );
               await realClick(page, at);
               continue;
             }
-            const listed = panel.locator(".gs-win li button, .gs-question li button");
-            const done = panel.locator("button.gs-targets-done");
-            if ((await done.count()) > 0) await clickUnlessCombat(done);
-            else if ((await listed.count()) > 0) await clickUnlessCombat(listed);
+            // Never another target: wait for the life shield to be offered.
+            await page.waitForTimeout(150);
             continue;
           }
           const tap = page
@@ -930,6 +959,7 @@ test("menace pops at a refused lone block on both pages; a player's prevent-the-
           if (burn && want && (await inHand(/^Healing Salve/).count()) > 0) {
             pick = inHand(/^Healing Salve/);
             salves += 1;
+            console.log(`[a6] guest casts Healing Salve (${salves})`);
           }
         }
         if (!pick && stackN === 0) {
@@ -965,6 +995,8 @@ test("menace pops at a refused lone block on both pages; a player's prevent-the-
       }
     }
 
+    filming = false;
+    await camera;
     console.log(`step 1 (menace): ${JSON.stringify(refused)}`);
     console.log(`step 2 (badge): ${JSON.stringify(shown)} ticked ${JSON.stringify(ticked)}`);
     console.log(
@@ -986,7 +1018,7 @@ test("menace pops at a refused lone block on both pages; a player's prevent-the-
     // 2 -- the badge: on both pages, its box inside the plate and clear of the rest.
     expect(shown, "the guest's Salve put the badge on her plate, on both pages").not.toBeNull();
     for (const [who, f] of Object.entries(shown!)) {
-      const b = f.badge!;
+      const b = f.badge;
       expect(b, `${who}: the badge is drawn`).not.toBeNull();
       expect(b.x, `${who}: inside the plate's left`).toBeGreaterThanOrEqual(f.plate.x);
       expect(b.x + b.w, `${who}: inside the plate's right edge`).toBeLessThanOrEqual(
@@ -1019,6 +1051,8 @@ test("menace pops at a refused lone block on both pages; a player's prevent-the-
       expect(seen.wards, `${who}: no pale shield for the part stopped`).toBe(0);
     }
   } finally {
+    filming = false;
+    await camera;
     await host.context().close();
     await guest.context().close();
   }
