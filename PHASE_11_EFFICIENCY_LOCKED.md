@@ -4431,3 +4431,23 @@ pictures already stored, from the originals (libwebp's `cwebp` in the image). On
 stack A the two real decks' pictures went from 3.14 to 2.02 MB and 2.78 to 1.89 MB;
 the one-time pass took 43 ms of CPU a picture on the owner's PC. Owed (P11-R5): the
 same CPU measurement on the Unraid box. Evidence in spec 0121's "As built".
+
+**Correction, 2026-11-27 (P11-E12 research; spec 0122): Firefox does not get
+WebSocket over HTTP/2 through Cloudflare.** F3's table row "WebSocket over
+HTTP/2 or HTTP/3" and E2's "Why Firefox looked instant" inferred that Firefox
+opens its socket inside the page's HTTP/2 connection (RFC 8441) on the live
+site. A browser can do that only when the server offers it
+(`SETTINGS_ENABLE_CONNECT_PROTOCOL`), and Cloudflare's edge does not: RUN
+2026-11-27, absent on www.cloudflare.com, blog.cloudflare.com and discord.com,
+present on the non-Cloudflare controls (nghttp2.org, h2o, facebook.com);
+Cloudflare's docs name no setting for it on any plan (SOURCE). So on the live
+site Firefox very likely opens its own connection like Chromium and WebKit
+(INFERENCE; Firefox's live socket time is still owed to CI's `engines` job or
+a hand check), and E2's fix (avatar names in the page data) is what removed
+the wait in every engine. Also corrected: the deep dive's "Cloudflare,
+evidently, doesn't offer it to Chromium" -- it offers it to no engine. Safari
+26.0 can share too (WebKit's release notes), but again only where the server
+offers it. The F3 row itself is left as written; read it with this note.
+Chromium has no WebSocket over HTTP/3 ("No active development") and Ktor
+2.3.13 and Ktor's main branch refuse the upgrade on HTTP/2, so nothing on our
+side or Cloudflare's can turn it on. E12's target is in spec 0122.
