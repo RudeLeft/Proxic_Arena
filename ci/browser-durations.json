@@ -74,6 +74,7 @@
     "match-record.spec.ts": 23,
     "match.spec.ts": 17,
     "match-setup.spec.ts": 17,
-    "match-webp-pictures.spec.ts": 45
+    "match-webp-pictures.spec.ts": 45,
+    "match-early-connection.spec.ts": 90
   }
 }

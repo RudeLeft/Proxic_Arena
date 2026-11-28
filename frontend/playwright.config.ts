@@ -31,12 +31,12 @@ const chromium = {
 };
 
 // The specs every engine runs (P11-E13's hidden tab; spec 0121's WebP
-// pictures; F1's smoke set to come), as projects named for the engines in
-// PROXIC_E2E_ENGINES ("firefox,webkit": CI's engines job), Playwright's
-// bundled ones. Without it, none: a plain run here never starts Firefox (it
+// pictures; spec 0122's early game connection, F-0122-E; F1's smoke set to
+// come), as projects named for the engines in PROXIC_E2E_ENGINES
+// ("firefox,webkit": CI's engines job), Playwright's bundled ones. Without it, none: a plain run here never starts Firefox (it
 // doesn't start on the owner's PC, PHASE_11 decision 11). Chromium runs them
 // in "other", or "match" for a game spec.
-const ENGINE_SPEC = /(^|[\\/])(hidden-tab|match-webp-pictures)\.spec\.ts$/;
+const ENGINE_SPEC = /(^|[\\/])(hidden-tab|match-webp-pictures|match-early-connection)\.spec\.ts$/;
 const ENGINES: Record<string, string> = { firefox: "Desktop Firefox", webkit: "Desktop Safari" };
 const engines = (process.env.PROXIC_E2E_ENGINES ?? "")
   .split(",")

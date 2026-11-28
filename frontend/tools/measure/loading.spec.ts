@@ -22,7 +22,9 @@
 // every picture done, requests, KB (bodies and headers), the code chunks,
 // the slowest API call's server time, socket messages. One row per
 // link x page x mode in loading-pages-<engine>.json and
-// loading-game-<engine>.json.
+// loading-game-<engine>.json. Spec 0122 (F-0122-G): per socket, when it was
+// made, opened and first heard (`SOCKET_PROBE`), and whether the game's
+// first connection was the early one (`socketTimes`).
 //
 // "room, game and spectate" plays with the shared test accounts (and the
 // first of match-accounts.json as the spectator): never while a game spec
@@ -148,6 +150,78 @@ function recorder(page: Page) {
   };
 }
 type Recorder = ReturnType<typeof recorder>;
+
+/**
+ * Spec 0122 (F-0122-G) -- every WebSocket the page makes, put in every
+ * profile before the page's scripts (the research probe's wrapper): when it
+ * was made, opened, first heard, and when its hello, first board and (the
+ * lobby's) list of players came, in performance.now().
+ */
+const SOCKET_PROBE = `(() => {
+  const W = window.WebSocket;
+  window.__ws = [];
+  class Probed extends W {
+    constructor(u, p) {
+      super(u, p);
+      const path = "/ws/" + (String(u).split("/ws/")[1] || "").split("?")[0];
+      const r = { path, made: performance.now(), open: null, first: null, hello: null, board: null, players: null };
+      window.__ws.push(r);
+      this.addEventListener("open", () => { r.open = performance.now(); });
+      this.addEventListener("message", (e) => {
+        const t = performance.now();
+        if (r.first === null) r.first = t;
+        if (typeof e.data !== "string") return;
+        if (r.hello === null && e.data.includes('"MATCH_HELLO"')) r.hello = t;
+        if (r.board === null && e.data.includes('"MATCH_SNAPSHOT"')) r.board = t;
+        if (r.players === null && e.data.includes('"PLAYERS"')) r.players = t;
+      });
+    }
+  }
+  window.WebSocket = Probed;
+})();`;
+
+interface SocketSeen {
+  path: string;
+  made: number;
+  open: number | null;
+  first: number | null;
+  hello: number | null;
+  board: number | null;
+  players: number | null;
+}
+
+/**
+ * Spec 0122 (F-0122-G) -- the socket columns of a load that started at
+ * [from] (performance.now): the game's first connection made after it (the
+ * early one, `/ws/matches/current` or `/ws/matches/watch/...`, or the page's
+ * own `/ws/matches/<id>`), when it was made, opened, and its first board;
+ * `gameEarly` 1 when the page says its game came by the early connection
+ * (early.ts marks `pa-game-early`, EARLY_GAME_MARK), else 0; and the lobby
+ * connection's made, open and list of players (E2's avatars wait on it).
+ */
+async function socketTimes(page: Page, from = 0): Promise<Record<string, number | null>> {
+  const seen = await page
+    .evaluate(() => ({
+      ws: (window as unknown as { __ws?: SocketSeen[] }).__ws ?? [],
+      early: performance.getEntriesByName("pa-game-early").length,
+    }))
+    .catch(() => null);
+  if (!seen) return {};
+  const at = (x: number | null | undefined) => (x == null ? null : Math.round(x - from));
+  const after = seen.ws.filter((w) => w.made >= from - 1);
+  const game = after.find((w) => w.path.startsWith("/ws/matches/"));
+  const lobby = after.find((w) => w.path === "/ws/user");
+  return {
+    gameEarly: game ? seen.early : null,
+    gameSocketMadeMs: at(game?.made),
+    gameSocketOpenMs: at(game?.open),
+    gameSocketOpenTakesMs: game?.open == null ? null : Math.round(game.open - game.made),
+    gameFirstBoardMs: at(after.find((w) => w.board !== null)?.board),
+    lobbySocketMadeMs: at(lobby?.made),
+    lobbySocketOpenMs: at(lobby?.open),
+    lobbyPlayersMs: at(lobby?.players),
+  };
+}
 
 /** performance.now() when every <img> is complete, or null after 20 s. */
 async function imagesDone(page: Page): Promise<number | null> {
@@ -461,6 +535,7 @@ async function fresh(browser: Browser, base: string, state?: string): Promise<Br
   await ctx.addInitScript(READY);
   await ctx.addInitScript(AVATAR_PROBE);
   await ctx.addInitScript(PRESS_AND_LONG_TASKS);
+  await ctx.addInitScript(SOCKET_PROBE);
   return ctx;
 }
 
@@ -713,7 +788,10 @@ test("room, game and spectate: cold and reload, over each link", async ({
               await firstPaint(page),
               await imagesDone(page),
               rec,
-              await avatars(page, rec, 0, usable),
+              {
+                ...(await avatars(page, rec, 0, usable)),
+                ...(await socketTimes(page)),
+              },
             ),
           );
           await page.waitForTimeout(1_000);
@@ -727,7 +805,10 @@ test("room, game and spectate: cold and reload, over each link", async ({
               await firstPaint(page),
               await imagesDone(page),
               rec,
-              await avatars(page, rec, 0, usable),
+              {
+                ...(await avatars(page, rec, 0, usable)),
+                ...(await socketTimes(page)),
+              },
             ),
           );
         } finally {
@@ -864,6 +945,8 @@ test("start match: from the room to the game table, over each link", async ({
               screenMs: Math.round(screenAt - pressed!),
               boardMs: board === null ? null : Math.round(board - pressed!),
               afterBoardMs: board === null ? null : Math.round(tableAt - board),
+              // Spec 0122: Start match never takes the early path (gameEarly 0).
+              ...(await socketTimes(page, pressed!)),
             }),
           );
         } finally {
