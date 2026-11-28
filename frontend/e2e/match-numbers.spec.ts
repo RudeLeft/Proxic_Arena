@@ -19,7 +19,8 @@
 //
 // Each is pictured the first time, and its words written to
 // test-results/seen/numbers.json. Both players use the numbers test deck
-// (protocol/fixtures/numbers-deck); locally:
+// (protocol/fixtures/numbers-deck), dealt (spec 0098: the stack runs with
+// PROXIC_TEST_DEALS); locally:
 //
 //   node scripts/make-ci-deck.mjs "Test Deck/numbers-deck.zip" protocol/fixtures/numbers-deck
 
@@ -82,7 +83,26 @@ test("number questions: the dial for X, a kicker and energy; one tray for a spli
   const tries = new Map<string, number>();
   try {
     const deck = await sharedDeck(host, guest, pkg);
-    await startAMatch(host, guest, deck);
+    // DEALT (spec 0098). Undealt, the bots could go 28 turns without a
+    // divided spell and the lands for it while a creature was out ("every
+    // number question seen (the game ended: ... turn 28.)", CI run
+    // 46054823866; ROADMAP's flakes). Each seat opens with lands, a creature
+    // (a third target for the split, and Harnessed Lightning's), both split
+    // spells and the energy spell, and draws more lands, the kicker
+    // (Everflowing Chalice) and an X spell (Fireball).
+    const dealt = {
+      hand: [
+        "Mountain",
+        "Mountain",
+        "Mountain",
+        "Gray Ogre",
+        "Arc Lightning",
+        "Rolling Thunder",
+        "Harnessed Lightning",
+      ],
+      top: ["Mountain", "Everflowing Chalice", "Mountain", "Fireball", "Mountain", "Mountain"],
+    };
+    await startAMatch(host, guest, deck, { deal: { host: dealt, guest: dealt } });
     const deadline = Date.now() + 780_000;
     // A game that has ended shows nothing more: stop and say how it ended,
     // instead of watching a finished table until the deadline.
