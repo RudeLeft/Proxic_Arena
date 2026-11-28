@@ -173,19 +173,27 @@ test("spec 0124: the ante window, Bob's move over Passing, and Passing re-checke
   await signInAs(guest, secondUser, secondPassword);
   await clearEverything(guest);
 
-  const passing = (page: Page) => matchPanel(page).locator("[data-passing]");
-  // Never waits (a textContent() on a gone element would wait out the whole
-  // test): one look in the page, the element and its words together.
+  // The host's button, the stack and its life, in ONE look inside the page:
+  // a Playwright locator's match and its read are separate steps, and React
+  // reuses the button's element as "Passing" turns into "Pat's move" (a run
+  // once read a [data-passing] match whose words were already the next
+  // line's). Never waits, so a button changing under the loop cannot stall it.
+  type Look = { passing: string | null; waiting: string; onStack: boolean; life: number };
+  const look = (page: Page): Promise<Look> =>
+    page.evaluate(() => {
+      const passing = document.querySelector("[data-passing]");
+      const life = document.querySelector(".gs-seat-viewer .gs-life");
+      return {
+        passing: passing ? (passing.textContent ?? "") : null,
+        waiting: [...document.querySelectorAll(".gs-waiting")]
+          .map((e) => e.textContent ?? "")
+          .join(" | "),
+        onStack: document.querySelector('button[data-zone="stack"]') !== null,
+        life: Number(life?.textContent ?? "20"),
+      };
+    });
+  // Any "Passing" element whose own words were not "Passing" (one look each).
   const odd: string[] = [];
-  const passingWords = async (page: Page) => {
-    const seen = await passing(page).evaluateAll((els) =>
-      els.map((e) => ({ text: e.textContent ?? "", html: e.outerHTML.slice(0, 300) })),
-    );
-    const first = seen[0];
-    if (!first) return null;
-    if (!first.text.includes("Passing")) odd.push(first.html);
-    return first.text;
-  };
   const turnOf = async (page: Page) =>
     Number((await page.locator(".gs-turn-value").allTextContents())[0] ?? 0);
   const inHand = (page: Page, name: RegExp) =>
@@ -263,7 +271,9 @@ test("spec 0124: the ante window, Bob's move over Passing, and Passing re-checke
         );
       }
       // The host's button, as it is now.
-      const words = await passingWords(host);
+      const now = await look(host);
+      const words = now.passing;
+      if (words !== null && !words.includes("Passing")) odd.push(words);
       const turn = await turnOf(host);
       if (words) {
         if (attackTurn === null) lastPassing = words;
@@ -275,26 +285,18 @@ test("spec 0124: the ante window, Bob's move over Passing, and Passing re-checke
       // 2. While the Bolt is chosen, paid and waiting: the guest's move on the
       // host's page, never "Passing"; once it has resolved, "Passing" again.
       if (bolt === "cast" || bolt === "seen") {
-        const onStack = (await host.locator('button[data-zone="stack"]').count()) > 0;
-        const showing = (await passing(host).count()) > 0;
-        if (onStack) {
+        if (now.onStack) {
           stackLooks.looks += 1;
-          if (showing) stackLooks.passing += 1;
+          if (now.passing !== null) stackLooks.passing += 1;
         }
-        const waiting = (await matchPanel(host).locator(".gs-waiting").allTextContents()).join(
-          " | ",
-        );
-        if (bolt === "cast" && /’s move/.test(waiting)) {
-          duringBolt = { passing: showing ? await passingWords(host) : null, waiting };
+        if (bolt === "cast" && /’s move/.test(now.waiting)) {
+          duringBolt = { passing: now.passing, waiting: now.waiting };
           bolt = "seen";
           await host.screenshot({ path: join(SHOTS, "0124-host-bobs-move.png") });
         }
         // Resolved: the host's life is down and nothing is on the stack.
-        const life = Number(
-          (await host.locator(".gs-seat-viewer .gs-life").allTextContents())[0] ?? "20",
-        );
-        if (bolt === "seen" && life < 20 && !onStack && showing) {
-          afterBolt = await passingWords(host);
+        if (bolt === "seen" && now.life < 20 && !now.onStack && now.passing !== null) {
+          afterBolt = now.passing;
           bolt = "done";
           await host.screenshot({ path: join(SHOTS, "0124-host-passing-again.png") });
         }
@@ -429,7 +431,7 @@ test("spec 0124: the ante window, Bob's move over Passing, and Passing re-checke
     expect(after, "a fresh reason after the draw").toMatch(/Nothing to play: /);
     expect(after, "not the reason from before the draw").not.toBe(before);
     // The "Passing" element never carried other words (one look in the page each time).
-    expect(odd, "a [data-passing] element that did not say Passing").toEqual([]);
+    expect(odd, "a Passing element that did not say Passing").toEqual([]);
   } finally {
     await clearEverything(host).catch(() => undefined);
     await host.context().close();

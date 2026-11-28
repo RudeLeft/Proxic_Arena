@@ -1,6 +1,6 @@
 # 0124 — Phase 11 P11-A4 and P11-A5: "Nothing to play" that stays true, and the last words on the table
 
-**Status:** **Approved by the owner 2026-11-27 (by prompt: "Every step", "Bob's move", "Report window", "Remove both", "Keep all 31")**; building (drafted and built 2026-11-27). Phase 11, items P11-A4 and P11-A5 (order 16, together).
+**Status:** **Approved by the owner 2026-11-27 (by prompt: "Every step", "Bob's move", "Report window", "Remove both", "Keep all 31")**; built (drafted and built 2026-11-27; As built below). Phase 11, items P11-A4 and P11-A5 (order 16, together).
 **Owner decisions:** made 2026-11-27 by prompt, after the canvas `Proxic canvases/a4-a5-pills-and-nothing-to-play.html`. Recorded as the owner chose them:
 
 1. **A4, Q1 — "Every step"** (the canvas's Option A, recommended): "Nothing to play" is re-checked at every priority point of your own turn. It goes the moment you have something playable (a priority question is asked: it is cleared), and it may come back later that turn, at any step, not only Main 1, with a freshly worked out, true reason. The words are unchanged.
@@ -144,7 +144,23 @@ Commits 37ea3792 (worker, Lab) and 452cf289 (page, tests, the passing-deck fixtu
 | replay offered for the game's own report | F-0124-C |
 | the game's notices put back at the top right | F-0124-E |
 
-**Real-click game (TEST-011, TEST-012), stack B at 452cf289:** `match-passing.spec.ts` "spec 0124" passed. Its record: both pages' ante windows "Your deck · Contract from Below" with the game's shield and nothing at the top right; while the guest's Bolt was cast and waited, the host's button said "Pat's move · Making a choice", and in 58 looks with the Bolt on the stack it never said "Passing"; after it resolved, "Passing · Nothing to play: Three lands; no land in hand"; the host's Scroll Thief attacked on turn 7 and after its draw the reason became "Three lands; no land you can play" (an Island now in hand, at the combat step). Stills looked at: `0124-host-ante-window.png` (the window as on the canvas, the placeholder picture of the CI deck), `0124-host-bobs-move.png`, `0124-host-passing-again.png`, `0124-host-after-the-draw.png` ("PASSING · Nothing to play: Three lands; no land you can play" beside the Thief's trigger card).
+**Real-click game (TEST-011, TEST-012), stack B (built from 452cf289; the test as finally committed):** `match-passing.spec.ts` "spec 0124" passed. Its record: both pages' ante windows "Your deck · Contract from Below" with the game's shield and nothing at the top right; while the guest's Bolt was cast and waited, the host's button said "Pat's move · Making a choice", and in 58 looks with the Bolt on the stack it never said "Passing"; after it resolved, "Passing · Nothing to play: Three lands; no land in hand"; the host's Scroll Thief attacked on turn 7 and after its draw the reason became "Three lands; no land you can play" (an Island now in hand, at the combat step). Stills looked at: `0124-host-ante-window.png` (the window as on the canvas, the placeholder picture of the CI deck), `0124-host-bobs-move.png`, `0124-host-passing-again.png`, `0124-host-after-the-draw.png` ("PASSING · Nothing to play: Three lands; no land you can play" beside the Thief's trigger card).
 
-One look in an earlier run of that game read a `[data-passing]` element whose words were "Pat's move…" (the element was gone at the next look; not seen again, and the page tests find no such element). The test now reads the element and its words in one look and fails on any such element (`odd`), so a real one cannot pass unnoticed.
+**A test artifact, found and fixed (TEST-013.4).** One look in an early run, and the third whole-machine run below, read a `[data-passing]` match whose words were "Pat's move…"; the element's own HTML at that moment had no `data-passing`. React reuses the act button's element as "Passing" turns into the waiting line, and a Playwright locator's match and its read are separate steps, so the test caught the element between the two. Not a page fault (the page tests and every still show the right line). The test now reads the button, the stack and the life in one look inside the page (`look`), and still fails on any "Passing" element that says anything else (`odd`): 0 in the four runs since.
+
+**CI speed (P11-B7), stack B, CPU 4x.** Neighbour runs: match 6/6 (`match-own-printing`, `match-passing`) 3 passed; other (`lobby`, `notices`) 19 passed.
+
+**Whole-machine replays, 4x CPU** (`node ci/ci-speed.mjs --whole`, every CI deck package built as CI builds them):
+
+| Machine | Run | Result |
+|---|---|---|
+| match 6/6 (14 tests) | 1, 2 | 14 passed each |
+| | 3 | 12 passed, 2 failed: this spec's game on the artifact above, then `match-picture-reuse` (its room not shown at `openRoom`, the game before it having failed) |
+| | 4, 5, 6, 7 (the fixed test) | 14 passed each: four in a row |
+| other (101 tests) | 1 | 93 passed, 3 failed: `admin.spec` x3 |
+| | 2 | 93 passed, 3 failed: `admin.spec` Email tab, `auth.spec` x2 |
+| | 3 | 92 passed, 4 failed: `admin.spec` x4 |
+| | 4 | 95 passed, 1 failed: `admin.spec` x1 |
+
+`notices.spec.ts` (the one spec of that machine this change touches) passed in all four. The `admin`/`auth` failures are the first tests of the machine, a page that had not drawn in 15 s (its code chunks still loading, the trace's requests unfinished), a different set each run; `admin.spec` and `auth.spec` alone at 4x: 27 passed. Neither spec, nor anything it draws, is touched here. Recorded for ROADMAP's flake list owner; CI's run of these commits is the current RUN for them (EVID-004).
 
