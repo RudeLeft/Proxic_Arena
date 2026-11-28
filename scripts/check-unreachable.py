@@ -130,6 +130,9 @@ def ante():
     ante_reports = [(t, a) for t, a in reports if "Contract from Below" in json.dumps(a)]
     found = {"turn": g.turn, "stopped": g.stopped_badly(), "notices": g.notices,
              "reports": ante_reports[:1]}
+    # A dead or silent worker (lab.py) is not a wrong answer: never reached.
+    if died(g):
+        return "inconclusive", f"the worker stopped before the proof: {died(g)}", found
     if not started(g):
         return "wrong", f"a deck with Contract from Below should start: {found['stopped']}", found
     problems = []
@@ -178,6 +181,8 @@ if __name__ == "__main__":
     for name, scenario in SCENARIOS.items():
         if ONLY and name not in ONLY:
             continue
+        # Named as it starts, so a run killed from outside (a timeout) says which.
+        print(f"{name}: running", flush=True)
         verdict_, message, found = scenario()
         codes.append({"ok": 0, "inconclusive": 2, "wrong": 1}[verdict_])
         print(f"{name}: {verdict_.upper()}: {message}")
