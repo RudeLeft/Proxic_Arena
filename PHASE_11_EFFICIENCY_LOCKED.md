@@ -4513,4 +4513,5 @@ audit are kept with their reasons (the spec's keep list), so A5's audit is
 closed. Which questions are asked is unchanged: the full Lab, Forge's shuffle
 seeded, gave an identical question record before and after (43,996 questions).
 Evidence in spec 0124's "As built".
+Owner answer 2026-11-28, "Ordinary button" (Option B), built: once you pass up something you could play on your own turn, "Passing" stays away for the rest of that turn (the End step is the ordinary button, at full speed); spec 0124's As built.
 

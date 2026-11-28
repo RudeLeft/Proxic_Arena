@@ -9,6 +9,10 @@
 4. **A5, Q4 — "Remove both"** (Option A, recommended): once the ante notice has moved, the grey "GAME" notice is removed from the game screen, and so is the dead return-tag pill, with their tests and dead code.
 5. **A5, Q5 — "Keep all 31"** (Option A, recommended): rows 5-35 of the canvas's list stay as they are. The list and the reasons are below, so the audit is closed.
 
+**Owner answer 2026-11-28** (by prompt, after the canvas `Proxic canvases/a4-end-step-passing.html`, on the point the As built raised): **"Ordinary button"** (Option B).
+
+6. **A4, the End step after passing something up — "Ordinary button"** (Option B): Alice has six Islands and Air Elemental in hand; at Main 2 she could cast it, chooses not to and presses End turn. Once she has passed up something she could have played this turn, "Passing" does not come back for the rest of that turn: the End step shows the ordinary button, as in 1.76.0, at full speed (no 0.4 s pause). Q1's own case is unchanged: having *played* what she was asked about (the Island the Thief drew), "Passing" comes back with a fresh reason. It resets at the next turn.
+
 ## Why (researched)
 
 Researched 2026-11-27 at origin/main 6b4df553 (the canvas). SOURCE = read in code, RUN = a game played through the worker.
@@ -113,7 +117,7 @@ None.
 
 Commits 37ea3792 (worker, Lab) and 452cf289 (page, tests, the passing-deck fixture), on branch `p11-a4-build` from origin/main 6b4df553. RUN unless marked.
 
-**What a player notices.** Items 1-5 of "What the player sees", as written. Also (built to Q1's letter, and a point for the owner, below): once you have passed your Main 2 holding cards you chose not to play, the End step can say "Passing · Nothing to play: …" (true there: nothing can be played at the End step) and pauses 0.4 s, where 1.76.0 showed the normal line.
+**What a player notices.** Items 1-5 of "What the player sees", as written. ~~Also (built to Q1's letter, and a point for the owner, below): once you have passed your Main 2 holding cards you chose not to play, the End step can say "Passing · Nothing to play: …" (true there: nothing can be played at the End step) and pauses 0.4 s, where 1.76.0 showed the normal line.~~ Answered by the owner 2026-11-28, "Ordinary button" (item 6): built, below ("Owner answer 2026-11-28, as built").
 
 **Which questions are asked: unchanged (RUN).** The full Mechanics Lab (every script in CI's Lab list, 79) was played with Forge's shuffle seeded (Forge's `MyRandom.setRandom` from a launcher kept outside the repository; the same seed twice on one build gave identical games first), once on origin/main's worker and once on this one: 439 traces, **43,996 questions, the question record identical** (each question's seat, kind, prompt, options and the answer given). The boards: 105,430 before and 105,446 after (16 more, sent when "passing" changed); boards carrying `passing` 427 and 429, distinct (game, seat, turn, reason) 85 and 90; the one key gone is `noticesTotal`. On origin/main two scripts failed, as they should: `check-thrown-away.py` `drew` and `check-unreachable.py` `ante`. On this build all 79 passed.
 
@@ -164,3 +168,30 @@ Commits 37ea3792 (worker, Lab) and 452cf289 (page, tests, the passing-deck fixtu
 
 `notices.spec.ts` (the one spec of that machine this change touches) passed in all four. The `admin`/`auth` failures are the first tests of the machine, a page that had not drawn in 15 s (its code chunks still loading, the trace's requests unfinished), a different set each run; `admin.spec` and `auth.spec` alone at 4x: 27 passed. Neither spec, nor anything it draws, is touched here. Recorded for ROADMAP's flake list owner; CI's run of these commits is the current RUN for them (EVID-004).
 
+### Owner answer 2026-11-28, as built ("Ordinary button")
+
+Built on branch `p11-a4-build` on top of fcb5b613. RUN unless marked.
+
+**What a player notices.** Alice holds Air Elemental she can pay for and presses End turn instead (at Main 1, at Main 2, or both). For the rest of that turn her button never says "Passing": the End step is the ordinary button ("End turn · Over to Bob"), and it goes at full speed. On her next turn "Passing" works as before. Q1's case is unchanged: having *played* the Island she was asked about, "Passing" comes back that turn with a fresh reason. Before this change, passing up the Elemental at Main 1 even brought "Passing" back from the combat steps on.
+
+**Worker (SOURCE).** `PriorityStops#passedWhenAsked`: the seat was ASKED a priority question on its own turn, answered "pass", and that question offered something it could play (the same `somethingToDo` that decides asking, with the stack as it is): the seat is marked as having declined that turn (`declined`, plain state for the unit tests). While marked, `recheck` keeps "Passing" clear (and clears it if it was on), so `pausing` does not pause. Called from `MatchController#chooseSpellAbilityToPlay`'s pass branch only; a question answered by somebody else (Mindslaver) marks nothing. The mark is by turn number, so it ends with the turn; a restarted game's old mark is dropped at the next upkeep or draw (`pausing`). `shouldAsk` is untouched: which questions are asked does not change, only the words and the 0.4 s pauses. Also marked (to the letter of the rule): a pass in a response window on her own turn while holding a payable instant.
+
+**Unit tests:** `PassingEveryStepTest` +4 (10): passed up, then no "Passing" at the End step or cleanup; passed up after "Passing" was on takes it away; playing what was offered (Q1's case), a pass with nothing playable, and a pass on Bob's turn decline nothing, and "Passing" comes back with "Four lands; no land in hand"; the mark resets at the next turn and is never another seat's.
+
+**Bites (TEST-004), each made a test fail, then restored:**
+
+| Mutation | Caught by |
+|---|---|
+| `recheck` ignores the mark | `PassingEveryStepTest` (3 tests) |
+| `declined` ignores "something playable" | `playingWhatWasOfferedIsNotDecliningSoPassingComesBack` |
+| the mark never resets (any turn) | `declinedResetsAtTheNextTurn` |
+| the mark leaves an existing "Passing" on | `passedUpAfterPassingWasOnTakesItAway` |
+| `MatchController` no longer calls `passedWhenAsked` (TEST-010) | Lab `declined` (WRONG: "Passing" from the combat steps, End step 0.41 s) and the real-click game (the End step said "Passing · Nothing to play: Five lands; a land already played this turn") |
+
+Not biteable: `declined`'s own-turn guard. A mark made on Bob's turn carries Bob's turn number, which is never one of Alice's turns, so removing the guard changes nothing a player can see (the mutant survived, as expected).
+
+**Lab (TEST-013).** New scenario `check-thrown-away.py declined`: Alice, Islands and one Air Elemental, passes it up at Main 1 and Main 2 with six lands; none of her boards says `passing` for the rest of that turn, and from her Main 2 pass to the next turn takes under 0.3 s. On the branch tip before this change (fcb5b613's worker): WRONG, "Passing" on her boards from COMBAT_BEGIN to END_OF_TURN ("Six lands; a land already played this turn") and 0.41 s from Main 2 to the next turn. After: the whole script (cave, handsize, countered, passed, drew, declined) 3 of 3 OK; `declined` 0.01 s each time; `drew` (Q1's case) OK each time.
+
+**Trace checks over the 18 traces of those three runs:** check-deltas OK (1,627 boards, 848 sent as deltas, every rebuilt board equal to the worker's); check-hidden-information OK and check-wording 0 hits, over the worker's boards and over the rebuilt ones.
+
+**Real-click game (TEST-011, TEST-012), stack B rebuilt from this branch:** `match-passing.spec.ts` "spec 0124: passing up a playable card keeps Passing away for the rest of the turn" (the `passing-deck` fixture, dealt): earlier turns said "Passing · Nothing to play: Four lands; a land already played this turn"; on turn 10 the host could pay for Air Elemental and pressed the act button instead at Main 1 and Main 2 (real clicks); no "Passing" for the rest of the turn. Passed 3 of 3 on this build (the last two with the test as committed; the first chose the turn by a land count that also counted the hand, so the committed test uses the page's own "can be paid" mark); on the same stack built with the `MatchController` call removed it failed (above). Still looked at: `0124-host-declined-end-step.png`, 150 ms after the Main 2 press: the button reads "END TURN · Over to Pat" with no "Passing" line, the step rail leaving Main 2, five Islands down and Air Elemental still in hand.
