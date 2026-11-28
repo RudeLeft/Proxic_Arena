@@ -339,6 +339,25 @@ test("P11-E5: a session that ended elsewhere: each early start is refused, costs
   await expect(page.getByLabel("Username")).toBeVisible();
   await page.waitForTimeout(1_000);
   const signedIn = await earlyFiles(page);
+  // Every early start and data request answered before any is read: a
+  // response's status is written when its headers arrive, and at 4x CPU one
+  // could still be on its way after the second waited above ("/api/decks",
+  // expected 401, received null: local ci-speed --alone, P11-B3 2026-11-28).
+  const asked = () =>
+    seen.requests.filter(
+      (r) => signedIn.includes(r.url) || (r.url.startsWith("/api/") && r.url !== "/api/auth/me"),
+    );
+  await expect
+    .poll(
+      () =>
+        asked()
+          .filter((r) => r.status === null)
+          .map((r) => r.url),
+      {
+        message: "every early start and data request answered",
+      },
+    )
+    .toEqual([]);
 
   const early = seen.requests.filter((r) => signedIn.includes(r.url));
   expect(early.length, "the hint started the shell's and the lobby's files").toBeGreaterThan(3);
