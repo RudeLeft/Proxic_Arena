@@ -387,7 +387,6 @@ describe("no word pills for these card actions (F-0075-A, B)", () => {
       .querySelector(`[data-zone="viewer:hand"][data-object-id="${mine.id}"]`)!
       .closest(".bf-slot")!;
     expect(calls.filter((x) => x.element === slot)).toHaveLength(1); // the flight is unchanged
-    expect(view.container.querySelectorAll("[data-return-tag]")).toHaveLength(0);
     expect(view.container.textContent).not.toContain("Back to");
   });
 
@@ -401,7 +400,6 @@ describe("no word pills for these card actions (F-0075-A, B)", () => {
       ),
     );
     expect(view.container.querySelector(`[data-ghost-of="${theirs.id}"]`)).not.toBeNull();
-    expect(view.container.querySelectorAll("[data-return-tag]")).toHaveLength(0);
     expect(view.container.textContent).not.toContain("On top of");
   });
 
@@ -415,7 +413,6 @@ describe("no word pills for these card actions (F-0075-A, B)", () => {
       ),
     );
     expect(view.container.querySelectorAll("[data-riffle]")).toHaveLength(6);
-    expect(view.container.querySelectorAll("[data-return-tag]")).toHaveLength(0);
     expect(view.container.textContent).not.toContain("Shuffled into");
   });
 });

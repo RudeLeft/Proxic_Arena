@@ -663,6 +663,11 @@ jobs:
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/karn-deck.zip" protocol/fixtures/karn-deck
 
+      # And passing at every step, the Bolt and the ante window (spec 0124).
+      - name: Build the passing deck package
+        run: |
+          node scripts/make-ci-deck.mjs "Test Deck/passing-deck.zip" protocol/fixtures/passing-deck
+
       # And a two-faced card (P6-BF): Delver of Secrets turning over.
       - name: Build the Delver deck package
         run: |

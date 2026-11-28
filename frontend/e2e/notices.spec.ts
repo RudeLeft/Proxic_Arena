@@ -3,8 +3,8 @@
 // Invitations, requests and their endings through two real players are in
 // lobby.spec. These prove the stack itself: news fades after 8 s and waits
 // while it is pointed at; more than three wait as "+N more"; and in a game
-// the game's own messages sit top right of the table with clicks going
-// through them, and a dropped connection is the blue card. The news here
+// the game's own grey messages are gone (spec 0124), and a dropped
+// connection is the blue card. The news here
 // is the server's own message, said again by the test (routeWebSocket),
 // so no other player is needed to decline anything.
 
@@ -74,7 +74,7 @@ test("news fades after 8 s, waits while pointed at, and more than three wait as 
   await expect(stack.locator("[data-notice]")).toHaveCount(0, { timeout: 10_000 });
 });
 
-test("in a game, the game's messages sit top right of the table and clicks go through them; a dropped connection is the blue card", async ({
+test("in a game, the game says nothing at the top right (spec 0124); a dropped connection is the blue card", async ({
   browser,
 }) => {
   test.setTimeout(300_000);
@@ -122,28 +122,16 @@ test("in a game, the game's messages sit top right of the table and clicks go th
     await startAMatch(host, guest, deck);
     await expect.poll(() => last !== "").toBe(true);
 
-    // What the game says, as it says it: on the snapshot's notices.
-    // Spec 0061: with one more told in all, as the game counts them.
+    // Spec 0124 (owner Q4 "Remove both"): the game's own grey "GAME" notice
+    // is gone. A board carrying a notice (as an older worker sent them) shows
+    // nothing at the top right.
     const said = JSON.parse(last) as { state: { notices?: string[]; noticesTotal?: number } };
     said.state.notices = [...(said.state.notices ?? []), "RudeLeft flipped a coin: heads."];
     said.state.noticesTotal = (said.state.noticesTotal ?? 0) + 1;
     (client as WebSocketRoute | null)?.send(JSON.stringify(said));
-
-    const message = noticeCard(guest, "RudeLeft flipped a coin: heads");
-    await expect(message).toBeVisible();
-    // Top right of the table: left of the right-hand column, near the top.
-    const box = (await message.boundingBox())!;
-    const rail = (await guest.locator(".bf-rail").boundingBox())!;
-    expect(box.x + box.width).toBeLessThanOrEqual(rail.x);
-    expect(box.y).toBeLessThan(120);
-    // Clicks go through: what is under its middle is not the card.
-    const under = await guest.evaluate(
-      ([x, y]) => document.elementFromPoint(x!, y!)?.closest("[data-notice]") !== null,
-      [box.x + box.width / 2, box.y + box.height / 2],
-    );
-    expect(under, "the message takes no clicks").toBe(false);
-    await guest.waitForTimeout(400); // past the slide-in
-    await guest.screenshot({ path: "test-results/seen/notices-game-message.png" });
+    await guest.waitForTimeout(1500);
+    await expect(noticeCard(guest, "RudeLeft flipped a coin: heads")).toHaveCount(0);
+    await expect(guest.locator("[data-notice]")).toHaveCount(0);
 
     // A dropped connection: the blue card, gone once it is back.
     dropped = true;

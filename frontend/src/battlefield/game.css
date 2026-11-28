@@ -6560,3 +6560,13 @@ button.gs-zone:not(:disabled):hover .gs-zone-art {
   color: #9aa3ad;
   white-space: nowrap;
 }
+/* Spec 0124 (owner Q3 "Report window") -- the game's own medallion (no player
+   did it): its shield, gold, on the medallion's dark ground and gold ring. */
+.gs-reveal-game {
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid #d9b26a;
+  background: radial-gradient(circle at 40% 35%, #3a4a42, #121a17);
+  box-sizing: border-box;
+}

@@ -40,6 +40,9 @@ export function wentWords(to: string | null | undefined): string | null {
       return "→ exile";
     case "stack":
       return "→ stack";
+    // Spec 0124 -- an ante card taken out of the deck before the game.
+    case "out":
+      return "→ out of the game";
     default:
       return null;
   }
@@ -157,6 +160,48 @@ export function ReportMarkPicture({ mark }: { mark: ReportMark }) {
   );
 }
 
+/**
+ * Spec 0124 (owner Q3 "Report window") -- the game's own medallion, for a
+ * report no player made (the ante cards taken out): the game's shield, gold
+ * on the medallion's ground, the canvas's ("a4-a5", Option A).
+ */
+export function GameMedallion({ size = 44 }: { size?: number }) {
+  return (
+    <span
+      className="gs-reveal-face gs-reveal-game"
+      data-medallion="game"
+      aria-hidden="true"
+      style={{ width: size, height: size }}
+    >
+      <svg viewBox="0 0 24 24" width={size * 0.53} height={size * 0.53}>
+        <path
+          d="M12 3l7 3v6c0 4-3 7-7 9c-4-2-7-5-7-9V6z"
+          fill="none"
+          stroke="#d9b26a"
+          strokeWidth="2"
+        />
+      </svg>
+    </span>
+  );
+}
+
+/**
+ * Who a report is by, as its line says it: "Bob, with Demonic Tutor"; the
+ * game's own (spec 0124): "Your deck · Contract from Below", under its shield.
+ */
+export function reportWho(
+  report: SnapshotReveal,
+  who: { name: string; face: ReactNode } | null,
+  size = 44,
+): { line: string; face: ReactNode } {
+  if (report.byWords)
+    return {
+      line: `${report.byWords} · ${report.source ?? ""}`,
+      face: <GameMedallion size={size} />,
+    };
+  return { line: `${who?.name ?? "A player"}, with ${report.source ?? ""}`, face: who?.face };
+}
+
 /** Spec 0075 -- the words under a picture that is not a card. */
 function markWords(mark: ReportMark): [string, string] {
   if (mark.kind === "color") return [COLOUR_WORDS[mark.color][1], "Chosen"];
@@ -185,6 +230,7 @@ function ReportRow({
 }) {
   const first = report.cards[0];
   const pic = first && !(first.faceDown && !first.known) ? (first.crop ?? first.art) : null;
+  const by = reportWho(report, who, 32);
   return (
     // Not a list item: the scripted games read a question's choices as
     // list items' buttons, and a row is no choice. Spec 0109, item 13: a
@@ -194,18 +240,16 @@ function ReportRow({
         type="button"
         className="gs-report-row-open"
         onClick={onOpen}
-        aria-label={`Open: ${who?.name ?? "A player"}, ${report.source}. ${report.said ?? ""}`}
+        aria-label={`Open: ${by.line}. ${report.said ?? ""}`}
       >
         <b className="gs-report-n" aria-hidden="true">
           {n}
         </b>
         <span className="gs-report-row-face" aria-hidden="true">
-          {who?.face}
+          {by.face}
         </span>
         <span className="gs-report-row-words">
-          <span className="gs-reveal-by">
-            {who?.name ?? "A player"}, with {report.source}
-          </span>
+          <span className="gs-reveal-by">{by.line}</span>
           <span className="gs-report-row-said">{report.said}</span>
         </span>
         {first && (
@@ -504,12 +548,10 @@ function ReportBody({
                 </span>
               </button>
             ) : (
-              who?.face
+              reportWho(reveal, who).face
             )}
             <div>
-              <span className="gs-reveal-by">
-                {who?.name ?? "A player"}, with {reveal.source}
-              </span>
+              <span className="gs-reveal-by">{reportWho(reveal, who).line}</span>
               <h2 className="gs-reveal-title gs-reveal-said">{reveal.said}</h2>
               {/* Spec 0057, item 7 -- why: a reveal paid as a cost. */}
               {reveal.why && (

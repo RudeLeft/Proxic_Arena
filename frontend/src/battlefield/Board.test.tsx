@@ -1735,8 +1735,6 @@ describe("Board: back to a hand or a library (A-14)", () => {
   const without = (...ids: string[]) => start.battlefield.filter((card) => !ids.includes(card.id));
   const slotOf = (container: HTMLElement, id: string) =>
     container.querySelector(`[data-object-id="${id}"]`)!.closest(".bf-slot") as HTMLElement;
-  const tags = (container: HTMLElement) =>
-    [...container.querySelectorAll("[data-return-tag]")].map((t) => t.textContent);
 
   it("back to your hand: the same card lifts and glides into its place there -- no pop", () => {
     const view = render(draw(start.battlefield));
@@ -1774,7 +1772,6 @@ describe("Board: back to a hand or a library (A-14)", () => {
     expect(String(lift[0]!.frames.at(-1)!.transform)).toBe(slot.style.transform);
     expect(lift[0]!.frames.every((f) => f.opacity === 1)).toBe(true);
     // Spec 0075: no word pill -- the report window explains it.
-    expect(tags(view.container)).toEqual([]);
   });
 
   it("back to the other player's hand: it turns face down on the way, becoming their new card back", () => {
@@ -1808,7 +1805,6 @@ describe("Board: back to a hand or a library (A-14)", () => {
     expect(into[0]!.frames.at(-1)!.opacity).toBe(1);
     expect(into[0]!.options.duration).toBe(RETURN_MS);
     // Spec 0075: no word pill -- the report window explains it.
-    expect(tags(view.container)).toEqual([]);
   });
 
   it("on top of a library: face down on the way, sinking into the pile, no tag", () => {
@@ -1832,7 +1828,6 @@ describe("Board: back to a hand or a library (A-14)", () => {
     expect(turn.frames[0]!.opacity).toBe(0);
     expect(turn.frames.at(-1)!.opacity).toBe(1);
     // Spec 0075: no word pill -- the report window explains it.
-    expect(tags(view.container)).toEqual([]);
     expect(view.container.querySelector("[data-riffle]")).toBeNull();
   });
 
@@ -1860,7 +1855,6 @@ describe("Board: back to a hand or a library (A-14)", () => {
       expect((r as HTMLElement).style.opacity).toBe("0");
     }
     // Spec 0075: no word pill -- the report window explains it.
-    expect(tags(view.container)).toEqual([]);
   });
 
   it("out of a pile: each card going back leaves as its own ghost from the pile", () => {
@@ -1905,7 +1899,6 @@ describe("Board: back to a hand or a library (A-14)", () => {
       expect(ghost.getAttribute("data-return")).toBe("library");
     }
     // Spec 0075: no word pill -- the report window explains it.
-    expect(tags(view.container)).toEqual([]);
   });
 
   it("the bottom of a library, and a spell sent back from the stack (no spark, no graveyard)", () => {
@@ -1935,7 +1928,6 @@ describe("Board: back to a hand or a library (A-14)", () => {
     expect(run.options.delay).toBe(0); // it did not resolve: no glow first
     expect(run.options.duration).toBe(RETURN_MS);
     // Spec 0075: no word pill -- the report window explains it.
-    expect(tags(view.container)).toEqual([]);
   });
 
   it("with reduced motion asked for: no lift, no tag, no riffle", () => {
@@ -1949,8 +1941,6 @@ describe("Board: back to a hand or a library (A-14)", () => {
       }),
     );
     expect(calls).toHaveLength(0);
-    expect(
-      view.container.querySelector("[data-return-tag], [data-riffle], [data-ghost-of]"),
-    ).toBeNull();
+    expect(view.container.querySelector("[data-riffle], [data-ghost-of]")).toBeNull();
   });
 });

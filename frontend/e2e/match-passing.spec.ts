@@ -18,10 +18,18 @@ import {
   answer,
   choices,
   clearEverything,
+  clickIf,
+  clickNow,
+  clickUnlessCombat,
+  discardIfAsked,
   isAsked,
   matchPanel,
+  passButton,
+  PAYING,
+  realClick,
   sharedDeck,
   startAMatch,
+  TARGETING,
   watchGame,
 } from "./match-helpers";
 
@@ -115,6 +123,313 @@ test("a turn with nothing to play: the act button says Passing and why, no notic
     await expect.poll(() => turnOf(page), { timeout: 60_000 }).toBeGreaterThan(turn);
     await expect(passing(page)).toHaveCount(0);
     await page.waitForTimeout(1500);
+  } finally {
+    await clearEverything(host).catch(() => undefined);
+    await host.context().close();
+    await guest.context().close();
+  }
+});
+
+// Spec 0124 (F-0124-G, TEST-012) -- in a real game, with real clicks:
+//
+// 1. The ante window (owner Q3): every Contract from Below is taken out of
+//    both decks before the game; once the first turn begins each player has
+//    the report window for their own deck, under the game's shield, "Your
+//    deck · Contract from Below", and nothing at the top right.
+// 2. Bob's move (owner Q2): during the host's passing turn the guest REALLY
+//    casts Lightning Bolt at the host (a click on the hand card, then on the
+//    host's life, then a Mountain). While it is chosen, paid and waiting the
+//    host's button says "<guest>'s move", never "Passing"; once it has
+//    resolved, "Passing" is back.
+// 3. Every step (owner Q1): the host's turn passes (only five- and six-mana
+//    cards in hand); its Scroll Thief attacks and its hit draws a card. The
+//    reason the button shows after the hit, that turn, is not the one from
+//    before it (an Island drawn: "no land you can play" at the combat steps,
+//    then the host is asked at Main 2).
+//
+// Dealt (spec 0098). The deck is protocol/fixtures/passing-deck. CI builds
+// it; locally:
+//
+//   node scripts/make-ci-deck.mjs "Test Deck/passing-deck.zip" protocol/fixtures/passing-deck
+
+const passingPackage = join(process.cwd(), "..", "Test Deck", "passing-deck.zip");
+const SHOTS = process.env.PROXIC_SHOTS ?? "test-results/seen";
+
+test("spec 0124: the ante window, Bob's move over Passing, and Passing re-checked after a mid-turn draw", async ({
+  browser,
+}) => {
+  test.skip(!existsSync(passingPackage), "no passing deck package (CI builds it)");
+  test.setTimeout(1_200_000);
+  const viewport = { width: 1920, height: 1080 };
+  const context = (name: string) =>
+    browser.newContext({
+      viewport,
+      ...(CLIPS ? { recordVideo: { dir: join(CLIPS, name), size: viewport } } : {}),
+    });
+  const host = await (await context("host")).newPage();
+  await signIn(host);
+  await clearEverything(host);
+  const guest = await (await context("guest")).newPage();
+  await signInAs(guest, secondUser, secondPassword);
+  await clearEverything(guest);
+
+  const passing = (page: Page) => matchPanel(page).locator("[data-passing]");
+  // Never waits (a textContent() on a gone element would wait out the whole
+  // test): one look in the page, the element and its words together.
+  const odd: string[] = [];
+  const passingWords = async (page: Page) => {
+    const seen = await passing(page).evaluateAll((els) =>
+      els.map((e) => ({ text: e.textContent ?? "", html: e.outerHTML.slice(0, 300) })),
+    );
+    const first = seen[0];
+    if (!first) return null;
+    if (!first.text.includes("Passing")) odd.push(first.html);
+    return first.text;
+  };
+  const turnOf = async (page: Page) =>
+    Number((await page.locator(".gs-turn-value").allTextContents())[0] ?? 0);
+  const inHand = (page: Page, name: RegExp) =>
+    page
+      .locator('[data-zone="viewer:hand"][data-choosable="true"]:not([data-unpayable="true"])')
+      .filter({ hasText: name });
+
+  try {
+    const deck = await sharedDeck(host, guest, passingPackage);
+    await startAMatch(host, guest, deck, {
+      deal: {
+        host: {
+          hand: [
+            "Island",
+            "Island",
+            "Island",
+            "Scroll Thief",
+            "Air Elemental",
+            "Air Elemental",
+            "Mahamoti Djinn",
+          ],
+          // Five- and six-mana cards until the fourth draw; then Islands.
+          top: [
+            "Mahamoti Djinn",
+            "Mahamoti Djinn",
+            "Air Elemental",
+            "Island",
+            "Island",
+            "Island",
+            "Island",
+          ],
+        },
+        guest: {
+          hand: [
+            "Mountain",
+            "Mountain",
+            "Mountain",
+            "Mountain",
+            "Lightning Bolt",
+            "Lightning Bolt",
+            "Mountain",
+          ],
+          top: ["Mountain", "Mountain", "Mountain", "Mountain", "Mountain", "Mountain"],
+        },
+      },
+    });
+
+    const ante: Record<string, { by: string; medallion: boolean; notes: number } | null> = {
+      host: null,
+      guest: null,
+    };
+    let bolt: "none" | "cast" | "seen" | "done" = "none";
+    let duringBolt: { passing: string | null; waiting: string } | null = null;
+    let afterBolt: string | null = null;
+    // Looks at the host's page while the Bolt was on its stack: how many showed "Passing".
+    const stackLooks = { looks: 0, passing: 0 };
+    let attackTurn: number | null = null;
+    let before: string | null = null;
+    let after: string | null = null;
+    let lastPassing: string | null = null;
+    const done = () => after !== null && bolt === "done" && ante.host && ante.guest;
+    const watch = watchGame([host, guest], () => ({ ante, bolt, duringBolt, attackTurn, before }));
+    const deadline = Date.now() + 1_000_000;
+
+    let said = 0;
+    while (!done() && Date.now() < deadline) {
+      await watch.check();
+      if (Date.now() - said > 30_000) {
+        said = Date.now();
+        const acts = async (page: Page) =>
+          (await matchPanel(page).locator(".gs-act, .gs-waiting").allTextContents()).join(" | ");
+        console.log(
+          `turn ${await turnOf(host)}: host [${await acts(host)}] guest [${await acts(guest)}] ` +
+            JSON.stringify({ bolt, attackTurn, before, lastPassing }),
+        );
+      }
+      // The host's button, as it is now.
+      const words = await passingWords(host);
+      const turn = await turnOf(host);
+      if (words) {
+        if (attackTurn === null) lastPassing = words;
+        else if (turn === attackTurn && words !== before && after === null) {
+          after = words;
+          await host.screenshot({ path: join(SHOTS, "0124-host-after-the-draw.png") });
+        }
+      }
+      // 2. While the Bolt is chosen, paid and waiting: the guest's move on the
+      // host's page, never "Passing"; once it has resolved, "Passing" again.
+      if (bolt === "cast" || bolt === "seen") {
+        const onStack = (await host.locator('button[data-zone="stack"]').count()) > 0;
+        const showing = (await passing(host).count()) > 0;
+        if (onStack) {
+          stackLooks.looks += 1;
+          if (showing) stackLooks.passing += 1;
+        }
+        const waiting = (await matchPanel(host).locator(".gs-waiting").allTextContents()).join(
+          " | ",
+        );
+        if (bolt === "cast" && /’s move/.test(waiting)) {
+          duringBolt = { passing: showing ? await passingWords(host) : null, waiting };
+          bolt = "seen";
+          await host.screenshot({ path: join(SHOTS, "0124-host-bobs-move.png") });
+        }
+        // Resolved: the host's life is down and nothing is on the stack.
+        const life = Number(
+          (await host.locator(".gs-seat-viewer .gs-life").allTextContents())[0] ?? "20",
+        );
+        if (bolt === "seen" && life < 20 && !onStack && showing) {
+          afterBolt = await passingWords(host);
+          bolt = "done";
+          await host.screenshot({ path: join(SHOTS, "0124-host-passing-again.png") });
+        }
+      }
+      for (const [who, page] of [
+        ["host", host],
+        ["guest", guest],
+      ] as const) {
+        const panel = matchPanel(page);
+        if ((await page.locator(".gs-over").count()) > 0) break;
+        if (await discardIfAsked(page)) continue;
+        // 1. The ante window, once, then closed.
+        const report = page.locator(".gs-reveal");
+        if ((await report.count()) > 0) {
+          if (!ante[who] && (await report.filter({ hasText: "Contract from Below" }).count()) > 0) {
+            ante[who] = {
+              by: (await report.locator(".gs-reveal-by").allTextContents())[0] ?? "",
+              medallion: (await report.locator("[data-medallion='game']").count()) > 0,
+              notes: await panel.locator(".pa-note").count(),
+            };
+            await page.screenshot({ path: join(SHOTS, `0124-${who}-ante-window.png`) });
+          }
+          const close = page.locator(".gs-reveal .gs-reveal-close");
+          if ((await close.count()) > 0) {
+            await clickNow(close);
+            continue;
+          }
+        }
+        const combat = panel.locator("button.gs-act-combat");
+        if ((await combat.count()) > 0) {
+          // The host attacks with its Scroll Thief, once, the first turn it can:
+          // a real click on the Thief, then on the guest's life.
+          const thief = page
+            .locator('.bf-cards button[data-controller="viewer"][data-choosable="true"]')
+            .filter({ hasText: /^Scroll Thief/ });
+          if (who === "host" && attackTurn === null && (await thief.count()) > 0) {
+            await realClick(page, thief);
+            const life = page.locator('.gs-seat-opponent .gs-life[data-choosable="true"]');
+            await expect(life).toBeVisible({ timeout: 5_000 });
+            await realClick(page, life);
+            attackTurn = await turnOf(page);
+            before = lastPassing;
+          }
+          await clickNow(panel.locator("button.gs-act-combat:not([disabled])"));
+          continue;
+        }
+        // Casting the Bolt: the host's life, then a Mountain.
+        const targeting = panel.locator('.gs-win[data-kind="chooseTargetsFor"]');
+        const cast = page.locator(".gs-cast:not(.gs-cast-leaving)");
+        if ((await targeting.count()) > 0 || (await cast.count()) > 0) {
+          const theirLife = panel.locator(".gs-seat-opponent .gs-life.gs-choosable");
+          const aimShown = (await targeting.count()) > 0;
+          if (aimShown && (await theirLife.count()) > 0) {
+            await realClick(page, theirLife);
+            continue;
+          }
+          const tap = page.locator(
+            '.bf-cards button[data-choosable="true"][data-controller="viewer"]:not([data-zone="viewer:hand"])',
+          );
+          const listed = panel.locator(".gs-win li button, .gs-question li button");
+          if ((await tap.count()) > 0) await clickIf(tap, PAYING);
+          else if ((await listed.count()) > 0)
+            await clickUnlessCombat(listed, aimShown ? undefined : TARGETING);
+          continue;
+        }
+        if (!(await isAsked(page))) continue;
+        const priority =
+          (await panel
+            .locator("button.gs-act:not(.gs-act-combat):not(.gs-act-cancel):not(.gs-act-discard)")
+            .count()) > 0;
+        if (!priority) {
+          const main = panel.locator(".gs-win button.gs-win-btn-main:not(:disabled)");
+          const listed = panel.locator(".gs-question li button, .gs-win li button");
+          if ((await listed.count()) > 0) await clickUnlessCombat(listed);
+          else if ((await main.count()) > 0) await clickUnlessCombat(main);
+          else await clickNow(passButton(page));
+          continue;
+        }
+        let pick = null;
+        if (who === "guest") {
+          // Bolt the host once, during the host's passing turn.
+          if (bolt === "none" && words && (await inHand(page, /^Lightning Bolt/).count()) > 0)
+            pick = inHand(page, /^Lightning Bolt/);
+          else if ((await inHand(page, /^Mountain/).count()) > 0) pick = inHand(page, /^Mountain/);
+        } else {
+          // A hand card offered and payable (the page's own marks): the Thief once it can be paid.
+          if ((await inHand(page, /^Island/).count()) > 0) pick = inHand(page, /^Island/);
+          else if ((await inHand(page, /Scroll Thief/).count()) > 0)
+            pick = inHand(page, /Scroll Thief/);
+        }
+        if (pick && (await pick.count()) > 0) {
+          const what = (await pick.allTextContents())[0] ?? "";
+          if ((await realClick(page, pick)) && /Lightning Bolt/.test(what)) bolt = "cast";
+        } else await clickNow(passButton(page));
+      }
+    }
+
+    console.log(
+      JSON.stringify({
+        ante,
+        bolt,
+        duringBolt,
+        stackLooks,
+        afterBolt,
+        attackTurn,
+        before,
+        after,
+        odd,
+      }),
+    );
+    // 1. The ante window, each player for their own deck.
+    for (const who of ["host", "guest"] as const) {
+      expect(ante[who], `${who}: the ante report window`).not.toBeNull();
+      expect(ante[who]!.by).toBe("Your deck · Contract from Below");
+      expect(ante[who]!.medallion, `${who}: the game's shield`).toBe(true);
+      expect(ante[who]!.notes, `${who}: nothing at the top right`).toBe(0);
+    }
+    // 2. The guest's move over Passing, then Passing again.
+    expect(duringBolt, "the host's button while the Bolt was cast").not.toBeNull();
+    expect(duringBolt!.passing, "never Passing while the guest acts").toBeNull();
+    expect(
+      stackLooks.looks,
+      "the host's page was looked at with the Bolt on the stack",
+    ).toBeGreaterThan(0);
+    expect(stackLooks.passing, "never Passing with the Bolt on the stack").toBe(0);
+    expect(afterBolt, "Passing back once the stack was empty").toMatch(/Nothing to play/);
+    // 3. Re-checked after the Thief's draw: a reason that is true now.
+    expect(attackTurn, "the host attacked with Scroll Thief").not.toBeNull();
+    expect(before, "the host's turn was passing before the attack").toMatch(/Nothing to play/);
+    // The reason as it is after the draw: a land now in hand ("no land you can
+    // play" at the combat steps, then asked at Main 2), or one more land.
+    expect(after, "a fresh reason after the draw").toMatch(/Nothing to play: /);
+    expect(after, "not the reason from before the draw").not.toBe(before);
+    // The "Passing" element never carried other words (one look in the page each time).
+    expect(odd, "a [data-passing] element that did not say Passing").toEqual([]);
   } finally {
     await clearEverything(host).catch(() => undefined);
     await host.context().close();

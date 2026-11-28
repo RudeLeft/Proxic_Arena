@@ -766,6 +766,11 @@ export interface SnapshotReveal {
   by?: number;
   /** Amendment 12 -- the card that did it ("Demonic Tutor"). */
   source?: string;
+  /**
+   * Spec 0124 -- the game's own report (no player did it: `by` 0): what it is
+   * about, in the medallion's line ("Your deck"), under the game's shield.
+   */
+  byWords?: string;
   /** Amendment 12 -- the whole action in this reader's words. */
   said?: string;
   /** Spec 0057, item 7 -- why, for a reveal paid as a cost ("to cast … for {1}{G} instead of {4}{G}"). */
@@ -961,20 +966,12 @@ export interface Snapshot {
   seat: number;
   players: SnapshotPlayer[];
   /**
-   * What Forge TOLD this viewer, oldest first — P6-AM.
-   *
-   * A coin flip and a die roll are the engine's to make, so the
-   * only thing owed is that the player sees the outcome. Private
-   * to the seat it was sent to: "you looked at X" is a notice for
-   * exactly one person.
+   * What Forge TOLD this viewer, oldest first — P6-AM. Spec 0124: always
+   * empty now (the grey "GAME" notices are gone; their last line, the ante
+   * cards, is a report window), kept on the wire for the board's history
+   * lists (P11-D3). Nothing on the page reads it.
    */
   notices: string[];
-  /**
-   * Spec 0061 -- how many notices this viewer was told in all. `notices`
-   * keeps the last six only, so its length stops changing once full; this
-   * says how many of them are new. Absent from an older worker.
-   */
-  noticesTotal?: number | null;
   /**
    * Spec 0097, item 2 -- this viewer's own turn is being passed for them
    * (nothing they can play): the turn, and why ("2 lands, no land in hand").
@@ -1877,7 +1874,6 @@ function asSnapshot(value: unknown): Snapshot | null {
     prioritySeat: asNumber(row["prioritySeat"]),
     players: asPlayers(row["players"]),
     notices: asNotices(row["notices"]),
-    noticesTotal: asNumber(row["noticesTotal"]),
     passing: asPassing(row["passing"]),
     battlefield: keptCards(row["battlefield"]),
     rolls: asRolls(row["rolls"]),
@@ -2055,6 +2051,7 @@ function asAction(value: unknown, nested = false): SnapshotReveal | null {
     stamp: asNumber(row["stamp"]) ?? 0,
     by: asNumber(row["by"]) ?? 0,
     source: asString(row["source"]) ?? "",
+    ...(asString(row["byWords"]) ? { byWords: asString(row["byWords"])! } : {}),
     ...(marks.length ? { marks } : {}),
     ...(gathered.length ? { gathered } : {}),
   };

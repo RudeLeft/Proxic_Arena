@@ -6,7 +6,6 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Decision, DecisionOption, SnapshotCard } from "../match";
-import { newNotices, noticeParts } from "../notices";
 import { DISCARD_KIND, discardCount, discardWords, togglePick } from "./discard";
 import { boardFromSnapshot } from "./fromSnapshot";
 import { ActionPopup, DiscardAct } from "./GameScreen";
@@ -121,32 +120,6 @@ describe("a cycling card with only cycling offered opens its menu (F-0061-A)", (
     expect(onChoose).not.toHaveBeenCalled(); // opening it did nothing
     fireEvent.click(red);
     expect(onChoose).toHaveBeenCalledWith(cycle.actionId);
-  });
-});
-
-// --- item 2: a turn passed for you is said ------------------------------------------
-
-describe("the passed-turn notice shows, after the sixth too (F-0061-B)", () => {
-  it("the notice is a title and a line", () => {
-    expect(
-      noticeParts("Nothing you can play this turn -- 1 land, no land in hand. Passing your turn."),
-    ).toEqual({
-      title: "Nothing you can play this turn",
-      line: "1 land, no land in hand. Passing your turn.",
-    });
-    expect(noticeParts("You flipped heads.")).toEqual({ title: "You flipped heads." });
-  });
-
-  it("a notice after the list is full (six kept) is still new", () => {
-    const six = ["a", "b", "c", "d", "e", "f"];
-    const full = { notices: six, noticesTotal: 6 };
-    // The old count, by length, saw nothing new once six were kept.
-    expect(newNotices({ notices: ["b", "c", "d", "e", "f", "Nothing"] }, 6, null)).toEqual([]);
-    expect(
-      newNotices({ notices: ["b", "c", "d", "e", "f", "Nothing"], noticesTotal: 7 }, 6, 6),
-    ).toEqual(["Nothing"]);
-    expect(newNotices(full, 6, 6)).toEqual([]);
-    expect(newNotices(full, 0, null)).toEqual(six); // the first board: as before
   });
 });
 

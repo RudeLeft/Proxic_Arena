@@ -331,7 +331,6 @@ describe("F-0074-A · discarded: lifted out of the hand, dropped face up into th
     expect(ghostsOf(view.container, "hidden-hand:2:4")).toHaveLength(0);
     expect(ghostsOf(view.container, "hidden-hand:2:5")).toHaveLength(0);
     // Spec 0074, Amendment 1: no word pill -- the report window explains it.
-    expect(view.container.querySelector(".bf-return-tag")).toBeNull();
     // The tile ticks as each lands: 0, 1, 2.
     expect(tileAt(view.container, "opponent:graveyard", 0)).toEqual(["0"]);
     expect(tileAt(view.container, "opponent:graveyard", RESOLVE_MS + DISCARD_MS)).toEqual(["1"]);
@@ -373,7 +372,6 @@ describe("F-0074-A · discarded: lifted out of the hand, dropped face up into th
     const last = centre(String(run.frames.at(-1)!.transform), ghost!.style.transformOrigin);
     expect(near(last, where["viewer:graveyard"])).toBe(true);
     // Spec 0097, item 9: no word pill rides with it.
-    expect(view.container.querySelector(".bf-return-tag")).toBeNull();
   });
 });
 
@@ -587,7 +585,6 @@ describe("F-0074-C · countered: struck by the beam, grey ash, to the graveyard"
     expect(String(frameAt(run, COUNTER_GO_MS - 1).transform)).toBe(
       String(frameAt(run, COUNTER_GO_MS - 100).transform),
     );
-    expect(view.container.querySelector(".bf-return-tag")).toBeNull();
     // The Counterspell itself resolved as always: it glows, then goes.
     const cs = ghostsOf(view.container, counterspell.id)[0]!;
     expect(cs.dataset.countered).toBeUndefined();
@@ -660,7 +657,6 @@ describe("F-0074-D · out of a graveyard or exile: risen, shown, then where it g
     // No id for the card in his hand: the card is never named there.
     expect(view.container.querySelector('[data-object-id="card:70"]')).toBeNull();
     // Amendment 1: no word pill -- the report window says it.
-    expect(view.container.querySelector("[data-return-tag]")).toBeNull();
   });
 
   it("Unearth: from your graveyard onto the table, landing as that card", () => {

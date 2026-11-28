@@ -27,7 +27,7 @@ function useFade(ms: number | undefined, paused: boolean, done: (() => void) | u
 
 function NoticeCard({ notice, paused }: { notice: Notice; paused: boolean }) {
   useFade(notice.fadeMs, paused, notice.close);
-  const through = notice.quiet === true || (notice.actions.length === 0 && !notice.close);
+  const through = notice.actions.length === 0 && !notice.close;
   return (
     <div
       className={`pa-note pa-note-${notice.tone}${through ? " pa-note-through" : ""}`}
@@ -51,7 +51,7 @@ function NoticeCard({ notice, paused }: { notice: Notice; paused: boolean }) {
           ))}
         </span>
       )}
-      {notice.close && !notice.quiet && (
+      {notice.close && (
         <button
           type="button"
           className="pa-note-close"

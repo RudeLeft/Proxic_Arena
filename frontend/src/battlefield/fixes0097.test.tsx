@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_LOBBY, type MatchView } from "../lobby";
 import { reduceMatch, type MatchState } from "../match";
 import { NoticeStack } from "../NoticeStack";
-import { GAME_MESSAGE_MS, type Notice } from "../notices";
+import { type Notice } from "../notices";
 
 const socket = vi.hoisted(() => ({
   onState: null as null | ((apply: (previous: MatchState) => MatchState) => void),
@@ -145,14 +145,15 @@ describe("F-0097-A · a notice is never stuck", () => {
     close,
     fadeMs: 8000,
   });
+  // Spec 0124: the game's grey notices are gone; a second piece of news
+  // proves the same (the fade after a close under the pointer).
   const said = (close: () => void): Notice => ({
-    key: "said-9:0",
-    tone: "grey",
-    label: "Game",
-    title: "A grey notice",
+    key: "news-2",
+    tone: "gold",
+    label: "Invitation",
+    title: "A later notice",
     actions: [],
-    quiet: true,
-    fadeMs: GAME_MESSAGE_MS,
+    fadeMs: 8000,
     close,
   });
 
@@ -183,17 +184,17 @@ describe("F-0097-A · a notice is never stuck", () => {
     fireEvent.click(r.container.querySelector(".pa-note-close")!);
     set([said(() => set([]))]);
     act(() => {
-      vi.advanceTimersByTime(GAME_MESSAGE_MS + 100);
+      vi.advanceTimersByTime(8100);
     });
     return r.container.textContent ?? "";
   }
 
-  it("an invitation closed under the pointer, then a grey notice: it fades", () => {
-    expect(closeUnderThePointer(false)).not.toContain("A grey notice");
+  it("an invitation closed under the pointer, then another notice: it fades", () => {
+    expect(closeUnderThePointer(false)).not.toContain("A later notice");
   });
 
   it("the same when the pointer had left first", () => {
-    expect(closeUnderThePointer(true)).not.toContain("A grey notice");
+    expect(closeUnderThePointer(true)).not.toContain("A later notice");
   });
 
   it("pointing at a notice still holds it while it is there", () => {
@@ -217,20 +218,16 @@ describe("F-0097-A · a notice is never stuck", () => {
     expect(gone).toBe(true);
   });
 
-  it("a reload mid-game: the notices the game kept are not told again", () => {
-    const c = open();
-    send(state({ notices: ["An old one", "Another old one"], noticesTotal: 9 }));
-    expect(notes(c)).toEqual([]);
-    // A notice told after the reload is new, and shown.
-    send(state({ notices: ["An old one", "Another old one", "A new one"], noticesTotal: 10 }));
-    expect(notes(c).join(" ")).toContain("A new one");
-    expect(notes(c).join(" ")).not.toContain("old one");
-  });
-
-  it("before the first turn (the opening hand), what the game says is still told", () => {
+  it("F-0124-E: the game's own words are never a grey notice on the game screen", () => {
+    // Spec 0124 (owner Q4 "Remove both"): an older worker's line, before the
+    // first turn and after it, is shown nowhere at the top right.
     const c = open();
     send(state({ turn: 0, notices: ["Every copy of Darkpact was taken out"], noticesTotal: 1 }));
-    expect(notes(c).join(" ")).toContain("Every copy of Darkpact");
+    send(
+      state({ notices: ["Every copy of Darkpact was taken out", "A new one"], noticesTotal: 2 }),
+    );
+    expect(notes(c)).toEqual([]);
+    expect(c.textContent).not.toContain("Darkpact");
   });
 });
 

@@ -237,7 +237,7 @@ import {
 import { holdActive } from "../activity";
 import { useSettled } from "../useSettled";
 import { NoticeStack } from "../NoticeStack";
-import { GAME_MESSAGE_MS, inArrival, newNotices, noticeParts, type Notice } from "../notices";
+import { inArrival, type Notice } from "../notices";
 import { usePageNotices } from "../shell/PageNotices";
 import { SharpCard, closeUpOf, fetchAhead, pictureUrl } from "../closeUp";
 import { ManaCost, ManaText, costChange, manaSymbols, withSymbols } from "./ManaCost";
@@ -359,9 +359,10 @@ export function GameScreen({
     game.connection === "reconnecting" || game.stalled === true,
     1500,
   );
-  // Spec 0050 — the page's notices and the game's own, top right of the table.
+  // Spec 0050 — the page's notices, top right of the table. Spec 0124 (owner
+  // 2026-11-27, Q4 "Remove both"): the game's own grey "GAME" notices are
+  // gone; what the game tells a player is a report window.
   const pageNotices = usePageNotices();
-  const said = useGameMessages(game.board);
   const tableOrder = useRef(new Map<string, number>());
   const connection: Notice[] = [];
   if (live && reconnecting && !finished) {
@@ -388,7 +389,7 @@ export function GameScreen({
       actions: [{ label: "Reload", primary: true, run: () => window.location.reload() }],
     });
   }
-  const tableNotices = inArrival([...pageNotices, ...connection, ...said], tableOrder.current);
+  const tableNotices = inArrival([...pageNotices, ...connection], tableOrder.current);
 
   // Spec 0122 -- the page's own leave, for a game found over as it loads.
   const leaveRef = useRef(onLeave);
@@ -2352,6 +2353,8 @@ export function GameScreen({
   const pairNow = replayPair.current;
   const replayOffered =
     !!reveal &&
+    // Spec 0124 -- the game's own report (the ante cards) moved nothing on the table.
+    !reveal.byWords &&
     !replayNow &&
     !motionOff() &&
     !!pairNow &&
@@ -4660,6 +4663,19 @@ export function passingOf(board: Snapshot, mySeat: number): SnapshotPassing | nu
 }
 
 /**
+ * Spec 0124 (Q2 "Bob's move") -- the other player is acting during your turn:
+ * they are being asked something, or something is on the stack (theirs, or
+ * a trigger resolving). "Passing" then gives way to the waiting line.
+ */
+export function othersMove(
+  board: Snapshot,
+  mySeat: number,
+  asking: { seat: number | null } | null,
+): boolean {
+  return board.stack.length > 0 || (asking?.seat != null && asking.seat !== mySeat);
+}
+
+/**
  * Spec 0061, item 3 (owner's way "a") -- the act button while discarding to
  * hand size: grey until the cards are picked ("Discard 1 · Click a card to
  * pick it"), then red and naming them ("Discard Elvish Warrior"); only it
@@ -4804,8 +4820,13 @@ function Rail({
   // Spec 0097, item 2 (owner: A) -- your own turn passing for you, nothing
   // you can play: the act button says why, during that turn only (a step
   // moving on to the next turn takes it away before the next board does).
+  // Spec 0124 (owner 2026-11-27, Q2 "Bob's move") -- while the other player
+  // acts during it (being asked, or anything on the stack), the normal
+  // waiting line ("Bob's move"); "Passing" is back once the stack is empty.
   const passing =
-    !over && !combat && !cancel && !myPriority && !question ? passingOf(board, mySeat) : null;
+    !over && !combat && !cancel && !myPriority && !question && !othersMove(board, mySeat, asking)
+      ? passingOf(board, mySeat)
+      : null;
   // W-25 — whose move it is, when nothing is asked of you; their corner glows.
   const waiting =
     !over && !combat && !cancel && !myPriority && !question && !passing
@@ -6417,53 +6438,6 @@ export function ZoneViewer({
       </div>
     </div>
   );
-}
-
-/**
- * What Forge told this player, briefly (§7.57). A missed one costs nothing.
- * Spec 0050 (Phase 9 W-22): grey cards top right of the table, clicks going
- * through them; four at most, each gone after 7 s.
- */
-function useGameMessages(board: Snapshot | null): Notice[] {
-  const [shown, setShown] = useState<{ key: string; text: string }[]>([]);
-  const seen = useRef(0);
-  const seenTotal = useRef<number | null>(null);
-  const primed = useRef(false);
-  useEffect(() => {
-    if (!board) return;
-    // Spec 0097, item 1 -- the first board after this screen mounts (a
-    // reload, coming back to the game): what the game kept was told before,
-    // so it counts as seen. It used to replay up to six old notices as new.
-    // Before the first turn (turn 0: the opening hand) nothing has been
-    // shown yet -- an ante card taken out is still told.
-    const fresh =
-      primed.current || board.turn === 0 ? newNotices(board, seen.current, seenTotal.current) : [];
-    primed.current = true;
-    seen.current = board.notices.length;
-    seenTotal.current = board.noticesTotal ?? null;
-    if (fresh.length === 0) return;
-    // Spec 0075 -- a reveal's or a report's own line ("Looking at your
-    // library: A, B") is never sent: the worker leaves it out when the
-    // window says it, so the page matches no words here (PROTO-006).
-    const added = fresh.map((text, i) => ({ key: `said-${board.stateRevision}:${i}`, text }));
-    setShown((list) => [...list, ...added].slice(-4));
-  }, [board]);
-  return shown.map((said) => {
-    const { title, line } = noticeParts(said.text);
-    return {
-      key: said.key,
-      tone: "grey",
-      label: "Game",
-      // The game's own words, exactly as it says them.
-      title,
-      titleNode: <ManaText text={title} />,
-      ...(line ? { line } : {}),
-      actions: [],
-      quiet: true,
-      fadeMs: GAME_MESSAGE_MS,
-      close: () => setShown((list) => list.filter((n) => n.key !== said.key)),
-    };
-  });
 }
 
 /**

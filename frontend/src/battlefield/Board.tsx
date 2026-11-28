@@ -1529,16 +1529,19 @@ interface Fizzle {
   delay: number;
 }
 
-/** Phase 10 A-14 -- a tag at a destination, or one back of a riffling library: gone when its animation ends. */
+/**
+ * Phase 10 A-14 -- one back of a riffling library: gone when its animation
+ * ends. (Its word tag at a destination was drawn by nothing since spec 0075
+ * and was removed with spec 0124, owner Q4 "Remove both".)
+ */
 interface ReturnMark {
   key: string;
   /** Spec 0073 -- "spark": the flare a token grows out of. */
-  kind: "tag" | "riffle" | "spark";
+  kind: "riffle" | "spark";
   style: CSSProperties;
   frames: Keyframe[];
   duration: number;
   delay: number;
-  text?: string;
   /** The card it is about ("card:N"), for tests and the jump check. */
   of: string;
 }
@@ -11528,17 +11531,7 @@ function ReturnMarkView({ mark, done }: { mark: ReturnMark; done: () => void }) 
         ))}
       </div>
     );
-  return mark.kind === "tag" ? (
-    <div
-      ref={ref}
-      className="bf-return-tag"
-      data-return-tag={mark.of}
-      aria-hidden="true"
-      style={style}
-    >
-      {mark.text}
-    </div>
-  ) : (
+  return (
     <img
       ref={ref}
       className="bf-return-riffle"
