@@ -12,6 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board, type BoardCard, type StackView } from "./Board";
 import { boardFromSnapshot, type Moments, type Survive } from "./fromSnapshot";
 import { WHY_PULSE_MS, whyPulseFrames } from "./markMotion";
+import { PREVENT_STEP_MS, PREVENT_TICK_AT_MS } from "./CardBadges";
+import { endLifeSteps, lifeStillPlaying } from "./lifeTicks";
 import { EMPTY_MATCH, reduceMatch, type Snapshot } from "../match";
 
 const size = { width: 1920, height: 1080 };
@@ -59,6 +61,7 @@ beforeEach(() => {
   (Element.prototype as unknown as { getAnimations: unknown }).getAnimations = () => [];
 });
 afterEach(() => {
+  endLifeSteps();
   delete (Element.prototype as unknown as { animate?: unknown }).animate;
   delete (Element.prototype as unknown as { getAnimations?: unknown }).getAnimations;
   vi.restoreAllMocks();
@@ -253,4 +256,52 @@ const row = (id: string, seat: number, name: string, extra: Record<string, unkno
   toughness: 2,
   damage: 0,
   ...extra,
+});
+
+describe("F-0125-F · a creature's prevent-the-next-N square ticks as its blow lands, in combat", () => {
+  it("Bob's 3/3 blocked by Alice's shielded Bears: 3 holds until the blow on the fight clock", () => {
+    // The page's clock held still, as the fight clock is here (its stub never
+    // advances): the square is timed from when it was drawn, so a slow test
+    // machine must not read as a late tick.
+    vi.spyOn(performance, "now").mockReturnValue(5_000);
+    const ogre = card("card:40", 2, "Hill Giant", { power: 3, toughness: 3, attacking: true });
+    const bears = card("card:12", 1, "Grizzly Bears", { preventNext: 3, blocking: true });
+    const view = render(draw([ogre, bears]));
+    calls.length = 0;
+    view.rerender(
+      draw([ogre, { ...bears, preventNext: undefined, preventUsed: { from: 3, to: 0 } }], {
+        damage: {
+          key: "damage:c9",
+          combat: "regular",
+          hits: [
+            {
+              source: "card:40",
+              target: { object: "card:12" },
+              amount: 0,
+              prevented: 3,
+              by: "prevent-next",
+            },
+            { source: "card:12", target: { object: "card:40" }, amount: 2 },
+          ],
+          fights: [{ attacker: "card:40", defender: { player: 1 }, blockers: ["card:12"] }],
+        },
+      }),
+    );
+    // The Giant's blow on the Bears, on the fight clock.
+    const blow = lifeStillPlaying("fights").find((s) => s.object === "card:12")!;
+    expect(blow).toBeTruthy();
+    expect(blow.at).toBeGreaterThan(PREVENT_TICK_AT_MS);
+    const used = view.container.querySelector<HTMLElement>('[data-mark="prevent-next"]')!;
+    expect(used.dataset["used"]).toBe("true");
+    const steps = [...used.querySelectorAll<HTMLElement>(".bf-prevent-step")];
+    const ms = (el: HTMLElement, v: string) => parseFloat(el.style.getPropertyValue(v));
+    expect(ms(steps[0]!, "--step-at")).toBe(0);
+    expect(ms(steps[0]!, "--step-ms")).toBe(blow.at);
+    expect(steps.slice(1).map((s) => ms(s, "--step-at"))).toEqual([
+      blow.at,
+      blow.at + PREVENT_STEP_MS,
+      blow.at + 2 * PREVENT_STEP_MS,
+    ]);
+    expect(ms(used, "--gone-at")).toBe(blow.at + 4 * PREVENT_STEP_MS);
+  });
 });

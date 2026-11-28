@@ -44,6 +44,11 @@ export interface LifeStep {
    * badge to tick then.
    */
   prevented?: number;
+  /**
+   * Spec 0125 -- the same for a creature: the drawn card the blow lands on
+   * (seat -1: no plate's number), for its "prevent the next N" square.
+   */
+  object?: string;
 }
 
 /** Whether [step] is a blow (see LifeStep.blow). */
@@ -66,7 +71,18 @@ export function lifeSteps(
   const infected = new Map<number, number>();
   plan.fights.forEach((fight, n) => {
     for (const strike of fight.strikes) {
-      if (!strike.target.startsWith("player:")) continue;
+      if (!strike.target.startsWith("player:")) {
+        // Spec 0125 -- a creature's stopped part: when its blow lands.
+        if ((strike.prevented ?? 0) > 0)
+          out.push({
+            seat: -1,
+            object: strike.target,
+            at: hold + strike.at,
+            amount: 0,
+            prevented: strike.prevented!,
+          });
+        continue;
+      }
       const seat = Number(strike.target.slice("player:".length));
       // Spec 0125 -- a stopped part: when it lands (the plate's badge ticks then).
       if (Number.isFinite(seat) && (strike.prevented ?? 0) > 0)
@@ -250,17 +266,19 @@ export function endLifeSteps(clock?: LifeClock): void {
 }
 
 /**
- * Spec 0125, item 2 -- how long from now until the next blow on [seat] whose
- * damage was (in part) stopped lands on a clock now playing (a combat or
- * fight blow: the moment its pale shield or its red "−N" shows on the life
- * shield); null when none is still to come.
+ * Spec 0125, item 2 -- how long from now until the next blow on [target] (a
+ * player's seat, or a drawn card's id) whose damage was (in part) stopped
+ * lands on a clock now playing (a combat or fight blow: the moment its pale
+ * shield or its red "−N" shows); null when none is still to come.
  */
-export function preventedBlowIn(seat: number): number | null {
+export function preventedBlowIn(target: number | string): number | null {
   let soonest: number | null = null;
+  const mine = (step: LifeStep) =>
+    typeof target === "number" ? step.seat === target : step.object === target;
   for (const run of runs.values()) {
     const t = run.now();
     for (const step of run.steps)
-      if (step.seat === seat && (step.prevented ?? 0) > 0 && step.at > t)
+      if (mine(step) && (step.prevented ?? 0) > 0 && step.at > t)
         soonest = soonest === null ? step.at - t : Math.min(soonest, step.at - t);
   }
   return soonest;

@@ -9,7 +9,7 @@
 // colours are the canvas's, exactly; colour always comes with a picture.
 
 import { sameProps } from "./sameProps";
-import { memo, useLayoutEffect, useRef, type ReactNode } from "react";
+import { memo, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { counterWords } from "./Board";
 import { cardMarks, MarkIcon, type CardMark, type Marked } from "./marks";
 import {
@@ -20,6 +20,7 @@ import {
   type Playing,
 } from "./sizeTicks";
 import { paced } from "./motion";
+import { onLifeClocks, preventedBlowIn } from "./lifeTicks";
 import { capital, someWords } from "../words";
 
 const W = "#fff";
@@ -657,7 +658,7 @@ function CardBadgesView({
           {
             key: "prevent",
             h: MARK_H,
-            node: <PreventSquare n={card.preventNext ?? 0} used={card.preventUsed} />,
+            node: <PreventSquare id={card.id} n={card.preventNext ?? 0} used={card.preventUsed} />,
           },
         ]
       : []),
@@ -706,18 +707,28 @@ export const CardBadges = memo(CardBadgesView, sameProps);
 export const PREVENT_TICK_AT_MS = paced(430);
 export const PREVENT_STEP_MS = 100; // not paced: a wait (spec 0106)
 
-/** Spec 0101, row 7 -- the square, and its count ticking down when used (CSS on the board's arrival; compositor-only). */
+/**
+ * Spec 0101, row 7 -- the square, and its count ticking down when used (CSS
+ * on the board's arrival; compositor-only). Spec 0125: the tick starts as
+ * the blow lands -- in a fight, at its moment on the fight clock (the same
+ * moment the creature's damage shows; lifeTicks' preventedBlowIn, read again
+ * when the board's fight clock starts after this square is drawn, before
+ * the frame is painted); for a resolving spell, PREVENT_TICK_AT_MS.
+ */
 function PreventSquare({
+  id,
   n,
   used,
 }: {
+  id?: string | undefined;
   n: number;
   used?: { from: number; to: number } | undefined;
 }) {
+  const start = usePreventStart(id, used);
   const steps = used
     ? Array.from({ length: used.from - used.to + 1 }, (_, i) => used.from - i)
     : [n];
-  const goneAt = used && used.to === 0 ? PREVENT_TICK_AT_MS + steps.length * PREVENT_STEP_MS : null;
+  const goneAt = used && used.to === 0 ? start + steps.length * PREVENT_STEP_MS : null;
   return (
     <span
       className="bf-mark bf-mark-prevent"
@@ -736,8 +747,8 @@ function PreventSquare({
           style={
             used
               ? {
-                  ["--step-at" as string]: `${i === 0 ? 0 : PREVENT_TICK_AT_MS + (i - 1) * PREVENT_STEP_MS}ms`,
-                  ["--step-ms" as string]: `${i === 0 ? PREVENT_TICK_AT_MS : PREVENT_STEP_MS}ms`,
+                  ["--step-at" as string]: `${i === 0 ? 0 : start + (i - 1) * PREVENT_STEP_MS}ms`,
+                  ["--step-ms" as string]: `${i === 0 ? start : PREVENT_STEP_MS}ms`,
                 }
               : undefined
           }
@@ -747,6 +758,37 @@ function PreventSquare({
       ))}
     </span>
   );
+}
+
+/**
+ * Spec 0125 -- when a used square's tick starts, from the moment it was
+ * drawn used: its fight blow's (if a fight clock is playing one on [id]),
+ * else the resolving spell's beat. Timed again only before the tick began.
+ */
+function usePreventStart(
+  id: string | undefined,
+  used: { from: number; to: number } | undefined,
+): number {
+  const drawnAt = useRef({ used, at: 0 });
+  if (drawnAt.current.used !== used)
+    drawnAt.current = { used, at: typeof performance === "undefined" ? 0 : performance.now() };
+  const [blow, setBlow] = useState<{ used: typeof used; at: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!used || !id) return undefined;
+    const look = () => {
+      const left = preventedBlowIn(id);
+      if (left === null) return;
+      const at = performance.now() - drawnAt.current.at + left;
+      setBlow((was) => {
+        const began = was && was.used === used && performance.now() - drawnAt.current.at >= was.at;
+        if (began || (was && was.used === used && Math.abs(was.at - at) < 1)) return was;
+        return { used, at };
+      });
+    };
+    look();
+    return onLifeClocks(look);
+  }, [id, used]);
+  return blow && blow.used === used ? blow.at : PREVENT_TICK_AT_MS;
 }
 
 /** Spec 0085 -- each mark's leaving plays once (its key is the round's). */
