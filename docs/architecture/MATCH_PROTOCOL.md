@@ -53,7 +53,33 @@ back in the match (§6.114).
 /ws/matches/{matchId}?deltas=1   the game page: only what changed (P11-D4)
 ...&resume=<gameEpoch>.<stateRevision>
                                  P11-D6: a page coming back, the board it holds
+/ws/matches/current?deltas=1     spec 0122: a page load of /game, opened beside
+                                 "who am I": the game this user is seated in
+/ws/matches/watch/{roomId}?deltas=1
+                                 spec 0122: a page load of /watch/<room>: the
+                                 game that room is playing, as a spectator
 ```
+
+**The early addresses (spec 0122, P11-E12).** On a reload or a new tab of
+`/game` or `/watch/<room>`, the page opens its game connection at the same
+moment as "who am I" (`frontend/src/early.ts`), before it knows which game
+it is in, so the server says which. `/ws/matches/current` asks what
+`/api/matches/current` asks (`MatchStore.activeMatchOf`: `LAUNCHING` or
+`RUNNING`) and then runs exactly the id route's player connection
+(`player` in `MatchSocket.kt`): the same hello naming the game, board,
+question, pings, queue, deltas and seat link. `/ws/matches/watch/{roomId}`
+finds the room's game as `/api/matches/watch/{roomId}` does and runs the
+spectator path (`spectate`): the public view only. A player of that game is
+never given a seat (nor anything) there: closed `4003`. With no game behind
+the address -- none, an unknown room, a game still starting, or the
+caller's own game on the watch address -- the connection closes **`4003`
+"no game"**; a room whose game just ended is told the end (`MATCH_ENDED`)
+and closed normally, as on the id route. `resume` is never read on either: a
+fresh page asks for nothing (0119), and reconnects use `/ws/matches/{matchId}`.
+Both live in `match/EarlyMatchSockets.kt`. The page applies nothing from an
+early connection until its `MATCH_HELLO` (or `MATCH_ENDED`) names the page's
+game; for any other game, or a close before one, it opens its own id-route
+connection at once and closes the early one once its own is open.
 
 Authenticated by the session cookie, like every request (§3.78). A
 match the user is not in and a match that does not exist close the

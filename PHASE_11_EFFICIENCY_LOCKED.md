@@ -4451,3 +4451,15 @@ offers it. The F3 row itself is left as written; read it with this note.
 Chromium has no WebSocket over HTTP/3 ("No active development") and Ktor
 2.3.13 and Ktor's main branch refuse the upgrade on HTTP/2, so nothing on our
 side or Cloudflare's can turn it on. E12's target is in spec 0122.
+
+**P11-E12 built, 2026-11-27 (spec 0122):** the game page and the watch page open
+their game connection beside "who am I", at two addresses the server resolves
+(`/ws/matches/current`, `/ws/matches/watch/{roomId}`; 4003 "no game"); the game
+keeps its own connection. On stack A (RUN, 3 runs, medians, Chromium / WebKit):
+game reload 857 / 1,013 -> 528 / 654 ms live-like and 916 / 1,070 -> 555 / 694 ms
+on slow 4G; cold 2,077 / 2,272 -> 1,819 / 1,888 ms live-like; spectate the same;
+Start match unchanged. That meets E5's slow-4G and E6's cold targets for the game
+and spectate pages. Found: a browser opens one WebSocket to a host at a time
+(RFC 6455 4.1, Chromium), so the game's connection opens before the lobby's on
+these two pages, and in Chromium the lobby's list comes about 330 ms later there
+(owner to confirm). Evidence in spec 0122's "As built".

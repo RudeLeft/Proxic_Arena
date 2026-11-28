@@ -1,6 +1,6 @@
 # 0122 — Phase 11 P11-E12: the game's connection starts early
 
-**Status:** **Approved by the owner 2026-11-27 (by prompt: "Approve it"); building** (drafted 2026-11-27). Phase 11, item P11-E12 (step 9 of the recommended order). It changes the protocol (two new socket addresses), so it is its own spec, like D4 (`PHASE_11_EFFICIENCY_LOCKED.md`, the E12 row: "protocol change → its own spec").
+**Status:** **Approved by the owner 2026-11-27 (by prompt: "Approve it").** Built 2026-11-27 (As built, at the end; one point for the owner to confirm there: the order of the two early connections) (drafted 2026-11-27). Phase 11, item P11-E12 (step 9 of the recommended order). It changes the protocol (two new socket addresses), so it is its own spec, like D4 (`PHASE_11_EFFICIENCY_LOCKED.md`, the E12 row: "protocol change → its own spec").
 **Owner answers, 2026-11-27** (by prompt, after the E12 research):
 
 - **A: start the game's connection early,** beside "who am I", as the lobby's connection already does (P11-E5). The game **keeps its own separate connection**. One connection shared by the lobby and the game was explained and set aside: it gives no extra speed, a lobby blip would pause a game, and it risks sending hidden information down the wrong stream. The owner agreed.
@@ -158,3 +158,150 @@ None open: A and "spectators too" were answered on 2026-11-27. Approving this sp
 ## Amendments
 
 None yet.
+
+## As built (2026-11-27)
+
+Branch `p11-e12-build`, from main 85a79303. Labels as EVID-001: RUN = measured
+here, SOURCE = read in the code. The machine: the owner's PC (13th Gen Intel
+Core i5-13600KF x20, 32 GB), stack A, Playwright's bundled Chromium 1248 and
+WebKit 2370, headless, 1920x1080.
+
+**What was built** (SOURCE):
+
+- Server, `match/EarlyMatchSockets.kt` (new): `/ws/matches/current` and
+  `/ws/matches/watch/{roomId}`, mounted by `matchSocket` ahead of the id route.
+  `/current` asks `MatchStore.activeMatchOf` (off the event loop, as the session
+  check) and runs `player` with no resume; the watch address finds the room's
+  game as `watchRoute` does and runs `spectate`. `NO_GAME_CODE` 4003 "no game" for
+  no game, an unknown room, a game not yet watchable, and the caller's own game on
+  the watch address (nothing is sent before the close). A room whose game just
+  ended is told the end: `SpectatorEndings.lastIn(roomId)` and `toldTheEnd(matchId)`.
+- `match/PlayerOpen.kt` (new): the id route's player connection, lifted out of
+  `matchSocket` unchanged as `player(PlayerOpen, ...)` with `listen` and `resync`,
+  so both routes run the same code (detekt's file-size rule split it out).
+- Page, `early.ts`: `openEarlyGame` beside "who am I" for a page whose
+  `EARLY_PAGES` entry has `game` (`/game`, `/watch/<room>`), with the session
+  hint only; every event kept with `Date.now()` and `performance.now()` at its
+  arrival; `takeEarlyGame` hands it over once (`EarlyGameSocket`), `endEarlyGame`
+  closes it (GamePage and WatchPage on "no game" and on leaving, `endEarly`,
+  `TAKE_WITHIN_MS`). `EarlyGameSocket` passes nothing on until a `MATCH_HELLO` or
+  `MATCH_ENDED` names the page's game, then replays everything kept in order with
+  its kept arrival (`arrivedAt`); another game, or any close before one: the
+  page's own connection (`own`, connectMatch's factory) at once, the early one
+  closed once that has opened or failed. On a 4003 it also calls `noGame`.
+  A page that took it marks `EARLY_GAME_MARK` ("pa-game-early").
+- `match.ts` `connectMatch`: `options.first` for the first open only; each
+  message's lateness is judged at `arrivedAt(event) ?? Date.now()`; the silence
+  check starts at the hand-over (`heard` never moves back).
+- `GameScreen.tsx`: takes the early connection; `noGame` (players only) asks
+  `/api/matches/current` afresh (`lobby.ts` `stillInGame`, never a primed
+  answer) and, in no game now, leaves for the lobby.
+- **Order (decided while building; owner to confirm, below):** on these two pages
+  the game's early connection is opened FIRST, then the lobby's (`startEarly`).
+- Measure (`frontend/tools/measure/loading.spec.ts`, F-0122-G): `SOCKET_PROBE`
+  and `socketTimes`; game, spectate and Start match rows gain `gameEarly`,
+  `gameSocketMadeMs`, `gameSocketOpenMs`, `gameSocketOpenTakesMs`,
+  `gameFirstBoardMs`, `lobbySocketMadeMs`, `lobbySocketOpenMs`, `lobbyPlayersMs`.
+
+**Found while building** (RUN):
+
+1. **A browser opens one WebSocket to a host at a time.** RFC 6455 4.1: a second
+   connection to the same host waits until the first has opened or failed.
+   Chromium does this; Playwright's WebKit on Windows did not. Built as the
+   research assumed (the lobby's early connection first, the game's beside it),
+   Chromium's reload gained nothing: the game's connection was made at 180-190 ms
+   instead of 370, but opened at 850, after the lobby's (live-like reload 857 ->
+   859 ms; slow 4G 916 -> 902). WebKit gained the full amount (1,013 -> 681 ms).
+   Opened game-first, Chromium's reload is 528 ms and WebKit's unchanged. The
+   cost, in Chromium only: the lobby's player list on the game and watch pages
+   comes about 330 ms later (live-like reload 515 -> 843 ms, cold 1,058 ->
+   1,399), after the table. The players' pictures on the table are not later
+   (the last one in: 856 -> 846 ms; no swaps). Firefox follows the RFC too
+   (INFERENCE; it does not start on this PC).
+2. **A board merely waiting in the buffer is never "late" under the min-gap
+   rule**, even judged at replay time: every kept message is judged at the same
+   instant, earliest-sent first, so the smallest gap only shrinks. What the kept
+   arrival time changes is that a board which really came late on the wire while
+   kept is still caught up. That is the test the replay-time mutation fails (not
+   the spec's "a 1.5 s-buffered board counts as late", which cannot fail).
+3. **A player whose game ends while the page loads** (the first
+   `/api/matches/current` answer from just before the end) fell back, as designed,
+   to the id route, where the server has a hello and nothing more for a player of
+   an ended game: the page sat on "Shuffling up and dealing..." for good. Today's
+   path has the same hole, with a narrower window. Fixed with `noGame` (above).
+
+**The targets (F-0122-H)**, RUN 2026-11-27, `node ci/measure.mjs loading --runs 3
+--engines chromium,webkit --links local,slow4g,live --grep game`, before = main
+85a79303, after = this branch (game-first), the same stack and machine; medians
+of 3 runs, Chromium / WebKit, ms. Raw: scratch `e12b/before`, `e12b/after`
+(lobby-first) and `e12b/after-b` (as built).
+
+| Page, link | Before | After | Target | Met |
+|---|---|---|---|---|
+| Game, slow-4G reload | 916 / 1,070 | **555 / 694** | ≤ 900 both | yes |
+| Game, live-like cold | 2,077 / 2,272 | **1,819 / 1,888** | ≤ 2,000 both | yes |
+| Game, live-like reload | 857 / 1,013 | **528 / 654** | ≤ 700 both | yes (WebKit: one run of three 1,366) |
+| Spectate, slow-4G reload | 907 / 1,070 | **548 / 693** | ≤ 900 | yes |
+| Spectate, live-like cold | 2,042 / 2,241 | **1,840 / 1,892** | ≤ 2,000 | yes |
+| Spectate, live-like reload | 854 / 1,036 | **522 / 670** | ≤ 700 | yes |
+| Game, slow-4G cold | 3,750 / 3,776 | 3,304 / 3,383 | (none) | |
+| Start match, every link (sat, at once) | 5,371-5,673 / 5,828-6,379 | 5,405-6,079 / 5,693-6,287 | no slower (±10%) | yes: largest +7% (Chromium slow 4G sat, runs 6,123/5,548/6,079); `gameEarly` 0 in every Start row |
+| Lobby player list on the game page, live-like reload | 515 / 562 | **843** / 571 | no later | **no in Chromium** (+330 ms, finding 1); the pictures it was there for are not later |
+| Its first connection was the early one (`gameEarly`) | 0 | 1 in every game and spectate row | | |
+
+The live site by hand (F-0122-H's last part) is not done: out of reach from here.
+
+**Tests and bites** (RUN):
+
+- Server, `EarlyMatchSocketsTest` (6 tests: a real Netty port, a real database,
+  the real runtime with an impostor worker sending a board per seat, the public
+  board and a question; sockets opened by hand, so pings and close codes are
+  read): F-0122-A and F-0122-B, both seats (HID-003). Bites, each failing:
+  the watch address giving a player their seat (1 test), no 4003 (3), `/current`
+  reading `resume` (1), the just-ended game not told (1).
+  `./gradlew :server:ktlintCheck :server:detekt :server:test`: 887 tests, 0
+  failures (62 skipped, as before).
+- Page, `earlyGame.test.ts` (13, F-0122-C). Bites, each failing: never handed
+  over (8), replay judged at `Date.now()` (1), the 4003 fallback removed (2), the
+  early one closed before the own one opens (1), events applied before the hello
+  (3), the silence check from the kept time (1).
+- Browser, `match-early-connection.spec.ts` (F-0122-D/E/F, TEST-012; in
+  `ENGINE_SPEC`): passes in Edge and in WebKit. Logged: a cold page over slow 4G
+  and the poor link with its code held 8 s and 12 s drew its table 9.5 s and 13.5 s
+  after the early connection became the seat's only one, and the host was never
+  told MATCH_PAUSED; leaving such a page before its table: MATCH_PAUSED 14-128 ms
+  later; the game ended while loading: the page's own connection 4-258 ms after
+  the 4003 (a reconnect would wait 500 ms), then the lobby. Bite: the 4003
+  fallback removed fails it (no own connection at all). Deltas gate: 0
+  mismatches, 0 resyncs, deltas counted on every page.
+
+- Browser specs, at CI speed (`node ci/ci-speed.mjs`, 4x CPU, Edge), on this
+  build: CI machine 5/6 whole (`--whole match-early-connection`: the new spec,
+  1.6 min, and match-slow-link among 15 tests) and machine 4/6 whole (`--whole
+  match-pause`: match-pause, match-catchup and match.spec among 14), all passed;
+  match-deltas and match-watching with their CI neighbours, all passed.
+- Lab (worker jar and resources from the stack A image): spectator, concede and
+  play-log, each OK; `check-hidden-information.py` over their 7 traces (1,392
+  boards) OK; `check-deltas.py` OK (765 sent as deltas, 194 resumes, every board
+  rebuilt equal); `as-sent-traces.py` and the hidden check over the as-sent and
+  rebuilt boards OK. Self-tests of all three, `check-doc-refs.py`,
+  `check-test-switch.py`: OK.
+- Frontend: `tsc -b`, `tsc -p tsconfig.e2e.json`, `eslint --max-warnings=0`,
+  `prettier --check src e2e tools`, `vitest run`, `vite build`: OK.
+- By eye (TEST-011, real app, stack A): the host's table after a reload (own
+  hand, both portraits, the step bar, no notice), the guest's second tab, and the
+  spectator after a reload (public view, "Spectating RudeLeft vs Pat", no hands);
+  each page marked `pa-game-early`. Screenshots in scratch `e12b/shots/`.
+
+**Not done here / owed:** the live site by hand (F-0122-H); Firefox (CI's
+engines job runs the new spec); CI's run of the P11-R4 gate on this build
+(F-0122-D's CI half).
+
+**For the owner:** the order of the two early connections (finding 1). Example:
+Bob presses refresh in Chrome during Alice's turn. With the game's connection
+first (as built), his table is back in about 0.53 s instead of 0.86 s, and what comes over
+the lobby's connection (who is online, the game chat, invitations) arrives
+about a third of a second later than today, after the table; the players'
+pictures on the table arrive when they always did. With the lobby's first, Chrome gains
+nothing on a refresh (Safari's engine gains either way). Reverting commit
+ebfd1fdc gives the lobby-first order.

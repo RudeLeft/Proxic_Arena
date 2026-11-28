@@ -70,6 +70,8 @@ to `/login` itself.
 | `GET /api/pictures/{sha}` (spec 0052) | any signed-in user |
 | `GET /ws/user` | any signed-in user |
 | `GET /ws/matches/{matchId}` | a signed-in player seated in that match; anyone else signed in may watch it while it is running here (specs 0047, 0067); otherwise closed `VIOLATED_POLICY` "not a participant" (`match/MatchSocket.kt`) |
+| `GET /ws/matches/current` | spec 0122: a signed-in user, for the game they are seated in now (`MatchStore.activeMatchOf`), as the id route gives it to that seat; no such game: closed `4003` "no game" (`match/EarlyMatchSockets.kt`) |
+| `GET /ws/matches/watch/{roomId}` | spec 0122: a signed-in user who is NOT a player of that room's game, the public view while it may be watched (`mayWatch`); a player of it, an unknown room or no watchable game: closed `4003` "no game", nothing sent; a game that just ended there: told its end (`match/EarlyMatchSockets.kt`) |
 
 Two decisions shape this table:
 

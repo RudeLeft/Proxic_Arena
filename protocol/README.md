@@ -1423,6 +1423,45 @@ HOLD / GO     server -> worker (no seat named): the game is paused / goes on;
 - No `protocolVersion` bump: an older page ignores both messages (its
   answers are still refused).
 
+## The game's connection, started early (Phase 11 P11-E12, spec 0122, 2026-11-27)
+
+A page load of `/game` or `/watch/<room>` opens its game connection beside
+"who am I", before the page knows its game, at an address the server
+resolves. Nothing else on the wire changes: no new message, no
+`protocolVersion` bump.
+
+```text
+/ws/matches/current?deltas=1        browser -> server, a page load of /game: the
+                                    game this user is seated in now (LAUNCHING or
+                                    RUNNING); then exactly the id route's player
+                                    connection: MATCH_HELLO naming the game, the
+                                    board, the question, pings, seat link
+/ws/matches/watch/{roomId}?deltas=1 browser -> server, a page load of
+                                    /watch/<room>: the game that room is playing,
+                                    as a spectator (the public view only)
+(close 4003 "no game")              server -> browser: nothing behind the address
+                                    (no game, an unknown room, a game still
+                                    starting, or the caller's own game on the
+                                    watch address); nothing is sent before it
+```
+
+- `resume` is not read on either address (a fresh page asks for nothing);
+  every reconnect uses `/ws/matches/{matchId}`.
+- A room whose game just ended answers the watch address as the id route
+  answers a spectator after the end: `MATCH_ENDED`, then a normal close.
+- The page applies nothing until a `MATCH_HELLO` (or `MATCH_ENDED`) names
+  its game. Another game, `4003`, or any close before that: the page opens
+  its own `/ws/matches/{matchId}` at once (not after a reconnect's wait),
+  and closes the early one once its own is open, so a seat is never left
+  without a connection (spec 0120's seat links).
+- What the early connection said before the page's code took it is replayed
+  in order; the lateness rule (`sentAt` against arrival, above) uses each
+  message's real arrival time.
+
+Close codes private to Proxic, together: `4000` "no full board" (P11-D4),
+`4001` "silent" (P11-D6), `4002` "behind" (P11-D6), `4003` "no game"
+(this section).
+
 ## Test-only: the Lab's deal (worker START_GAME, 2026-11-08)
 
 **Never in a real game.** The Mechanics Lab (`scripts/lab.py`) may give
