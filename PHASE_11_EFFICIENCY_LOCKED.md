@@ -4515,3 +4515,15 @@ seeded, gave an identical question record before and after (43,996 questions).
 Evidence in spec 0124's "As built".
 Owner answer 2026-11-28, "Ordinary button" (Option B), built: once you pass up something you could play on your own turn, "Passing" stays away for the rest of that turn (the End step is the ordinary button, at full speed); spec 0124's As built.
 
+
+## Progress: P11-B3, the open flakes (2026-11-28)
+
+Test-only; no product code changed. Branch `p11-b3-build`; each flake's row in ROADMAP's flake table has its fix, commit and evidence.
+
+- **Fixed:** the 0089 poison ring and banner checks (12c6c4d7, the time measured as 45d8ed72 did); `match-numbers` dealt (97040abf); `settlePregame`'s click bounded to 5 s (afde9d61); `match-big-combat` reads the attacking pile until it shows (1bdb9f95; the CI failure itself was 1dfcc956's); a new one found here, `auth.spec` P11-E5's statuses read before they had arrived (30ed9ddd).
+- **Precaution, cause not reproduced:** a warm-up project before "other" for admin/auth's cold start (0daabcea). With the server restarted before each run at 4x CPU, the pair passed with and without it.
+- **Instrumented, still Open:** `StandingsSourceTest` (messages and a fixed clock, test-side) and `DeckBuilderApiTest` (Forge's check asserted first, messages) (3b0576f2).
+- **Closed as already fixed:** `match-outcomes`' shield (c75e9ba3), `bench-scenes` A-00 wash (08d5b806), `match-catchup` (a63a8445), `match-speed`'s 1x end frame (mitigated by f39bf495; the slow frame is left to C6). The 1.72.0 Leyline one-off is closed: not reproduced, no failing line.
+- **Owner decision, 2026-11-28 ("Leave it", Option C):** `match-stack-rests:82` (CI 45906524872). The server's 3400 ms allowance stays. The test now owes the full 2.5 s only when the card arrived in time, and otherwise what the server's hold leaves (cc3f7889). Spec 0105 has the owner note beside Amendment 2.
+- **Left Open:** `match-damage-tray` (a Keep never answered; a different cause from `settlePregame`; keep the server log next time); the rest of the `settlePregame` row's symptoms (in the `WORKER_UNREACHABLE` hour); Lab `unreachable` (ante), which is being changed on another branch.
+- **Evidence (stack A rebuilt from this branch):** `match-numbers` 3/3; `match-big-combat` 3/3, and bitten with the page's `data-attacking` removed; `match-stack-rests` 3/3, with four faked records (two fail as they should, two late arrivals pass); `ci-speed --alone admin auth` 6/6 after the auth fix (1 of 3 failed before it); `fixes0089screen` 10/10 under a Docker build, bitten three ways; the full gates.
