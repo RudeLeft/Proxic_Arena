@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicLong
 // Nothing here creates anything — it attaches to a match that
 // already exists and asks the runtime what is outstanding.
 
-private val connectionSequence = AtomicLong()
+internal val connectionSequence = AtomicLong()
 
 private const val MATCH_ID = "matchId"
 
@@ -45,7 +45,13 @@ fun Route.matchSocket(
     runtime: MatchRuntime,
     hub: MatchHub,
     config: ServerConfig,
+    /** Spec 0122 -- the rooms, for the watch address (a room's game); null where there are none. */
+    rooms: net.barnflix.proxic.room.RoomService? = null,
 ) {
+    // Spec 0122 (P11-E12) -- the two addresses a page opens early, before it
+    // knows its game (EarlyMatchSockets.kt). Constant segments: Ktor matches
+    // them ahead of `{matchId}` below.
+    earlyMatchSockets(sessions, matches, runtime, hub, config, rooms)
     // Spec 0120 (D8) -- "End the game" for an away player now counts from the
     // game connection (LiveMatch.links), no longer from the lobby's presence.
     webSocket("/ws/matches/{$MATCH_ID}") {
@@ -82,153 +88,15 @@ fun Route.matchSocket(
             return@webSocket
         }
 
-        // Spec 0120 (Q7 B) -- a player's connection: pinged every 2 s, closed
-        // 5 s after an unanswered ping (Ktor's own pinger; the browser answers).
-        pingIntervalMillis = net.barnflix.proxic.Limits.MATCH_PING_MS
-        timeoutMillis = net.barnflix.proxic.Limits.MATCH_PONG_WAIT_MS
-
-        val connectionId = "mconn-${connectionSequence.incrementAndGet()}"
         // P11-D6 (spec 0119) -- the board this page holds, when it came back
         // (`?resume=<gameEpoch>.<stateRevision>`): only ever used to choose
         // among this seat's OWN kept boards (§6.100).
         val resumeFrom = ResumePoint.parse(call.request.queryParameters["resume"])
-        val live = runtime.liveMatch(matchId)
-        // P11-D6 -- opened and given its first messages under the replay's
-        // lock: the pump keeps and queues each board under it too
-        // (MatchDecisions), so a live board cannot fall between what a resume
-        // reads and what reaches this connection after it.
-        val connection =
-            synchronized(live?.replay ?: Any()) {
-                val opened =
-                    hub.watchers.open(
-                        matchId,
-                        userId,
-                        connectionId,
-                        outgoing,
-                        deltas = asks.players,
-                        check = hub.deltas.check,
-                        // P11-D6 -- emptied on this socket's own coroutine; closed if it falls behind.
-                        scope = this,
-                        behind = { stuck, waiting, oldest -> fellBehind(matchId, stuck, waiting, oldest) },
-                    )
-                // P11-D6 -- everything below goes through the connection's queue too,
-                // behind whatever live message reached it first, in order.
-                // Spec 0047 — how many are watching, from the start (spec 0067: and who).
-                hub.spectators.people(matchId).takeIf { it > 0 }?.let {
-                    opened.offer(Outgoing.Message(watchingNow(matchId, hub)))
-                }
-                // §6.110 — hello first, and NOT a decision before it.
-                opened.offer(Outgoing.Message(matchHelloMessage(matchId, seat)))
-                // Spec 0120 -- every pause under way (a returning player's own seat
-                // included: "back", catching up), right after the hello.
-                hub.pauses.greeting(live).forEach { opened.offer(Outgoing.Message(it)) }
-
-                // §6.110, §6.48 — STATE FIRST. A decision references
-                // objects by id, so the board has to arrive before
-                // the question that names them.
-                // P11-D3: through this connection's history, so it and a live
-                // board that reached the connection first cannot cross; the
-                // first board on a connection carries every list whole.
-                // P11-D6: or, coming back, the boards it missed (SeatReplay).
-                firstBoards(opened, playerResume(live, seat, resumeFrom)) {
-                    runtime.snapshotFor(matchId, userId)
-                }
-                opened
-            }
-        // P11-D6 -- MATCH_BEAT on a quiet line, from this connection's own coroutine.
-        val beating = launch { beats(connection) }
-        // Spec 0120 -- this seat has a game connection (again).
-        live?.let { hub.pauses.opened(it, seat, connectionId) }
-
-        try {
-            // §6.111, §6.112 — whatever Forge is still waiting for,
-            // re-sent to the connection that just arrived. The
-            // decision stayed pending while nobody was listening:
-            // a disconnect must never pass, concede or pick for
-            // somebody. The runtime answers null for a question
-            // this user may not answer, so a reconnecting opponent
-            // learns nothing about what you are being asked.
-            runtime.pendingFor(matchId, userId)?.let { question ->
-                connection.offer(Outgoing.Message(decisionMessage(question)))
-            }
-            // Spec 0002 — and who is being asked, so a returning player's
-            // screen does not guess it from priority.
-            askingFor(runtime, matchId)?.let { asking -> connection.offer(Outgoing.Message(asking)) }
-
-            listen(connection, runtime, matchId, userId) { live?.links?.caughtUp(seat, connectionId) }
-        } finally {
-            beating.cancel()
-            connection.queue.stop()
-            hub.watchers.close(matchId, userId, connectionId)
-            // Spec 0120 -- its last connection gone, the seat drops: the game pauses.
-            // The match as it is now (one being launched may have become live
-            // since this connection opened), and the seat's other connections
-            // the hub still has: a seat with one is not dropped.
-            runtime.liveMatch(matchId)?.let {
-                val others = hub.watchers.of(matchId, userId).map { c -> c.connectionId }
-                hub.pauses.closed(it, seat, connectionId, stillOpen = others)
-            }
-            boardsSent(matchId, connection)
-        }
+        player(PlayerOpen(match.matchId, userId, seat, asks.players, resumeFrom), runtime, hub)
     }
 }
 
-private val socketLog = org.slf4j.LoggerFactory.getLogger("net.barnflix.proxic.match.MatchSocket")
-
-/** Every message a player's page sends, answered in turn until the connection closes. */
-private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.listen(
-    connection: Connection,
-    runtime: MatchRuntime,
-    matchId: UUID,
-    userId: UUID,
-    /** Spec 0120 -- the page said its table is live: the resume rule's catch-up. */
-    caughtUpNow: () -> Unit,
-) {
-    val resyncs = Resyncs(matchId, connection.connectionId)
-    for (frame in incoming) {
-        val text = (frame as? Frame.Text)?.readText() ?: continue
-        // P11-D4 -- a delta did not fit: the board again, whole, then the question.
-        if (resyncs.asked(text, connection)) {
-            resync(connection, runtime, matchId, userId)
-            continue
-        }
-        // P11-D0 (test only): when the player's message was read; 0 while off.
-        val read = MatchTiming.now()
-        // P11-D6 (spec 0119) -- the page's table is live again: noted, nothing else.
-        if (caughtUp(text)) {
-            connection.caughtUpAt = System.currentTimeMillis()
-            caughtUpNow()
-            continue
-        }
-        handle(text, matchId, userId, runtime)?.let { reply ->
-            val start = MatchTiming.now()
-            connection.offer(Outgoing.Message(reply))
-            MatchTiming.out(matchId, userId, reply, start, 1)
-        }
-        MatchTiming.answerRead(matchId, userId, text, read)
-    }
-}
-
-/**
- * P11-D4 -- MATCH_RESYNC answered as a new connection is (without the hello):
- * the stored board whole, with the whole play log (the connection's memory
- * forgotten first), then the question still waiting for this user, then who
- * is asked. State first (PROTO-002, §6.110). P11-D6: queued in that order,
- * each read now (the board first: the pump stores a board before it queues
- * it, and before the question that names it).
- */
-private fun resync(
-    connection: Connection,
-    runtime: MatchRuntime,
-    matchId: UUID,
-    userId: UUID,
-) {
-    connection.offer(Outgoing.Resend(runtime.snapshotFor(matchId, userId)))
-    runtime.pendingFor(matchId, userId)?.let { question ->
-        connection.offer(Outgoing.Message(decisionMessage(question)))
-    }
-    askingFor(runtime, matchId)?.let { asking -> connection.offer(Outgoing.Message(asking)) }
-}
+internal val socketLog = org.slf4j.LoggerFactory.getLogger("net.barnflix.proxic.match.MatchSocket")
 
 /**
  * P11-D6 -- [connection]'s queue fell behind (SendQueue.kt, QueueLimits):
@@ -308,7 +176,7 @@ private const val RESYNC_GAP_MS = 1_000L
  * whole by why (the measure counts them). P11-D6 -- and its queue: the most
  * messages waiting at once and the longest one waited (spec 0119's numbers).
  */
-private fun boardsSent(
+internal fun boardsSent(
     matchId: UUID,
     connection: Connection,
 ) {
@@ -328,7 +196,7 @@ private fun boardsSent(
  * changes) and the steps; nothing they send is read. The players are
  * told how many people are watching as it changes.
  */
-private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.spectate(
+internal suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.spectate(
     matchId: UUID,
     user: net.barnflix.proxic.auth.User,
     runtime: MatchRuntime,
@@ -427,7 +295,7 @@ private val json = Json { ignoreUnknownKeys = true }
  * client that could supply them could answer for somebody else or
  * defeat the staleness check by naming the current version.
  */
-private fun handle(
+internal fun handle(
     text: String,
     matchId: UUID,
     userId: UUID,

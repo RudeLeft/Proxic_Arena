@@ -553,6 +553,8 @@ private fun Route.databaseRoutes(
         matchRuntime,
         matchHub,
         config,
+        // Spec 0122: the watch address finds a room's game.
+        rooms = roomService,
     )
 
     route("/api") {

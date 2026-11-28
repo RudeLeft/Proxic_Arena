@@ -134,8 +134,22 @@ class SpectatorEndings(private val spectators: MatchWatchers) : SpectatorsTold {
             },
         )
 
+    /**
+     * Spec 0122 -- the last game each room ended lately, for the watch
+     * address (`/ws/matches/watch/{roomId}`), which knows a room, not a game.
+     */
+    private val lastInRoom =
+        java.util.Collections.synchronizedMap(
+            object : LinkedHashMap<UUID, UUID>() {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<UUID, UUID>?) = size > ENDINGS_KEPT
+            },
+        )
+
     /** How [matchId] ended, if it ended lately here. */
     fun of(matchId: UUID): JsonObject? = kept[matchId]
+
+    /** Spec 0122 -- the game [roomId] ended last, if it ended lately here. */
+    fun lastIn(roomId: UUID): UUID? = lastInRoom[roomId]
 
     override suspend fun ended(
         match: Match,
@@ -144,6 +158,7 @@ class SpectatorEndings(private val spectators: MatchWatchers) : SpectatorsTold {
     ) {
         val message = matchEndedMessage(match, failureCode, outcome)
         kept[match.matchId] = message
+        lastInRoom[match.roomId] = match.matchId
         val text = lazy { message.toString() }
         spectators.all(match.matchId).forEach { connection ->
             // P11-D6 -- through the connection's queue, after the boards before it.
@@ -164,8 +179,14 @@ class SpectatorEndings(private val spectators: MatchWatchers) : SpectatorsTold {
 internal suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.toldTheEnd(
     match: Match?,
     hub: MatchHub,
+): Boolean = toldTheEnd(match?.matchId, hub)
+
+/** Spec 0122 -- the same, for a game known by its id only (the watch address's room's last game). */
+internal suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.toldTheEnd(
+    matchId: UUID?,
+    hub: MatchHub,
 ): Boolean {
-    val ending = match?.let { hub.endings.of(it.matchId) } ?: return false
+    val ending = matchId?.let { hub.endings.of(it) } ?: return false
     send(Frame.Text(ending.toString()))
     close(gameOverClose())
     return true
