@@ -196,7 +196,7 @@ WebKit 2370, headless, 1920x1080.
 - `GameScreen.tsx`: takes the early connection; `noGame` (players only) asks
   `/api/matches/current` afresh (`lobby.ts` `stillInGame`, never a primed
   answer) and, in no game now, leaves for the lobby.
-- **Order (decided while building; owner to confirm, below):** on these two pages
+- **Order (decided while building; owner confirmed 2026-11-27, below):** on these two pages
   the game's early connection is opened FIRST, then the lobby's (`startEarly`).
 - Measure (`frontend/tools/measure/loading.spec.ts`, F-0122-G): `SOCKET_PROBE`
   and `socketTimes`; game, spectate and Start match rows gain `gameEarly`,
@@ -305,3 +305,5 @@ about a third of a second later than today, after the table; the players'
 pictures on the table arrive when they always did. With the lobby's first, Chrome gains
 nothing on a refresh (Safari's engine gains either way). Reverting commit
 ebfd1fdc gives the lobby-first order.
+
+**Owner answer 2026-11-27 (by prompt):** "Table first" -- the game's connection opens first, as built (ebfd1fdc kept). Asked first why both load: the lobby's connection carries the game chat, the other player's name and picture, and online status, so both stay.
