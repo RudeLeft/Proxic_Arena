@@ -68,7 +68,7 @@ import {
   type SnapshotReveal,
   targetKey,
 } from "../match";
-import { abandonMatch, type MatchView } from "../lobby";
+import { abandonMatch, stillInGame, type MatchView } from "../lobby";
 import { endEarlyGame, takeEarlyGame } from "../early";
 import {
   NameSearch,
@@ -389,6 +389,9 @@ export function GameScreen({
   }
   const tableNotices = inArrival([...pageNotices, ...connection, ...said], tableOrder.current);
 
+  // Spec 0122 -- the page's own leave, for a game found over as it loads.
+  const leaveRef = useRef(onLeave);
+  leaveRef.current = onLeave;
   useEffect(() => {
     // Spec 0122 -- a game that is over takes no early connection: let it go.
     if (!live) {
@@ -403,7 +406,23 @@ export function GameScreen({
       undefined,
       {
         // Spec 0122 (P11-E12) -- the connection the page opened beside "who am I", if any.
-        first: (_url, own) => takeEarlyGame({ matchId: match.matchId, watching: !!watching, own }),
+        first: (_url, own) =>
+          takeEarlyGame({
+            matchId: match.matchId,
+            watching: !!watching,
+            own,
+            // 4003 "no game": the game ended while the page loaded. A player asks
+            // again and, in no game now, goes to the lobby (a spectator is told
+            // the end on its own connection, as before).
+            ...(watching
+              ? {}
+              : {
+                  noGame: () =>
+                    void stillInGame(match.matchId).then((still) => {
+                      if (still === false) leaveRef.current();
+                    }),
+                }),
+          }),
       },
     );
     socketRef.current = socket;

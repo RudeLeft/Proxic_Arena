@@ -515,6 +515,9 @@ export function arrivedAt(event: Event): number | undefined {
   return arrivals.get(event);
 }
 
+/** Spec 0122 -- the close of an early address with no game behind it (server `NO_GAME_CODE`). */
+export const NO_GAME_CODE = 4003;
+
 /** The performance mark a page makes when its game came by the early connection (HID-004: a run can show it). */
 export const EARLY_GAME_MARK = "pa-game-early";
 
@@ -557,6 +560,7 @@ class EarlyGameSocket extends EventTarget {
     private readonly early: EarlyGame,
     private readonly matchId: string,
     private readonly own: () => WebSocket,
+    private readonly noGame?: () => void,
   ) {
     super();
     this.current = early.real;
@@ -611,6 +615,10 @@ class EarlyGameSocket extends EventTarget {
       for (const one of this.held.splice(0)) this.fire(one.event, one.at);
     } else if (named !== null || kept.event.type === "close") {
       this.useOwn();
+      // 4003: the server says this player is in no game now (it ended while
+      // the page loaded): the page asks /api/matches/current again.
+      if (kept.event.type === "close" && (kept.event as CloseEvent).code === NO_GAME_CODE)
+        this.noGame?.();
     }
   }
 
@@ -654,6 +662,8 @@ export function takeEarlyGame(opts: {
   matchId: string;
   watching: boolean;
   own: () => WebSocket;
+  /** Closed 4003 "no game" before naming one: the game may have ended while the page loaded. */
+  noGame?: () => void;
 }): WebSocket | null {
   const taken = earlyGame;
   if (!taken) return null;
@@ -669,5 +679,5 @@ export function takeEarlyGame(opts: {
     }
     return null;
   }
-  return new EarlyGameSocket(taken, opts.matchId, opts.own) as unknown as WebSocket;
+  return new EarlyGameSocket(taken, opts.matchId, opts.own, opts.noGame) as unknown as WebSocket;
 }

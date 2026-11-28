@@ -289,6 +289,30 @@ describe("F-0122-C · taken by the game screen", () => {
     expect(g.state().connection).toBe("open");
   });
 
+  it("4003 says the game may have ended while the page loaded: the page is told to ask again; another close is not", async () => {
+    hint(true);
+    startEarly("/game");
+    const asked: string[] = [];
+    const take = (code: number) => {
+      FakeSocket.made.find((s) => s.url.includes("/ws/matches/"))!.dropped(code);
+      return takeEarlyGame({
+        matchId: "m-1",
+        watching: false,
+        own: () => new FakeSocket(PAGE_URL) as unknown as WebSocket,
+        noGame: () => asked.push(String(code)),
+      });
+    };
+    take(4003);
+    await flush();
+    expect(asked).toEqual(["4003"]);
+    endEarly();
+    FakeSocket.made = [];
+    startEarly("/game");
+    take(1006);
+    await flush();
+    expect(asked).toEqual(["4003"]);
+  });
+
   it("the game's end naming the page's game is taken as its hello (a spectator's game just over)", async () => {
     hint(true);
     startEarly("/watch/r-1");

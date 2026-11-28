@@ -1657,6 +1657,22 @@ export async function abandonMatch(
       };
 }
 
+/**
+ * Spec 0122 -- whether the signed-in player is still in game [matchId], asked
+ * afresh (never a primed answer): true or false, or null when it could not be
+ * asked (a network error: no conclusion).
+ */
+export async function stillInGame(matchId: string): Promise<boolean | null> {
+  try {
+    const response = await apiFetch("/api/matches/current", {}, fetch);
+    if (!response.ok) return null;
+    const body = (await response.json()) as Record<string, unknown>;
+    return asMatch(body["match"])?.matchId === matchId;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchCurrentMatch(
   fetchFn: typeof fetch = primedFetch,
 ): Promise<MatchView | null> {
