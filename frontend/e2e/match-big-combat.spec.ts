@@ -105,17 +105,30 @@ test("a stack blocks a stack: select from the pile, point at theirs, and blocker
             .filter({ hasText: "Goblin" })
             .first();
           await expect(mine).toBeVisible();
-          const theirsCount = Math.max(
-            0,
-            ...(await page
-              .locator(
-                '.bf-cards button[data-controller="opponent"][data-attacking="true"][data-pile]',
-              )
-              .filter({ hasText: "Goblin" })
-              .evaluateAll((els) =>
-                els.map((el) => Number((el as HTMLElement).dataset["pile"] ?? 1)),
-              )),
-          );
+          // The biggest attacking pile, read until it shows (up to 15 s), not
+          // once: a single read could come before the attackers show as
+          // attacking (a precaution, never seen on its own). (CI
+          // run 45122241724's 0 was the attack itself, singles only: fixed in
+          // 1dfcc956. A real no-pile still fails here, by name.)
+          const attackingPile = async () =>
+            Math.max(
+              0,
+              ...(await page
+                .locator(
+                  '.bf-cards button[data-controller="opponent"][data-attacking="true"][data-pile]',
+                )
+                .filter({ hasText: "Goblin" })
+                .evaluateAll((els) =>
+                  els.map((el) => Number((el as HTMLElement).dataset["pile"] ?? 1)),
+                )),
+            );
+          await expect
+            .poll(attackingPile, {
+              timeout: 15_000,
+              message: "a pile of attackers to block (the biggest attacking Goblin pile)",
+            })
+            .toBeGreaterThanOrEqual(2);
+          const theirsCount = await attackingPile();
           const n = Math.min(theirsCount, Number(await mine.getAttribute("data-pile")));
           expect(n, "a pile of attackers and a pile to block with").toBeGreaterThanOrEqual(2);
           for (let i = 1; i <= n; i++) {
