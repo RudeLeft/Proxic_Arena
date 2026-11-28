@@ -19,6 +19,14 @@ class ActionReportsTest {
     private static final String BOB = "Bob";
 
     @Test
+    void anteCardsTakenOutAreToldToTheDecksOwnerOnly() {
+        // Spec 0124 (owner Q3 "Report window"): Alice's Contract from Below.
+        assertTrue(ActionReports.tells(ActionReports.Kind.ANTE, ALICE, ALICE, ALICE, ALICE));
+        assertFalse(ActionReports.tells(ActionReports.Kind.ANTE, BOB, ALICE, ALICE, ALICE));
+        assertFalse(ActionReports.toBoth(ActionReports.Kind.ANTE));
+    }
+
+    @Test
     void yourMillOnBobIsShownToBobOnly() {
         // Glimpse the Unthinkable: Alice acts, Bob's library. Spec 0097: no
         // window for Alice, who did it.

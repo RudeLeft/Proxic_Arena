@@ -20,7 +20,12 @@ never calls). These need Forge's card files, or a real game:
   ante          revealAnte -- reachable after all, and now TOLD: a deck with
                 Contract from Below starts (it was a loud stop, so it could
                 not), its owner is told the ante cards were taken out, the
-                other player is told nothing about them
+                other player is told nothing about them. Spec 0124 (owner
+                Q3 "Report window", F-0124-D): told in the report window
+                (the board's `action`: by 0, byWords "Your deck", the card
+                face up by its printing), only once the game's first turn
+                has begun (never over the opening hand), to the owner's
+                boards alone; no grey notice to anybody
 
 Exit 0 when every proof held, 1 when one did not, 2 when one never got
 there.
@@ -111,22 +116,48 @@ def backup_plan():
 
 def ante():
     g = game("ante", [("Swamp", 56), ("Contract from Below", 4)])
-    g.run(lambda g, f: DEFAULT, until=lambda g: g.turn >= 2, max_turn=3)
-    found = {"turn": g.turn, "stopped": g.stopped_badly(), "notices": g.notices}
+    boards = {1: [], 2: []}
+
+    def until(g):
+        for seat in (1, 2):
+            board = g.state.get(seat)
+            if board and (not boards[seat] or boards[seat][-1] is not board):
+                boards[seat].append(board)
+        return g.turn >= 2
+
+    g.run(lambda g, f: DEFAULT, until=until, max_turn=3)
+    reports = [(b.get("turn"), b["action"]) for b in boards[1] if b.get("action")]
+    ante_reports = [(t, a) for t, a in reports if "Contract from Below" in json.dumps(a)]
+    found = {"turn": g.turn, "stopped": g.stopped_badly(), "notices": g.notices,
+             "reports": ante_reports[:1]}
     if not started(g):
         return "wrong", f"a deck with Contract from Below should start: {found['stopped']}", found
-    told = [n for n in g.notices.get(1, []) if "ante" in n.lower()]
     problems = []
-    if not told or "Contract from Below" not in told[0]:
-        problems.append(f"seat 1 should be told its ante cards were taken out: {g.notices.get(1)}")
-    if any("Contract from Below" in n for n in g.notices.get(2, [])):
-        problems.append("seat 2 was told about seat 1's deck")
+    if any(g.notices.get(seat) for seat in (1, 2)):
+        problems.append(f"spec 0124: no grey notice to anybody any more: {g.notices}")
+    if not ante_reports:
+        problems.append("seat 1 should be told in the report window that its ante cards were taken out")
+    else:
+        first_turn, report = ante_reports[0]
+        cards = report.get("cards") or []
+        if not first_turn:
+            problems.append("the report must wait for the first turn (the opening hand kept)")
+        if report.get("by") != 0 or report.get("byWords") != "Your deck":
+            problems.append(f"the game's own report: by 0, 'Your deck': {report.get('by')} {report.get('byWords')}")
+        if report.get("said") != "Ante isn't played, so every copy of Contract from Below was taken out of your deck.":
+            problems.append(f"the words: {report.get('said')!r}")
+        if [(c.get("name"), c.get("known"), c.get("owner"), bool(c.get("printing"))) for c in cards] !=                 [("Contract from Below", True, 1, True)]:
+            problems.append(f"one picture, face up, by its printing: {cards}")
+    if any("Contract from Below" in json.dumps(b) for b in boards[2]):
+        problems.append("seat 2 was told about seat 1's deck (HID-001)")
+    if any("Contract from Below" in json.dumps(b.get("action") or {}) for b in boards[1] if not b.get("turn")):
+        problems.append("the report showed before the first turn, over the opening hand")
     seen = [c for seat in (1, 2) for z in ("hand", "battlefield", "graveyard", "exile")
             for c in g.zone(seat, z) if c.get("name") == "Contract from Below"]
     if seen:
         problems.append(f"Contract from Below is in the game: {seen[:2]}")
-    return ("wrong", "; ".join(problems), found) if problems else \
-        ("ok", "a deck with ante cards plays; its owner is told they were taken out, the opponent is not", found)
+    return ("wrong", "; ".join(problems), found) if problems else         ("ok", "a deck with ante cards plays; its owner is told in the report window once the first turn "
+               "begins, with the card's picture; the opponent is told nothing; no grey notice", found)
 
 
 def unknown_card():

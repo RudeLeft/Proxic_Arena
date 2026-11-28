@@ -33,6 +33,15 @@ Each scenario is its own small game against Forge.
              notice any more), and the rest of the turn takes visible time: its END
              step (or the next turn) comes at least 0.8 s later (a 0.4 s
              pause at each step passed for: Main 1, Main 2, ...).
+  drew       F-0124-B (spec 0124, owner Q1 "Every step"): Alice's turn
+             passes from Main 1 (three Islands, only Air Elementals in
+             hand: "Three lands; no land in hand"); her Scroll Thief hits
+             Bob and draws an Island. At Main 2 she is asked to play it,
+             and the boards sent with that question no longer say
+             `passing`; once it is played and nothing else can be, it comes
+             back that turn with the reason as it is now ("Four lands; no
+             land in hand"). Bob's boards never say it.
+             On 1.76.0 the first reason stayed all turn.
 
 Exit 0 when every scenario held, 1 when one did not, 2 when one never
 reached its point.
@@ -377,7 +386,92 @@ def passed():
                             f"turn took {st['gap']:.2f} s", found)
 
 
-SCENARIOS = {"cave": cave, "handsize": handsize, "countered": countered, "passed": passed}
+# --- drew -------------------------------------------------------------------
+
+
+def drew():
+    """F-0124-B: "Nothing to play" re-checked at every step of the turn."""
+    # Alice: three Islands, Scroll Thief and Air Elementals (five mana) in
+    # her opening hand; her draws are Air Elementals until the fifth, an
+    # Island. The Thief attacks only when its hit will be that fifth draw
+    # (on the play or on the draw alike), so the Island comes mid-turn.
+    g = game("drew", [("Island", 4), ("Scroll Thief", 1), ("Air Elemental", 55)], [("Mountain", 60)],
+             stops={1: True, 2: True},
+             deal={1: {"hand": ["Island"] * 3 + ["Scroll Thief"] + ["Air Elemental"] * 3,
+                       "top": ["Air Elemental"] * 4 + ["Island"]}})
+    w = Watch(g)
+    st = {"library0": None, "attacked": None, "main1": None, "asked_main2": None, "asked_board": None,
+          "after": None, "played": False}
+
+    def alice():
+        return g.state.get(1) or {}
+
+    def draws():
+        me = next((p for p in alice().get("players", []) if p.get("seat") == 1), {})
+        if st["library0"] is None and alice().get("turn"):
+            st["library0"] = me.get("libraryCount")
+        return (st["library0"] or 0) - (me.get("libraryCount") or 0)
+
+    def policy(g, f):
+        w.see()
+        draws()
+        kind, seat = f.get("kind"), f["authorisedSeat"]
+        if seat == 2:
+            return g.play_land(f) if kind == "chooseSpellAbilityToPlay" else DEFAULT
+        board = alice()
+        if kind == "declareAttackers":
+            thief = next((o["actionId"] for o in f.get("options", [])
+                          if (o.get("label") or "").startswith("Scroll Thief")), None)
+            if thief and draws() == 4 and st["attacked"] is None:
+                st["attacked"] = board.get("turn")
+                return thief
+            return None
+        if kind == "chooseSpellAbilityToPlay":
+            if st["attacked"] is not None and board.get("turn") == st["attacked"]                     and board.get("phase") == "MAIN2" and not st["played"]:
+                # Asked after the Thief's draw: the boards sent with it.
+                st["asked_main2"] = board.get("turn")
+                st["asked_board"] = board.get("passing")
+                land = g.play_land(f)
+                st["played"] = land is not None
+                return land
+            land = g.play_land(f)
+            if land:
+                return land
+            return g.option(f, name="Scroll Thief", zone="hand")
+        return DEFAULT
+
+    def until(g):
+        w.see()
+        draws()
+        board = alice()
+        if st["attacked"] is None and board.get("passing") and draws() == 4 and board.get("phase") == "MAIN1":
+            st["main1"] = (board.get("passing") or {}).get("why")
+        if st["played"] and board.get("turn") == st["attacked"] and board.get("passing"):
+            st["after"] = (board.get("passing") or {}).get("why")
+            return True
+        return st["attacked"] is not None and (board.get("turn") or 0) > st["attacked"]
+
+    g.run(policy, until=until, max_turn=16)
+    w.see()
+    turn = st["attacked"]
+    bob = [s.get("turn") for s in w.snaps[2] if s.get("passing") and s.get("turn") == turn]
+    found = dict(st, bob_passing=bob, stopped=g.stopped_badly())
+    if turn is None or not st["asked_main2"]:
+        return "inconclusive", "the Thief never drew the Island mid-turn, or Alice was never asked at Main 2", found
+    problems = [found["stopped"]] if found["stopped"] else []
+    if st["main1"] != "Three lands; no land in hand":
+        problems.append(f"Main 1 should pass for her with 'Three lands; no land in hand': {st['main1']!r}")
+    if st["asked_board"]:
+        problems.append(f"asked at Main 2 (an Island to play), her board still says passing: {st['asked_board']}")
+    if st["after"] != "Four lands; no land in hand":
+        problems.append(f"once played, passing should come back with the reason as it is now: {st['after']!r}")
+    if bob:
+        problems.append(f"Bob's boards must never say Alice's turn is passing: turns {bob}")
+    return result(problems, f"passing from Main 1 ({st['main1']!r}); gone when asked at Main 2 after the "
+                            f"Thief's draw; back with {st['after']!r}; Bob never told", found)
+
+
+SCENARIOS = {"cave": cave, "handsize": handsize, "countered": countered, "passed": passed, "drew": drew}
 
 if __name__ == "__main__":
     worst = 0

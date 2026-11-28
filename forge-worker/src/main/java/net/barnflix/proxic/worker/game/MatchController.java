@@ -756,7 +756,9 @@ public final class MatchController extends GeneratedControllerBase {
             // be played: its steps then move where the player can see them
             // (a short pause at each). Spec 0097, item 2: said on the act
             // button (the boards carry it, PriorityStops#passingFor), never
-            // as a grey notice.
+            // as a grey notice. Spec 0124 (Q1 "Every step"): re-checked at
+            // each such point; the boards are sent whenever it changed (on,
+            // a fresh reason, or gone: something to play that is not a stop).
             if (host.stops().passedTurn(actedForSeat, player, player.getGame(),
                     actedForSeat != authorisedSeat, byId, unpayable)) {
                 host.publishSnapshots();
@@ -780,6 +782,10 @@ public final class MatchController extends GeneratedControllerBase {
             host.holdThePass();
             return null;
         }
+        // Spec 0124 (Q1 "Every step") -- asked: something to play, so this
+        // seat's turn is no longer passed for it. The boards the question
+        // brings (publishDecision) say so; nothing else about it changes.
+        host.stops().asked(actedForSeat);
         // Spec 0005 -- your own spell or trigger on top: the page counts down.
         host.offerResponseWindow(host.stops().responseWindow(actedForSeat, player, player.getGame(),
                 actedForSeat != authorisedSeat));
@@ -6222,18 +6228,19 @@ public final class MatchController extends GeneratedControllerBase {
      * for ante" (Contract from Below, Darkpact, Jeweled Bird...) and
      * announces it here. Was a loud stub, so a deck holding one could not
      * even start a game. Each player is told about their OWN cards only:
-     * less than Forge shows, never more.
+     * less than Forge shows, never more. Spec 0124 (owner 2026-11-27, Q3
+     * "Report window"): in the standard report window, with each card's
+     * picture, once the opening hands are kept (ActionReports#releaseAnte);
+     * it was the last grey "GAME" notice.
      */
     @Override
     public void revealAnte(String message, com.google.common.collect.Multimap<Player, forge.item.PaperCard> removed) {
         java.util.Collection<forge.item.PaperCard> mine = removed == null ? java.util.List.of() : removed.get(player);
-        if (mine.isEmpty()) {
+        ActionReports reports = host.actions();
+        if (mine.isEmpty() || reports == null) {
             return;
         }
-        // Forge takes out every copy; it names each card once.
-        java.util.Set<String> names = new java.util.TreeSet<>();
-        mine.forEach(card -> names.add(card.getName()));
-        host.note(actedForSeat, anteWords(new java.util.ArrayList<>(names)));
+        reports.anteRemoved(player, mine);
     }
 
     /** Spec 0113 (W1-218) -- "Ante isn't played, so every copy of A and B was taken out of your deck." */

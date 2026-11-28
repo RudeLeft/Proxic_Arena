@@ -349,56 +349,12 @@ public final class GameHost {
         return b.toString();
     }
 
-    /**
-     * What Forge TOLD a player — P6-AM, §6.131.
-     *
-     * A coin flip and a die roll are Forge's to make, not a
-     * player's to choose, so the only thing the protocol owes is
-     * showing the result. Forge announces it through
-     * notifyOfValue, which was a no-op here: the game acted on a
-     * flip the player never saw.
-     *
-     * Per SEAT, because a controller belongs to one player and
-     * what it is told may be private — "you looked at X" is a
-     * notice for exactly one person. Keyed that way, a notice
-     * cannot reach anybody else by accident.
-     *
-     * Bounded, because a long game would otherwise carry a
-     * transcript in every snapshot.
-     */
-    private final java.util.Map<Integer, java.util.Deque<String>> notices =
-            new java.util.concurrent.ConcurrentHashMap<>();
-
-    private static final int NOTICES_KEPT = 6;
-
-    /**
-     * Spec 0061 -- how many notices each seat has been told in all. The list
-     * keeps the last six, so once it is full its length stops changing; the
-     * page counted by length and missed every notice after the sixth. With
-     * the total it knows how many of the six are new.
-     */
-    private final java.util.Map<Integer, Integer> noticesTotal = new java.util.concurrent.ConcurrentHashMap<>();
-
-    int noticesTotal(int seat) {
-        return noticesTotal.getOrDefault(seat, 0);
-    }
-
-    void note(int seat, String text) {
-        if (text == null || text.isBlank()) {
-            return;
-        }
-        // Spec 0057, item 1 -- never Forge's script shorthand.
-        text = PlainWords.humanise(text);
-        java.util.Deque<String> queue =
-                notices.computeIfAbsent(seat, key -> new java.util.ArrayDeque<>());
-        synchronized (queue) {
-            noticesTotal.merge(seat, 1, Integer::sum);
-            queue.addLast(text);
-            while (queue.size() > NOTICES_KEPT) {
-                queue.removeFirst();
-            }
-        }
-    }
+    // Spec 0124 (A5, owner 2026-11-27, Q4 "Remove both") -- the grey "GAME"
+    // notices (P6-AM's per-seat list, GameHost#note) are gone: their last
+    // line, the ante cards taken out, is a report window now
+    // (ActionReports#releaseAnte). The board's `notices` stays on the wire,
+    // always empty, so the board's history lists (P11-D3) and older traces
+    // read the same (protocol/README.md).
 
     /**
      * Phase 9 W-17 (Amendment 19) -- the dice rolled lately, public: who
@@ -582,16 +538,6 @@ public final class GameHost {
             }
         }
         return false;
-    }
-
-    java.util.List<String> noticesFor(int seat) {
-        java.util.Deque<String> queue = notices.get(seat);
-        if (queue == null) {
-            return java.util.List.of();
-        }
-        synchronized (queue) {
-            return new java.util.ArrayList<>(queue);
-        }
     }
 
     /** §6.96 — a card Forge itself says it cannot play. */
@@ -1717,6 +1663,12 @@ public final class GameHost {
         if (current == null) {
             return;
         }
+        // Spec 0124 -- the ante report waits for the game's first turn (the
+        // opening hands kept), then goes to its deck's owner.
+        ActionReports reports = actions();
+        if (reports != null && current.getPhaseHandler().getTurn() > 0) {
+            reports.releaseAnte();
+        }
         long revision = gate.bumpStateVersion();
         // P11-D0 (test only): this round's marks; 0 while timing is off.
         long round0 = Timing.now();
@@ -1872,7 +1824,7 @@ public final class GameHost {
                             player,
                             seatsByPlayer(current),
                             revision,
-                            noticesFor(seat),
+                            java.util.List.of(),
                             epoch.get(),
                             causes,
                             seen);
@@ -1889,8 +1841,6 @@ public final class GameHost {
             // library in its own order: in ITS snapshot alone (HID-001), never
             // the other seat's or the public view's.
             addKnownTop(snapshot, player, seat, seatsByPlayer(current));
-            // Spec 0061 -- how many notices this seat was told in all.
-            snapshot.addProperty("noticesTotal", noticesTotal(seat));
             // Spec 0097, item 2 -- this seat's own turn is being passed for
             // it (nothing it can play): the act button says so, this turn only.
             // Spec 0105 -- the resting stack entry says so, the same on every board.

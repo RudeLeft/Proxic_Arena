@@ -117,6 +117,12 @@ final class ActionReports {
         /** Spec 0107 -- the damage that trampled over, and the attacker's whole damage. */
         int over;
         int damage;
+        /**
+         * Spec 0124 (A5, owner Q3 "Report window") -- the ante cards Forge
+         * took out of this reader's deck before the game (one of each name):
+         * never in the game, so drawn from the printing alone.
+         */
+        List<forge.item.PaperCard> ante;
 
         Report(long key, Player actor, String source, Kind kind, Player subject, int count, List<Move> moves,
                 java.util.Map<Integer, String> where, boolean shuffled, int top, int bottom) {
@@ -215,7 +221,16 @@ final class ActionReports {
          * put all five on your Grizzly Bears; none trampled over.", told to
          * the defending player only, never to the one who chose.
          */
-        TRAMPLE_KEPT }
+        TRAMPLE_KEPT,
+        /**
+         * Spec 0124 (A5, owner 2026-11-27, Q3 "Report window") -- the ante
+         * cards Forge took out of a deck before the game (Contract from
+         * Below): "Ante isn't played, so every copy of ... was taken out of
+         * your deck.", the game's own report (no player did it), told to
+         * that deck's owner only, once the opening hands are kept. Was the
+         * last grey "GAME" notice.
+         */
+        ANTE }
 
     /**
      * Spec 0074, Amendment 1 -- the kinds that hide nothing Forge shows (a
@@ -275,6 +290,7 @@ final class ActionReports {
      */
     void forgetAll() {
         book.clear();
+        anteWaiting.clear();
         latest = null;
         reset();
         controlsFrom.clear();
@@ -1486,6 +1502,88 @@ final class ActionReports {
         tell(report);
     }
 
+    /** Spec 0124 -- the ante cards taken out, by owner, until the opening hands are kept (releaseAnte). */
+    private final Map<Player, List<forge.item.PaperCard>> anteWaiting = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Spec 0124 (A5, owner Q3 "Report window") -- Forge took [cards] out of
+     * [owner]'s deck before the game (MatchController#revealAnte, before the
+     * opening hand): kept until the game's first turn (releaseAnte), so the
+     * window never covers the opening hand's.
+     */
+    void anteRemoved(Player owner, java.util.Collection<forge.item.PaperCard> cards) {
+        if (owner == null || cards == null || cards.isEmpty()) {
+            return;
+        }
+        // Forge takes out every copy; one picture of each name, in name order.
+        Map<String, forge.item.PaperCard> one = new java.util.TreeMap<>();
+        cards.forEach(card -> one.putIfAbsent(card.getName(), card));
+        anteWaiting.merge(owner, new ArrayList<>(one.values()), (a, b) -> {
+            List<forge.item.PaperCard> both = new ArrayList<>(a);
+            b.stream().filter(card -> a.stream().noneMatch(x -> x.getName().equals(card.getName())))
+                    .forEach(both::add);
+            return both;
+        });
+    }
+
+    /**
+     * Spec 0124 -- the game has reached its first turn (every opening hand
+     * kept, every "start in play" asked): each waiting ante report is made,
+     * for its deck's owner alone (ReportBook's onlyFor). Cheap when none wait.
+     */
+    void releaseAnte() {
+        if (anteWaiting.isEmpty()) {
+            return;
+        }
+        for (Player owner : game.getRegisteredPlayers()) {
+            List<forge.item.PaperCard> cards = anteWaiting.remove(owner);
+            if (cards == null) {
+                continue;
+            }
+            Report report = new Report(keys.incrementAndGet(), owner, PlainWords.and(names(cards)), Kind.ANTE,
+                    owner, cards.size(), List.of(), new java.util.HashMap<>(), false, -1, 0);
+            report.chooser = owner;
+            report.ante = List.copyOf(cards);
+            book.add(report.key, owner, report);
+        }
+    }
+
+    private static List<String> names(List<forge.item.PaperCard> cards) {
+        List<String> out = new ArrayList<>();
+        cards.forEach(card -> out.add(card.getName()));
+        return out;
+    }
+
+    /**
+     * Spec 0124 -- one ante card as the report shows it: face up (it is the
+     * reader's own deck's), by its printing, never an id from the game (it
+     * was never in it). MatchArt gives it its picture from the owner's deck.
+     */
+    static JsonObject anteCard(forge.item.PaperCard paper, int ownerSeat, String id) {
+        JsonObject entry = new JsonObject();
+        entry.addProperty("id", id);
+        entry.addProperty("seat", ownerSeat);
+        entry.addProperty("owner", ownerSeat);
+        entry.addProperty("faceDown", false);
+        entry.addProperty("known", true);
+        entry.addProperty("name", paper.getName());
+        if (paper.getEdition() != null && !paper.getEdition().isEmpty()) {
+            entry.addProperty("printing", paper.getEdition() + "/" + paper.getCollectorNumber());
+        }
+        forge.card.CardRules rules = paper.getRules();
+        if (rules != null) {
+            forge.card.CardType type = rules.getType();
+            entry.addProperty("kind", type.isCreature() ? "creature" : type.isLand() ? "land" : "other");
+            entry.addProperty("types", String.valueOf(type));
+            forge.card.mana.ManaCost cost = rules.getManaCost();
+            if (cost != null && !cost.isNoCost()) {
+                entry.addProperty("manaCost", cost.toString());
+            }
+        }
+        entry.addProperty("to", "out");
+        return entry;
+    }
+
     void emptyLook(Player reader, Player owner, ZoneType zone) {
         if (reader == null || owner == null || zone == null) {
             return;
@@ -1777,6 +1875,27 @@ final class ActionReports {
         if (!main && told.isEmpty()) {
             return null;
         }
+        // Spec 0124 -- the game's own report: no player did it ("by" 0, the
+        // page's shield medallion), the deck it is about in the by-line.
+        if (report.kind == Kind.ANTE) {
+            if (reader != report.subject) {
+                return null; // its owner's alone (HID-001)
+            }
+            JsonObject out = new JsonObject();
+            out.addProperty("key", "action:" + report.key);
+            out.addProperty("stamp", report.key);
+            out.addProperty("by", 0);
+            out.addProperty("byWords", "Your deck");
+            out.addProperty("source", report.source);
+            JsonArray cards = new JsonArray();
+            int n = 0;
+            for (forge.item.PaperCard paper : report.ante) {
+                cards.add(anteCard(paper, seatOf.applyAsInt(report.subject), "action:" + report.key + ":" + n++));
+            }
+            out.add("cards", cards);
+            out.addProperty("said", MatchController.anteWords(names(report.ante)));
+            return out;
+        }
         Words w = new Words(reader, report.actor);
         JsonObject out = new JsonObject();
         out.addProperty("key", "action:" + report.key);
@@ -2062,6 +2181,8 @@ final class ActionReports {
             case HAND_EXILE -> handExileWords(who, its, cards, r.moves.isEmpty() ? null : r.moves.get(0).to());
             // Spec 0107 (Q5c A), the spec's words.
             case TRAMPLE_KEPT -> trampleKeptWords(who, its, r);
+            // Spec 0124 -- rendered on its own (render), never through here.
+            case ANTE -> MatchController.anteWords(names(r.ante));
         };
     }
 
@@ -2215,6 +2336,8 @@ final class ActionReports {
             case HAND_EXILE -> reader == subject && reader != actor;
             // Spec 0107 (owner Q5c A): the defending player only, never the one who chose.
             case TRAMPLE_KEPT -> reader == subject && reader != actor;
+            // Spec 0124 (owner Q3): the deck's owner only (made for them alone: releaseAnte).
+            case ANTE -> reader == subject;
             // Spec 0097, item 7 (owner): never a window for the one who did it.
             case MILL, COUNTER, RETURN, PHASE -> reader != actor;
             default -> reader != chooser;

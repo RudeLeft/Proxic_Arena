@@ -183,28 +183,72 @@ public final class PriorityStops {
     private final Map<Integer, String> passingWhy = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
-     * Spec 0061, item 2; spec 0097, item 2 (owner: A, on the act button) --
-     * this priority question was NOT asked (shouldAsk said no). If it is the
-     * seat's own Main 1, with an empty stack and nothing it could play, its
-     * turn is being passed for it: true the first time (the boards then say
-     * so: {@link #passingFor}), and the rest of the turn's steps pause
-     * (pausing). No grey notice any more: the act button says it. Words
-     * only: nothing here decides anything.
+     * Spec 0061, item 2; spec 0097, item 2 (owner: A, on the act button);
+     * spec 0124 (owner 2026-11-27, Q1 "Every step") -- this priority
+     * question was NOT asked (shouldAsk said no). Re-checked at every such
+     * point of the seat's own turn from Main 1 on, with an empty stack:
+     * nothing it could play, and its turn is being passed for it, with the
+     * reason as it is NOW (the boards say so: {@link #passingFor}; the
+     * steps pause: pausing); something it could play, and it is not (gone,
+     * full speed). It may come back later the same turn, at any step, with
+     * a fresh reason. True when what the boards say changed, so they are
+     * sent now. Words only: nothing here decides anything, and nothing here
+     * changes which questions are asked ({@link #shouldAsk} alone does).
      */
     boolean passedTurn(int seat, Player player, Game game, boolean controlled,
                        Map<String, SpellAbility> options, Collection<String> unpayable) {
-        if (!ruled.contains(seat) || controlled || !game.getStack().isEmpty()) {
+        if (!ruled.contains(seat) || controlled) {
             return false;
         }
         PhaseType phase = game.getPhaseHandler().getPhase();
-        if (phase != PhaseType.MAIN1 || !player.equals(game.getPhaseHandler().getPlayerTurn())
-                || somethingToDo(options, unpayable, false, phase) > 0) {
+        return recheck(seat, game.getPhaseHandler().getTurn(),
+                player.equals(game.getPhaseHandler().getPlayerTurn()), phase, game.getStack().isEmpty(),
+                somethingToDo(options, unpayable, false, phase) == 0, () -> reasonOf(player));
+    }
+
+    /**
+     * Spec 0124 -- the rule of {@link #passedTurn} as plain state (its unit
+     * tests drive this): [nothing] is "nothing the seat could play here",
+     * [why] the reason, read only when it is.
+     *
+     * Only on the seat's own turn, from Main 1 on (before it, the turn's
+     * draw is still to come; UPKEEP and DRAW end the last turn's, pausing),
+     * and only with an empty stack: on the stack only instants are offered,
+     * so "nothing" there says nothing about the turn, and the reason waits
+     * for the stack to empty (the active player is given priority again
+     * then, and this runs again).
+     */
+    boolean recheck(int seat, int turn, boolean ownTurn, PhaseType phase, boolean stackEmpty, boolean nothing,
+                    java.util.function.Supplier<String> why) {
+        if (!ownTurn || !stackEmpty || phase == null || !phase.isAfter(PhaseType.DRAW)) {
             return false;
         }
-        int turn = game.getPhaseHandler().getTurn();
-        if (Integer.valueOf(turn).equals(passingTurn.put(seat, turn))) {
-            return false; // said already
+        if (!nothing) {
+            return clear(seat); // something to play now: "Passing" goes
         }
+        String reason = why.get();
+        Integer wasTurn = passingTurn.put(seat, turn);
+        String wasWhy = passingWhy.put(seat, reason);
+        return !(Integer.valueOf(turn).equals(wasTurn) && reason.equals(wasWhy));
+    }
+
+    /**
+     * Spec 0124 (Q1 "Every step") -- [seat] is being ASKED a priority
+     * question: it has something to play (or is answered for), so its turn
+     * is no longer being passed for it. The boards sent with the question
+     * (GameHost#publishDecision) no longer say "Passing". True when it was.
+     */
+    boolean asked(int seat) {
+        return clear(seat);
+    }
+
+    private boolean clear(int seat) {
+        passingWhy.remove(seat);
+        return passingTurn.remove(seat) != null;
+    }
+
+    /** Spec 0061, item 2 -- the reason, from the seat's own lands and hand only (never the other seat's). */
+    private static String reasonOf(Player player) {
         int lands = player.getLandsInPlay().size();
         int inHand = 0;
         for (forge.game.card.Card card : player.getCardsIn(forge.game.zone.ZoneType.Hand)) {
@@ -212,20 +256,25 @@ public final class PriorityStops {
                 inHand++;
             }
         }
-        passingWhy.put(seat, nothingToPlay(lands, inHand, player.getLandsPlayedThisTurn() > 0));
-        return true;
+        return nothingToPlay(lands, inHand, player.getLandsPlayedThisTurn() > 0);
     }
 
     /**
      * Spec 0097, item 2 -- for the seat's own board: its turn is being passed
      * for it now ({turn, why}), or null. Only during that very turn, the seat
-     * the active player: gone at the turn line, so it can never go stale.
+     * the active player: gone at the turn line. Spec 0124: and only while the
+     * last check said so (passedTurn, asked).
      */
     com.google.gson.JsonObject passingFor(int seat, Player player, Game game) {
+        return passingFor(seat, game.getPhaseHandler().getTurn(),
+                player.equals(game.getPhaseHandler().getPlayerTurn()));
+    }
+
+    /** The same, as plain state (spec 0124's unit tests). */
+    com.google.gson.JsonObject passingFor(int seat, int turnNow, boolean ownTurn) {
         Integer turn = passingTurn.get(seat);
         String why = passingWhy.get(seat);
-        if (turn == null || why == null || turn != game.getPhaseHandler().getTurn()
-                || !player.equals(game.getPhaseHandler().getPlayerTurn())) {
+        if (turn == null || why == null || turn != turnNow || !ownTurn) {
             return null;
         }
         com.google.gson.JsonObject out = new com.google.gson.JsonObject();
