@@ -286,7 +286,11 @@ describe("F-0089-A · the game ends: banner after the last hit; the shield break
     expect(enter.querySelector(".gs-over")).toBeTruthy();
     expect(enter.dataset.entering).toBe("true");
     const fade = runsOn(enter)[0]!;
-    expect(Number(fade.options.delay)).toBeGreaterThan(BANNER_AT - 50);
+    // Measured too: a fixed 50 ms allowance has the same flaw under load.
+    expect(Number(fade.options.delay)).toBeGreaterThan(
+      BANNER_AT - (performance.now() - before + 1),
+    );
+    expect(Number(fade.options.delay)).toBeLessThanOrEqual(BANNER_AT);
     act(() => fade.animation.onfinish?.());
     expect(enter.dataset.entering).toBeUndefined();
   });
@@ -295,6 +299,7 @@ describe("F-0089-A · the game ends: banner after the last hit; the shield break
     const view = render(<GameScreen match={match} me="u-1" onLeave={() => {}} />);
     const c = view.container;
     send(state({ players: [alice, bob({ life: 20, counters: [{ name: "POISON", count: 10 }] })] }));
+    const before = performance.now();
     view.rerender(
       <GameScreen match={ended({ lossReason: "Poisoned" })} me="u-1" onLeave={() => {}} />,
     );
@@ -303,9 +308,11 @@ describe("F-0089-A · the game ends: banner after the last hit; the shield break
       true,
     );
     expect(plate(c, 2).querySelectorAll(".gs-life-shard")).toHaveLength(0);
-    expect(
-      Number(runsOn(plate(c, 2).querySelector(".gs-poison"))[0]?.options.delay),
-    ).toBeGreaterThan(BREAK_AT - 30);
+    // The ring's delay is its moment less the time passed since the end began
+    // (measured: a fixed 30 ms failed under load, "392.52 > 408", 2026-11-20).
+    const ring = Number(runsOn(plate(c, 2).querySelector(".gs-poison"))[0]?.options.delay);
+    expect(ring).toBeGreaterThan(BREAK_AT - (performance.now() - before + 1));
+    expect(ring).toBeLessThanOrEqual(BREAK_AT);
     expect(c.querySelector(".gs-over")).toBeTruthy();
   });
 
