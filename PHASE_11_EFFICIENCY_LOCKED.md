@@ -4489,3 +4489,10 @@ the life shield at its lower right (poison at the lower left), growing in, ticki
 hit it stops like the creature square, then shrinking away; "Prevent the next 3 damage to Bob
 this turn"; a partly prevented hit shows the tick and the usual red −N, no extra pale shield.
 Spec 0125.
+
+**P11-A6 built, 2026-11-28 (spec 0125):**
+- Menace: when a lone block of a menace attacker is refused, the worker tells every board once (`blockRefused`), and the attacker's menace square pulses on both screens.
+- "Prevent the next N" on a player: a pale badge at the life shield's lower right. It ticks as the blow lands, in combat on the fight clock; the creature's square now does the same.
+- Part of a spell hit stopped: the ticking badge or square and the red −N, with no pale shield, on a player and a creature alike.
+- Both the badge and the square tick from the hit's own stopped amount, so they also play when the board that showed the count was held and never drawn (found on stack A).
+- Evidence: the Lab x3; the real-click game at 1920 x 1080 and 1920 x 947; the badge's fit measured; 4 of 4 whole-machine replays of match 2/6. Details are in spec 0125's "As built".

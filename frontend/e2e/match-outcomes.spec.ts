@@ -557,7 +557,7 @@ type SeenA6 = {
   /** The guest's plate badge: the highest count, and each `data-used` seen. */
   badge: number;
   used: string[];
-  /** Pale shields seen over the guest's life shield, per phase. */
+  /** Pale shields that appeared (each once), since the count was last reset. */
   wards: number;
   /** The red numbers seen rising at the guest's life ("−2"). */
   reds: string[];
@@ -579,7 +579,12 @@ type Fit = {
 /** On every frame: what the menace squares, the guest's prevention badge and life shield show. */
 async function recorderA6(page: Page, guestSide: "viewer" | "opponent") {
   await page.evaluate((side) => {
-    const w = window as unknown as { __a6: SeenA6; __running: WeakSet<Animation> };
+    const w = window as unknown as {
+      __a6: SeenA6;
+      __running: WeakSet<Animation>;
+      __usedOn: WeakSet<Element>;
+      __wards: WeakSet<Element>;
+    };
     w.__a6 = { menace: [], badge: 0, used: [], wards: 0, reds: [], fit: null };
     const box = (el: Element | null) => {
       if (!el) return null;
@@ -587,6 +592,8 @@ async function recorderA6(page: Page, guestSide: "viewer" | "opponent") {
       return { x: r.left, y: r.top, w: r.width, h: r.height };
     };
     w.__running = new WeakSet();
+    w.__usedOn = new WeakSet();
+    w.__wards = new WeakSet();
     const tick = () => {
       const s = w.__a6;
       for (const m of document.querySelectorAll<HTMLElement>('.bf-mark[data-mark="kw:menace"]'))
@@ -596,20 +603,29 @@ async function recorderA6(page: Page, guestSide: "viewer" | "opponent") {
           s.menace.push(Math.round(Number(a.effect?.getTiming().duration ?? 0)));
         }
       const badge = document.querySelector<HTMLElement>(`.gs-seat-${side} .gs-prevent`);
-      if (badge && !s.fit) {
-        const plate = badge.closest<HTMLElement>(".gs-seat")!;
-        const p = plate.getBoundingClientRect();
+      const plate = badge?.closest<HTMLElement>(".gs-seat");
+      const p = plate?.getBoundingClientRect();
+      // The rail is scaled to the screen: CSS px times k.
+      const k = plate && p ? p.width / plate.offsetWidth : 1;
+      // At rest only: not while it grows in or shrinks away (24 CSS px).
+      if (
+        badge &&
+        plate &&
+        p &&
+        !s.fit &&
+        Math.abs(badge.getBoundingClientRect().width - 24 * k) < 0.5
+      ) {
         // The plate's padding box, where game.css places the poison badge (130, 40, 40 x 40).
         const inner = {
-          x: p.left + plate.clientLeft,
-          y: p.top + plate.clientTop,
-          w: plate.clientWidth,
-          h: plate.clientHeight,
+          x: p.left + plate.clientLeft * k,
+          y: p.top + plate.clientTop * k,
+          w: plate.clientWidth * k,
+          h: plate.clientHeight * k,
         };
         s.fit = {
           badge: box(badge)!,
           plate: inner,
-          poison: { x: inner.x + 130, y: inner.y + 40, w: 40, h: 40 },
+          poison: { x: inner.x + 130 * k, y: inner.y + 40 * k, w: 40 * k, h: 40 * k },
           shield: box(plate.querySelector(".gs-life")),
           number: box(plate.querySelector(".gs-life-n")),
           tiles: box(plate.querySelector(".gs-zones")),
@@ -620,9 +636,18 @@ async function recorderA6(page: Page, guestSide: "viewer" | "opponent") {
       if (badge) {
         s.badge = Math.max(s.badge, Number(badge.dataset["prevent"] ?? 0));
         const used = badge.dataset["used"];
-        if (used && !s.used.includes(used)) s.used.push(used);
+        // Each use once (a second Salve's badge is another element).
+        if (used && !w.__usedOn.has(badge)) {
+          w.__usedOn.add(badge);
+          s.used.push(used);
+        }
       }
-      s.wards = Math.max(s.wards, document.querySelectorAll('[data-fight="ward"]').length);
+      // Each pale shield once (one lingers while it fades: never counted again).
+      for (const ward of document.querySelectorAll('[data-fight="ward"]'))
+        if (!w.__wards.has(ward)) {
+          w.__wards.add(ward);
+          s.wards += 1;
+        }
       for (const r of document.querySelectorAll<HTMLElement>(
         '.bf-fight-life, [data-fight="life"]',
       )) {
@@ -1008,10 +1033,13 @@ test("menace pops at a refused lone block on both pages; a player's prevent-the-
 
     // 1 -- the pop at the refusal, on both pages, with the lone block standing.
     expect(refused, "the guest's lone block of the Brute was refused").not.toBeNull();
+    // The pop-on at the attack (0101's COMBAT_POP_MS, 360) first, then the
+    // why-pulse at the refusal (WHY_PULSE_MS, 500): both paced alike.
     for (const [who, seen] of Object.entries({ host: refused!.host, guest: refused!.guest }))
-      expect(seen.menace, `${who}: the menace square pulsed at the refusal (500 ms)`).toContain(
-        500,
-      );
+      expect(
+        seen.menace.slice(1).some((d) => Math.abs(d - (seen.menace[0]! * 500) / 360) <= 2),
+        `${who}: the menace square pulsed at the refusal (${JSON.stringify(seen.menace)})`,
+      ).toBe(true);
     expect(refused!.bearsFront, "the Bears stay in front of the Brute at the refusal").toBe(true);
     expect(tookBack, "the guest took the Bears back with a real click").toBe(true);
 
@@ -1036,7 +1064,6 @@ test("menace pops at a refused lone block on both pages; a player's prevent-the-
     expect(ticked, "the Bolt's 3 ticked the badge").not.toBeNull();
     for (const [who, seen] of Object.entries(ticked!)) {
       expect(seen.used, `${who}: 3 -> 0`).toContain("3-0");
-      expect(seen.badge, `${who}: the badge said 3`).toBe(3);
     }
     for (const [who, n] of Object.entries(wardsBeforeAxe))
       expect(

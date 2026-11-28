@@ -1,6 +1,6 @@
 # 0125 — Phase 11 P11-A6: menace's pop at a refused block, and "prevent the next N" on a player
 
-**Status:** **Approved by the owner 2026-11-27 (by prompt: menace "At the refusal", prevention "On the life shield")**; building. Phase 11, item P11-A6 (0101's leftovers).
+**Status:** **Approved by the owner 2026-11-27 (by prompt: menace "At the refusal", prevention "On the life shield")**; built 2026-11-28 (As built, at the end). Phase 11, item P11-A6 (0101's leftovers).
 **Owner decisions** (2026-11-27, by prompt, from the canvas `Proxic canvases/a6-menace-and-prevention.html`):
 
 1. **Menace: "At the refusal" (Option A).** When a block is refused because the attacker has menace, the attacker's menace square pops on BOTH screens at the refusal, with the same pulse the other combat squares use. The lone block stays where the defender put it; the defender's button note stays as today. No window, no pill.
@@ -85,6 +85,31 @@ Protocol: `protocol/README.md` (`blockRefused`), `docs/architecture/MATCH_PROTOC
 
 Worker 4/4 caught: W1 any attacker's too-few-blockers told (unit), W2 told again next round (unit), W3 the refusal never reaching the boards, as on main (Lab: "seat 1/2: exactly one board tells the refusal: []"), W4 only seat 1 told (Lab: seat 2). Page 20/20 caught: P1 no pulse, P2 a second pop on the same board, P3 a pop with reduce motion, P4 the parser taking any `why`, P5 the pulse on another square, P6 no badge, P7 the soaked hit not seen, P8 no shrink at 0, P9 the partial hit's pale shield back, P10 "you" lost on your own plate, P11 no grow, P12 the steps off their beat, P13 the badge ignoring reduce motion, P14 the combat tick on the fixed beat (before the blow), P15 not timed again when the fight clock starts after the plate, P16 no blow marker for a stopped part, P17 the creature square on the fixed beat in combat, P18 no blow marker for a creature's stopped part, P19 the creature square not timed again when the fight clock starts after it, P20 the one look for players only (a creature's partial pale shield back).
 
-### Owed (needs a running stack)
+### On the local stack (RUN, stack A rebuilt from this branch, build e7faab11, PROXIC_TEST_DEALS on, 2026-11-28)
 
-The real-click game (`match-outcomes.spec.ts`, second test), its stills of both screens for each item at 1920 x 1080 (and 1920 x 947), the badge's measured box, and whole-machine replays of `match-outcomes.spec.ts`'s CI machine.
+- **Real-click game** (`match-outcomes.spec.ts`, second test; deck `protocol/fixtures/menace-prevention-deck`):
+  - The host really attacks with Boggart Brute. The guest really clicks Grizzly Bears, then the Brute, then Done blocking. The note "Boggart Brute has menace: block it with two or more creatures." shows, and the Bears stay blocking.
+  - Both pages' recorders saw the menace square's pop-on at the attack (450 ms at this pace) and then the why-pulse at the refusal (625 ms, `WHY_PULSE_MS`).
+  - She takes the Bears back with a real click; the Brute's 3 lands (20 to 17).
+  - The host Bolts her, and she really casts Healing Salve ("Prevent the next 3...", aimed at her own life). The badge shows on her plate on both pages and ticks 3 to 0 (`data-used` "3-0"), with the pale shield over her life shield for the whole Bolt. She stays at 17.
+  - The host's Lava Axe meets a second Salve: the badge ticks again, no pale shield appears on either page (a pale shield is counted each time one appears), and she goes to 15.
+  - Passed with the guest at 1920 x 1080 and at 1920 x 947.
+- **Found here and fixed (commit e7faab11):** the badge often never showed (3 of 4 early runs). The Salve's board and the Bolt's board arrive a few hundred ms apart, and the host's page holds the guest's spell on the table (`HOLD_MS`), so it never drew the Salve's board: the count went from none to none. Both the plate's badge and the creature's square now tick from the hit's own `prevented` amount (F-0125-H; bites P21, P22). On the host's page the badge is still not seen *waiting* in that case (the held board is skipped, as P11-A1 designed); it shows as the Bolt lands, ticking 3 to 0.
+- **The badge's fit, measured** (the recorder, at rest, the guest's plate; boxes in screen px):
+  - At 1920 x 1080 (rail scale 1.2): badge 28.8 px; 3.6 px inside the plate's right edge; 6 px above the tiles; clear of the poison badge's place, the status tray and the life number (2.4 px below it); overlapping the life shield's lower right.
+  - At 1920 x 947: badge 25.7 px; 2.9 px inside the plate's edge; 5 px above the tiles; 1.9 px below the life number; clear of poison and the tray.
+
+  The game asserts all of these on both pages.
+- **Stills, read by eye** (scratch `a6/shots9`, `a6/shots-947`, `a6/strip9.png`, `a6/strip947.png`):
+  - The menace refusal on both screens: the Brute's gold menace square on the attacking card, the Bears in front, the guest's note on her combat button.
+  - The Salve's trail landing on her shield.
+  - Mid-tick: the pale shield over the life shield, the grey 0 to its left, the badge at the shield's lower right showing 1 or 2.
+  - The Lava Axe at 1920 x 947: the red −2 and the crack, the badge ticking (1), no pale shield.
+  - The badge's 3 waiting, both screens.
+
+  Nothing overlaps; nothing on the table moves.
+- **Whole-machine replays,** CI machine match 2/6 (12 specs, 14 tests, 4x CPU, `node ci/ci-speed.mjs --whole`): 4 of 4 passed (14 passed each, 0 skipped; 21.8, 19.5, 19.0 and 19.8 min).
+
+### Left for CI and the release
+
+- `ci/browser-durations.json` still weighs `match-outcomes.spec.ts` at 126 s; it now runs about 1.8 min longer. It is left as is, so CI's deal over its machines is unchanged; the next durations refresh will move it.
