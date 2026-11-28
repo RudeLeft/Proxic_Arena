@@ -33,7 +33,7 @@ import { join } from "node:path";
 import { firstDifference } from "../src/delta";
 import { secondPassword, secondUser, signIn, signInAs } from "./helpers";
 import { clearEverything, sharedDeck, startAMatch } from "./match-helpers";
-import { serverBoard, slowLink, type Link } from "./slow-link";
+import { newestSent, serverBoard, slowLink, type Link } from "./slow-link";
 import { drive } from "./speed-kit";
 
 test.describe.configure({ timeout: 900_000 });
@@ -106,12 +106,30 @@ async function filmed(page: Page, folder: string) {
   return { stop: () => cdp.send("Page.stopScreencast").catch(() => undefined) };
 }
 
-/** Wait until it is [seat]'s turn on [link]'s boards (the host's, from the guest's own view). */
-async function turnOf(pages: Page[], link: () => Link, seat: number) {
+/**
+ * Stall [link] for [ms] exactly: it reads on at the time even if the drive
+ * meanwhile is still in a slow step (at 4x CPU one step can take seconds).
+ * Over the server's 5 s pong wait (spec 0120) the stall would be a drop:
+ * the server closes the line, the game pauses, the page comes back (CI run
+ * 46102439643: a "3 s" stall that ran on with the drive did exactly that).
+ */
+function stallFor(link: Link, ms: number) {
+  link.stall();
+  const timer = setTimeout(() => link.resume(), ms);
+  return {
+    resume() {
+      clearTimeout(timer);
+      link.resume();
+    },
+  };
+}
+
+/** Wait until it is [seat]'s turn on the boards the guest was sent (the host's, from the guest's own view). */
+async function turnOf(pages: Page[], links: Link[], seat: number) {
   await expect
     .poll(
       async () => {
-        const b = link().whole.last;
+        const b = newestSent(links);
         if (b && b["activeSeat"] === seat && String(b["phase"]).startsWith("MAIN")) return true;
         await drive(pages, 300);
         return false;
@@ -121,16 +139,20 @@ async function turnOf(pages: Page[], link: () => Link, seat: number) {
     .toBe(true);
 }
 
-/** The game stands still, then the guest draws the newest board it holds, and that is the server's. */
-async function exact(name: string, page: Page, link: Link, serverUrl: string) {
+/**
+ * The game stands still, then the guest draws the newest board it was sent,
+ * and that is the server's. The newest over all its connections
+ * (`newestSent`): one that came back holding the newest board is sent none.
+ */
+async function exact(name: string, page: Page, links: Link[], serverUrl: string) {
   await expect
-    .poll(async () => (await drawn(page)) === revisionOf(link.whole.last), {
+    .poll(async () => (await drawn(page)) === revisionOf(newestSent(links)), {
       timeout: 15_000,
       message: `${name}: the page draws the newest board it was sent`,
     })
     .toBe(true);
   const server = await serverBoard(page.context(), serverUrl);
-  const mine = link.whole.last!;
+  const mine = newestSent(links)!;
   expect
     .soft(mine["stateRevision"], `${name}: the server's revision`)
     .toBe(server["stateRevision"]);
@@ -161,19 +183,21 @@ test("a stalled page catches up: replay, skip, jump with the window, a refresh s
     await startAMatch(host, guest, deck);
     await drive([host, guest], 10_000);
     // The host's seat, from the guest's own boards.
-    const theirs = () => 3 - Number(link().whole.last?.["seat"] ?? 2);
+    const theirs = () => 3 - Number(newestSent(links)?.["seat"] ?? 2);
 
     // 1. A short stall on the host's turn: late boards, replayed at 3x with the sign.
-    await turnOf([host, guest], link, theirs());
+    await turnOf([host, guest], links, theirs());
     let before = link().boards;
-    link().stall();
+    const connectionsBefore = links.length;
+    let stall = stallFor(link(), 3_000);
     await drive([host], 3_000);
     const sentMeanwhile = link().toPage;
     // CATCHUP_CLIP=<folder> (by hand, not CI): the guest's screen filmed through the replay.
     const film = process.env["CATCHUP_CLIP"]
       ? await filmed(guest, process.env["CATCHUP_CLIP"])
       : null;
-    link().resume();
+    stall.resume();
+    expect(links.length, "a 3 s stall is no drop: the same connection").toBe(connectionsBefore);
     await expect.poll(() => link().boards > before, { timeout: 10_000 }).toBe(true);
     await expect
       .poll(async () => (await seenOn(guest)).signs.length, {
@@ -195,7 +219,7 @@ test("a stalled page catches up: replay, skip, jump with the window, a refresh s
         `(messages before the stall ${sentMeanwhile})`,
     );
     expect.soft((await seenOn(guest)).windows, "no window under the limit").toHaveLength(0);
-    await exact("after the replay", guest, link(), link().url);
+    await exact("after the replay", guest, links, link().url);
 
     // 2. Tap to skip, a real click on the act button during the replay. A
     // replay of a few boards lasts under a second, so a round whose replay
@@ -203,12 +227,12 @@ test("a stalled page catches up: replay, skip, jump with the window, a refresh s
     const sign = guest.locator(".gs-catchup");
     let skippedIn: number | null = null;
     for (let round = 0; round < 4 && skippedIn === null; round += 1) {
-      await turnOf([host, guest], link, theirs());
+      await turnOf([host, guest], links, theirs());
       before = link().boards;
-      link().stall();
       // Spec 0120: under 5 s of silence (a longer stall is a drop: the game pauses).
+      stall = stallFor(link(), 3_000);
       await drive([host], 3_000);
-      link().resume();
+      stall.resume();
       if (
         !(await sign.waitFor({ state: "visible", timeout: 10_000 }).then(
           () => true,
@@ -230,7 +254,7 @@ test("a stalled page catches up: replay, skip, jump with the window, a refresh s
       );
     }
     expect(skippedIn, "a click on the sign skipped the replay").not.toBeNull();
-    await exact("after the skip", guest, link(), link().url);
+    await exact("after the skip", guest, links, link().url);
 
     // 3. A long stall: silence, the notice, the line closed and resumed; past the limit, the window.
     // The guest plays on in a second tab of their own meanwhile (the game asks
@@ -268,7 +292,7 @@ test("a stalled page catches up: replay, skip, jump with the window, a refresh s
     expect.soft(link().url).toContain("resume=");
     await guest.screenshot({ path: test.info().outputPath("away-window.png") });
     await guest.locator(".gs-missed .gs-reveal-close").click();
-    await exact("after the jump", guest, link(), link().url);
+    await exact("after the jump", guest, links, link().url);
 
     // 4. A refresh: a fresh page, never a window.
     await drive([host, guest], 3_000);

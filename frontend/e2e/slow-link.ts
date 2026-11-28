@@ -349,6 +349,23 @@ export class Link {
 }
 
 /**
+ * The newest board a page was sent over all its [links] (each connection's
+ * own `whole.last`), newest link first, or null. A connection that came back
+ * holding the newest board is sent no board at all (spec 0119,
+ * `firstBoards`' Resume.Newest), so the newest link alone can have none while
+ * the page draws, correctly, the board the link before it sent.
+ */
+export function newestSent(
+  links: readonly { whole: { last: Record<string, unknown> | null } }[],
+): Record<string, unknown> | null {
+  for (let i = links.length - 1; i >= 0; i -= 1) {
+    const last = links[i]!.whole.last;
+    if (last) return last;
+  }
+  return null;
+}
+
+/**
  * Route [page]'s match sockets through links with [options] (each new
  * connection, a reconnect's too, gets its own). Returns the links as they
  * open, the newest last.
