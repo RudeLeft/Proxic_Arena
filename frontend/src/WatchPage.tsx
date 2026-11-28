@@ -19,6 +19,7 @@ import { LoadingRing } from "./battlefield/LoadingRing";
 import { watchRoomAnswer, type MatchView } from "./lobby";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 import { everyWhileShown } from "./shownTimer";
+import { endEarlyGame } from "./early";
 
 /**
  * How often the page asks which game the room is playing: to follow the
@@ -60,6 +61,13 @@ export default function WatchPage() {
       stop();
     };
   }, [roomId]);
+
+  // Spec 0122 -- the early game connection goes with the page: no game to
+  // watch, or the page left before its table took it.
+  useEffect(() => {
+    if (none) endEarlyGame();
+  }, [none]);
+  useEffect(() => () => endEarlyGame(), []);
 
   const me = state.status === "authenticated" ? state.user.userId : null;
   const another = lobby.rooms.find(

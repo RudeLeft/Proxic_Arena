@@ -34,6 +34,12 @@
 // - The lobby connection's messages are kept until the shell takes it
 //   (`takeEarlySocket`), then replayed to it in order, so nothing said
 //   before the shell's code arrived is lost.
+// - Spec 0122 (P11-E12): on /game and /watch/<room> the game's own
+//   connection starts here too, at an address where the server says which
+//   game (`/ws/matches/current`, `/ws/matches/watch/<room>`). Its events are
+//   kept with the times they arrived, handed to the game screen once
+//   (`takeEarlyGame`), and applied only once its hello names the page's game;
+//   otherwise the page opens its own connection, as before.
 
 import { csrfToken, type AuthUser } from "./auth";
 import { earlyPageFor, type EarlyFiles } from "./earlyPages";
@@ -107,6 +113,8 @@ export function startEarly(
   if (!page) return;
   for (const address of page.data(path)) prime(address);
   if (page.shell && opts.socket !== false) openEarlySocket();
+  const game = page.game?.(path);
+  if (game && opts.socket !== false) openEarlyGame(game.path, game.watching);
   const built = earlyFiles();
   styles = [];
   for (const index of built?.pages[page.path] ?? []) {
@@ -286,6 +294,7 @@ export function startVisit(path: string, search: string, user: AuthUser): void {
 export function endEarly(): void {
   primed.clear();
   styles = [];
+  endEarlyGame();
   const socket = early;
   early = null;
   if (socket) {
@@ -410,4 +419,255 @@ export function takeEarlySocket(url: string): WebSocket | null {
     live = true;
   });
   return target as unknown as WebSocket;
+}
+
+// --- the game connection (spec 0122, P11-E12) -------------------------------
+//
+// Opened beside "who am I" on a load of /game or /watch/<room>, before the
+// page knows its game: the server resolves the address (the game this user
+// is seated in; the game that room is playing) and names it in MATCH_HELLO.
+// The game keeps its own connection, separate from the lobby's (owner
+// 2026-11-27). Every event is kept with the time it arrived, so a board that
+// waited in here while the page's code came is not taken for late (match.ts
+// `connectMatch` reads `arrivedAt`).
+//
+// Never a new kind of drop (spec 0120): an untaken one is closed only when
+// the page leaves the game (`endEarlyGame`) or after TAKE_WITHIN_MS; one
+// whose hello names another game is closed only once the page's own
+// connection has opened (`EarlyGameSocket`), so the seat is never left with none.
+
+/** One event of the early game connection, with the times it arrived. */
+interface KeptEvent {
+  event: Event;
+  /** Date.now() at the event: what the lateness rule reads (`sentAt` is the server's clock). */
+  at: number;
+  /** performance.now() at the event. */
+  mono: number;
+}
+
+interface EarlyGame {
+  real: WebSocket;
+  watching: boolean;
+  past: KeptEvent[];
+  forward: ((kept: KeptEvent) => void) | null;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+let earlyGame: EarlyGame | null = null;
+
+/** The address an early game connection uses, for [path] (`/ws/matches/...`). */
+export function earlyGameUrl(path: string): string {
+  const scheme = location.protocol === "https:" ? "wss" : "ws";
+  return `${scheme}://${location.host}${path}`;
+}
+
+function openEarlyGame(path: string, watching: boolean): void {
+  if (earlyGame) return;
+  let real: WebSocket;
+  try {
+    real = new WebSocket(earlyGameUrl(path));
+  } catch {
+    return; // the game screen opens its own, as before
+  }
+  const started: EarlyGame = {
+    real,
+    watching,
+    past: [],
+    forward: null,
+    // Nobody took it (the page never reached its table): let it go.
+    timer: setTimeout(() => {
+      if (earlyGame === started) endEarlyGame();
+    }, TAKE_WITHIN_MS),
+  };
+  for (const type of ["open", "message", "close", "error"])
+    real.addEventListener(type, (event) => {
+      const kept = { event, at: Date.now(), mono: performance.now() };
+      if (started.forward) started.forward(kept);
+      else started.past.push(kept);
+    });
+  earlyGame = started;
+}
+
+/**
+ * The page will not take the early game connection (no game, the page left
+ * before its table, signed out): closed at once. Nothing when there is none.
+ */
+export function endEarlyGame(): void {
+  const game = earlyGame;
+  earlyGame = null;
+  if (!game) return;
+  clearTimeout(game.timer);
+  try {
+    game.real.close();
+  } catch {
+    /* already closed */
+  }
+}
+
+/** Spec 0122 -- each replayed event's kept arrival time (Date.now() then). */
+const arrivals = new WeakMap<Event, number>();
+
+/**
+ * When [event] arrived, if the early connection kept it and replayed it
+ * later (Date.now() at its arrival); undefined for one handled as it came.
+ */
+export function arrivedAt(event: Event): number | undefined {
+  return arrivals.get(event);
+}
+
+/** The performance mark a page makes when its game came by the early connection (HID-004: a run can show it). */
+export const EARLY_GAME_MARK = "pa-game-early";
+
+/** The match id a message names, if it is a hello or the game's end ("" for one without an id); else null. */
+function namesGame(event: Event): string | null {
+  if (event.type !== "message") return null;
+  const data = (event as MessageEvent).data as unknown;
+  if (typeof data !== "string") return null;
+  try {
+    const parsed = JSON.parse(data) as Record<string, unknown>;
+    if (parsed["type"] !== "MATCH_HELLO" && parsed["type"] !== "MATCH_ENDED") return null;
+    return typeof parsed["matchId"] === "string" ? parsed["matchId"] : "";
+  } catch {
+    return null;
+  }
+}
+
+type Handler = ((event: Event) => void) | null;
+
+/**
+ * The early game connection as connectMatch sees it, for its first open.
+ * Nothing is passed on until a hello (or the game's end) names the page's
+ * game; then everything kept is replayed in order, each with its kept
+ * arrival time, and the rest passed on as it comes. If it names another
+ * game, or the connection closes before naming one (4003 "no game", or any
+ * other close), the page's own connection is opened instead and used from
+ * then on: the early one is closed once the own one has opened (or failed).
+ */
+class EarlyGameSocket extends EventTarget {
+  onopen: Handler = null;
+  onmessage: Handler = null;
+  onclose: Handler = null;
+  onerror: Handler = null;
+  private current: WebSocket;
+  private deciding = true;
+  private held: KeptEvent[] = [];
+  private closed = false;
+
+  constructor(
+    private readonly early: EarlyGame,
+    private readonly matchId: string,
+    private readonly own: () => WebSocket,
+  ) {
+    super();
+    this.current = early.real;
+    // Once the caller's handlers are on (a microtask later), as takeEarlySocket.
+    queueMicrotask(() => {
+      const past = early.past.splice(0);
+      for (const kept of past) this.fromEarly(kept);
+      early.forward = (kept) => this.fromEarly(kept);
+    });
+  }
+
+  get readyState(): number {
+    return this.current.readyState;
+  }
+  get url(): string {
+    return this.current.url;
+  }
+  send(data: string): void {
+    this.current.send(data);
+  }
+  close(code?: number, reason?: string): void {
+    this.closed = true;
+    this.early.forward = null;
+    if (this.current !== this.early.real) this.current.close(code, reason);
+    try {
+      this.early.real.close();
+    } catch {
+      /* already closed */
+    }
+  }
+
+  private fire(event: Event, at?: number): void {
+    const fresh = copy(event);
+    if (at !== undefined) arrivals.set(fresh, at);
+    const handler = this[`on${event.type}` as "onopen"];
+    handler?.call(this, fresh);
+    this.dispatchEvent(fresh);
+  }
+
+  private fromEarly(kept: KeptEvent): void {
+    if (this.closed) return;
+    if (!this.deciding) {
+      if (this.current === this.early.real) this.fire(kept.event, kept.at);
+      return;
+    }
+    this.held.push(kept);
+    const named = namesGame(kept.event);
+    if (named === this.matchId) {
+      // The page's game: everything kept, in order, at the times it came.
+      this.deciding = false;
+      performance.mark?.(EARLY_GAME_MARK);
+      for (const one of this.held.splice(0)) this.fire(one.event, one.at);
+    } else if (named !== null || kept.event.type === "close") {
+      this.useOwn();
+    }
+  }
+
+  /** The page's own connection, as before; the early one closed once that has opened (or gone). */
+  private useOwn(): void {
+    this.deciding = false;
+    this.held = [];
+    const early = this.early.real;
+    const letGo = () => {
+      try {
+        early.close();
+      } catch {
+        /* already closed */
+      }
+    };
+    let own: WebSocket;
+    try {
+      own = this.own();
+    } catch {
+      letGo();
+      this.fire(new CloseEvent("close", { code: 1006 }));
+      return;
+    }
+    this.current = own;
+    for (const type of ["open", "message", "close", "error"])
+      own.addEventListener(type, (event) => {
+        if (type === "open" || type === "close") letGo();
+        if (!this.closed) this.fire(event);
+      });
+  }
+}
+
+/**
+ * Spec 0122 -- the early game connection, for the game screen's first
+ * connection to [matchId] (connectMatch's `first`): null when there is none,
+ * when it was opened for the other kind of page ([watching]: a player's or a
+ * spectator's). [own] opens the page's own
+ * connection, for when the early one turns out not to be for this game.
+ */
+export function takeEarlyGame(opts: {
+  matchId: string;
+  watching: boolean;
+  own: () => WebSocket;
+}): WebSocket | null {
+  const taken = earlyGame;
+  if (!taken) return null;
+  earlyGame = null;
+  clearTimeout(taken.timer);
+  // A closed one is still taken: what it said before closing decides (a
+  // hello or the end naming this game is replayed; else the page's own).
+  if (taken.watching !== opts.watching) {
+    try {
+      taken.real.close();
+    } catch {
+      /* already closed */
+    }
+    return null;
+  }
+  return new EarlyGameSocket(taken, opts.matchId, opts.own) as unknown as WebSocket;
 }

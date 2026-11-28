@@ -69,6 +69,7 @@ import {
   targetKey,
 } from "../match";
 import { abandonMatch, type MatchView } from "../lobby";
+import { endEarlyGame, takeEarlyGame } from "../early";
 import {
   NameSearch,
   cancelWords,
@@ -389,15 +390,28 @@ export function GameScreen({
   const tableNotices = inArrival([...pageNotices, ...connection, ...said], tableOrder.current);
 
   useEffect(() => {
-    if (!live) return undefined;
+    // Spec 0122 -- a game that is over takes no early connection: let it go.
+    if (!live) {
+      endEarlyGame();
+      return undefined;
+    }
     setGame(EMPTY_MATCH);
-    const socket = connectMatch(matchUrl(match.matchId), (apply) => setGame(apply));
+    const socket = connectMatch(
+      matchUrl(match.matchId),
+      (apply) => setGame(apply),
+      undefined,
+      undefined,
+      {
+        // Spec 0122 (P11-E12) -- the connection the page opened beside "who am I", if any.
+        first: (_url, own) => takeEarlyGame({ matchId: match.matchId, watching: !!watching, own }),
+      },
+    );
     socketRef.current = socket;
     return () => {
       socketRef.current = null;
       socket.close();
     };
-  }, [match.matchId, live]);
+  }, [match.matchId, live, watching]);
 
   // Owner 2026-10-22: a spell the other player cast, that you could not
   // answer, resolved before it was ever drawn -- it read as being skipped.

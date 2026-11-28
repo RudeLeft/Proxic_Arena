@@ -21,6 +21,12 @@ export interface EarlyPage {
   modules: readonly string[];
   /** Inside the shell, so it holds the lobby connection (shell/LobbyConnection.tsx). */
   shell: boolean;
+  /**
+   * Spec 0122 (P11-E12) -- the game connection it opens on loading, for the
+   * address's [path]: the server says which game (`/ws/matches/current`,
+   * `/ws/matches/watch/<room>`), and whether as a player or a spectator.
+   */
+  game?: (path: string) => { path: string; watching: boolean } | null;
   /** What it reads on opening, for anybody signed in: GET addresses. */
   data: (path: string) => readonly string[];
   /**
@@ -111,6 +117,7 @@ export const EARLY_PAGES: readonly EarlyPage[] = [
     modules: [SHELL, "GamePage.tsx"],
     shell: true,
     data: () => ["/api/matches/current"],
+    game: () => ({ path: "/ws/matches/current?deltas=1", watching: false }),
   },
   {
     path: "/watch/",
@@ -120,6 +127,12 @@ export const EARLY_PAGES: readonly EarlyPage[] = [
     data: (path) => {
       const room = path.slice("/watch/".length);
       return room && !room.includes("/") ? [`/api/matches/watch/${room}`] : [];
+    },
+    game: (path) => {
+      const room = path.slice("/watch/".length);
+      return room && !room.includes("/")
+        ? { path: `/ws/matches/watch/${encodeURIComponent(room)}?deltas=1`, watching: true }
+        : null;
     },
   },
   {

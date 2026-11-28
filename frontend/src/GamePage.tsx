@@ -15,6 +15,7 @@ import { LoadingRing } from "./battlefield/LoadingRing";
 import { fetchCurrentMatch } from "./lobby";
 import { useLobbyConnection } from "./shell/LobbyConnection";
 import { useSettled } from "./useSettled";
+import { endEarlyGame } from "./early";
 
 export default function GamePage() {
   const { lobby, setLobby } = useLobbyConnection();
@@ -36,6 +37,13 @@ export default function GamePage() {
       cancelled = true;
     };
   }, [match, setLobby]);
+
+  // Spec 0122 -- the early game connection goes with the page: no game, or the
+  // page left before its table took it (the game screen takes it first).
+  useEffect(() => {
+    if (none) endEarlyGame();
+  }, [none]);
+  useEffect(() => () => endEarlyGame(), []);
 
   // Shown only if finding the game takes a moment: usually it does not.
   const ringDue = useSettled(!match, 400);

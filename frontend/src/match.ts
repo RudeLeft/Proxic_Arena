@@ -26,6 +26,7 @@ import { asOutcome, type MatchOutcome } from "./lobby";
 import { countWords } from "./words";
 import { withHistory, type HeldHistory } from "./history";
 import { applyDelta, DeltaError, firstDifference } from "./delta";
+import { arrivedAt } from "./early";
 
 export interface DecisionOption {
   actionId: string;
@@ -3209,6 +3210,14 @@ export function connectMatch(
   onState: (apply: (previous: MatchState) => MatchState) => void,
   factory: (url: string) => WebSocket = (u) => new WebSocket(u),
   delays: readonly number[] = MATCH_RECONNECT_DELAYS,
+  options: {
+    /**
+     * Spec 0122 (P11-E12) -- a connection already opened for this game
+     * (early.ts `takeEarlyGame`), used as the FIRST instead of a new one;
+     * never for a reconnect. [own] opens the page's own, as [factory] would.
+     */
+    first?: (url: string, own: () => WebSocket) => WebSocket | null;
+  } = {},
 ): MatchSocket {
   let socket: WebSocket;
   let closedByUs = false;
@@ -3222,7 +3231,8 @@ export function connectMatch(
   const open = () => {
     // P11-D6 -- a fresh page asks for nothing (a refresh starts fresh: owner
     // answer 5); a page coming back says which board it holds.
-    const current = factory(opened > 0 ? resumeUrl(url, held) : url);
+    const early = opened === 0 ? (options.first?.(url, () => factory(url)) ?? null) : null;
+    const current = early ?? factory(opened > 0 ? resumeUrl(url, held) : url);
     const resuming = opened > 0 && held !== null;
     opened += 1;
     socket = current;
@@ -3293,7 +3303,12 @@ export function connectMatch(
     current.onmessage = (event) => {
       // P11-D6 -- a connection given up as silent says nothing more.
       if (dropped) return;
-      heard = Date.now();
+      // Spec 0122 -- when it really arrived: a message the early connection
+      // kept while the page's code came is judged at that time, not now
+      // (its replay). The silence check starts at the hand-over, as for any
+      // fresh connection, so a kept message never moves it back.
+      const arrived = arrivedAt(event) ?? Date.now();
+      heard = Math.max(heard, arrived);
       if (stalled) {
         stalled = false;
         onState((previous) => ({ ...previous, stalled: false }));
@@ -3311,7 +3326,7 @@ export function connectMatch(
       } else if (isBoard || type === "MATCH_STEP") {
         if (catchingUp > 0) catchingUp -= 1;
         else if (typeof parsed["sentAt"] === "number") {
-          const gap = Date.now() - parsed["sentAt"];
+          const gap = arrived - parsed["sentAt"];
           skew = skew === null ? gap : Math.min(skew, gap);
           if (isBoard && gap - skew > LATE_MS) how.late = true;
         }
