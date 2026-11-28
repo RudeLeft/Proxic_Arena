@@ -138,9 +138,10 @@ describe("F-0122-C · opened beside who am I", () => {
   it("on /game the player's address, on /watch/<room> the room's; nothing elsewhere or without the hint", () => {
     hint(true);
     startEarly("/game");
+    // The game's first: a browser opens one socket to a host at a time (RFC 6455 4.1).
     expect(FakeSocket.made.map((s) => s.url)).toEqual([
-      `ws://${location.host}/ws/user`,
       `ws://${location.host}/ws/matches/current?deltas=1`,
+      `ws://${location.host}/ws/user`,
     ]);
     endEarly();
     FakeSocket.made = [];

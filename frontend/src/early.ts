@@ -112,9 +112,14 @@ export function startEarly(
   const page = earlyPageFor(path);
   if (!page) return;
   for (const address of page.data(path)) prime(address);
-  if (page.shell && opts.socket !== false) openEarlySocket();
+  // Spec 0122 -- the game's connection FIRST, then the lobby's. A browser
+  // opens one WebSocket to a host at a time (RFC 6455 4.1: a second waits
+  // until the first is open; RUN 2026-11-27, Chromium, not Playwright's
+  // WebKit): with the lobby's first, the game's waited for it and a reload
+  // gained nothing. On the game page the table is what the player waits for.
   const game = page.game?.(path);
   if (game && opts.socket !== false) openEarlyGame(game.path, game.watching);
+  if (page.shell && opts.socket !== false) openEarlySocket();
   const built = earlyFiles();
   styles = [];
   for (const index of built?.pages[page.path] ?? []) {
