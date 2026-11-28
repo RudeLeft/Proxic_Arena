@@ -4809,21 +4809,15 @@ export function Board({
     const wards: FightMark[] = [];
     for (const hit of damage.hits) {
       if (!hit.prevented || hit.amount > 0) continue;
-      // Spec 0125, item 2 -- part of a hit on a player stopped (Lava Axe's 5
-      // into "prevent the next 3"): the rest's red −N and the badge's tick
-      // say it; no pale shield over the life shield.
+      const k = refKey(hit.target);
+      // Spec 0125, item 2 (one look, owner) -- part of a hit stopped (Lava
+      // Axe's 5 into "prevent the next 3", on a player or a creature): the
+      // rest's red −N and the badge's tick say it; no pale shield. All of it
+      // stopped keeps the pale shield and the grey 0.
       if (
-        "player" in hit.target &&
-        damage.hits.some(
-          (h) =>
-            h.amount > 0 &&
-            "player" in h.target &&
-            h.target.player === (hit.target as { player: number }).player &&
-            h.source === hit.source,
-        )
+        damage.hits.some((h) => h.amount > 0 && h.source === hit.source && refKey(h.target) === k)
       )
         continue;
-      const k = refKey(hit.target);
       const point = pointOf(hit.target);
       if (!point || still) continue;
       const blow = landsAt(k);

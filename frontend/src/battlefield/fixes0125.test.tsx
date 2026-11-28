@@ -305,3 +305,71 @@ describe("F-0125-F · a creature's prevent-the-next-N square ticks as its blow l
     expect(ms(used, "--gone-at")).toBe(blow.at + 4 * PREVENT_STEP_MS);
   });
 });
+
+describe("F-0125-G · one look: part of a spell hit stopped, on a creature as on a player", () => {
+  const fightMarks = (c: HTMLElement, kind: string, of: string) =>
+    [...c.querySelectorAll<HTMLElement>(`[data-fight="${kind}"]`)].filter(
+      (m) => m.dataset["of"] === of,
+    );
+  const axe = (target: string): StackView => ({
+    id: "stack:41",
+    name: "Lava Axe",
+    kind: "spell",
+    source: null,
+    targets: [{ object: target }],
+    seat: 2,
+    card: "card:91",
+  });
+  it("Lava Axe's 5 into the Wurm's 3: the square ticks, the red −2, no pale shield; all of it stopped keeps it", () => {
+    const wurm = card("card:13", 1, "Craw Wurm", { power: 6, toughness: 4, preventNext: 3 });
+    const view = render(draw([wurm], { stack: [axe(wurm.id)] }));
+    calls.length = 0;
+    view.rerender(
+      draw([{ ...wurm, preventNext: undefined, preventUsed: { from: 3, to: 0 } }], {
+        damage: {
+          key: "damage:axe",
+          hits: [
+            {
+              source: "card:91",
+              target: { object: wurm.id },
+              amount: 0,
+              prevented: 3,
+              by: "prevent-next",
+            },
+            { source: "card:91", target: { object: wurm.id }, amount: 2 },
+          ],
+        },
+      }),
+    );
+    const used = view.container.querySelector<HTMLElement>('[data-mark="prevent-next"]')!;
+    expect(used.dataset["used"]).toBe("true");
+    expect(fightMarks(view.container, "ward", wurm.id)).toEqual([]);
+    const numbers = fightMarks(view.container, "number", wurm.id);
+    expect(numbers.map((m) => m.textContent)).toEqual(["−2"]);
+    expect(numbers[0]!.classList.contains("bf-fight-grey")).toBe(false);
+
+    // The control: all 3 of a Bolt stopped -- the pale shield and the grey 0, as before.
+    const bears = card("card:14", 1, "Grizzly Bears", { preventNext: 3 });
+    const again = render(draw([bears], { stack: [{ ...axe(bears.id), name: "Lightning Bolt" }] }));
+    again.rerender(
+      draw([{ ...bears, preventNext: undefined, preventUsed: { from: 3, to: 0 } }], {
+        damage: {
+          key: "damage:bolt",
+          hits: [
+            {
+              source: "card:91",
+              target: { object: bears.id },
+              amount: 0,
+              prevented: 3,
+              by: "prevent-next",
+            },
+          ],
+        },
+      }),
+    );
+    expect(fightMarks(again.container, "ward", bears.id)).toHaveLength(1);
+    expect(fightMarks(again.container, "number", bears.id).map((m) => m.textContent)).toEqual([
+      "0",
+    ]);
+  });
+});
