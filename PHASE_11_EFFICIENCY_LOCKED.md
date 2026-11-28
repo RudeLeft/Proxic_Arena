@@ -481,9 +481,9 @@ step in "Recommended order".
 
 | # | What's wrong today | Size | Canvas | Order |
 |---|---|---|---|---|
-| P11-A1 | **The other player's screen misses moves while a spell is held up to be shown** (`GameScreen.tsx` `HOLD_MS`, 1.5 s). Boards arriving meanwhile are never drawn. `carry.ts` `carryMoments` carries their shields, phasing, flickers, damage and life, but not their other moves. So a death or discard then can pop, and its pile number isn't held. Pairs naturally with D5/D6, which need the same carry. | M | clip | 14 |
-| P11-A2 | **The Library number drops on a draw before the card reaches the hand** (spec 0099 "Left open"). | S | yes (small) | 15 (with A3) |
-| P11-A3 | **A Graveyard or Exile tile's "you can play this" glow comes on early,** as the board arrives (0099 "Risks"). | S | clip | 15 |
+| P11-A1 | **The other player's screen misses moves while a spell is held up to be shown** (`GameScreen.tsx` `HOLD_MS`, 1.5 s). Boards arriving meanwhile are never drawn. `carry.ts` `carryMoments` carries their shields, phasing, flickers, damage and life, but not their other moves. So a death or discard then can pop, and its pile number isn't held. Pairs naturally with D5/D6, which need the same carry. *(2026-11-27, owner "Close it" on A3: A1 also owns the one way a pile's glow could still come on early, a card that reached a graveyard or exile while the other player's spell was held; spec 0123.)* | M | clip | 14 |
+| P11-A2 | **The Library number drops on a draw before the card reaches the hand** (spec 0099 "Left open"). *(2026-11-27: owner "As it leaves", spec 0123.)* | S | yes (small) | 15 (with A3) |
+| P11-A3 | **A Graveyard or Exile tile's "you can play this" glow comes on early,** as the board arrives (0099 "Risks"). *(2026-11-27: already fixed by 0099; owner "Close it": a guard test, the held-board case to A1; spec 0123.)* | S | clip | 15 |
 | P11-A4 | **"Nothing to play" can stay after it stops being true.** The worker decides it once, at your first main phase (`PriorityStops.java` `passedTurn`), and keeps it all turn (`passingFor`; page `passingOf`). Find the clip first. | S | yes if words change | 16 (with A5) |
 | P11-A5 | **Audit of leftover word pills and top notices** (owner, 2026-11-12). 0075 and 0097 moved many; one list of what's left, each with a canvas into the report window or kept with a reason. | M | yes | 16 |
 | P11-A6 | **0101's leftovers:** menace's pop on a refused single blocker (the refusal never reaches the combat result); a "prevent the next N" badge on a player (sent, never drawn). | S | yes | 17 |
@@ -4463,3 +4463,12 @@ and spectate pages. Found: a browser opens one WebSocket to a host at a time
 (RFC 6455 4.1, Chromium), so the game's connection opens before the lobby's on
 these two pages, and in Chromium the lobby's list comes about 330 ms later there
 (owner to confirm). Evidence in spec 0122's "As built".
+
+**Owner answers, 2026-11-27 (P11-A2 and P11-A3, by prompt; canvas `Proxic canvases/a2-a3-library-glow.html`):**
+A2 "As it leaves": a drawn card lifts off its owner's Library tile and glides to the hand (face
+up on the way for its owner, a back for the other player), the Library number dropping by one as
+each card leaves, as mills already count; a draw a resolving spell made goes after the spell's
+resolve, the cards a beat apart. A3 "Close it": already fixed by spec 0099 (RUN, filmed: the glow
+comes on after the card lands); one guard test that fails if a pile's glow comes on before the
+card's landing tick; the one way left (a card arriving during the other player's held spell,
+INFERENCE) goes to P11-A1. Both in spec 0123.

@@ -1099,6 +1099,37 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
       )!.seat;
       departures.set(card, `${side(owner)}:${pile}`);
     }
+    // Spec 0123 (P11-A2) -- a card drawn (or found by a search) into a hand
+    // comes off its owner's Library tile, as the game moved it. Your own is
+    // named; the other player's is not (an id is a live handle on a hidden
+    // card), so their draws go to their hand's new backs, the last ones, by
+    // place only -- as A-14's returns take the first new backs. The opening
+    // deal is spec 0089's (openingOf), never played twice.
+    if (!openingOf(snapshot, previous)) {
+      const hiddenOf = (s: Snapshot, seat: number) =>
+        Math.max(
+          0,
+          (s.players.find((p) => p.seat === seat)?.handCount ?? 0) -
+            s.otherHands.filter((c) => c.seat === seat).length,
+        );
+      const unnamed = new Map<number, number>();
+      for (const move of moves) {
+        if (move.from.zone !== "library" || move.to.zone !== "hand") continue;
+        if (move.from.seat === null || move.to.seat === null) continue;
+        const library = `${side(move.from.seat)}:library` as AnchorId;
+        if (move.card && inHands.has(move.card) && !wasInHand.has(move.card))
+          arrivals.set(move.card, library);
+        else if (!move.card && move.to.seat !== viewer)
+          unnamed.set(move.to.seat, (unnamed.get(move.to.seat) ?? 0) + 1);
+      }
+      for (const [seat, n] of unnamed) {
+        const was = hiddenOf(previous, seat);
+        const now = hiddenOf(snapshot, seat);
+        const fresh = Math.min(n, now - was);
+        for (let i = now - fresh; i < now; i++)
+          arrivals.set(`hidden-hand:${seat}:${i}`, `${side(seat)}:library` as AnchorId);
+      }
+    }
   }
 
   // Spec 0080 -- flickers (one move, by way of an exile) and survivors.

@@ -20,6 +20,12 @@ import { paced } from "./motion";
 /** One card dealt to the next (the canvas's 0.1 s); each glides 0.5 s. */
 export const DEAL_BEAT_MS = paced(100);
 export const DEAL_MS = paced(500);
+/**
+ * Spec 0123 (P11-A2, owner 2026-11-27: "As it leaves") -- a draw in the game:
+ * each card lifts off its Library tile this long after the one before (the
+ * canvas's Village Rites: 0.40 s, then 0.55 s).
+ */
+export const DRAW_BEAT_MS = paced(150);
 /** A card leaves the tile this small (of the window's card; of a fan's back: 0.42). */
 export const DEAL_FROM = 0.3;
 export const DEAL_FROM_FAN = 0.42;

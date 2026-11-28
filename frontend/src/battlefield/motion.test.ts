@@ -845,6 +845,8 @@ const PACE_TABLE: Record<string, Record<string, PaceClass>> = {
   },
   "opening.ts": {
     DEAL_BEAT_MS: "move",
+    // Spec 0123 -- a draw: each card a beat after the one before.
+    DRAW_BEAT_MS: "move",
     DEAL_MS: "move",
     DEAL_NUMBER_AT: "move",
     TURN_DOWN_MS: "move",

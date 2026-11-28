@@ -275,6 +275,7 @@ import { sweepBeat, sweepDone, sweepLanded } from "./restart";
 import {
   DEAL_MS,
   DEAL_NUMBER_AT,
+  DRAW_BEAT_MS,
   PUT_BACK_MS,
   RIFFLE_AT as OPENING_RIFFLE_AT,
   dealAt,
@@ -7233,6 +7234,16 @@ export function Board({
           of: id,
         });
       };
+      // Spec 0123 (P11-A2) -- when a library's first drawn card lifts off:
+      // after the spell that did it has glowed, and after this board's mill
+      // stream off that library (its cards counted by the mill above).
+      const drawn0 = new Map<string, number>();
+      const milledUntil = new Map<string, number>();
+      for (const [tile, changes] of ticks)
+        if (tile.endsWith(":library"))
+          milledUntil.set(tile, Math.max(...changes.map((c) => c.at)) + MILL_BEAT_MS);
+      const drawStart = (tile: string) =>
+        Math.max(hold + (spellLeft ? RESOLVE_MS : 0), milledUntil.get(tile) ?? 0);
       const joins: Ghost[] = [];
       for (const item of items) {
         if (before.mounted.has(item.id)) continue; // the same element: CSS glides it
@@ -7461,6 +7472,54 @@ export function Board({
             RETURN_MS,
           );
           markReturn(item.id, back, hold);
+          continue;
+        }
+        // Spec 0123 (P11-A2, owner 2026-11-27: "As it leaves") -- drawn, or
+        // found by a search, from a library into a hand: it lifts off its
+        // owner's Library tile and glides to the hand, the number dropping
+        // by one as it leaves. After the spell that did it has resolved
+        // (RESOLVE_MS), after a mill off the same library, a beat apart.
+        // Yours (or one you are shown) turns face up on the way, as the
+        // other player's hand card does (0073's turn); their hidden card is
+        // a back the whole way.
+        const drawnFrom = arrivals?.get(item.id);
+        if (
+          !was &&
+          !fromStack &&
+          !offTab &&
+          !byId.has(item.id) &&
+          drawnFrom?.endsWith(":library")
+        ) {
+          const nth = drawn0.get(drawnFrom) ?? 0;
+          drawn0.set(drawnFrom, nth + 1);
+          const delay = drawStart(drawnFrom) + nth * DRAW_BEAT_MS;
+          const path = glideFrames(fromBox, item.box, g.cardW, g.cardH, item.origin, item.origin);
+          if (isBack(item.id)) {
+            // Unseen until it lifts (a back on the tile's back would be one too many).
+            glide(
+              element,
+              path.map((f, i) => ({ ...f, opacity: i === 0 ? 0 : 1 })),
+              delay,
+              MOVE_MS,
+            );
+          } else {
+            glide(element, turnUp(path, "face"), delay, MOVE_MS);
+            joins.push({
+              ...backLook,
+              side: drawnFrom.startsWith("viewer") ? "viewer" : "opponent",
+              id: item.id,
+              box: fromBox,
+              origin: item.origin,
+              to: item.box,
+              toOrigin: item.origin,
+              fade: false,
+              delay,
+              turn: "back",
+              waits: true,
+            });
+          }
+          tick(drawnFrom, delay, -1);
+          landAt.set(item.id, delay + MOVE_MS);
           continue;
         }
         const { delay, duration } = pace(item.id);
