@@ -12,9 +12,9 @@ import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_LOBBY, type MatchView } from "../lobby";
 import { reduceMatch, type MatchState } from "../match";
-import { endLifeSteps } from "./lifeTicks";
+import { endLifeSteps, lifeStillPlaying, startLifeSteps } from "./lifeTicks";
 import { PREVENT_STEP_MS, PREVENT_TICK_AT_MS } from "./CardBadges";
-import { PREVENT_GROW_MS } from "./PreventBadge";
+import { PREVENT_GROW_MS, PreventBadge } from "./PreventBadge";
 
 const socket = vi.hoisted(() => ({
   onState: null as null | ((apply: (previous: MatchState) => MatchState) => void),
@@ -269,6 +269,96 @@ describe("F-0125-C · a player's prevent-the-next-N badge on the life shield", (
     ]);
     // No pale shield over the life shield for the part stopped.
     expect(c.querySelector('[data-fight="ward"][data-of="player:2"]')).toBeNull();
+  });
+
+  it("in combat it ticks as the blow lands on the life shield, never before (a 6/6 into 3)", () => {
+    // Alice's Colossal Dreadmaw attacks Bob, who Salved himself: 3 stopped,
+    // 3 through. The fight plays on its clock; the badge waits for the blow.
+    const maw = {
+      id: "card:30",
+      seat: 1,
+      owner: 1,
+      name: "Colossal Dreadmaw",
+      kind: "creature",
+      types: "Creature — Dinosaur",
+      tapped: true,
+      attacking: true,
+      faceDown: false,
+      known: true,
+      power: 6,
+      toughness: 6,
+      damage: 0,
+      keywords: ["Trample"],
+    };
+    const fighting = (over: Record<string, unknown>) =>
+      state(2, {
+        phase: "COMBAT_DAMAGE",
+        battlefield: [maw],
+        combat: { attackers: [{ id: "card:30", target: { player: 2 } }], blocks: [] },
+        ...over,
+      });
+    const c = open(2).container;
+    send(fighting({ phase: "COMBAT_DECLARE_BLOCKERS", players: [alice, bob({ preventNext: 3 })] }));
+    animations = [];
+    send(
+      fighting({
+        players: [alice, bob({ life: 17 })],
+        damage: {
+          key: "damage:maw",
+          combat: "regular",
+          hits: [
+            {
+              source: "card:30",
+              target: { player: 2 },
+              amount: 0,
+              prevented: 3,
+              by: "prevent-next",
+            },
+            { source: "card:30", target: { player: 2 }, amount: 3 },
+          ],
+          fights: [{ attacker: "card:30", defender: { player: 2 }, blockers: [] }],
+        },
+        life: {
+          key: "life:maw",
+          changes: [{ player: 2, amount: 3, kind: "damage", source: "card:30", combat: true }],
+        },
+      }),
+    );
+    // The blow on Bob's life shield, on the fight clock (its red −3 lands then).
+    const blow = lifeStillPlaying("fights").find((s) => s.seat === 2 && s.amount < 0)!;
+    expect(blow).toBeTruthy();
+    expect(blow.at).toBeGreaterThan(PREVENT_TICK_AT_MS);
+    const badge = badgeOf(c, 2)!;
+    expect(badge.dataset["used"]).toBe("3-0");
+    const steps = [...badge.querySelectorAll<HTMLElement>("[data-prevent-step]")];
+    const delays = steps.map((s) => Number(runsOn(s).at(-1)!.options.delay));
+    // The 3 holds until the blow; then 2, 1, 0 a step each.
+    expect(delays).toEqual([0, blow.at, blow.at + PREVENT_STEP_MS, blow.at + 2 * PREVENT_STEP_MS]);
+    const shrink = runsOn(badge)
+      .filter((a) => a.frames.some((f) => f.transform === "scale(0)" && f.offset === 1))
+      .at(-1)!;
+    expect(Number(shrink.options.delay)).toBe(blow.at + 3 * PREVENT_STEP_MS);
+  });
+
+  it("a fight clock already playing when the board comes: the tick waits for its blow", () => {
+    startLifeSteps(() => 0, [{ seat: 2, at: 900, amount: 0, prevented: 3 }]);
+    const view = render(<PreventBadge seat={2} count={3} soaked={null} who="Bob" />);
+    view.rerender(<PreventBadge seat={2} count={0} soaked="damage:9" who="Bob" />);
+    const steps = [...view.container.querySelectorAll<HTMLElement>("[data-prevent-step]")];
+    expect(steps.map((s) => Number(runsOn(s).at(-1)!.options.delay))).toEqual([
+      0,
+      900,
+      900 + PREVENT_STEP_MS,
+      900 + 2 * PREVENT_STEP_MS,
+    ]);
+    // Another seat's blow is not its own: the spell's beat.
+    endLifeSteps();
+    startLifeSteps(() => 0, [{ seat: 1, at: 900, amount: 0, prevented: 3 }]);
+    const other = render(<PreventBadge seat={2} count={3} soaked={null} who="Bob" />);
+    other.rerender(<PreventBadge seat={2} count={0} soaked="damage:10" who="Bob" />);
+    const first = other.container.querySelectorAll<HTMLElement>("[data-prevent-step]")[1]!;
+    expect(Number(runsOn(first).at(-1)!.options.delay)).toBe(PREVENT_TICK_AT_MS);
+    endLifeSteps();
   });
 
   it("the turn ends with it unused: no tick, it just shrinks away", () => {

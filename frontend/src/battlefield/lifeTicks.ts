@@ -37,6 +37,13 @@ export interface LifeStep {
    * poison always is -- so a change told point by point marks only its first.
    */
   blow?: boolean;
+  /**
+   * Spec 0125, item 2 -- this many of the blow's damage were stopped (a
+   * "prevent the next N" on the player): the step changes no number (amount
+   * 0 when all of it was), but says when that blow lands, for the plate's
+   * badge to tick then.
+   */
+  prevented?: number;
 }
 
 /** Whether [step] is a blow (see LifeStep.blow). */
@@ -61,6 +68,9 @@ export function lifeSteps(
     for (const strike of fight.strikes) {
       if (!strike.target.startsWith("player:")) continue;
       const seat = Number(strike.target.slice("player:".length));
+      // Spec 0125 -- a stopped part: when it lands (the plate's badge ticks then).
+      if (Number.isFinite(seat) && (strike.prevented ?? 0) > 0)
+        out.push({ seat, at: hold + strike.at, amount: 0, prevented: strike.prevented! });
       if (!Number.isFinite(seat) || strike.amount <= 0) continue;
       if (strike.poison) {
         out.push({ seat, at: hold + strike.at, amount: strike.amount, poison: true });
@@ -237,6 +247,31 @@ export function endLifeSteps(clock?: LifeClock): void {
     runs.clear();
   } else if (!runs.delete(clock)) return;
   notify();
+}
+
+/**
+ * Spec 0125, item 2 -- how long from now until the next blow on [seat] whose
+ * damage was (in part) stopped lands on a clock now playing (a combat or
+ * fight blow: the moment its pale shield or its red "−N" shows on the life
+ * shield); null when none is still to come.
+ */
+export function preventedBlowIn(seat: number): number | null {
+  let soonest: number | null = null;
+  for (const run of runs.values()) {
+    const t = run.now();
+    for (const step of run.steps)
+      if (step.seat === seat && (step.prevented ?? 0) > 0 && step.at > t)
+        soonest = soonest === null ? step.at - t : Math.min(soonest, step.at - t);
+  }
+  return soonest;
+}
+
+/** Spec 0125 -- [listener] is told whenever a clock starts or ends; the returned function stops it. */
+export function onLifeClocks(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 /**

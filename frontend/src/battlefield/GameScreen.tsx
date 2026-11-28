@@ -4242,6 +4242,7 @@ function SeatBlockView({
       </div>
       {/* Spec 0125, item 2 (A) -- "prevent the next N": the pale badge at the shield's lower right. */}
       <PreventBadge
+        seat={player.seat}
         count={player.preventNext ?? 0}
         soaked={facts.preventSoaked}
         who={mine && !spectator ? "you" : player.name}
