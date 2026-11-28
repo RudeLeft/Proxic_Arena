@@ -37,7 +37,13 @@ COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts gradle.properties 
 COPY config/ config/
 COPY gradle/ gradle/
 COPY server/build.gradle.kts server/
-RUN chmod +x gradlew && ./gradlew --no-daemon :server:dependencies --quiet || true
+# resolveLibraries downloads the jars themselves (server/build.gradle.kts),
+# with two waits for Maven Central's 429 "too many requests".
+RUN chmod +x gradlew && \
+    for wait in 60 120 0; do \
+      ./gradlew --no-daemon :server:resolveLibraries --quiet && exit 0; \
+      [ "$wait" -gt 0 ] && sleep "$wait"; \
+    done; exit 1
 COPY server/ server/
 COPY protocol/ protocol/
 # Tests are NOT run here. They need Docker (Testcontainers), and a

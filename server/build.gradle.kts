@@ -121,6 +121,21 @@ tasks.named<Sync>("installDist") {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
 
+// The image build (Dockerfile) runs this before the source is copied in,
+// so every library the server is compiled and run with is downloaded
+// into a layer that only rebuilds when the build scripts change.
+// `dependencies` alone fetched the list but not the jars, so every
+// server edit downloaded them all from Maven Central again, and a 429
+// there failed the image build (2026-11-28, run 46098892635).
+val resolveLibraries by tasks.registering {
+    description = "Downloads the libraries the image build compiles and runs with."
+    val wanted =
+        listOf("compileClasspath", "runtimeClasspath", "kotlinCompilerClasspath", "kotlinCompilerPluginClasspathMain")
+            .mapNotNull { configurations.findByName(it) }
+    val libraries = files(wanted)
+    doLast { logger.lifecycle("libraries: ${libraries.files.size}") }
+}
+
 ktlint {
     // ktlint 1.x cannot PARSE this build script (it fails on
     // `runKtlintFormatOverKotlinScripts`, not on a style rule), so
