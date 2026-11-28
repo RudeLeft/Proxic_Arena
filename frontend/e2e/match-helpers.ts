@@ -1156,7 +1156,14 @@ export async function settlePregame(host: Page, guest: Page) {
     // game. Overwritten each time; the last one wins.
     await asked.screenshot({ path: "test-results/seen/pregame.png", fullPage: true });
 
-    await options.first().click();
+    // A short wait, then look again: the question can be answered or close
+    // during the full-page screenshot (4x CPU), and an unbounded click then
+    // waited for a button that never came back until the test's own timeout
+    // (ROADMAP's flakes: settlePregame, 300/900/600 s).
+    await options
+      .first()
+      .click({ timeout: 5_000 })
+      .catch(() => undefined);
     await asked.waitForTimeout(60);
   }
 }
