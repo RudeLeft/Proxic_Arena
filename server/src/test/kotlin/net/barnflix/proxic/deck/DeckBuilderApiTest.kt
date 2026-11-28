@@ -447,8 +447,26 @@ class DeckBuilderApiTest {
             val sent = send(token, zip(entries))
             assertEquals(HttpStatusCode.Created, sent.status, sent.bodyAsText())
             val accepted = json.decodeFromString(ImportAcceptedResponse.serializer(), sent.bodyAsText())
-            assertEquals(0, accepted.entriesWithoutArt)
+            // P11-B3: this test failed once under load (1 of 692, "AssertionFailedError at
+            // DeckBuilderApiTest.kt:429", no message kept). Every assertion now says which it
+            // is, and Forge's check is asserted first: each printing resolved, so a failure
+            // below is about the pictures, not about a card checker that did not answer.
+            val statuses =
+                Database.connect(config())!!.use { database ->
+                    database.dataSource().connection.use { connection ->
+                        connection.createStatement()
+                            .executeQuery("SELECT collector_number, resolution_status FROM deck_entry")
+                            .use { buildMap { while (it.next()) put(it.getString(1), it.getString(2)) } }
+                    }
+                }
+            assertEquals(
+                mapOf("59" to "RESOLVED", "60" to "RESOLVED", "61" to "RESOLVED", "62" to "RESOLVED"),
+                statuses,
+                "Forge's check ran: each printing resolved (import answer: ${sent.bodyAsText()})",
+            )
+            assertEquals(0, accepted.entriesWithoutArt, "every line has a picture: ${sent.bodyAsText()}")
             val page = client.get("/api/decks/${accepted.deckId}") { header(HttpHeaders.Cookie, signIn("Pat").cookies) }
+            assertEquals(HttpStatusCode.OK, page.status, "the deck's page: ${page.bodyAsText()}")
             val detail = json.decodeFromString(DeckDetail.serializer(), page.bodyAsText())
             val worn = detail.entries.associate { it.collectorNumber to it.artUrl?.substringAfterLast('/') }
             assertEquals(
@@ -473,14 +491,18 @@ class DeckBuilderApiTest {
                         connection.createStatement().executeQuery("SELECT face_name FROM deck_crop_art").use {
                             buildSet { while (it.next()) add(it.getString(1)) }
                         }
-                    assertEquals(setOf("mountain", "mountain [dd1-60]"), crops)
+                    assertEquals(setOf("mountain", "mountain [dd1-60]"), crops, "the art crops kept, by name")
                     // Each line keeps the printing it asked for, so in a game
                     // each Mountain is built from its own printing.
                     val played =
                         connection.createStatement()
                             .executeQuery("SELECT collector_number, resolved_number FROM deck_entry")
                             .use { buildMap { while (it.next()) put(it.getString(1), it.getString(2)) } }
-                    assertEquals(mapOf("59" to "59", "60" to "60", "61" to "61", "62" to "62"), played)
+                    assertEquals(
+                        mapOf("59" to "59", "60" to "60", "61" to "61", "62" to "62"),
+                        played,
+                        "each line keeps the printing it asked for",
+                    )
                 }
             }
         }

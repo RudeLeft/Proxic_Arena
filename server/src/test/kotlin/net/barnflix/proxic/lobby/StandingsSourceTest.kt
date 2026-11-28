@@ -106,6 +106,20 @@ class StandingsSourceTest {
         return deckId
     }
 
+    /** Every game's recorded end, oldest first (for a failure's message). */
+    private fun endedAt(): List<Instant> =
+        source().connection.use { connection ->
+            connection.createStatement()
+                .executeQuery("SELECT ended_at FROM match WHERE ended_at IS NOT NULL ORDER BY ended_at")
+                .use { buildList { while (it.next()) add(it.getTimestamp(1).toInstant()) } }
+        }
+
+    /** A fixed clock: 1 s after the last recorded game ended (P11-B3), not the wall clock. */
+    private fun afterTheGames(): () -> Instant {
+        val at = (endedAt().lastOrNull() ?: Instant.now()).plusSeconds(1)
+        return { at }
+    }
+
     /** A room with both players seated on a shared deck. */
     private class Table(val rooms: RoomService, val roomId: UUID, val host: UUID, val guest: UUID)
 
@@ -146,25 +160,46 @@ class StandingsSourceTest {
         table.play { _, _ -> GameOutcome(GameOutcome.FAILED, null, 3) }
 
         val counted = StandingsSource(source()).records().associateBy { it.userId }
-        assertEquals(2 to 4, counted.getValue(table.guest).let { it.wins to it.games })
-        assertEquals(1 to 4, counted.getValue(table.host).let { it.wins to it.games })
+        assertEquals(2 to 4, counted.getValue(table.guest).let { it.wins to it.games }, "Pat's wins and games")
+        assertEquals(1 to 4, counted.getValue(table.host).let { it.wins to it.games }, "the host's wins and games")
         // Spec 0018 — the places are the season's, and need five games.
-        assertEquals(emptyList(), StandingsSource(source()).standings().podium, "four games: nobody ranked")
+        assertEquals(
+            emptyList(),
+            StandingsSource(source(), clock = afterTheGames()).standings().podium,
+            "four games: nobody ranked",
+        )
         table.play { pat, _ -> GameOutcome(GameOutcome.WINNER, pat, 6) }
-        assertEquals(listOf(table.guest, table.host), StandingsSource(source()).standings().podium.map { it.userId })
+        // P11-B3: this check failed once under load (expected [guest, host], was []; the line
+        // was lost), never reproduced. The places are read at a fixed moment just after the
+        // last game ended, by the recorded ended_at, rather than the wall clock, and each
+        // check names itself.
+        val now = afterTheGames()()
+        assertEquals(
+            listOf(table.guest, table.host),
+            StandingsSource(source(), clock = { now }).standings().podium.map { it.userId },
+            "five games: the podium, Pat first (at $now; games ${endedAt()})",
+        )
 
         // Spec 0018, F-0018-B — the Hall page from the same recorded games: the
         // board, the deck by name (H8), the concession, the draw, no failed game.
-        val hall = HallGameSource(source()).hall().view(Instant.now(), table.host)
-        assertEquals(listOf(table.guest, table.host).map { it.toString() }, hall.board.map { it.userId })
+        val hall = HallGameSource(source()).hall().view(now, table.host)
+        assertEquals(
+            listOf(table.guest, table.host).map { it.toString() },
+            hall.board.map { it.userId },
+            "the Hall's board, Pat first (at $now; games ${endedAt()})",
+        )
         val pat = hall.board.first()
-        assertEquals(Triple(3, 1, 1), Triple(pat.wins, pat.losses, pat.draws))
-        assertEquals("Mono Red", pat.deck?.name)
+        assertEquals(Triple(3, 1, 1), Triple(pat.wins, pat.losses, pat.draws), "Pat's wins, losses and draws")
+        assertEquals("Mono Red", pat.deck?.name, "Pat's deck by name")
         assertEquals(table.guest.toString(), hall.rival?.b, "the host's rival is Pat")
 
         // A disabled account leaves the Hall.
         Accounts(source()).setStatus(table.guest, AccountStatus.DISABLED)
-        assertEquals(listOf(table.host), StandingsSource(source()).standings().podium.map { it.userId })
+        assertEquals(
+            listOf(table.host),
+            StandingsSource(source(), clock = { now }).standings().podium.map { it.userId },
+            "a disabled account leaves the podium",
+        )
     }
 
     /** Spec 0013, F-0013-A — the game chat reaches the game's players, on the end screen too. */
