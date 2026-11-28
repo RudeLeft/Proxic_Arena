@@ -266,11 +266,11 @@ only in an opponent's hand (P6-G).
 
 *As of 2026-11-18 (a documentation check): coin flips and chosen values
 have been report windows since spec 0075 and a game restart a RESTART
-report since spec 0097 (item 4); the only notice the worker still sends
-(`GameHost.note`) is the ante line "Every copy of … was taken out of your
-deck before the game: ante is not played." (code:
-forge-worker/src/main/java/net/barnflix/proxic/worker/game/MatchController.java, `notifyOfValue`
-and `revealAnte`; GameHost.java, `note`).*
+report since spec 0097 (item 4). Since spec 0124 (owner 2026-11-27) no
+notice is sent at all: the last one, the ante cards taken out, is an ANTE
+report made for that deck's owner alone (`ActionReports#releaseAnte`,
+`ReportBook` onlyFor), from the game's first turn; the board's `notices`
+list stays on the wire, always empty.*
 
 **Naming a card (PHASE_09 Amendment 16).** The name-a-card question lists
 the cards its player may click to name (`arrange.name.objects`): only

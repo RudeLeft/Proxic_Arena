@@ -416,18 +416,33 @@ action (PHASE)            spec 0080: the other player's permanents phased out
                           CantChangeLife static ability that applies to them
                           (Forge's own test), e.g. Teferi's Protection; Slip
                           Out the Back adds nothing
-noticesTotal              spec 0061: how many notices this seat was told in
-                          all (`notices` keeps the last six), so a page can
-                          tell new ones once the list is full. Spec 0097:
-                          the page counts what a board it first sees after
-                          mounting holds as already seen (turn 0 excepted)
+action (ANTE)             spec 0124 (owner Q3 "Report window"): the ante
+                          cards Forge took out of this seat's deck before
+                          the game, the game's own report: by 0, byWords
+                          "Your deck" (the page draws the game's shield and
+                          "Your deck · CARD"), source the card names, said
+                          "Ante isn't played, so every copy of ... was taken
+                          out of your deck.", cards one per name, face up by
+                          its printing, id "action:N:i", to "out". Only in
+                          that deck's owner's boards, and only from the
+                          game's first turn (never over the opening hand)
+notices                   spec 0124 (owner Q4 "Remove both"): always empty
+                          (the grey "GAME" notices are gone); kept as one of
+                          the history lists (P11-D3). `noticesTotal` is no
+                          longer sent
 passing                   spec 0097, item 2: this seat's own turn is being
                           passed for it, nothing it can play: {turn, why
                           ("2 lands, no land in hand")}, in that seat's
                           boards during that turn only; the act button
                           says "Passing" / "Nothing to play · {why}". The
                           grey "Nothing you can play this turn" notice is
-                          no longer sent
+                          no longer sent. Spec 0124 (owner Q1 "Every
+                          step"): re-checked at every priority point of
+                          that turn from Main 1 on, with an empty stack:
+                          gone once the seat is asked or has something to
+                          play, back with the reason as it is then; left as
+                          it is while the stack is not empty (the page then
+                          shows the waiting line, Q2)
 rolls                     Phase 9 W-17: the dice rolled lately, public, the
                           last six: {n (only grows), seat, source "card:N",
                           name, sides, results [final]}

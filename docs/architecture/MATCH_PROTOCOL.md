@@ -327,12 +327,14 @@ dungeons), and the zones this viewer may see: `hand` (own), `otherHands`
 (only what Forge reveals; spec 0070: a card revealed to this viewer stays
 there, `seen`, until it leaves that hand -- and a `hand` card another seat
 has seen carries `seen` too), `battlefield`, `graveyard`, `exile`,
-`stack`, plus `notices` -- Forge's messages to this player -- and
+`stack`, plus `notices` -- Forge's messages to this player; always empty
+since spec 0124, whose ante report was the last of them -- and
 `action`: who searched, looked at or moved cards, in this reader's words
 (Phase 9 Amendments 12, 13; never to the seat that chose; spec 0074
 Amendment 1: counters, mills, cards out of a graveyard; spec 0075: a
 bounce to the owner, the other player's cycling, choices and coin flips
-with `marks` pictures, an empty look). Card actions are never told as
+with `marks` pictures, an empty look; spec 0124: the ante cards taken out
+of the reader's own deck, the game's own report, `by` 0 with `byWords`). Card actions are never told as
 `notices` (spec 0075). Spec 0077: `life`, the round's changes to each
 player's life and poison in Forge's order -- damage, loss, gain or poison,
 with the amount and the source where it is known and the reader may see it

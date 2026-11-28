@@ -486,6 +486,12 @@ step in "Recommended order".
 | P11-A3 | **A Graveyard or Exile tile's "you can play this" glow comes on early,** as the board arrives (0099 "Risks"). *(2026-11-27: already fixed by 0099; owner "Close it": a guard test, the held-board case to A1; spec 0123.)* | S | clip | 15 |
 | P11-A4 | **"Nothing to play" can stay after it stops being true.** The worker decides it once, at your first main phase (`PriorityStops.java` `passedTurn`), and keeps it all turn (`passingFor`; page `passingOf`). Find the clip first. | S | yes if words change | 16 (with A5) |
 | P11-A5 | **Audit of leftover word pills and top notices** (owner, 2026-11-12). 0075 and 0097 moved many; one list of what's left, each with a canvas into the report window or kept with a reason. | M | yes | 16 |
+
+| P11-A1 | **The other player's screen misses moves while a spell is held up to be shown** (`GameScreen.tsx` `HOLD_MS`, 1.5 s). Boards arriving meanwhile are never drawn. `carry.ts` `carryMoments` carries their shields, phasing, flickers, damage and life, but not their other moves. So a death or discard then can pop, and its pile number isn't held. Pairs naturally with D5/D6, which need the same carry. | M | clip | 14 |
+| P11-A2 | **The Library number drops on a draw before the card reaches the hand** (spec 0099 "Left open"). | S | yes (small) | 15 (with A3) |
+| P11-A3 | **A Graveyard or Exile tile's "you can play this" glow comes on early,** as the board arrives (0099 "Risks"). | S | clip | 15 |
+| P11-A4 | **"Nothing to play" can stay after it stops being true.** The worker decides it once, at your first main phase (`PriorityStops.java` `passedTurn`), and keeps it all turn (`passingFor`; page `passingOf`). Find the clip first. **2026-11-27, spec 0124 (owner: Q1 "Every step", Q2 "Bob's move"):** re-checked at every priority point of your turn, cleared when you are asked, back with a fresh reason; "Bob's move" while the other player acts; building. | S | yes if words change | 16 (with A5) |
+| P11-A5 | **Audit of leftover word pills and top notices** (owner, 2026-11-12). 0075 and 0097 moved many; one list of what's left, each with a canvas into the report window or kept with a reason. **2026-11-27, spec 0124 (owner: Q3 "Report window", Q4 "Remove both", Q5 "Keep all 31"):** the ante notice is a report window for the deck's owner after the opening hand; the grey "GAME" notice and the dead return tag removed; rows 5-35 kept, each with its reason in the spec ("The keep list"); the audit is closed. Building. | M | yes | 16 |
 | P11-A6 | **0101's leftovers:** menace's pop on a refused single blocker (the refusal never reaches the combat result); a "prevent the next N" badge on a player (sent, never drawn). | S | yes | 17 |
 | P11-A7 | **A countered copy of a trigger vanishes in one frame** (owner, 2026-11-21, from the 1.75.0 jump check: `no-target-slayer`, board 47, both seats). Bob's Stifle counters the copy of Slayer of the Wicked's trigger that Strionic Resonator made; the copy's stack card is gone the next frame while a countered spell leaves with its animation. Give it the same leave. Contact sheet: the 1.75.0 release run's `slayer-sheet.jpg`. | S | clip | 17 (with A6) |
 | P11-A8 | **A spell cast from the graveyard or exile with nothing to target gives no reason** (straggler 32, found building 0108). It is no longer offered, but there's no "Not now" line for it; reasons exist only for hand cards and abilities of permanents. | S | yes (small) | 17 |
@@ -4496,3 +4502,15 @@ Spec 0125.
 - Part of a spell hit stopped: the ticking badge or square and the red −N, with no pale shield, on a player and a creature alike.
 - Both the badge and the square tick from the hit's own stopped amount, so they also play when the board that showed the count was held and never drawn (found on stack A).
 - Evidence: the Lab x3; the real-click game at 1920 x 1080 and 1920 x 947; the badge's fit measured; 4 of 4 whole-machine replays of match 2/6. Details are in spec 0125's "As built".
+
+**P11-A4 and P11-A5 built, 2026-11-27 (spec 0124):** "Nothing to play" is
+re-checked at every priority point of your own turn (gone when you are asked or
+have something to play, back with the reason as it is then), and gives way to
+the other player's waiting line while they act or the stack is not empty. The
+ante cards taken out are a report window for the deck's owner from the first
+turn; the grey "GAME" notice and the dead return tag are gone; rows 5-35 of the
+audit are kept with their reasons (the spec's keep list), so A5's audit is
+closed. Which questions are asked is unchanged: the full Lab, Forge's shuffle
+seeded, gave an identical question record before and after (43,996 questions).
+Evidence in spec 0124's "As built".
+
