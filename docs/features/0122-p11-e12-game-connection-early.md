@@ -1,6 +1,6 @@
 # 0122 — Phase 11 P11-E12: the game's connection starts early
 
-**Status:** **Approved by the owner 2026-11-27 (by prompt: "Approve it").** Building.
+**Status:** **Approved by the owner 2026-11-27 (by prompt: "Approve it"); building** (drafted 2026-11-27). Phase 11, item P11-E12 (step 9 of the recommended order). It changes the protocol (two new socket addresses), so it is its own spec, like D4 (`PHASE_11_EFFICIENCY_LOCKED.md`, the E12 row: "protocol change → its own spec").
 **Owner answers, 2026-11-27** (by prompt, after the E12 research):
 
 - **A: start the game's connection early,** beside "who am I", as the lobby's connection already does (P11-E5). The game **keeps its own separate connection**. One connection shared by the lobby and the game was explained and set aside: it gives no extra speed, a lobby blip would pause a game, and it risks sending hidden information down the wrong stream. The owner agreed.
