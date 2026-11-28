@@ -977,6 +977,7 @@ const PACE_TABLE: Record<string, Record<string, PaceClass>> = {
     UNPOISON_GONE_AT: "move",
     UNPOISON_GONE_MS: "move",
   },
+  "PreventBadge.tsx": { PREVENT_GROW_MS: "move", PREVENT_GONE_MS: "move" },
   "RoomDoors.tsx": { DOOR_OPEN_MS: "move" },
   "flights.tsx": {
     HOLDER_FLY_MS: "move",

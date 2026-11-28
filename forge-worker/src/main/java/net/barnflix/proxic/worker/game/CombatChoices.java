@@ -239,6 +239,19 @@ final class CombatChoices {
         }
         // Spec 0097, item 5 -- on the combat button, as the attack's.
         host.offerRefused(actedForSeat, blockRefused(problem, menace));
+        // Spec 0125, item 1 -- refused for menace: every board, once (the
+        // attacker's menace square pops on both screens at the refusal).
+        Integer attackerId = BlockRefusals.menaceAttacker(problem, id -> combat.getAttackers().stream()
+                .anyMatch(a -> a.getId() == id && a.hasKeyword(forge.game.keyword.Keyword.MENACE)));
+        if (attackerId != null) {
+            List<Integer> blockers = new ArrayList<>();
+            for (Card attacker : combat.getAttackers()) {
+                if (attacker.getId() == attackerId) {
+                    combat.getBlockers(attacker).forEach(b -> blockers.add(b.getId()));
+                }
+            }
+            host.offerBlockRefused(new BlockRefusals.Refused(attackerId, blockers));
+        }
         return false;
     }
 

@@ -226,6 +226,12 @@ export interface Moments {
   spent: Set<string>;
   shuffles: ("viewer" | "opponent")[];
   crewed: Map<string, string[]>;
+  /**
+   * Spec 0125, item 1 -- the attackers whose lone block the game refused on
+   * this board because they have menace (`blockRefused`): their menace
+   * squares pop.
+   */
+  menaceRefused?: Set<string>;
 }
 
 /**
@@ -1162,9 +1168,21 @@ export function boardFromSnapshot(snapshot: Snapshot, previous: Snapshot | null)
   );
   const shuffles = [...new Set(snapshot.shuffles ?? [])].map((seat) => side(seat));
   const crewed = new Map((snapshot.crewed ?? []).map((c) => [c.card, c.by]));
+  // Spec 0125, item 1 -- a lone block refused for menace (the attacker on the table).
+  const menaceRefused = new Set(
+    (snapshot.blockRefused ?? []).flatMap((r) =>
+      r.why === "menace" && onBoard.has(r.attacker) ? [r.attacker] : [],
+    ),
+  );
   const moments: Moments | null =
-    spent.size > 0 || shuffles.length > 0 || crewed.size > 0
-      ? { key: `${snapshot.gameEpoch}:${snapshot.stateRevision}`, spent, shuffles, crewed }
+    spent.size > 0 || shuffles.length > 0 || crewed.size > 0 || menaceRefused.size > 0
+      ? {
+          key: `${snapshot.gameEpoch}:${snapshot.stateRevision}`,
+          spent,
+          shuffles,
+          crewed,
+          ...(menaceRefused.size > 0 ? { menaceRefused } : {}),
+        }
       : null;
 
   return {

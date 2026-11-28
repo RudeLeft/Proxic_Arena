@@ -439,6 +439,52 @@
     animation: none;
   }
 }
+/* Spec 0125, item 2 (A) -- "prevent the next N" on a player: the creature's
+   pale round badge (0101, row 7), touching the life shield at its lower
+   right, the poison drop's mirror. The shield's box is (158..204, 11..65) in
+   the plate's padding box (214 wide): the badge's 24 x 24 box at (187, 47)
+   overlaps the shield's lower right corner, stays under its number, inside
+   the plate's edge and above the tiles (which start at 76). */
+.gs-prevent {
+  position: absolute;
+  left: 187px;
+  top: 47px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  cursor: help;
+}
+.gs-prevent svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.gs-prevent-face {
+  fill: rgb(207 230 255 / 19%);
+  stroke: #dff0ff;
+  stroke-width: 1.8;
+}
+.gs-prevent-n {
+  position: relative;
+  grid-area: 1 / 1;
+  font:
+    800 var(--pa-size-sm) / 1 Inter,
+    system-ui,
+    sans-serif;
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+/* Ticking: each count shows in its window (its animation), the last stays. */
+.gs-prevent-step {
+  opacity: 0;
+}
 /* The tiles (spec 0031): Library across the row, then Graveyard and
    Exile; each zone's picture faded behind the right of its tile, the
    count large on the left over it, the word under the count. */

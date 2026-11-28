@@ -13,7 +13,11 @@ with menace.
             defender ("... cannot be blocked with 1 creatures ..."), they
             are asked again, take the Bear back out and are done; the
             lone block never stands, and the Brute's damage reaches the
-            player.
+            player. Spec 0125, item 1: the board after the refusal tells
+            BOTH seats, once, `blockRefused [{attacker: the Brute, blockers:
+            [the Bear], why: "menace"}]`, with the lone block still in
+            `combat.blocks` (the defender takes it back herself); no other
+            board carries it.
 
   reasons   B7: why a card cannot act, as the player is told when they
             click it -- a second Mountain after the land drop ("already
@@ -58,7 +62,8 @@ def menace():
              deal={1: {"hand": ["Mountain"] * 4 + [BRUTE] * 3},
                    2: {"hand": ["Forest"] * 4 + ["Grizzly Bears"] * 3}})
     st = {"attacked": False, "blocked": 0, "asked_again": 0, "notes": [], "blocks_seen": None,
-          "life_before": None, "life_after": None, "done": False, "took_back": False}
+          "life_before": None, "life_after": None, "done": False, "took_back": False,
+          "refusals": {1: [], 2: []}, "revs": {1: set(), 2: set()}}
 
     def policy(g, f):
         kind, seat = f.get("kind"), f["authorisedSeat"]
@@ -105,6 +110,18 @@ def menace():
         return DEFAULT
 
     def until(g):
+        # Spec 0125 -- every board each seat was sent that carries blockRefused.
+        for seat in (1, 2):
+            s = g.state.get(seat) or {}
+            rev = s.get("stateRevision")
+            if rev in st["revs"][seat]:
+                continue
+            st["revs"][seat].add(rev)
+            if s.get("blockRefused"):
+                st["refusals"][seat].append({"rev": rev, "blockRefused": s["blockRefused"],
+                                             "blocks": (s.get("combat") or {}).get("blocks"),
+                                             "brutes": [c["id"] for c in s.get("battlefield") or []
+                                                        if c.get("name") == BRUTE and c.get("attacking")]})
         c = (g.state.get(1) or {}).get("combat")
         if c and c.get("blocks") and st["blocks_seen"] is None:
             st["blocks_seen"] = c.get("blocks")
@@ -115,7 +132,8 @@ def menace():
 
     g.run(policy, until=until, max_turn=24)
     st["notes"] += list(g.notices.get(2, []))
-    found = {k: st[k] for k in ("blocked", "asked_again", "took_back", "notes", "blocks_seen", "life_before", "life_after")}
+    found = {k: st[k] for k in ("blocked", "asked_again", "took_back", "notes", "blocks_seen", "life_before", "life_after",
+                                "refusals")}
     found["stopped"] = g.stopped_badly()
     if not st["attacked"] or st["blocked"] == 0:
         return "inconclusive", "never had the Brute attacking into a Bear", found
@@ -133,9 +151,26 @@ def menace():
             and st["life_before"] - st["life_after"] != 3:
         problems.append(f"the Brute's 3 damage should reach the player: life {st['life_before']} -> "
                         f"{st['life_after']}")
+    # Spec 0125, item 1 -- the refusal on both seats' next board, once, with
+    # the lone block still standing there (the defender takes it back).
+    for seat in (1, 2):
+        told = st["refusals"][seat]
+        if len(told) != 1:
+            problems.append(f"seat {seat}: exactly one board tells the refusal (blockRefused): {told}")
+            continue
+        entry = told[0]
+        blocks = entry["blocks"] or []
+        want = [{"attacker": b["attacker"], "blockers": [b["blocker"]], "why": "menace"} for b in blocks]
+        if len(blocks) != 1 or entry["blockRefused"] != want or blocks[0]["attacker"] not in entry["brutes"]:
+            problems.append(f"seat {seat}: blockRefused names the attacking Brute and the lone Bear in "
+                            f"combat.blocks, why menace: {entry}")
+    if all(len(st["refusals"][s]) == 1 for s in (1, 2)) and \
+            st["refusals"][1][0]["rev"] != st["refusals"][2][0]["rev"]:
+        problems.append("both seats are told on the same round's board")
     if problems:
         return "wrong", "; ".join(problems), found
-    return "ok", "a lone block of a menace creature is refused with Forge's reason; 3 damage to the player", found
+    return "ok", "a lone block of a menace creature is refused with Forge's reason, told once to both boards " \
+                 "(blockRefused, the block still standing); 3 damage to the player", found
 
 
 def reasons():

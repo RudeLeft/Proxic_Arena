@@ -1038,6 +1038,12 @@ export interface Snapshot {
   left?: { stack: string; why: "countered" | "ended"; by?: string }[];
   /** Spec 0101, item 3 -- the creatures the game offers as blockers, from the attack until the blocks. */
   blockerCandidates?: string[];
+  /**
+   * Spec 0125, item 1 -- a lone block the game refused this round because the
+   * attacker has menace: the attacker and the creatures that tried to block
+   * it (still in `combat.blocks`). Told once, to every board.
+   */
+  blockRefused?: { attacker: string; blockers: string[]; why: "menace" }[];
   /** Spec 0084 -- the seats whose library was shuffled this round (a fetch land, a tutor). */
   shuffles?: number[];
   /** Spec 0084 -- the vehicles crewed this round, and the creatures that crewed each. */
@@ -1893,6 +1899,7 @@ function asSnapshot(value: unknown): Snapshot | null {
     blockerCandidates: Array.isArray(row["blockerCandidates"])
       ? (row["blockerCandidates"] as unknown[]).flatMap((v) => (typeof v === "string" ? [v] : []))
       : [],
+    blockRefused: asBlockRefused(row["blockRefused"]),
     shuffles: asSeats(row["shuffles"]),
     crewed: asCrewed(row["crewed"]),
     reveal: asReveal(row["reveal"]),
@@ -1941,6 +1948,21 @@ function asLeft(value: unknown): { stack: string; why: "countered" | "ended"; by
     const by = asString(e["by"]);
     return stack && (why === "countered" || why === "ended")
       ? [{ stack, why, ...(by ? { by } : {}) }]
+      : [];
+  });
+}
+
+/** Spec 0125, item 1 -- the round's lone blocks refused for menace, keeping only well-formed ones. */
+function asBlockRefused(value: unknown): { attacker: string; blockers: string[]; why: "menace" }[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const e = (typeof entry === "object" && entry !== null ? entry : {}) as Record<string, unknown>;
+    const attacker = asString(e["attacker"]);
+    const blockers = Array.isArray(e["blockers"])
+      ? (e["blockers"] as unknown[]).flatMap((v) => (typeof v === "string" ? [v] : []))
+      : [];
+    return attacker && e["why"] === "menace"
+      ? [{ attacker, blockers, why: "menace" as const }]
       : [];
   });
 }

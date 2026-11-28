@@ -29,6 +29,7 @@ import {
 } from "react";
 import { useShownPlate } from "./lifeTicks";
 import { PoisonBadge, poisonOf } from "./PoisonBadge";
+import { PreventBadge } from "./PreventBadge";
 import { DayMedallion } from "./DayMedallion";
 import libraryArt from "../assets/zones/library.webp";
 import graveyardArt from "../assets/zones/graveyard.webp";
@@ -3962,6 +3963,8 @@ interface PlateFacts {
   holders: Snapshot["stack"];
   /** Spec 0086 (10 B) -- what says a turn began for this player. */
   turn: { gameEpoch: number; turn: number; activeSeat: number };
+  /** Spec 0125, item 2 -- this board's damage key when a hit on this player was stopped by "prevent the next N"; else null. */
+  preventSoaked: string | null;
 }
 
 function plateFacts(
@@ -4016,6 +4019,12 @@ function plateFacts(
           },
     holders: board.stack.filter((s) => s.from === "monarch" || s.from === "initiative"),
     turn: { gameEpoch: board.gameEpoch, turn: board.turn, activeSeat: board.activeSeat },
+    preventSoaked:
+      board.damage?.hits.some(
+        (h) => h.by === "prevent-next" && "player" in h.target && h.target.player === seat,
+      ) === true
+        ? board.damage.key
+        : null,
   };
 }
 
@@ -4133,10 +4142,13 @@ function SeatBlockView({
       {end?.role === "won" && <span ref={flareRef} className="gs-seat-flare" aria-hidden="true" />}
       <span className="pa-visually-hidden">
         {said} {life} life
-        {shown.poison > 0 ? `, ${countWords(shown.poison, "poison counter")}` : ""},{" "}
-        {countWords(player.handCount, "card")} in hand, {countWords(player.libraryCount, "card")} in
-        library, {countWords(player.graveyardCount, "card")} in graveyard and{" "}
-        {countWords(exiled, "card")} in exile.
+        {shown.poison > 0 ? `, ${countWords(shown.poison, "poison counter")}` : ""}
+        {(player.preventNext ?? 0) > 0
+          ? `, the next ${player.preventNext} damage prevented`
+          : ""}, {countWords(player.handCount, "card")} in hand,{" "}
+        {countWords(player.libraryCount, "card")} in library,{" "}
+        {countWords(player.graveyardCount, "card")} in graveyard and {countWords(exiled, "card")} in
+        exile.
       </span>
       <div className="gs-seat-head">
         <span className="gs-life-face">
@@ -4228,6 +4240,12 @@ function SeatBlockView({
           )}
         </button>
       </div>
+      {/* Spec 0125, item 2 (A) -- "prevent the next N": the pale badge at the shield's lower right. */}
+      <PreventBadge
+        count={player.preventNext ?? 0}
+        soaked={facts.preventSoaked}
+        who={mine && !spectator ? "you" : player.name}
+      />
       {/* Spec 0077 (A) -- poison: a round badge touching the shield's lower left. */}
       <PoisonBadge
         count={shown.poison}

@@ -4479,3 +4479,13 @@ the Library number dropping as each card leaves; a spell's draw waits for its re
 cards a beat apart, after a mill off the same library. Page only. A3's guard test is in
 `fixes0123.test.tsx`. Evidence (Lab replays with no jump findings, stills, the real-click game,
 CI-speed machines) in spec 0123's "As built".
+
+**Owner answers, 2026-11-27 (P11-A6, by prompt; canvas `Proxic canvases/a6-menace-and-prevention.html`):**
+menace **"At the refusal"** (Option A): when a block is refused because the attacker has
+menace, its menace square pops on both screens at the refusal, with the combat squares'
+pulse; the lone block stays where the defender put it, her button note as today; no window,
+no pill. Prevention **"On the life shield"** (Option A): a pale round badge with N touching
+the life shield at its lower right (poison at the lower left), growing in, ticking down on a
+hit it stops like the creature square, then shrinking away; "Prevent the next 3 damage to Bob
+this turn"; a partly prevented hit shows the tick and the usual red −N, no extra pale shield.
+Spec 0125.

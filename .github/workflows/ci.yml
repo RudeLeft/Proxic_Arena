@@ -779,10 +779,13 @@ jobs:
           node scripts/make-ci-deck.mjs "Test Deck/always-choose-deck-2.zip" protocol/fixtures/always-choose-deck
 
       # And spec 0101's real-click game (F-0101-F): printed combat squares,
-      # a Stifled ping crumbling, a shield counter's silver shield.
+      # a Stifled ping crumbling, a shield counter's silver shield. Spec
+      # 0125's game is its second (F-0125-E): menace's pop at a refused
+      # lone block, a player's "prevent the next 3" badge.
       - name: Build the outcomes deck package
         run: |
           node scripts/make-ci-deck.mjs "Test Deck/outcomes-deck.zip" protocol/fixtures/outcomes-deck
+          node scripts/make-ci-deck.mjs "Test Deck/menace-prevention-deck.zip" protocol/fixtures/menace-prevention-deck
 
       # And spec 0103's real-click game (F-0103-G): a fetch land's report
       # replayed, Brainstorm's put back known on top, "Bigger text".

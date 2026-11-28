@@ -333,6 +333,16 @@ blockerCandidates         spec 0101: from the attack until the blocks, the
                           the declare-blockers decision's own test
                           (CombatChoices#offered), to every viewer; absent
                           otherwise. Public
+blockRefused              spec 0125, item 1: a lone block the game refused
+                          this round because the attacker has menace (Forge's
+                          CombatUtil#validateBlocks, when the defender says
+                          "done"): [{attacker "card:N", blockers ["card:M",
+                          ...], why "menace"}], the creatures still in
+                          `combat.blocks`; to every viewer, once (the
+                          round's next boards), so both pages pop the
+                          attacker's menace square. Any other refusal is the
+                          defender's `refused` note alone. Absent when none.
+                          Public
 action (RETARGET)         spec 0100, item 8: a change-targets effect
                           (Forge's ApiType.ChangeTargets: Spellskite,
                           Deflecting Swat, Redirect) resolved and a stack

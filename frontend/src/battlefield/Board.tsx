@@ -4809,6 +4809,20 @@ export function Board({
     const wards: FightMark[] = [];
     for (const hit of damage.hits) {
       if (!hit.prevented || hit.amount > 0) continue;
+      // Spec 0125, item 2 -- part of a hit on a player stopped (Lava Axe's 5
+      // into "prevent the next 3"): the rest's red −N and the badge's tick
+      // say it; no pale shield over the life shield.
+      if (
+        "player" in hit.target &&
+        damage.hits.some(
+          (h) =>
+            h.amount > 0 &&
+            "player" in h.target &&
+            h.target.player === (hit.target as { player: number }).player &&
+            h.source === hit.source,
+        )
+      )
+        continue;
       const k = refKey(hit.target);
       const point = pointOf(hit.target);
       if (!point || still) continue;
@@ -6431,6 +6445,25 @@ export function Board({
     if (added.length > 0) setMarks((list) => [...list, ...added]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per board
   }, [stack, result]);
+
+  // Spec 0125, item 1 (owner 2026-11-27, "At the refusal") -- a lone block
+  // the game refused because the attacker has menace: the attacker's menace
+  // square pops (0101's combat pulse), on both screens, once per board. The
+  // block stays where the defender put it (nothing moves). Reduce motion:
+  // no pop, as for every combat square.
+  const menacePopped = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const refused = moments?.menaceRefused;
+    if (!moments || !refused || menacePopped.current === moments.key) return;
+    menacePopped.current = moments.key;
+    if (reducedMotion()) return;
+    const at = holdLeft();
+    for (const attacker of refused) {
+      const p = positions.get(attacker);
+      if (p) pulseSquare(p.item, '.bf-mark[data-mark="kw:menace"]', at);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per board
+  }, [moments]);
 
   // Spec 0080 (owner 2026-11-12, canvas survive-1112) -- once per update:
   // a regeneration shield breaking instead of its card (Q3 B), the hex dome

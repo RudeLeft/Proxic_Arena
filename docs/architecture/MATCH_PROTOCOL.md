@@ -406,7 +406,9 @@ shield counter used ("shield"), a prevented hit says `by` ("shield",
 entry says `ward`, the round's `left` lists stack entries that left without
 resolving (countered, or ended by Time Stop), `blockerCandidates` names the
 blockers the game offers from the attack until the blocks, and an ability
-countered is an `action` report (COUNTER_ABILITY). Spec 0102: a player
+countered is an `action` report (COUNTER_ABILITY). Spec 0125: a lone block
+refused because the attacker has menace is told to every board once
+(`blockRefused`). Spec 0102: a player
 controlled by another says so (`controlledBy`, `controlledFrom`), with
 `action` reports CONTROL, END_TURN and SKIP, and a restart forgets every
 open report first. Spec 0103: each player's `thisTurn` (spells cast, life

@@ -1812,6 +1812,8 @@ public final class GameHost {
         toldStack = stackShown;
         // Spec 0101, item 3 -- the creatures the game offers as blockers.
         com.google.gson.JsonArray blockerCandidates = CombatChoices.candidatesJson(current, attackersDeclared && !blocksDeclared);
+        // Spec 0125, item 1 -- a lone block refused for menace since the last round: told once, to every board.
+        com.google.gson.JsonArray blockRefused = BlockRefusals.drain(blockRefusedNow);
         sacrificing.clear();
         spending.clear();
         synchronized (spellFights) {
@@ -1914,6 +1916,9 @@ public final class GameHost {
             if (blockerCandidates.size() > 0) {
                 snapshot.add("blockerCandidates", blockerCandidates.deepCopy());
             }
+            if (blockRefused.size() > 0) {
+                snapshot.add("blockRefused", blockRefused.deepCopy());
+            }
             // Spec 0084 -- public: a shuffle and a crew are seen by everyone.
             if (shuffles.size() > 0) {
                 snapshot.add("shuffles", shuffles.deepCopy());
@@ -1989,6 +1994,9 @@ public final class GameHost {
             }
             if (blockerCandidates.size() > 0) {
                 everyone.add("blockerCandidates", blockerCandidates.deepCopy());
+            }
+            if (blockRefused.size() > 0) {
+                everyone.add("blockRefused", blockRefused.deepCopy());
             }
             if (shuffles.size() > 0) {
                 everyone.add("shuffles", shuffles.deepCopy());
@@ -2286,6 +2294,15 @@ public final class GameHost {
 
     void offerRefused(int seat, String words) {
         refused.put(seat, words);
+    }
+
+    /** Spec 0125, item 1 -- lone blocks refused for menace, for every board of the next round. */
+    private final java.util.List<BlockRefusals.Refused> blockRefusedNow = new java.util.ArrayList<>();
+
+    void offerBlockRefused(BlockRefusals.Refused refusal) {
+        synchronized (blockRefusedNow) {
+            blockRefusedNow.add(refusal);
+        }
     }
 
     /** Spec 0097 -- the refusal for [seat]'s question being sent now, once; null when none. */

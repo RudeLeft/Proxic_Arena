@@ -19,6 +19,13 @@ prevented hits and their `by`, a stack entry's `ward` -- never inferred:
                  Healing Salve's "prevent the next 3": preventNext 3 on the
                  Bears while the Bolt waits, then a prevented hit (prevented
                  3, by "prevent-next") and no preventNext after
+  prevent-next-player  (spec 0125, item 2) Alice's Bolt at Bob; Bob answers
+                 with Healing Salve's "prevent the next 3" on himself: Bob's
+                 player entry has preventNext 3 while the Bolt waits, then a
+                 prevented hit {target: {player: 2}, amount 0, prevented 3, by
+                 "prevent-next"}, no preventNext after, Bob still at 20
+  prevent-next-partial  the same with Lava Axe (5 to Bob): the prevented hit
+                 (prevented 3) and 2 through, Bob at 18, none left after
   ward           Alice's Bolt at Bob's Tomakul Honor Guard (ward {2}); she
                  does not pay: a stack entry with ward true (Bob's trigger),
                  then `left` names the Bolt's stack entry, countered, by the
@@ -291,6 +298,102 @@ def prevent_next():
                             "hit by \"prevent-next\", none left after, to both", found)
 
 
+# --- prevent the next N, on a player (spec 0125, item 2) --------------------------------------
+
+
+def prevent_next_player(spell, damage):
+    """Alice's [spell] ([damage] to Bob); Bob answers with Healing Salve's prevent mode on himself."""
+    name = "prevent-next-player" if damage == 3 else "prevent-next-partial"
+    st = {"cast": False, "salve": False, "mode": False, "target": None}
+    lands = 1 if damage == 3 else 5
+
+    def policy(g, f):
+        kind, seat = f.get("kind"), f["authorisedSeat"]
+        if seat == 2:
+            if kind == "chooseSpellAbilityToPlay":
+                land = g.play_land(f)
+                if land:
+                    return land
+                waiting = any(e.get("name") == spell for e in stack_of(g, 2))
+                if waiting and not st["salve"] and g.untapped_lands(2, name="Plains"):
+                    o = named(g, f, "Healing Salve")
+                    st["salve"] = bool(o)
+                    return o
+                return None
+            if kind == "chooseModeForAbility":
+                st["mode"] = True
+                return next((o["actionId"] for o in f["options"] if "revent" in (o.get("label") or "")), DEFAULT)
+            if kind == "chooseTargetsFor":
+                st["target"] = next((o["actionId"] for o in f["options"] if o.get("objectId") == "player:2"), None)
+                return st["target"] or DEFAULT
+            return DEFAULT
+        if kind == "chooseSpellAbilityToPlay":
+            land = g.play_land(f)
+            if land:
+                return land
+            if stack_of(g, 1) or st["cast"]:
+                return None
+            if len(g.untapped_lands(1)) >= lands and g.untapped_lands(2, name="Plains"):
+                o = named(g, f, spell)
+                st["cast"] = bool(o)
+                return o
+            return None
+        if kind == "chooseTargetsFor":
+            return next((o["actionId"] for o in f["options"] if o.get("objectId") == "player:2"), DEFAULT)
+        if kind in ("declareAttackers", "declareBlockers"):
+            return None
+        return DEFAULT
+
+    g = game(name, [("Mountain", 30), (spell, 30)], [("Plains", 40), ("Healing Salve", 20)],
+             deal={1: {"hand": ["Mountain"] * 4 + [spell] * 3, "top": ["Mountain"] * 6},
+                   2: {"hand": ["Plains"] * 4 + ["Healing Salve"] * 3, "top": ["Plains"] * 6}})
+    w = Watch(g)
+
+    def soaked(seat):
+        return [h for h in w.hits(seat) if h.get("by") == "prevent-next" and h.get("target") == {"player": 2}]
+
+    def until(g):
+        w.see()
+        return all(soaked(s) for s in (1, 2)) and all(not stack_of(g, s) for s in (1, 2))
+
+    g.run(policy, until=until, max_turn=16)
+    w.see()
+    found = {"stopped": g.stopped_badly(), **st}
+    problems = [found["stopped"]] if found["stopped"] else []
+
+    def bob(s):
+        return next((p for p in s.get("players") or [] if p.get("seat") == 2), {})
+
+    for seat in (1, 2):
+        if not soaked(seat):
+            return "inconclusive", f"seat {seat} never saw the prevented hit on Bob ({st})", found
+        hits = soaked(seat)
+        found[f"hits{seat}"] = hits
+        if len(hits) != 1 or hits[0].get("prevented") != 3 or hits[0].get("amount") != 0:
+            problems.append(f"seat {seat}: 3 of the {spell}'s {damage} stopped (amount 0, prevented 3): {hits}")
+        through = [h for h in w.hits(seat) if h.get("target") == {"player": 2} and h.get("amount")]
+        found[f"through{seat}"] = through
+        if damage == 3 and through:
+            problems.append(f"seat {seat}: nothing gets through: {through}")
+        if damage > 3 and sum(h["amount"] for h in through) != damage - 3:
+            problems.append(f"seat {seat}: the rest ({damage - 3}) gets through: {through}")
+        waiting = [s for s in w.boards(seat) if bob(s).get("preventNext") == 3
+                   and any(e.get("name") == spell for e in s.get("stack") or [])]
+        if not waiting:
+            problems.append(f"seat {seat}: Bob's preventNext 3 while the {spell} waits")
+        if any(c.get("preventNext") for s in w.boards(seat) for c in s.get("battlefield") or []):
+            problems.append(f"seat {seat}: no card has it (Bob does)")
+        last = bob(w.boards(seat)[-1])
+        found[f"bob{seat}"] = {"life": last.get("life"), "preventNext": last.get("preventNext")}
+        if last.get("preventNext"):
+            problems.append(f"seat {seat}: nothing left to prevent after: {last}")
+        if last.get("life") != 20 - (damage - 3):
+            problems.append(f"seat {seat}: Bob at {20 - (damage - 3)}: {last}")
+    return result(problems, f"Healing Salve on Bob, then {spell} ({damage}): Bob's preventNext 3 while it waits, "
+                            f"a prevented hit on him (prevented 3, by \"prevent-next\")"
+                  + (f", {damage - 3} through" if damage > 3 else "") + ", none left after, to both", found)
+
+
 # --- ward -----------------------------------------------------------------------------------
 
 
@@ -448,7 +551,10 @@ def blockers():
 
 SCENARIOS = {"shield-murder": lambda: shield("Murder", "Swamp"),
              "shield-bolt": lambda: shield("Lightning Bolt", "Mountain"),
-             "prevent-next": prevent_next, "ward": lambda: ward(False), "ward-paid": lambda: ward(True),
+             "prevent-next": prevent_next,
+             "prevent-next-player": lambda: prevent_next_player("Lightning Bolt", 3),
+             "prevent-next-partial": lambda: prevent_next_player("Lava Axe", 5),
+             "ward": lambda: ward(False), "ward-paid": lambda: ward(True),
              "blockers": blockers}
 
 if __name__ == "__main__":
