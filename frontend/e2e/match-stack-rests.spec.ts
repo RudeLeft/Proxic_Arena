@@ -70,6 +70,11 @@ const record = (page: Page) =>
     () => (window as unknown as { __proxicStackRests?: Seen[] }).__proxicStackRests ?? [],
   );
 const ring = (page: Page) => page.locator("[data-rest-ring]");
+/** The worker's StackRests: the rest after landing, and a spell's arrival allowance. */
+const REST_MS = 2500;
+const ARRIVE_SPELL_MS = 3400;
+/** How late a page may draw a board (the whole-rest check below allows 400). */
+const DRAWN_MS = 100;
 const inHand = (page: Page, name: RegExp) =>
   page
     .locator('[data-zone="viewer:hand"][data-choosable="true"]:not([data-unpayable="true"])')
@@ -300,13 +305,26 @@ test("a creature nobody can answer rests on the stack with its ring on both page
     expect(goblinDown, "the Goblin landed on the battlefield").toBe(true);
     expect(goblin(guestSeen), "the guest's page recorded the resting card").toBeTruthy();
     expect(goblin(hostSeen), "the host's page recorded the resting card").toBeTruthy();
-    expect(goblin(guestSeen)!.ms).toBe(5900);
-    // F-0105-I: the least any seat sees is the owner's 2.5 s (Amendment 1).
+    expect(goblin(guestSeen)!.ms).toBe(ARRIVE_SPELL_MS + REST_MS);
+    // F-0105-I: the least any seat sees is the owner's 2.5 s (Amendment 1)
+    // when its card arrived inside the server's 3400 ms allowance
+    // (Amendment 2). A page whose card arrived later -- a very slow
+    // computer -- gets what the server's hold leaves: the hold still has to
+    // run out (the rest board's 5900 ms) before the card goes, so the rest
+    // after landing may be short by the lateness, never more (owner
+    // 2026-11-28, "Leave it": CI run 45906524872, the guest's card arrived
+    // 3617 ms after the rest board and stayed 2318 ms). Less 100 ms for
+    // when each board was drawn, so the full 2.5 s is owed up to 3300 ms.
+    const owed = (r: Seen) => Math.min(REST_MS, r.ms - DRAWN_MS - (r.landed - r.seen));
     expect(
       afterLanding(goblin(guestSeen)),
-      "on the guest's page it stayed at least 2.5 s after landing",
-    ).toBeGreaterThanOrEqual(2500);
-    expect(afterLanding(goblin(hostSeen)), "on the host's page too").toBeGreaterThanOrEqual(2500);
+      `on the guest's page it stayed at least 2.5 s after landing, less any lateness past ` +
+        `the ${ARRIVE_SPELL_MS} ms allowance (arrival ${goblin(guestSeen)!.landed - goblin(guestSeen)!.seen} ms)`,
+    ).toBeGreaterThanOrEqual(owed(goblin(guestSeen)!));
+    expect(
+      afterLanding(goblin(hostSeen)),
+      `on the host's page too (arrival ${goblin(hostSeen)!.landed - goblin(hostSeen)!.seen} ms)`,
+    ).toBeGreaterThanOrEqual(owed(goblin(hostSeen)!));
     // The page never ran ahead of the game: on each page the stack card
     // stayed until the resolution's board, the whole rest after the board
     // that said so (less 100 ms for when each board was drawn).
