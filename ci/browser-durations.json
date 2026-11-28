@@ -22,6 +22,7 @@
     "match-big-combat.spec.ts": 111,
     "match-karn.spec.ts": 108,
     "match-last-jumps.spec.ts": 108,
+    "match-draw-from-library.spec.ts": 60,
     "match-damage-tray.spec.ts": 105,
     "match-alternate-win.spec.ts": 102,
     "match-many-triggers.spec.ts": 102,
