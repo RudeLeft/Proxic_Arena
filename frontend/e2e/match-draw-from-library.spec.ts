@@ -43,12 +43,18 @@ test.describe.configure({ timeout: 1_200_000 });
 const pkg = join(process.cwd(), "..", "Test Deck", "last-jumps-deck-2.zip");
 
 type Point = { x: number; y: number; w: number };
-/** A card new to a hand: when it was made, when first seen, where, and each Library tile then. */
+/**
+ * A card new to a hand: when it was made, when first seen, the frame just
+ * before that (still unseen, and how faintly drawn), where, and each Library
+ * tile then.
+ */
 type Newcomer = {
   id: string;
   side: "viewer" | "opponent";
   made: number;
   seen: number;
+  unseen: number;
+  faint: number;
   x: number;
   y: number;
   lib: Record<"viewer" | "opponent", Point>;
@@ -66,6 +72,8 @@ async function recorder(page: Page) {
       side: "viewer" | "opponent";
       made: number;
       seen: number;
+      unseen: number;
+      faint: number;
       x: number;
       y: number;
       lib: Record<"viewer" | "opponent", Point>;
@@ -76,7 +84,10 @@ async function recorder(page: Page) {
     w.__new = [];
     w.__steps = [];
     const known = new WeakSet<Element>();
-    const waiting = new Map<Element, { id: string; side: "viewer" | "opponent"; made: number }>();
+    const waiting = new Map<
+      Element,
+      { id: string; side: "viewer" | "opponent"; made: number; unseen: number; faint: number }
+    >();
     const last: Record<string, string> = {};
     const drawn = (el: Element | null) => {
       let o = 1;
@@ -122,13 +133,23 @@ async function recorder(page: Page) {
           id: el.dataset.objectId ?? "",
           side: el.dataset.zone === "viewer:hand" ? "viewer" : "opponent",
           made: t,
+          unseen: t,
+          faint: 0,
         });
       }
       for (const [el, n] of waiting) {
         // The card itself, or its back flying with it (spec 0123: a ghost of its id).
         const parts = [el, ...document.querySelectorAll(`[data-ghost-of="${n.id}"]`)];
         const best = parts.map((p) => ({ p, o: drawn(p) })).sort((a, b) => b.o - a.o)[0]!;
-        if (best.o <= 0.15) continue;
+        if (best.o <= 0.15) {
+          // Still unseen on this frame -- or only just lifting: the other
+          // player's back starts its lift transparent (spec 0123, "unseen
+          // until it lifts"), so the frame its Library number drops on may
+          // draw it fainter than this.
+          n.unseen = t;
+          n.faint = best.o;
+          continue;
+        }
         waiting.delete(el);
         const r = best.p.getBoundingClientRect();
         w.__new.push({
@@ -325,22 +346,28 @@ test("a drawn card lifts off its owner's Library tile, and the number drops as i
         .slice(0, 2);
       const before = Number(showsBefore(steps, side, rites[0]!.made));
       const tile = steps.filter((s) => s.side === side && s.t >= rites[0]!.made - 1000);
+      const at = (t: number) => (t - rites[0]!.made).toFixed(0);
       console.log(
-        `${name}: Library tile ${tile.map((s) => `${(s.t - rites[0]!.made).toFixed(0)} ms: "${s.shows}"`).join(", ")}; ` +
-          `the cards first drawn at ${rites.map((n) => (n.seen - rites[0]!.made).toFixed(0)).join(" and ")} ms`,
+        `${name}: Library tile ${tile.map((s) => `${at(s.t)} ms: "${s.shows}"`).join(", ")}; ` +
+          `the cards first drawn at ${rites.map((n) => `${at(n.seen)} ms (the frame before: ${at(n.unseen)} ms, drawn ${n.faint.toFixed(2)})`).join(" and ")}`,
       );
       expect(
         rites[0]!.seen - rites[0]!.made,
         `${name}: the first card waited for Village Rites`,
       ).toBeGreaterThan(200);
+      // A card has left from the frame before it is first seen: its lift
+      // starts on that frame (the number drops with it), but a back starts
+      // its lift transparent, so that frame can draw it too faintly to
+      // count. Frames, not milliseconds: a slow runner's frame can be
+      // 60 ms long (CI run 46166592060), and a number dropped two frames
+      // early -- before the lift -- still fails.
+      const leftBy = (n: Newcomer, t: number) => n.unseen <= t;
       // Between the board arriving and the first card leaving: still the old number.
-      for (const s of tile.filter((s) => s.t > rites[0]!.made && s.t < rites[0]!.seen - 50))
-        expect(Number(s.shows), `${name}: Library at ${(s.t - rites[0]!.made).toFixed(0)} ms`).toBe(
-          before,
-        );
+      for (const s of tile.filter((s) => s.t > rites[0]!.made && !leftBy(rites[0]!, s.t)))
+        expect(Number(s.shows), `${name}: Library at ${at(s.t)} ms`).toBe(before);
       // Never below what has left: one less only once the first is out, two less once the second is.
       for (const s of tile.filter((s) => s.t > rites[0]!.made && s.shows !== "")) {
-        const out = rites.filter((n) => n.seen <= s.t + 50).length;
+        const out = rites.filter((n) => leftBy(n, s.t)).length;
         expect(
           Number(s.shows),
           `${name}: Library at ${(s.t - rites[0]!.made).toFixed(0)} ms`,
